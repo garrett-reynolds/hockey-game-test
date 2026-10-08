@@ -36,5 +36,9 @@ _Avoid_: 50/50 zone, half-open zone
 The side the player approaches the net from on one Shot: left, middle, or right. It decides which Zones are Open, Covered, or Contested.
 _Avoid_: Angle, lane
 
+**Goalie Pose**:
+The way the goalie sets up for one Shot. Each Attack Side has its own Goalie Poses, and each pose fixes which Zones are Open, Covered, or Contested. Left and right are always from the shooter's view.
+_Avoid_: Stance, position
+
 **Miss**:
 A Shot that does not reach the Net Face, or no Shot in time. It uses one of the Round's 6 Shots.
