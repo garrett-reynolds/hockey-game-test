@@ -23,7 +23,7 @@ namespace HockeyGame
         const float ShakeSeconds = 0.8f;
         const float ShakeMetres = 0.04f;
         const float Gravity = 9.81f;
-        static readonly Color GoalieColour = new Color(0.15f, 0.25f, 0.6f); // matches GoalieView
+        static readonly Color SaveBlockColour = new Color(0.45f, 0.6f, 1f); // lighter than the GoalieView blocks so the slide shows on a Covered Zone
         static readonly Color LightOff = new Color(0.25f, 0.05f, 0.05f);
         static readonly Color LightOn = new Color(1f, 0.1f, 0.1f);
 
@@ -57,7 +57,7 @@ namespace HockeyGame
             Object.Destroy(_puck.GetComponent<Collider>());
             RinkBuilder.Paint(_puck, new Color(0.05f, 0.05f, 0.05f));
 
-            _glove = RinkBuilder.Cube(rink, "Save Block", Vector3.zero, new Vector3(0.3f, 0.25f, GloveDepth), GoalieColour);
+            _glove = RinkBuilder.Cube(rink, "Save Block", Vector3.zero, new Vector3(0.3f, 0.25f, GloveDepth), SaveBlockColour);
 
             var lamp = RinkBuilder.Cube(rink, "Goal Light", new Vector3(0f, H + 0.3f, NetDepth / 2f), new Vector3(0.25f, 0.25f, 0.25f), LightOff);
             Shader unlit = Shader.Find("Universal Render Pipeline/Unlit");
