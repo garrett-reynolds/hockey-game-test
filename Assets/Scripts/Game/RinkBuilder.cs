@@ -45,7 +45,7 @@ namespace HockeyGame
             cameraObject.transform.LookAt(new Vector3(0f, H / 2f, 0f));
         }
 
-        static void Cube(Transform parent, string name, Vector3 position, Vector3 scale, Color colour)
+        internal static GameObject Cube(Transform parent, string name, Vector3 position, Vector3 scale, Color colour)
         {
             var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
             cube.name = name;
@@ -54,9 +54,10 @@ namespace HockeyGame
             cube.transform.localScale = scale;
             Object.Destroy(cube.GetComponent<Collider>());
             Paint(cube, colour);
+            return cube;
         }
 
-        static void Paint(GameObject target, Color colour)
+        internal static void Paint(GameObject target, Color colour)
         {
             var renderer = target.GetComponent<Renderer>();
             var material = new Material(renderer.sharedMaterial);

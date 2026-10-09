@@ -18,7 +18,10 @@ namespace HockeyGame
             public double Next() { return _random.NextDouble(); }
         }
 
+        [SerializeField] bool _easyMode; // Easy mode: Open Zones glow. Default off; F2 toggles in Play mode.
+
         Round _round;
+        GoalieView _goalie;
         Camera _camera;
         Plane _netFacePlane;
         bool _testShotsOn = true; // default on until the setting exists (#17)
@@ -28,6 +31,7 @@ namespace HockeyGame
         void Awake()
         {
             RinkBuilder.Build(out _camera);
+            _goalie = new GoalieView(GameObject.Find("Rink").transform);
             _netFacePlane = new Plane(Vector3.back, Vector3.zero); // Net Face plane: z = 0
             _round = new Round(new SystemRandomSource(), new RoundSettings(), 0);
         }
@@ -44,9 +48,15 @@ namespace HockeyGame
             var keyboard = Keyboard.current;
             var mouse = Mouse.current;
 
+            // Goalie shows for the whole Shot (SkateIn to ResultHold); hidden in Idle and RoundOver.
+            var phaseNow = _round.Phase;
+            _goalie.Show(phaseNow != RoundPhase.Idle && phaseNow != RoundPhase.RoundOver, _round.GoaliePose, _easyMode);
+
             if (keyboard != null)
             {
-                if (keyboard.f1Key.wasPressedThisFrame)
+                if (keyboard.f2Key.wasPressedThisFrame)
+                    _easyMode = !_easyMode;
+                else if (keyboard.f1Key.wasPressedThisFrame)
                     _testShotsOn = !_testShotsOn;
                 else if ((_round.Phase == RoundPhase.Idle || _round.Phase == RoundPhase.RoundOver)
                          && keyboard.anyKey.wasPressedThisFrame)
@@ -87,6 +97,8 @@ namespace HockeyGame
                 ? "Test Shots: ON  (" + _testShotSpeedKmh + " km/h, wheel to change, F1 off)"
                 : "Test Shots: OFF  (F1 on)";
             GUI.Label(new Rect(10, h - 34, w, 30), testShots, _small);
+
+            GUI.Label(new Rect(10, h - 64, w, 30), "Easy mode: " + (_easyMode ? "ON" : "OFF") + " (F2)", _small);
 
             string phase = _round.Phase.ToString();
             if (_round.ShotNumber > 0)
