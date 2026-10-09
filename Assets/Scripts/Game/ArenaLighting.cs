@@ -23,7 +23,7 @@ namespace HockeyGame
             main.type = LightType.Directional;
             main.transform.rotation = Quaternion.Euler(62f, -15f, 0f); // high, from behind the shooter toward the net
             main.color = ArenaWhite;
-            main.intensity = 1.15f;
+            main.intensity = 0.85f;
             main.shadows = LightShadows.Soft;
             main.shadowStrength = 0.55f;
 
@@ -40,13 +40,13 @@ namespace HockeyGame
                 spot.spotAngle = 110f;
                 spot.innerSpotAngle = 60f;
                 spot.range = 30f;
-                spot.intensity = 45f;
+                spot.intensity = 18f;
                 spot.shadows = LightShadows.None;
             }
 
             RenderSettings.ambientMode = AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = new Color(0.5f, 0.53f, 0.6f);
-            RenderSettings.ambientEquatorColor = new Color(0.32f, 0.34f, 0.38f);
+            RenderSettings.ambientSkyColor = new Color(0.4f, 0.42f, 0.48f);
+            RenderSettings.ambientEquatorColor = new Color(0.26f, 0.27f, 0.3f);
             RenderSettings.ambientGroundColor = new Color(0.16f, 0.17f, 0.19f);
 
             RenderSettings.fog = true;
