@@ -11,6 +11,9 @@ Models load from `Assets/Resources/Models/` through `ModelFiles`. Sounds load fr
 | Hockey puck (low poly, chamfered edges, ridged grip band, 1,536 triangles) | `Assets/Resources/Models/puck.obj`, `puck.mtl` | Made for this project by `Tools/make_puck.py` (run: `python Tools/make_puck.py Assets/Resources/Models`), no outside source | Hockey Game Test project | CC0 |
 | Hockey net (red posts and crossbar, white padded base frame, white strand netting, 4,708 triangles) | `Assets/Resources/Models/net.obj`, `net.mtl` | Made for this project by `Tools/make_net.py` (run: `python Tools/make_net.py Assets/Resources/Models`), no outside source | Hockey Game Test project | CC0 |
 | Goal light (grey housing, red dome, 628 triangles) | `Assets/Resources/Models/goal-light.obj`, `goal-light.mtl` | Made for this project by `Tools/make_net.py` (same run as the net), no outside source | Hockey Game Test project | CC0 |
+| Goalie character (rigged low-poly humanoid, Humanoid avatar, bones Hips/Spine/Chest/Neck/Head, arms, legs, fingers) | `Assets/Resources/Models/goalie-dressing.fbx` (copy of `Model/characterMedium.fbx`, unchanged) | Kenney "Animated Characters: Protagonists" 1.1, https://kenney.nl/assets/animated-characters-protagonists | Kenney (www.kenney.nl) | CC0 (`License.txt` in the zip) |
+| Goalie leg pads, blocker, mask (white with blue bands, dark cage) | `Assets/Resources/Models/goalie-pad.obj`, `goalie-blocker.obj`, `goalie-mask.obj` and their `.mtl` | Made for this project by `Tools/make_goalie_gear.py` (run: `python Tools/make_goalie_gear.py Assets/Resources/Models`), no outside source | Hockey Game Test project | CC0 |
+| Save glove / goalie catcher (trapper with tan pocket, T web and cuff); used for the SAVE block and on the goalie character's left hand | `Assets/Resources/Models/save-glove.obj`, `save-glove.mtl` | Made for this project by `Tools/make_goalie_gear.py` (same run as the gear), no outside source | Hockey Game Test project | CC0 |
 
 ### Notes
 
@@ -21,9 +24,13 @@ Models load from `Assets/Resources/Models/` through `ModelFiles`. Sounds load fr
   - "Hockey Net" by imveryokay: https://sketchfab.com/3d-models/hockey-net-04f1b2bbebe4419b8c894c113cf864d9 (CC Attribution)
   - "Hockey goal" by voittohovi: https://sketchfab.com/3d-models/hockey-goal-42e1d6e7eff54fdf92439638630106d6 (CC Attribution)
 
+- **Goalie character and gear.** No free, login-free rigged hockey goalie exists (checked: Kenney, Quaternius, Poly Pizza, OpenGameArt; Sketchfab and Mixamo need a login; the Unity Asset Store goalie is paid). So Kenney's CC0 rigged character is used, imported as a Unity Humanoid, wearing a repainted jersey skin. No free, login-free goalie pad, blocker, catcher or mask mesh was found (the Sketchfab ones need a login and are 35k to 435k faces), so simple gear was built and is parented to the character's bones in code (`GoalieCharacter`). The character only shows when the developer flag `goalieCharacterOn=true` is in the settings file.
+
 ## Textures
 
-None yet.
+| What | File in project | Source | Author | Licence | Changes |
+|---|---|---|---|---|---|
+| Goalie jersey skin for the goalie character | `Assets/Resources/Models/goalie-skin.png` | Kenney "Animated Characters: Protagonists" 1.1, https://kenney.nl/assets/animated-characters-protagonists (`Skins/skaterMaleA.png`) | Kenney (www.kenney.nl) | CC0 | Shirt repainted as a blue goalie jersey with white stripes and crest, jeans repainted as dark pants, by `Tools/make_goalie_skin.py` (run: `python Tools/make_goalie_skin.py <Kenney zip>/Skins/skaterMaleA.png Assets/Resources/Models`) |
 
 ## Sounds
 
