@@ -34,6 +34,7 @@ namespace HockeyGame
             _goalie = new GoalieView(GameObject.Find("Rink").transform);
             _netFacePlane = new Plane(Vector3.back, Vector3.zero); // Net Face plane: z = 0
             _round = new Round(new SystemRandomSource(), new RoundSettings(), 0);
+            gameObject.AddComponent<BreakawayView>().Init(_round, _camera, _goalie);
         }
 
         void Start()

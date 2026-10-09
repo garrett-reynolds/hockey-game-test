@@ -41,6 +41,9 @@ namespace HockeyGame.Core
         public double WindowSecondsLeft =>
             Phase == RoundPhase.ShootingWindow ? _settings.ShootingWindowSeconds - _phaseElapsed : 0;
 
+        /// <summary>Real seconds spent in the current phase.</summary>
+        public double PhaseSecondsElapsed => _phaseElapsed;
+
         /// <summary>Result of the current Shot; null until it has one.</summary>
         public ShotResult? LastResult { get; private set; }
 
