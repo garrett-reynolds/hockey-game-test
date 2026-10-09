@@ -38,6 +38,9 @@ namespace HockeyGame
         readonly Vector3[] _netRest;
 
         int _seenResults;
+
+        /// <summary>True on the frame the puck reaches the Net Face (or passes it on a Miss). Sound times the result to this.</summary>
+        public bool PuckArrivedThisFrame { get; private set; }
         ShotResult _result;
         Stage _stage;
         float _time;          // seconds in the current stage
@@ -93,6 +96,7 @@ namespace HockeyGame
         /// <summary>Call once per frame with real seconds. Starts effects when the Round records a new Shot result.</summary>
         public void Update(Round round, float realSeconds)
         {
+            PuckArrivedThisFrame = false;
             int count = round.Results.Count;
             if (count < _seenResults || round.Phase != RoundPhase.ResultHold)
             {
@@ -186,6 +190,7 @@ namespace HockeyGame
 
         void Arrive()
         {
+            PuckArrivedThisFrame = true;
             _time = 0f;
             switch (_result.Kind)
             {

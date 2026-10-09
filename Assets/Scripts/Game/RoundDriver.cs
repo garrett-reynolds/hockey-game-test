@@ -28,6 +28,7 @@ namespace HockeyGame
         SaveData _save;
         GoalieView _goalie;
         ShotEffects _effects;
+        RoundSound _sound; // reads tick on/off, master volume and mute from _save each frame
         Camera _camera;
         Plane _netFacePlane;
         bool _testShotsOn;
@@ -46,6 +47,7 @@ namespace HockeyGame
             _flow = new ScreenFlow(new SystemRandomSource(), _save);
             _flow.BestScoreChanged += SaveStore.Save;
             _round = _flow.Round;
+            _sound = new RoundSound(_camera.gameObject, _save);
             gameObject.AddComponent<BreakawayView>().Init(_round, _camera, _goalie);
         }
 
@@ -60,6 +62,7 @@ namespace HockeyGame
             var phaseNow = _round.Phase;
             _goalie.Show(phaseNow != RoundPhase.Idle && phaseNow != RoundPhase.RoundOver, _round.GoaliePose, _easyMode);
             _effects.Update(_round, Time.unscaledDeltaTime);
+            _sound.Update(_round, _effects.PuckArrivedThisFrame, Time.unscaledDeltaTime);
 
             bool playing = _flow.Screen == FlowScreen.Playing;
             bool pressed = false; // key or click outside a Round: at most one Press per frame
