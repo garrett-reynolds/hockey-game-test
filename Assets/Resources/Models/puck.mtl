@@ -1,0 +1,5 @@
+# Hockey puck material. CC0.
+newmtl PuckRubber
+Kd 0.006 0.006 0.006
+Ks 0.1 0.1 0.1
+Ns 20

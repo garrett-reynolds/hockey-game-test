@@ -53,12 +53,13 @@ namespace HockeyGame
         {
             _camera = camera;
 
-            _puck = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            _puck.name = "Puck";
-            _puck.transform.SetParent(rink);
-            _puck.transform.localScale = new Vector3(PuckDiameter, PuckThickness / 2f, PuckDiameter); // cylinder is 2 high
-            Object.Destroy(_puck.GetComponent<Collider>());
-            RinkBuilder.Paint(_puck, new Color(0.05f, 0.05f, 0.05f));
+            // The flight moves and turns this pivot; its local Y is the puck's flat-face normal.
+            _puck = new GameObject("Puck");
+            _puck.transform.SetParent(rink, false);
+            GameObject puckModel = ModelFiles.Load(ModelFiles.Puck, PlaceholderPuck);
+            puckModel.transform.SetParent(_puck.transform, false);
+            ModelFiles.FitTo(puckModel.transform, new Vector3(PuckDiameter, PuckThickness, PuckDiameter));
+            foreach (Collider c in puckModel.GetComponentsInChildren<Collider>(true)) Object.Destroy(c);
 
             _glove = RinkBuilder.Cube(rink, "Save Block", Vector3.zero, new Vector3(0.3f, 0.25f, GloveDepth), SaveBlockColour);
 
@@ -91,6 +92,15 @@ namespace HockeyGame
             }
 
             Clear();
+        }
+
+        /// <summary>Today's black cylinder puck, used when Assets/Resources/Models has no puck model.</summary>
+        static GameObject PlaceholderPuck()
+        {
+            var puck = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            puck.name = "Puck Placeholder";
+            RinkBuilder.Paint(puck, new Color(0.05f, 0.05f, 0.05f));
+            return puck;
         }
 
         /// <summary>
