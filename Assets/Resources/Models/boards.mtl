@@ -1,0 +1,21 @@
+# Rink boards and glass. materials. CC0.
+newmtl Boards
+Kd 0.8388 0.8550 0.8714
+Ks 0.1 0.1 0.1
+Ns 20
+newmtl KickPlate
+Kd 0.8070 0.5149 0.0212
+Ks 0.1 0.1 0.1
+Ns 20
+newmtl Rail
+Kd 0.0070 0.0452 0.3050
+Ks 0.1 0.1 0.1
+Ns 20
+newmtl Glass
+Kd 0.6795 0.8308 0.8308
+Ks 0.1 0.1 0.1
+Ns 20
+newmtl Stanchion
+Kd 0.3050 0.3278 0.3515
+Ks 0.1 0.1 0.1
+Ns 20

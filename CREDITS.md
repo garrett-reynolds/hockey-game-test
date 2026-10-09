@@ -17,6 +17,8 @@ Models load from `Assets/Resources/Models/` through `ModelFiles`. Sounds load fr
 | Goalie mask (helmet with cage) | `Assets/Resources/Models/goalie-dressing.fbx` (object Gear Mask), texture `goalie-dressing-mask.png` | `helmet_sketchfab.fbx` ("helmet for puck" on Sketchfab) and `Kissel_no_decals.png`. Changed: Cage recoloured steel grey, fitted over the head and parented to the head bone; texture scaled to 1024 px; by `Tools/make_lifelike_goalie.py` (Blender 4.5, headless; the command is at the top of the script) | Supplied by Garrett; source unknown | Unknown (supplied by Garrett) |
 | Hockey skates (scan) | `Assets/Resources/Models/goalie-dressing.fbx` (objects Gear Left Skate, Gear Right Skate), texture `goalie-dressing-skate.png` | `IceHockey_Skate.fbx` and `Hockey_Skate_retopo.jpeg`. Changed: Decimated from 88,787 to 2,600 triangles each, fitted to the feet and parented to the foot bones; texture scaled to 1024 px; by `Tools/make_lifelike_goalie.py` (Blender 4.5, headless; the command is at the top of the script) | Supplied by Garrett; source unknown | Unknown (supplied by Garrett) |
 | Save glove / goalie catcher (trapper with tan pocket, T web and cuff); used for the SAVE block | `Assets/Resources/Models/save-glove.obj`, `save-glove.mtl` | Made for this project by `Tools/make_goalie_gear.py` (same run as the gear), no outside source | Hockey Game Test project | CC0 |
+| Rink boards and glass (white boards with a yellow kick plate and blue top rail, see-through glass panels 2.43 m high round the ends and 1.83 m along the sides, thin stanchions; NHL rink size, 1,632 triangles) | `Assets/Resources/Models/boards.obj`, `boards.mtl` | Made for this project by `Tools/make_arena.py` (run: `py -3 Tools/make_arena.py Assets/Resources/Models`), no outside source | Hockey Game Test project | CC0 |
+| Arena (dark floor round the boards, two tiers of seats with fans, a glowing LED ribbon board between the tiers, back wall and roof, 14,014 triangles) | `Assets/Resources/Models/arena.obj`, `arena.mtl` | Made for this project by `Tools/make_arena.py` (same run as the boards), no outside source | Hockey Game Test project | CC0 |
 
 ### Notes
 
@@ -29,6 +31,9 @@ Models load from `Assets/Resources/Models/` through `ModelFiles`. Sounds load fr
 
 - **Goalie character and gear.** No free, login-free rigged hockey goalie was found (checked: Kenney and Quaternius have free rigged humanoids but no goalie; the Sketchfab goalie needs a login and is probably unrigged; Mixamo needs an Adobe login; the Unity Asset Store goalie is paid). So the goalie is assembled from files Garrett supplied: the Quaternius CC0 body, and gear, mask and skates whose source and licence are not known (ask Garrett before any public release). `Tools/make_lifelike_goalie.py` builds one FBX: clothes skinned to the body's rig, gear parented to its bones. The character only shows when the developer flag `goalieCharacterOn=true` is in the settings file; the goalie blocks stay the gameplay look.
 
+- **Boards, glass and arena.** No free (CC0 or CC-BY) boards or glass model could be downloaded without a login, so both the boards and the arena were built instead. The asset research for spec #20 checked Poly Pizza (its stands models are GLB only, which this project cannot import without adding glTFast) and Sketchfab (login needed). The Poly Haven `circus_arena` HDRI (CC0) was considered for the backdrop but not used: the built stands and roof close the arena on their own. If a modelled rink is wanted, this CC-BY model can be downloaded by hand (it would need its glass part named `Glass` and its size matched to `RinkBoards.Box`):
+  - "Hockey Rink With UV Map" by rockleyr: https://sketchfab.com/3d-models/hockey-rink-eeaaf38b50e748feb226a7bdbdcb9138 (CC Attribution)
+
 ## Textures
 
 | What | File in project | Source | Author | Licence | Changes |
@@ -38,6 +43,7 @@ Models load from `Assets/Resources/Models/` through `ModelFiles`. Sounds load fr
 | Goalie body skin, eyes (head and hands of the goalie character) | `Assets/Resources/Models/goalie-dressing-body.png`, `goalie-dressing-eyes.png` | Quaternius "Universal Base Characters" (Standard), `Textures/T_Superhero_Male_Ligh.png`, `T_Eye_Brown.png`, https://quaternius.itch.io/universal-base-characters (supplied by Garrett) | Quaternius | CC0 | Scaled to 1024 px (eyes 256 px) by `Tools/make_lifelike_goalie.py` |
 | Goalie mask texture | `Assets/Resources/Models/goalie-dressing-mask.png` | `Kissel_no_decals.png`, with the mask model | Supplied by Garrett; source unknown | Unknown (supplied by Garrett) | Scaled to 1024 px by `Tools/make_lifelike_goalie.py` |
 | Skate texture (scan colour) | `Assets/Resources/Models/goalie-dressing-skate.png` | `Hockey_Skate_retopo.jpeg`, with the skate scan | Supplied by Garrett; source unknown | Unknown (supplied by Garrett) | Scaled to 1024 px and saved as PNG by `Tools/make_lifelike_goalie.py` |
+| Crowd of seated fans on the arena seats (one row of 16 seats, repeated round the stands) | `Assets/Resources/Models/crowd.png` | Made for this project by `Tools/make_arena.py`, no outside source | Hockey Game Test project | CC0 | Drawn in code |
 
 ### Notes
 
