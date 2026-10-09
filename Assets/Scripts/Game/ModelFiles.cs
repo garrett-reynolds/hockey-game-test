@@ -6,7 +6,7 @@ namespace HockeyGame
 {
     /// <summary>
     /// Finds each visual piece's model. To use a real model, drop a model file (.fbx or .obj) into
-    /// Assets/Resources/Models/ named after the piece below, for example Assets/Resources/Models/puck.obj.
+    /// Assets/Resources/Models/ named after the piece below, for example Assets/Resources/Models/puck.fbx.
     /// A piece with no file uses its code-made placeholder (today's simple shape). No code change is needed.
     /// File names: ice, net, puck, goalie-dressing (the rigged goalie character, gear included), boards, arena, goal-light,
     /// save-glove.
