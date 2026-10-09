@@ -213,5 +213,62 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(ShotResultKind.Goal, flow.Round.LastResult.Value.Kind);
             Assert.AreEqual(1, flow.Round.Results.Count);
         }
+
+        // ---- Settings screen (F2) ----
+
+        [Test]
+        public void F2_opens_and_closes_the_settings_screen_from_the_start_screen()
+        {
+            var flow = NewFlow();
+            flow.ToggleSettings();
+            Assert.IsTrue(flow.SettingsOpen);
+            Assert.AreEqual(FlowScreen.Start, flow.Screen);
+            flow.ToggleSettings();
+            Assert.IsFalse(flow.SettingsOpen);
+        }
+
+        [Test]
+        public void F2_does_nothing_during_a_Round()
+        {
+            var flow = NewFlow();
+            flow.Press();
+            flow.ToggleSettings();
+            Assert.IsFalse(flow.SettingsOpen);
+            Assert.AreEqual(FlowScreen.Playing, flow.Screen);
+        }
+
+        [Test]
+        public void F2_does_nothing_on_the_end_screen()
+        {
+            var flow = NewFlow();
+            PlayRound(flow, 1);
+            flow.ToggleSettings();
+            Assert.IsFalse(flow.SettingsOpen);
+            Assert.AreEqual(FlowScreen.End, flow.Screen);
+        }
+
+        [Test]
+        public void A_key_click_or_Shot_on_the_settings_screen_does_not_start_a_Round()
+        {
+            var flow = NewFlow();
+            flow.ToggleSettings();
+            flow.Press();
+            flow.SubmitShot(50, 90, 100, false);
+            Assert.AreEqual(FlowScreen.Start, flow.Screen);
+            Assert.IsTrue(flow.SettingsOpen);
+        }
+
+        [Test]
+        public void After_closing_settings_a_key_starts_a_Round_with_the_reset_best_score()
+        {
+            var save = new SaveData { BestScore = 2 };
+            var flow = NewFlow(save);
+            flow.ToggleSettings();
+            save.BestScore = 0; // "Reset best score" on the settings screen
+            flow.ToggleSettings();
+            flow.Press();
+            Assert.AreEqual(FlowScreen.Playing, flow.Screen);
+            Assert.AreEqual(0, flow.Round.BestScore);
+        }
     }
 }
