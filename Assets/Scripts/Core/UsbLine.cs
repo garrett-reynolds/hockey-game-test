@@ -18,12 +18,12 @@ namespace HockeyGame.Core
         public double Y { get; }
         public double SpeedKmh { get; }
 
-        UsbLine(UsbLineKind kind, double x, double y, double speedKmh)
+        private UsbLine(UsbLineKind kind, double x, double y, double speedKmh)
         {
             Kind = kind; X = x; Y = y; SpeedKmh = speedKmh;
         }
 
-        static readonly UsbLine Ignore = new UsbLine(UsbLineKind.Ignore, 0, 0, 0);
+        private static readonly UsbLine Ignore = new UsbLine(UsbLineKind.Ignore, 0, 0, 0);
 
         public static UsbLine Read(string text)
         {
@@ -40,7 +40,7 @@ namespace HockeyGame.Core
             return Ignore;
         }
 
-        static bool TryNumber(string text, out double value)
+        private static bool TryNumber(string text, out double value)
         {
             return double.TryParse(text, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint,
                        CultureInfo.InvariantCulture, out value)

@@ -21,7 +21,7 @@ namespace HockeyGame.Core
         public const double ClosestDrift = 3.0;
 
         /// <summary>-1 left, 0 middle, +1 right.</summary>
-        public static int Lane(AttackSide side) => side == AttackSide.Left ? -1 : side == AttackSide.Right ? 1 : 0;
+        public static int SideSign(AttackSide side) => side == AttackSide.Left ? -1 : side == AttackSide.Right ? 1 : 0;
 
         /// <summary>
         /// Point on the skate-in curl at progress u (0 = start, 1 = stop): a quadratic curve from the wide start,
@@ -29,9 +29,9 @@ namespace HockeyGame.Core
         /// </summary>
         public static void SkatePoint(AttackSide side, double u, out double x, out double distance)
         {
-            int lane = Lane(side);
-            double startX = lane == 0 ? 6.0 : lane * 10.0;
-            double stopX = lane * 0.3 * StopDistance;
+            int sign = SideSign(side);
+            double startX = sign == 0 ? 6.0 : sign * 10.0;
+            double stopX = sign * 0.3 * StopDistance;
             double controlDistance = (StartDistance + StopDistance) / 2.0;
             double a = (1 - u) * (1 - u), b = 2 * (1 - u) * u, c = u * u;
             x = a * startX + b * startX + c * stopX;
@@ -39,7 +39,7 @@ namespace HockeyGame.Core
         }
 
         /// <summary>Skate-in progress (0..1), linear in real seconds since the skate-in began.</summary>
-        public static double SkateProgress(double skateSeconds, RoundSettings settings) => Clamp01(skateSeconds / settings.SkateInSeconds);
+        public static double SkateProgress(double skateSeconds, RoundSettings settings) => Numbers.Clamp01(skateSeconds / settings.SkateInSeconds);
 
         /// <summary>Skate speed (m/s): straight start-to-stop distance over the skate-in time. Used for the slow-down drift.</summary>
         public static double SkateSpeed(AttackSide side, RoundSettings settings)
@@ -56,7 +56,7 @@ namespace HockeyGame.Core
             switch (phase)
             {
                 case RoundPhase.SlowDown:
-                    double t = EaseOut(Clamp01(phaseSeconds / SlowRampSeconds));
+                    double t = EaseOut(Numbers.Clamp01(phaseSeconds / SlowRampSeconds));
                     return 1.0 + (SlowTimeScale - 1.0) * t;
                 case RoundPhase.ShootingWindow:
                     return SlowTimeScale;
@@ -66,7 +66,7 @@ namespace HockeyGame.Core
         }
 
         /// <summary>Strength of the slow-mo look (grey, contrast, vignette): 0 at 1x, 1 at the slow time scale.</summary>
-        public static double LookAmount(double timeScale) => Clamp01((1.0 - timeScale) / (1.0 - SlowTimeScale));
+        public static double LookAmount(double timeScale) => Numbers.Clamp01((1.0 - timeScale) / (1.0 - SlowTimeScale));
 
         /// <summary>How far the goalie has set into the pose (0..1). Real time, done when the window opens.</summary>
         public static double GoalieSet(RoundPhase phase, double phaseSeconds, RoundSettings settings)
@@ -77,7 +77,7 @@ namespace HockeyGame.Core
                 case RoundPhase.Idle:
                     return 0;
                 case RoundPhase.SlowDown:
-                    double t = Clamp01(phaseSeconds / settings.SlowDownSeconds);
+                    double t = Numbers.Clamp01(phaseSeconds / settings.SlowDownSeconds);
                     return t * t * (3 - 2 * t);
                 default:
                     return 1;
@@ -85,13 +85,11 @@ namespace HockeyGame.Core
         }
 
         /// <summary>Share of the shooting window ring still showing (1 full, 0 empty).</summary>
-        public static double RingFraction(double windowSecondsLeft, RoundSettings settings) => Clamp01(windowSecondsLeft / settings.ShootingWindowSeconds);
+        public static double RingFraction(double windowSecondsLeft, RoundSettings settings) => Numbers.Clamp01(windowSecondsLeft / settings.ShootingWindowSeconds);
 
         /// <summary>Drift toward the net, capped so the camera stops ClosestDrift metres from the net.</summary>
         public static double CappedDrift(double drift, double distance) => Math.Max(0, Math.Min(drift, distance - ClosestDrift));
 
-        static double EaseOut(double t) => 1 - (1 - t) * (1 - t);
-
-        static double Clamp01(double v) => v < 0 ? 0 : v > 1 ? 1 : v;
+        private static double EaseOut(double t) => 1 - (1 - t) * (1 - t);
     }
 }

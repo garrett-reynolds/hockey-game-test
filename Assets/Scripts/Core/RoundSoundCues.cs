@@ -60,7 +60,7 @@ namespace HockeyGame.Core
         }
 
         /// <summary>Volume for everything (0..1): 0 when muted, else the master volume, clamped.</summary>
-        public static double ListenerVolume(SaveData save) => save.Mute ? 0 : Clamp01(save.MasterVolume);
+        public static double ListenerVolume(SaveData save) => save.Mute ? 0 : Numbers.Clamp01(save.MasterVolume);
 
         /// <summary>
         /// Cues to start this frame. puckArrived is true on the frame the on-screen puck reaches the net
@@ -168,7 +168,7 @@ namespace HockeyGame.Core
             switch (phase)
             {
                 case RoundPhase.SkateIn:
-                    double t = Clamp01(phaseSeconds / settings.SkateInSeconds);
+                    double t = Numbers.Clamp01(phaseSeconds / settings.SkateInSeconds);
                     return 0.4 + 0.5 * t;
                 case RoundPhase.SlowDown:
                 case RoundPhase.ShootingWindow:
@@ -192,7 +192,5 @@ namespace HockeyGame.Core
             bool heartbeat = phase == RoundPhase.SlowDown || phase == RoundPhase.ShootingWindow;
             return new SlowMoSound(lowPass, pitch, heartbeat);
         }
-
-        private static double Clamp01(double v) => v < 0 ? 0 : v > 1 ? 1 : v;
     }
 }
