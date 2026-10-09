@@ -5,8 +5,9 @@ using UnityEngine.InputSystem;
 namespace HockeyGame
 {
     /// <summary>
-    /// Owns one Round, ticks it with unscaled time, builds the rink, takes Test Shot input
-    /// and draws the HUD. The scene only needs this component on an empty GameObject.
+    /// Owns the screen flow (start screen, Round, end screen), ticks it with unscaled time, builds the rink,
+    /// takes key / click / Test Shot input and draws the HUD. The scene only needs this component on an
+    /// empty GameObject.
     /// </summary>
     public sealed class RoundDriver : MonoBehaviour
     {
@@ -18,13 +19,17 @@ namespace HockeyGame
             public double Next() { return _random.NextDouble(); }
         }
 
-        [SerializeField] bool _easyMode; // Easy mode: Open Zones glow. Default off; F2 toggles in Play mode.
+        const string GameName = "HOCKEY GAME";
 
-        Round _round;
+        bool _easyMode; // Easy mode: Open Zones glow. From the saved settings; F2 toggles and saves it.
+
+        ScreenFlow _flow;
+        Round _round; // the flow's current Round; refreshed after each Tick and Press
+        SaveData _save;
         GoalieView _goalie;
         Camera _camera;
         Plane _netFacePlane;
-        bool _testShotsOn = true; // default on until the setting exists (#17)
+        bool _testShotsOn;
         int _testShotSpeedKmh = TestShotSpeed.DefaultKmh;
         GUIStyle _big, _mid, _small;
 
@@ -33,17 +38,18 @@ namespace HockeyGame
             RinkBuilder.Build(out _camera);
             _goalie = new GoalieView(GameObject.Find("Rink").transform);
             _netFacePlane = new Plane(Vector3.back, Vector3.zero); // Net Face plane: z = 0
-            _round = new Round(new SystemRandomSource(), new RoundSettings(), 0);
-        }
-
-        void Start()
-        {
-            _round.StartRound();
+            _save = SaveStore.Current;
+            _easyMode = _save.EasyMode;
+            _testShotsOn = _save.TestShotOnAtStart;
+            _flow = new ScreenFlow(new SystemRandomSource(), _save);
+            _flow.BestScoreChanged += SaveStore.Save;
+            _round = _flow.Round;
         }
 
         void Update()
         {
-            _round.Tick(Time.unscaledDeltaTime);
+            _flow.Tick(Time.unscaledDeltaTime);
+            _round = _flow.Round;
 
             var keyboard = Keyboard.current;
             var mouse = Mouse.current;
@@ -52,25 +58,45 @@ namespace HockeyGame
             var phaseNow = _round.Phase;
             _goalie.Show(phaseNow != RoundPhase.Idle && phaseNow != RoundPhase.RoundOver, _round.GoaliePose, _easyMode);
 
+            bool playing = _flow.Screen == FlowScreen.Playing;
+            bool pressed = false; // key or click outside a Round: at most one Press per frame
+
             if (keyboard != null)
             {
                 if (keyboard.f2Key.wasPressedThisFrame)
-                    _easyMode = !_easyMode;
+                {
+                    _easyMode = _save.EasyMode = !_easyMode;
+                    SaveStore.Save();
+                }
                 else if (keyboard.f1Key.wasPressedThisFrame)
                     _testShotsOn = !_testShotsOn;
-                else if ((_round.Phase == RoundPhase.Idle || _round.Phase == RoundPhase.RoundOver)
-                         && keyboard.anyKey.wasPressedThisFrame)
-                    _round.StartRound();
+                else if (!playing && keyboard.anyKey.wasPressedThisFrame)
+                    pressed = true;
             }
 
-            if (mouse == null || !_testShotsOn) return;
+            if (mouse != null)
+            {
+                if (_testShotsOn)
+                {
+                    float scroll = mouse.scroll.ReadValue().y;
+                    if (scroll != 0f)
+                        _testShotSpeedKmh = TestShotSpeed.Step(_testShotSpeedKmh, scroll > 0f ? 1 : -1);
+                }
 
-            float scroll = mouse.scroll.ReadValue().y;
-            if (scroll != 0f)
-                _testShotSpeedKmh = TestShotSpeed.Step(_testShotSpeedKmh, scroll > 0f ? 1 : -1);
+                if (mouse.leftButton.wasPressedThisFrame)
+                {
+                    if (playing && _testShotsOn)
+                        SubmitTestShot(mouse.position.ReadValue());
+                    else if (!playing)
+                        pressed = true; // a click starts or leaves, even with Test Shots off
+                }
+            }
 
-            if (mouse.leftButton.wasPressedThisFrame)
-                SubmitTestShot(mouse.position.ReadValue());
+            if (pressed)
+            {
+                _flow.Press();
+                _round = _flow.Round;
+            }
         }
 
         void SubmitTestShot(Vector2 screenPosition)
@@ -79,14 +105,14 @@ namespace HockeyGame
             if (!_netFacePlane.Raycast(ray, out float distance)) return;
             Vector3 hit = ray.GetPoint(distance);
             NetFaceMapping.FromOffsetFromCentre(hit.x, hit.y - NetCentreHeight, out double x, out double y);
-            _round.SubmitShot(x, y, _testShotSpeedKmh, true);
+            _flow.SubmitShot(x, y, _testShotSpeedKmh, true);
         }
 
         // ---- HUD (IMGUI) ----
 
         void OnGUI()
         {
-            if (_round == null) return;
+            if (_flow == null) return;
             if (_big == null) MakeStyles();
             float w = Screen.width, h = Screen.height;
 
@@ -114,12 +140,22 @@ namespace HockeyGame
                     if (_round.LastResult.HasValue)
                         GUI.Label(new Rect(0, h * 0.2f, w, 60), ResultText(_round.LastResult.Value.Kind), _big);
                     break;
-                case RoundPhase.RoundOver:
-                    GUI.Label(new Rect(0, h * 0.2f, w, 60), _round.Goals + " / " + Round.ShotsPerRound + " goals", _big);
-                    GUI.Label(new Rect(0, h * 0.2f + 60, w, 40), "Press any key", _mid);
+            }
+
+            switch (_flow.Screen)
+            {
+                case FlowScreen.Start:
+                    GUI.Label(new Rect(0, h * 0.2f, w, 60), GameName, _big);
+                    GUI.Label(new Rect(0, h * 0.2f + 70, w, 40), "Best score: " + _save.BestScore + " / " + Round.ShotsPerRound, _mid);
+                    GUI.Label(new Rect(0, h * 0.2f + 120, w, 40), "Shoot or press any key", _mid);
                     break;
-                case RoundPhase.Idle:
-                    GUI.Label(new Rect(0, h * 0.2f, w, 40), "Press any key", _mid);
+                case FlowScreen.End:
+                    GUI.Label(new Rect(0, h * 0.2f, w, 60), _round.Goals + " / " + Round.ShotsPerRound + " goals", _big);
+                    string best = "Best score: " + _save.BestScore + " / " + Round.ShotsPerRound;
+                    if (_round.IsNewBest) best = "New best! " + best;
+                    GUI.Label(new Rect(0, h * 0.2f + 70, w, 40), best, _mid);
+                    if (_flow.EndAcceptsInput)
+                        GUI.Label(new Rect(0, h * 0.2f + 120, w, 40), "Shoot or press any key", _mid);
                     break;
             }
         }
