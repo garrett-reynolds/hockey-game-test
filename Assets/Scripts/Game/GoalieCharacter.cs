@@ -91,8 +91,9 @@ namespace HockeyGame
 
         /// <summary>
         /// Neutral ready stance: wide stance with the knees bent over the skates, hips back, chest leaning in, head up to
-        /// the shooter, skates flat on the ice. Blocker hand low at the side holding the stick: back of the hand (the
-        /// blocker board) to the shooter, thumb up, so the stick runs down to the ice. Catcher out at the side, palm (the
+        /// the shooter, skates flat on the ice. Blocker hand low at the side holding the stick: forearm and fingers
+        /// pointing down, back of the hand (the blocker board) to the shooter, thumb inward, so the stick (diagonal in
+        /// the palm) runs down and in to the ice. Catcher out at the side, palm (the
         /// pocket) to the shooter, fingers up. Each limb is aimed in the goalie's own frame (forward = toward the shooter),
         /// so it can be re-applied from any pose. #27 can pose the rig the same way (Aim, Orient) or through the Animator.
         /// </summary>
@@ -120,10 +121,12 @@ namespace HockeyGame
             Aim(HumanBodyBones.LeftUpperArm, HumanBodyBones.LeftLowerArm, -up * 0.75f + left * 0.5f + forward * 0.3f);
             Aim(HumanBodyBones.LeftLowerArm, HumanBodyBones.LeftHand, forward * 0.75f + left * 0.45f + up * 0.1f);
             Orient(HumanBodyBones.LeftHand, up * 0.9f + forward * 0.2f + left * 0.1f, -left);
-            // Blocker (right hand): low at the side, board to the shooter, stick down to the ice in front of the pads.
-            Aim(HumanBodyBones.RightUpperArm, HumanBodyBones.RightLowerArm, -up * 0.6f - left * 0.45f + forward * 0.35f);
-            Aim(HumanBodyBones.RightLowerArm, HumanBodyBones.RightHand, forward * 0.9f - left * 0.15f - up * 0.05f);
-            Orient(HumanBodyBones.RightHand, left * 0.8f + forward * 0.3f, up - forward * 0.5f); // stick slants down and forward
+            // Blocker (right hand): low at the side, the board (along the forearm and fingers) upright and facing the
+            // shooter, thumb inward; the stick, held across the palm on a diagonal, slants down and in to the ice.
+            Vector3 blockerForearm = -up * 0.9f + forward * 0.35f;
+            Aim(HumanBodyBones.RightUpperArm, HumanBodyBones.RightLowerArm, -up * 0.85f - left * 0.35f + forward * 0.3f);
+            Aim(HumanBodyBones.RightLowerArm, HumanBodyBones.RightHand, blockerForearm);
+            Orient(HumanBodyBones.RightHand, blockerForearm, left);
         }
 
         /// <summary>
