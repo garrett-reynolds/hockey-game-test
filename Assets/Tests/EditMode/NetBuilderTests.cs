@@ -58,6 +58,80 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void The_supplied_net_has_a_red_frame_white_netting_and_a_skirt_within_the_triangle_budget()
+        {
+            GameObject net = NetBuilder.Build(_rink);
+
+            foreach (string frame in new[] { "LeftPost", "RightPost", "Crossbar" })
+                AssertColour(Part(net.transform, frame), red: true);
+            AssertColour(Part(net.transform, NetBuilder.NettingName), red: false);
+            AssertColour(Part(net.transform, "Skirt"), red: false);
+            int triangles = net.GetComponentsInChildren<MeshFilter>(true).Sum(f => (int)f.sharedMesh.GetIndexCount(0) / 3);
+            Assert.Less(triangles, 50000, "whole net, triangles");
+            Assert.Greater(triangles, 10000, "the netting is real strands, not a box");
+        }
+
+        [Test]
+        public void The_supplied_netting_mesh_can_be_bent_at_run_time()
+        {
+            NetBuilder.Build(_rink);
+
+            Mesh netting = NetBuilder.FindNetting(_rink).GetComponent<MeshFilter>().sharedMesh;
+            Assert.IsTrue(netting.isReadable, "NetBulge moves the netting vertices, so the mesh must be readable in a build");
+        }
+
+        [Test]
+        public void A_net_model_wider_at_the_base_than_the_posts_keeps_its_opening_on_the_Net_Face()
+        {
+            // The game's net at 1.2 times size (posts 0.096 thick round a 2.196 x 1.464 opening), with a base 3 wide.
+            var model = new GameObject("Wide Net");
+            Cube(model, "LeftPost", new Vector3(-1.146f, 0.78f, 0f), new Vector3(0.096f, 1.56f, 0.096f));
+            Cube(model, "RightPost", new Vector3(1.146f, 0.78f, 0f), new Vector3(0.096f, 1.56f, 0.096f));
+            Cube(model, "Crossbar", new Vector3(0f, 1.512f, 0f), new Vector3(2.388f, 0.096f, 0.096f));
+            Cube(model, "Skirt", new Vector3(0f, 0.05f, 0.42f), new Vector3(3f, 0.1f, 0.6f));
+
+            GameObject net = NetBuilder.Build(_rink, name => name == "net" ? model : null);
+
+            Bounds left = WorldBounds(Part(net.transform, "LeftPost"));
+            Bounds right = WorldBounds(Part(net.transform, "RightPost"));
+            Bounds bar = WorldBounds(Part(net.transform, "Crossbar"));
+            Assert.AreEqual(-HalfWidth, left.max.x, Tolerance, "inside of the left post");
+            Assert.AreEqual(HalfWidth, right.min.x, Tolerance, "inside of the right post");
+            Assert.AreEqual(Height, bar.min.y, Tolerance, "underside of the crossbar");
+            Assert.AreEqual(0f, left.min.y, Tolerance, "posts on the ice");
+            Assert.AreEqual(0f, left.center.z, Tolerance, "posts on the Net Face plane");
+            Assert.AreEqual(Depth, WorldBounds(net.transform).max.z, Tolerance, "back of the base at the net depth");
+            Assert.Greater(WorldBounds(Part(net.transform, "Skirt")).size.x, 2f * HalfWidth + 2f * Post + 0.1f, "the base still flares past the posts");
+        }
+
+        static void Cube(GameObject parent, string name, Vector3 position, Vector3 size)
+        {
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            cube.name = name;
+            cube.transform.SetParent(parent.transform, false);
+            cube.transform.localPosition = position;
+            cube.transform.localScale = size;
+        }
+
+        static void AssertColour(Transform part, bool red)
+        {
+            foreach (Renderer r in part.GetComponentsInChildren<Renderer>(true))
+            {
+                Color c = r.sharedMaterial.GetColor("_BaseColor");
+                if (red)
+                {
+                    Assert.Greater(c.r, 0.3f, part.name + " is red: " + c);
+                    Assert.Less(c.g, c.r * 0.3f, part.name + " is red: " + c);
+                    Assert.Less(c.b, c.r * 0.3f, part.name + " is red: " + c);
+                }
+                else
+                {
+                    Assert.Greater(Mathf.Min(c.r, Mathf.Min(c.g, c.b)), 0.5f, part.name + " is white or light grey: " + c);
+                }
+            }
+        }
+
+        [Test]
         public void Any_net_model_dropped_in_is_fitted_from_the_post_fronts_to_the_net_back()
         {
             var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);

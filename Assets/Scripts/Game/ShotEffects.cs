@@ -22,7 +22,7 @@ namespace HockeyGame
         const float SaveZ = GloveZ - GloveDepth / 2f - PuckThickness;
         const float MissCarrySeconds = 0.8f;
         const float CaughtSeconds = 0.25f;           // a goal puck rests in the netting bulge this long, then drops
-        const float BaseRailMetres = 0.07f;          // the net's back base-frame tube on the ice (Tools/make_net.py: 2 x TUBE)
+        const float BaseRailMetres = 0.07f;          // the net's back base tube and skirt on the ice (Tools/make_supplied_net.py)
         const float Gravity = 9.81f;
         static readonly Color SaveBlockColour = new Color(0.45f, 0.6f, 1f); // lighter than the GoalieView blocks so the slide shows on a Covered Zone
 
@@ -44,6 +44,7 @@ namespace HockeyGame
         Stage _stage;
         float _time;          // seconds in the current stage
         float _flightSeconds;
+        float _backZ;          // world z where a goal puck meets the netting at the back of the net
         Vector3 _start, _target, _velocity;
         Vector3 _gloveFrom, _gloveTo;
 
@@ -177,13 +178,13 @@ namespace HockeyGame
                 case Stage.IntoNet:
                     {
                         Vector3 p = _puck.transform.position + _velocity * dt;
-                        if (p.z >= RinkBuilder.NetDepth - PuckThickness)
+                        if (p.z >= _backZ - PuckThickness)
                         {
-                            p.z = RinkBuilder.NetDepth - PuckThickness;
+                            p.z = _backZ - PuckThickness;
                             _stage = Stage.InNet;
                             _time = 0f;
                             _velocity = Vector3.zero;
-                            _net.Hit(new Vector3(p.x, p.y, RinkBuilder.NetDepth), (float)_result.SpeedKmh);
+                            _net.Hit(new Vector3(p.x, p.y, _backZ), (float)_result.SpeedKmh);
                         }
                         _puck.transform.position = p;
                     }
@@ -194,7 +195,7 @@ namespace HockeyGame
                         // While it drops it eases forward so it lands in front of the back base rail, not inside it.
                         Vector3 p = _puck.transform.position;
                         float clear = Mathf.Clamp01((_time - CaughtSeconds) / 0.2f);
-                        p.z = RinkBuilder.NetDepth - Mathf.Lerp(PuckThickness, BaseRailMetres + PuckThickness / 2f, clear) + _net.BackAtHit;
+                        p.z = _backZ - Mathf.Lerp(PuckThickness, BaseRailMetres + PuckThickness / 2f, clear) + _net.BackAtHit;
                         if (_time > CaughtSeconds && p.y > PuckDiameter / 2f)
                         {
                             _velocity.y -= Gravity * dt;
@@ -237,6 +238,7 @@ namespace HockeyGame
                     p.x = Mathf.Clamp(p.x, -W / 2f + PuckDiameter, W / 2f - PuckDiameter);
                     p.y = Mathf.Clamp(p.y, PuckThickness, H - PuckDiameter);
                     _puck.transform.position = p;
+                    _backZ = _net.BackOfNet(p.x, p.y); // the netting's back slopes: a high goal meets it sooner
                     _stage = Stage.IntoNet;
                     break;
                 case ShotResultKind.Save:
