@@ -27,4 +27,27 @@ None yet.
 
 ## Sounds
 
-None yet.
+All 12 are 16-bit PCM WAV, 44.1 kHz, in `Assets/Resources/Sounds/`. The one-shots are normalised to a -3 dBFS peak. Every outside clip was decoded with ffmpeg and then trimmed, mixed, or had its level changed as listed below. Clips marked "made by `Tools/make_sounds.py`" come from this command, run from the repo root:
+
+`python Tools/make_sounds.py Assets/Resources/Sounds --voice ooo.wav --crowd crowd.wav`
+
+Its two inputs are decoded first with `ffmpeg -i oooooooooo.ogg -ac 1 -ar 44100 ooo.wav` and `ffmpeg -i crowd_shouting_0.ogg -ar 44100 crowd.wav`.
+
+| What | File in project | Source | Author | Licence | Changes |
+|---|---|---|---|---|---|
+| Crowd ambience loop | `crowd-loop.wav` | "Crowd Shouting/Speaking Ambience", https://opengameart.org/content/crowd-shoutingspeaking-ambience (`crowd_shouting_0.ogg`) | StarNinjas | CC0 | Made by `Tools/make_sounds.py`: a 16 s cut starting 2 s in, with a 1.5 s equal-power crossfade of the tail into the head so the loop is seamless, then lowered 6 dB |
+| Heartbeat loop | `heartbeat-loop.wav` | "Heartbeat sounds", https://opengameart.org/content/heartbeat-sounds (`heartbeat_slow_0.wav`) | bart | CC0 | Level raised only. It is already a two-beat loop that ends in silence |
+| Window tick | `tick.wav` | Kenney "Interface Sounds", https://kenney.nl/assets/interface-sounds (`tick_004.ogg`) | Kenney | CC0 | Level changed |
+| Fast tick | `fast-tick.wav` | Kenney "Interface Sounds" (`tick_002.ogg`) | Kenney | CC0 | Level changed |
+| Net hit | `net-hit.wav` | Kenney "Impact Sounds", https://kenney.nl/assets/impact-sounds (`impactSoft_medium_000.ogg` plus `impactPlate_light_000.ogg` at 30%) | Kenney | CC0 | Two clips mixed |
+| Pad thud | `pad-thud.wav` | Kenney "Impact Sounds" (`impactSoft_heavy_001.ogg`) | Kenney | CC0 | Level changed |
+| Boards clang | `boards-clang.wav` | Kenney "Impact Sounds" (`impactWood_heavy_000.ogg`, `impactPlank_medium_001.ogg` at 60%, `impactMetal_light_000.ogg` at 40%) | Kenney | CC0 | Three clips mixed |
+| Cheer after a Shot | `cheer.wav` | "Free Crowd Cheering Sounds", https://opengameart.org/content/free-crowd-cheering-sounds ("03 - Strong cheering - I") | Gregor Quendel | CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/) | Cut 5.0 to 8.0 s, 0.15 s fade in, 0.6 s fade out, normalised, MP3 converted to WAV |
+| New-best cheer | `new-best-cheer.wav` | "Free Crowd Cheering Sounds" ("01 - Strong cheering and strong rhythmic cheering") | Gregor Quendel | CC-BY 4.0 | Cut 4.5 to 12.5 s, 0.2 s fade in, 2 s fade out, normalised, MP3 converted to WAV |
+| Crowd groan ("awww") | `groan.wav` | Made by `Tools/make_sounds.py` from "Oooooooooooooo", https://opengameart.org/content/oooooooooooooo (`oooooooooo.ogg`) | Nocturnal_Vanguard (voice); Hockey Game Test project (script) | CC0 | 8 staggered, detuned, panned copies of the voice, each gliding down 3 to 4.5 semitones, low-passed, 2 s |
+| Goal horn | `goal-horn.wav` | Made by `Tools/make_sounds.py` (synthesised: a low B-flat major chord of detuned sawtooth waves with a short echo) | Hockey Game Test project | CC0 | n/a |
+| Time-up buzzer | `buzzer.wav` | Made by `Tools/make_sounds.py` (synthesised: a rough square plus sawtooth wave around 120 Hz) | Hockey Game Test project | CC0 | n/a |
+
+### Notes
+
+- **Goal horn, buzzer, groan.** No free goal horn, arena buzzer, or crowd groan could be downloaded without a login (Freesound needs an account, and Pixabay blocks scripted downloads). These clips were made instead. To swap in a real recording, replace the WAV with a file of the same name. Keep exactly one file per name, because the game ignores the extension. Then credit the new clip here.
