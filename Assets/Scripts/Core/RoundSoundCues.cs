@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace HockeyGame.Core
 {
-    /// <summary>One sound to start this frame. Loops (crowd, heartbeat) are levels, not cues.</summary>
+    /// <summary>One sound to start (or, for SkatingStop, to stop) this frame. Loops (crowd, heartbeat) are levels, not cues.</summary>
     public enum SoundCue
     {
         Tick,
@@ -17,7 +17,9 @@ namespace HockeyGame.Core
         NewBestCheer,
         PostPing,     // a Miss rings off a post or the crossbar
         GloveCatch,   // a Save in the catching glove
-        BlockerHit    // a Save off the blocker
+        BlockerHit,   // a Save off the blocker
+        Skating,      // the skate-in begins: start the skating sound
+        SkatingStop   // the skate-in ends: stop the skating sound
     }
 
     /// <summary>Slow-down audio for one frame: low-pass cutoff, pitch, heartbeat on/off.</summary>
@@ -77,6 +79,8 @@ namespace HockeyGame.Core
             if (phase != _lastPhase)
             {
                 if (_lastPhase == RoundPhase.ResultHold) PlayPendingImpact();
+                if (_lastPhase == RoundPhase.SkateIn) _cues.Add(SoundCue.SkatingStop);
+                if (phase == RoundPhase.SkateIn) _cues.Add(SoundCue.Skating);
                 if (phase == RoundPhase.RoundOver && round.IsNewBest) _cues.Add(SoundCue.NewBestCheer);
                 _ticksPlayed = 0;
                 _lastPhase = phase;
@@ -166,6 +170,13 @@ namespace HockeyGame.Core
             int fast = Math.Min(fastTotal, (int)Math.Floor((elapsed - lastSecond) / FastTickSeconds + 1e-9) + 1);
             return slow + fast;
         }
+
+        /// <summary>
+        /// Where the skating clip should be now (seconds into the clip), so its end (the hockey stop) lands on the end
+        /// of the skate-in. skateSeconds: how far into the skate-in we are. Negative: wait that long before playing it all.
+        /// </summary>
+        public static double SkatingClipTime(double clipSeconds, double skateInSeconds, double skateSeconds) =>
+            clipSeconds - skateInSeconds + skateSeconds;
 
         private static bool IsFastTick(int index, double windowSeconds) => index >= SlowTickCount(windowSeconds);
 

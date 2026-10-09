@@ -8,16 +8,20 @@ namespace HockeyGame
     /// Plays sound for the Round (real files from SoundFiles where present, else placeholders): crowd loop, result sounds, window ticks, slow-down muffle and
     /// heartbeat. Watches the Round through RoundSoundCues; holds no rules of its own. Uses real time.
     /// The tick plays unfiltered so it stays clear during the slow-down.
+    /// The skating sound has its own source: it starts part-way into its clip so the clip's end (the hockey stop) lands
+    /// on the end of the skate-in, fading in briefly so a mid-clip start does not click, and fades out when the skate-in ends.
     /// </summary>
     public sealed class RoundSound
     {
         const float CrowdFadePerSecond = 0.6f;
+        const float SkatingFadeSeconds = 0.06f;
 
         readonly SaveData _save;
         readonly RoundSoundCues _cues;
-        readonly AudioSource _crowd, _heartbeat, _world, _tick;
+        readonly AudioSource _crowd, _heartbeat, _world, _tick, _skating;
         readonly AudioLowPassFilter _crowdFilter, _heartbeatFilter, _worldFilter;
         readonly Dictionary<SoundCue, AudioClip[]> _clips = new Dictionary<SoundCue, AudioClip[]>();
+        float _skatingTarget;
 
         /// <summary>Tick on/off, master volume and mute are read from save every frame; the settings screen just changes them.</summary>
         public RoundSound(GameObject listener, SaveData save, RoundSettings settings)
@@ -37,6 +41,8 @@ namespace HockeyGame
 
             _world = Source(listener, "Result Sounds", out _worldFilter);
             _tick = Source(listener, "Tick", out _);
+            _skating = Source(listener, "Skating", out _); // the skate-in is never slowed: no muffle or pitch
+            _skating.clip = SoundFiles.Load(SoundFiles.Skating, PlaceholderSounds.Skating);
 
             _clips[SoundCue.Tick] = new[] { SoundFiles.Load(SoundFiles.Tick, PlaceholderSounds.Tick) };
             _clips[SoundCue.FastTick] = new[] { SoundFiles.Load(SoundFiles.FastTick, PlaceholderSounds.FastTick) };
@@ -67,10 +73,15 @@ namespace HockeyGame
 
             foreach (SoundCue cue in _cues.Update(round, puckArrived))
             {
+                if (cue == SoundCue.Skating) { StartSkating(round); continue; }
+                if (cue == SoundCue.SkatingStop) { _skatingTarget = 0f; continue; }
                 AudioSource source = cue == SoundCue.Tick || cue == SoundCue.FastTick ? _tick : _world;
                 foreach (AudioClip clip in _clips[cue])
                     source.PlayOneShot(clip);
             }
+
+            _skating.volume = Mathf.MoveTowards(_skating.volume, _skatingTarget, realSeconds / SkatingFadeSeconds);
+            if (_skatingTarget == 0f && _skating.volume == 0f && _skating.isPlaying) _skating.Stop();
 
             float target = (float)RoundSoundCues.CrowdLevel(phase, phaseSeconds, round.Settings);
             _crowd.volume = Mathf.MoveTowards(_crowd.volume, target, CrowdFadePerSecond * realSeconds);
@@ -82,6 +93,26 @@ namespace HockeyGame
 
             if (slow.Heartbeat && !_heartbeat.isPlaying) _heartbeat.Play();
             else if (!slow.Heartbeat && _heartbeat.isPlaying) _heartbeat.Stop();
+        }
+
+        /// <summary>Plays the skating clip placed so it ends with the skate-in (RoundSoundCues.SkatingClipTime).</summary>
+        void StartSkating(Round round)
+        {
+            AudioClip clip = _skating.clip;
+            double at = RoundSoundCues.SkatingClipTime(clip.length, round.Settings.SkateInSeconds, round.PhaseSecondsElapsed);
+            _skating.Stop();
+            _skatingTarget = 1f;
+            if (at < 0)
+            {
+                _skating.volume = 1f; // the clip's own fade-in plays
+                _skating.PlayDelayed((float)-at);
+            }
+            else if (at < clip.length)
+            {
+                _skating.volume = at > 0 ? 0f : 1f; // starting mid-clip: fade in so it does not click
+                _skating.Play();
+                _skating.time = (float)at;
+            }
         }
 
         static AudioSource Source(GameObject parent, string name, out AudioLowPassFilter filter)

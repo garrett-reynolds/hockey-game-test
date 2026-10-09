@@ -7,8 +7,9 @@ namespace HockeyGame
 {
     /// <summary>
     /// The breakaway feel, driven by what the Round core reports: the camera skates in and curls toward the net,
-    /// the world slows down with a grey, high-contrast, vignetted look while the goalie sets, and a red ring
-    /// around the net drains over the shooting window. A Shot snaps time and look back to normal.
+    /// the world slows down with a grey, high-contrast, vignetted look while the goalie waits in its ready stance, and a
+    /// red ring around the net drains over the shooting window. A Shot snaps time and look back to normal, and the goalie
+    /// reacts into its Goalie Pose.
     /// Sets Time.timeScale; the Round core keeps ticking on unscaled real time.
     /// </summary>
     public sealed class BreakawayView : MonoBehaviour
@@ -53,7 +54,7 @@ namespace HockeyGame
             Time.timeScale = timeScale;
             _look.weight = (float)Breakaway.LookAmount(timeScale);
 
-            _goalie.SetProgress((float)Breakaway.GoalieSet(phase, phaseSeconds, _round.Settings));
+            _goalie.SetProgress((float)Breakaway.GoalieSet(phase, phaseSeconds, _round.LastResult.HasValue && _round.LastResult.Value.HasShot));
 
             if (phase == RoundPhase.Idle || phase == RoundPhase.RoundOver) return; // camera stays where it is
 

@@ -134,12 +134,13 @@ namespace HockeyGame
 
         /// <summary>
         /// Gear sizes (x the size in the model file) across, up and front-to-back as the piece sits in the T-pose facing the
-        /// shooter, so the posed goalie fills each Covered Zone. Scaled about each piece's centre.
+        /// shooter. Kept near real size: pads 28 cm wide (the 11 in limit), blocker and catcher a touch over the file.
+        /// Scaled about each piece's centre.
         /// </summary>
         static readonly Dictionary<string, Vector3> GearScale = new Dictionary<string, Vector3>
         {
-            { "Gear Left Pad", new Vector3(1.4f, 1f, 1f) }, { "Gear Right Pad", new Vector3(1.4f, 1f, 1f) },
-            { "Gear Blocker", Vector3.one * 1.6f }, { "Gear Catcher", Vector3.one * 1.5f },
+            { "Gear Left Pad", new Vector3(1.12f, 1f, 1f) }, { "Gear Right Pad", new Vector3(1.12f, 1f, 1f) },
+            { "Gear Blocker", Vector3.one * 1.05f }, { "Gear Catcher", Vector3.one * 1.1f },
         };
 
         /// <summary>The piece's own axis (0 x, 1 y, 2 z) that lies nearest the world direction, and its sign.</summary>

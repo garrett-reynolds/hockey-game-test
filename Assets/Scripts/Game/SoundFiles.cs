@@ -8,7 +8,7 @@ namespace HockeyGame
     /// Assets/Resources/Sounds/ named after the sound below, for example Assets/Resources/Sounds/goal-horn.wav.
     /// A sound with no file plays its code-made placeholder from PlaceholderSounds. No code change is needed.
     /// File names: crowd-loop, heartbeat-loop, tick, fast-tick, buzzer, net-hit, goal-horn, pad-thud,
-    /// boards-clang, cheer, groan, new-best-cheer, post-ping, glove-catch, blocker-hit.
+    /// boards-clang, cheer, groan, new-best-cheer, post-ping, glove-catch, blocker-hit, skating.
     /// </summary>
     public static class SoundFiles
     {
@@ -30,6 +30,7 @@ namespace HockeyGame
         public const string PostPing = "post-ping";
         public const string GloveCatch = "glove-catch";
         public const string BlockerHit = "blocker-hit";
+        public const string Skating = "skating";
 
         /// <summary>
         /// The clip in the sound file with this name (no extension), or the placeholder when there is none.

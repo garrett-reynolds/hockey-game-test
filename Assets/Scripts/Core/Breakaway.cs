@@ -68,20 +68,21 @@ namespace HockeyGame.Core
         /// <summary>Strength of the slow-mo look (grey, contrast, vignette): 0 at 1x, 1 at the slow time scale.</summary>
         public static double LookAmount(double timeScale) => Numbers.Clamp01((1.0 - timeScale) / (1.0 - SlowTimeScale));
 
-        /// <summary>How far the goalie has set into the pose (0..1). Real time, done when the window opens.</summary>
-        public static double GoalieSet(RoundPhase phase, double phaseSeconds, RoundSettings settings)
+        /// <summary>
+        /// How long the goalie takes to react from the ready stance into the Goalie Pose after the Shot (real seconds).
+        /// Shorter than ShotFlight.MinSeconds, so the goalie is fully posed before even the fastest puck reaches the Net Face.
+        /// </summary>
+        public const double GoalieReactSeconds = 0.2;
+
+        /// <summary>
+        /// How far the goalie has moved from the ready stance into the pose (0..1). 0 until the Shot: the player gets no hint
+        /// of the pose. In the result hold after a Shot it eases out to 1 over GoalieReactSeconds (real time); with no Shot
+        /// (too late) it stays 0.
+        /// </summary>
+        public static double GoalieSet(RoundPhase phase, double phaseSeconds, bool shotTaken)
         {
-            switch (phase)
-            {
-                case RoundPhase.SkateIn:
-                case RoundPhase.Idle:
-                    return 0;
-                case RoundPhase.SlowDown:
-                    double t = Numbers.Clamp01(phaseSeconds / settings.SlowDownSeconds);
-                    return t * t * (3 - 2 * t);
-                default:
-                    return 1;
-            }
+            if (phase != RoundPhase.ResultHold || !shotTaken) return 0;
+            return EaseOut(Numbers.Clamp01(phaseSeconds / GoalieReactSeconds));
         }
 
         /// <summary>Share of the shooting window ring still showing (1 full, 0 empty).</summary>

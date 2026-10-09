@@ -7,6 +7,7 @@ namespace HockeyGame.Core.Tests
 {
     public class GoalieCharacterPoseTests
     {
+        const float NearIce = 0.12f;
         GameObject _parent;
 
         [SetUp]
@@ -57,10 +58,59 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void Every_pose_looks_like_a_real_goalie_stick_on_the_ice_pads_down_head_upright_hands_on_their_own_side()
+        {
+            var character = new GoalieCharacter(_parent.transform);
+            character.Show(true);
+            foreach (GoaliePose pose in System.Enum.GetValues(typeof(GoaliePose)))
+            {
+                character.Pose(pose, 1f);
+                // On or near the ice: within NearIce (the stand-up holds its hands up, so its blade sits ~11 cm up).
+                Assert.That(LowestY(Gear(character, "Stick")), Is.InRange(-0.03f, NearIce), pose + ": stick blade on or near the ice");
+                foreach (string pad in new[] { "Left Pad", "Right Pad" })
+                    Assert.Less(LowestY(Gear(character, pad)), NearIce, pose + ": " + pad + " down on the ice, not floating");
+                Vector3 neck = character.Bone(HumanBodyBones.Neck).position, head = character.Bone(HumanBodyBones.Head).position;
+                Assert.Less(Vector3.Angle(head - neck, Vector3.up), 20f, pose + ": head upright");
+                // The goalie faces the shooter (-z), so the goalie's right (blocker) side is -x. Neither hand reaches across the chest.
+                float chest = character.Bone(HumanBodyBones.Chest).position.x;
+                Assert.Less(character.Bone(HumanBodyBones.RightHand).position.x, chest + 0.05f, pose + ": blocker stays on the goalie's right");
+                Assert.Greater(character.Bone(HumanBodyBones.LeftHand).position.x, chest - 0.05f, pose + ": catcher stays on the goalie's left");
+            }
+        }
+
+        [Test]
+        public void The_pads_blocker_and_catcher_are_close_to_their_real_size_in_the_model_file()
+        {
+            var character = new GoalieCharacter(_parent.transform);
+            GameObject file = ModelFiles.Load(ModelFiles.GoalieDressing, () => null);
+            try
+            {
+                foreach (string piece in new[] { "Left Pad", "Right Pad", "Blocker", "Catcher" })
+                {
+                    Vector3 posed = Gear(character, piece).transform.localScale, real = Find(file.transform, "Gear " + piece).localScale;
+                    for (int axis = 0; axis < 3; axis++)
+                        Assert.LessOrEqual(posed[axis] / real[axis], 1.15f + 1e-4f, piece + " is at most 15% bigger than in the model file");
+                }
+            }
+            finally { Object.DestroyImmediate(file); }
+        }
+
+        [Test]
         public void With_no_model_posing_does_nothing()
         {
             var character = new GoalieCharacter(_parent.transform, name => null);
             Assert.DoesNotThrow(() => character.Pose(GoaliePose.LeftButterfly, 1f));
+        }
+
+        static Renderer Gear(GoalieCharacter character, string name) =>
+            Find(character.Root.transform, "Gear " + name).GetComponent<Renderer>();
+
+        static Transform Find(Transform root, string name)
+        {
+            foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
+                if (t.name == name) return t;
+            Assert.Fail("no " + name);
+            return null;
         }
 
         static float LowestY(Renderer r)

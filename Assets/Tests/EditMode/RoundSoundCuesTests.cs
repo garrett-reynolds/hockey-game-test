@@ -248,6 +248,80 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void Skating_starts_with_the_skate_in_and_stops_on_the_frame_the_skate_in_ends()
+        {
+            var round = StartedRound();
+            var cues = new RoundSoundCues(new SaveData());
+            round.Tick(Frame);
+            CollectionAssert.Contains(cues.Update(round, false), SoundCue.Skating);
+
+            var duringSkate = Run(round, cues, 2.4);     // still skating in at 2.45 s
+            Assert.AreEqual(RoundPhase.SkateIn, round.Phase);
+            Assert.IsFalse(duringSkate.Contains(SoundCue.Skating));
+            Assert.IsFalse(duringSkate.Contains(SoundCue.SkatingStop));
+
+            var heard = new List<SoundCue>();
+            while (round.Phase == RoundPhase.SkateIn)
+            {
+                round.Tick(Frame);
+                heard = new List<SoundCue>(cues.Update(round, false));
+            }
+            Assert.AreEqual(RoundPhase.SlowDown, round.Phase);
+            CollectionAssert.Contains(heard, SoundCue.SkatingStop);
+
+            var after = Run(round, cues, 3.0);           // slow-down and shooting window: no skating
+            Assert.IsFalse(after.Contains(SoundCue.Skating) || after.Contains(SoundCue.SkatingStop));
+        }
+
+        [Test]
+        public void Skating_starts_and_stops_once_for_every_skate_in_from_every_Attack_Side()
+        {
+            var round = new Round(ScriptedRandom.Picking(
+                GoaliePoses.PosesOf(AttackSide.Left)[0], GoaliePoses.PosesOf(AttackSide.Middle)[0],
+                GoaliePoses.PosesOf(AttackSide.Right)[0]), new RoundSettings(), 0);
+            round.StartRound();
+            var cues = new RoundSoundCues(new SaveData());
+            var sides = new HashSet<AttackSide>();
+            var order = new List<SoundCue>();
+
+            void Watch(double seconds, bool puckArrived)
+            {
+                for (double t = 0; t < seconds - 1e-9; t += Frame)
+                {
+                    round.Tick(Frame);
+                    foreach (SoundCue cue in cues.Update(round, puckArrived))
+                    {
+                        if (cue == SoundCue.Skating) sides.Add(round.AttackSide);
+                        if (cue == SoundCue.Skating || cue == SoundCue.SkatingStop) order.Add(cue);
+                    }
+                }
+            }
+
+            for (int i = 0; i < Round.ShotsPerRound; i++)
+            {
+                Watch(3.8, false);
+                round.SubmitShot(150, 90, 100, false);
+                Watch(2.6, true);
+            }
+
+            Assert.AreEqual(RoundPhase.RoundOver, round.Phase);
+            var expected = new List<SoundCue>();
+            for (int i = 0; i < Round.ShotsPerRound; i++) { expected.Add(SoundCue.Skating); expected.Add(SoundCue.SkatingStop); }
+            CollectionAssert.AreEqual(expected, order);
+            CollectionAssert.AreEquivalent(new[] { AttackSide.Left, AttackSide.Middle, AttackSide.Right }, sides);
+        }
+
+        [TestCase(5.4, 2.5, 0.0, 2.9, TestName = "Short skate-in: start late in the clip so both end together")]
+        [TestCase(5.4, 2.5, 0.05, 2.95, TestName = "First frame already 0.05 s into the skate-in")]
+        [TestCase(2.0, 3.0, 0.0, -1.0, TestName = "Skate-in longer than the clip: wait 1 s, then play it all")]
+        [TestCase(5.4, 5.4, 0.0, 0.0, TestName = "Same length: play from the start")]
+        public void Skating_clip_is_placed_so_its_end_lands_on_the_end_of_the_skate_in(
+            double clipSeconds, double skateInSeconds, double skateSeconds, double expected)
+        {
+            Assert.AreEqual(expected, RoundSoundCues.SkatingClipTime(clipSeconds, skateInSeconds, skateSeconds), 1e-9);
+        }
+
+        [Test]
         public void Crowd_is_soft_on_the_start_screen_rises_in_the_skate_in_and_drops_in_the_slow_down()
         {
             double start = RoundSoundCues.CrowdLevel(RoundPhase.Idle, 0, Defaults);

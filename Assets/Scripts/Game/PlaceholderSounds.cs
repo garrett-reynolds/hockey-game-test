@@ -25,6 +25,7 @@ namespace HockeyGame
         public static AudioClip BlockerHit() => Make("Blocker Hit", NoiseBurst(0.2f, 0.6f, 0.45f, 30f, 17));
         public static AudioClip Cheer() => Make("Cheer", Swell(Crowd(3f, 0.9f, 0.2f), 0.4f, 1.8f));
         public static AudioClip Groan() => Make("Groan", Swell(Crowd(1.8f, 0.7f, 0.65f), 0.25f, 1.0f));
+        public static AudioClip Skating() => Make("Skating", Strides(2.5f));
         public static AudioClip NewBestCheer() => Make("New Best Cheer", Swell(Crowd(3.5f, 1f, 0.15f), 0.5f, 2.2f));
 
         static AudioClip Make(string name, float[] samples)
@@ -122,6 +123,24 @@ namespace HockeyGame
             }
             Normalise(s, 0.45f);
             FadeEdges(s, 0.08f);
+            return s;
+        }
+
+        /// <summary>Skate strides: bright blade-scrape noise swelling once every half second.</summary>
+        static float[] Strides(float seconds)
+        {
+            var s = Buffer(seconds);
+            var random = new System.Random(23);
+            float last = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float n = (float)(random.NextDouble() * 2 - 1);
+                float stride = Mathf.Sin(Mathf.PI * ((i / (float)Rate) / 0.5f % 1f));
+                s[i] = (n - last) * stride * stride; // differenced noise: a hiss, like a blade on ice
+                last = n;
+            }
+            Normalise(s, 0.3f);
+            FadeEdges(s, 0.05f);
             return s;
         }
 

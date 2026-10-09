@@ -38,5 +38,12 @@ namespace HockeyGame.Core.Tests
             foreach (string name in new[] { SoundFiles.PostPing, SoundFiles.GloveCatch, SoundFiles.BlockerHit, SoundFiles.PadThud })
                 Assert.IsNotNull(Resources.Load<AudioClip>(SoundFiles.Folder + "/" + name), name);
         }
+
+        [Test]
+        public void The_picked_post_ping_cheer_and_skating_clips_are_in_Resources_Sounds()
+        {
+            foreach (string name in new[] { SoundFiles.PostPing, SoundFiles.Cheer, SoundFiles.Skating })
+                Assert.IsNotNull(Resources.Load<AudioClip>(SoundFiles.Folder + "/" + name), name);
+        }
     }
 }
