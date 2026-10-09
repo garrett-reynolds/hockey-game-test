@@ -1,0 +1,78 @@
+using System;
+using System.Linq;
+using UnityEngine;
+using Object = UnityEngine.Object;
+
+namespace HockeyGame
+{
+    /// <summary>
+    /// Builds the net around the Net Face: the model in Assets/Resources/Models/net.*, or today's box net when there is none.
+    /// The Net Face is the opening at z = 0, centred on x = 0, spanning y = 0..H. The posts and crossbar stand just outside it,
+    /// centred on z = 0, and the back of the net is at z = +NetDepth.
+    /// </summary>
+    public static class NetBuilder
+    {
+        const float W = (float)NetFaceMapping.WidthMetres;
+        const float H = (float)NetFaceMapping.HeightMetres;
+        /// <summary>Thickness of the posts and crossbar (metres). The opening is inside them.</summary>
+        public const float Post = 0.08f;
+
+        /// <summary>Name of the part that shakes on a goal (the netting).</summary>
+        public const string NettingName = "Netting";
+
+        /// <summary>A new "Net" object under the rink. findFile is for tests; see ModelFiles.Load.</summary>
+        public static GameObject Build(Transform rink, Func<string, GameObject> findFile = null)
+        {
+            var net = new GameObject("Net");
+            net.transform.SetParent(rink, false);
+            GameObject model = ModelFiles.Load(ModelFiles.Net, PlaceholderNet, findFile);
+            model.transform.SetParent(net.transform, false);
+            // Any model's outer box is fitted to the posts' outer edges, the crossbar top, and the post front to the net back,
+            // so a model built that way (see Tools/make_net.py) keeps its opening exactly on the Net Face.
+            float depth = RinkBuilder.NetDepth;
+            ModelFiles.FitTo(model.transform, new Vector3(W + 2f * Post, H + Post, depth + Post / 2f));
+            model.transform.localPosition += new Vector3(0f, (H + Post) / 2f, (depth - Post / 2f) / 2f);
+            foreach (Collider c in model.GetComponentsInChildren<Collider>(true)) DestroyNow(c);
+            return net;
+        }
+
+        /// <summary>The part of the net under the rink that shakes on a goal, or null.</summary>
+        public static Transform FindNetting(Transform rink) =>
+            rink.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == NettingName);
+
+        /// <summary>Today's box net: red posts and crossbar, white box netting.</summary>
+        static GameObject PlaceholderNet()
+        {
+            var root = new GameObject("Net Placeholder").transform;
+            var white = new Color(0.9f, 0.9f, 0.9f);
+            Box(root, "LeftPost", new Vector3(-W / 2f - Post / 2f, (H + Post) / 2f, 0f), new Vector3(Post, H + Post, Post), Color.red);
+            Box(root, "RightPost", new Vector3(W / 2f + Post / 2f, (H + Post) / 2f, 0f), new Vector3(Post, H + Post, Post), Color.red);
+            Box(root, "Crossbar", new Vector3(0f, H + Post / 2f, 0f), new Vector3(W + 2f * Post, Post, Post), Color.red);
+            var netting = new GameObject(NettingName).transform;
+            netting.SetParent(root, false);
+            float depth = RinkBuilder.NetDepth;
+            Box(netting, "Back", new Vector3(0f, H / 2f, depth - 0.015f), new Vector3(W, H, 0.03f), white);
+            Box(netting, "Left Side", new Vector3(-W / 2f, H / 2f, depth / 2f), new Vector3(0.03f, H, depth), white);
+            Box(netting, "Right Side", new Vector3(W / 2f, H / 2f, depth / 2f), new Vector3(0.03f, H, depth), white);
+            Box(netting, "Roof", new Vector3(0f, H, depth / 2f), new Vector3(W, 0.03f, depth), white);
+            return root.gameObject;
+        }
+
+        static void Box(Transform parent, string name, Vector3 localPosition, Vector3 scale, Color colour)
+        {
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            cube.name = name;
+            cube.transform.SetParent(parent, false);
+            cube.transform.localPosition = localPosition;
+            cube.transform.localScale = scale;
+            DestroyNow(cube.GetComponent<Collider>());
+            RinkBuilder.Paint(cube, colour);
+        }
+
+        static void DestroyNow(Object o)
+        {
+            if (Application.isPlaying) Object.Destroy(o);
+            else Object.DestroyImmediate(o);
+        }
+    }
+}
