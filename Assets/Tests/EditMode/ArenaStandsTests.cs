@@ -79,5 +79,24 @@ namespace HockeyGame.Core.Tests
                 Assert.AreEqual(r.name == ArenaStands.GlowPart, glows, r.name);
             }
         }
+
+        [Test]
+        public void The_boards_and_arena_models_are_URP_Lit_with_a_mipmapped_crowd_texture()
+        {
+            GameObject boards = RinkBoards.Build(_rink.transform);
+            GameObject arena = ArenaStands.Build(_rink.transform);
+            Assert.IsNotEmpty(boards.GetComponentsInChildren<Renderer>(), "boards.obj is in Assets/Resources/Models");
+            Assert.IsNotEmpty(arena.GetComponentsInChildren<Renderer>(), "arena.obj is in Assets/Resources/Models");
+            Texture2D crowd = null;
+            foreach (Renderer r in _rink.GetComponentsInChildren<Renderer>())
+                foreach (Material m in r.sharedMaterials)
+                {
+                    Assert.AreEqual("Universal Render Pipeline/Lit", m.shader.name, r.name + " / " + m.name);
+                    if (m.mainTexture != null) crowd = (Texture2D)m.mainTexture;
+                }
+            Assert.IsNotNull(crowd, "the stands are textured with fans");
+            Assert.AreEqual("crowd", crowd.name);
+            Assert.That(crowd.mipmapCount, Is.GreaterThan(1), "far rows blur instead of sparkling");
+        }
     }
 }

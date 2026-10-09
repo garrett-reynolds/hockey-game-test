@@ -15,6 +15,8 @@ Models load from `Assets/Resources/Models/` through `ModelFiles`. Sounds load fr
 | Goalie character (rigged low-poly humanoid, Humanoid avatar, bones Hips/Spine/Chest/Neck/Head, arms, legs, fingers) | `Assets/Resources/Models/goalie-dressing.fbx` (copy of `Model/characterMedium.fbx`, unchanged) | Kenney "Animated Characters: Protagonists" 1.1, https://kenney.nl/assets/animated-characters-protagonists | Kenney (www.kenney.nl) | CC0 (`License.txt` in the zip) |
 | Goalie leg pads, blocker, mask (white with blue bands, dark cage) | `Assets/Resources/Models/goalie-pad.obj`, `goalie-blocker.obj`, `goalie-mask.obj` and their `.mtl` | Made for this project by `Tools/make_goalie_gear.py` (run: `python Tools/make_goalie_gear.py Assets/Resources/Models`), no outside source | Hockey Game Test project | CC0 |
 | Save glove / goalie catcher (trapper with tan pocket, T web and cuff); used for the SAVE block and on the goalie character's left hand | `Assets/Resources/Models/save-glove.obj`, `save-glove.mtl` | Made for this project by `Tools/make_goalie_gear.py` (same run as the gear), no outside source | Hockey Game Test project | CC0 |
+| Rink boards and glass (white boards with a yellow kick plate and blue top rail, see-through glass panels 2.43 m high round the ends and 1.83 m along the sides, thin stanchions; NHL rink size, 1,632 triangles) | `Assets/Resources/Models/boards.obj`, `boards.mtl` | Made for this project by `Tools/make_arena.py` (run: `py -3 Tools/make_arena.py Assets/Resources/Models`), no outside source | Hockey Game Test project | CC0 |
+| Arena (dark floor round the boards, two tiers of seats with fans, a glowing LED ribbon board between the tiers, back wall and roof, 14,014 triangles) | `Assets/Resources/Models/arena.obj`, `arena.mtl` | Made for this project by `Tools/make_arena.py` (same run as the boards), no outside source | Hockey Game Test project | CC0 |
 
 ### Notes
 
@@ -27,6 +29,9 @@ Models load from `Assets/Resources/Models/` through `ModelFiles`. Sounds load fr
 
 - **Goalie character and gear.** No free, login-free rigged hockey goalie was found (checked: Kenney and Quaternius have free rigged humanoids but no goalie; the Sketchfab goalie needs a login and is probably unrigged; Mixamo needs an Adobe login; the Unity Asset Store goalie is paid). So Kenney's CC0 rigged character is used, imported as a Unity Humanoid, wearing a repainted jersey skin. No free, login-free goalie pad, blocker, catcher or mask mesh was found (the Sketchfab ones need a login and are 35k to 435k faces; the CC0 Quaternius "Glove" on Poly Pizza is GLB only and likely a plain glove), so simple gear was built and is parented to the character's bones in code (`GoalieCharacter`). The character only shows when the developer flag `goalieCharacterOn=true` is in the settings file.
 
+- **Boards, glass and arena.** No free (CC0 or CC-BY) boards or glass model could be downloaded without a login, so both the boards and the arena were built instead. Checked: Poly Pizza (its stands models are GLB only, which this project cannot import without adding glTFast), Sketchfab (login needed). The Poly Haven `circus_arena` HDRI (CC0) was considered for the backdrop but not used: the built stands and roof close the arena on their own. If a modelled rink is wanted, this CC-BY model can be downloaded by hand (it would need its glass part named `Glass` and its size matched to `RinkBoards.Box`):
+  - "Hockey Rink With UV Map" by rockleyr: https://sketchfab.com/3d-models/hockey-rink-eeaaf38b50e748feb226a7bdbdcb9138 (CC Attribution)
+
 ## Textures
 
 | What | File in project | Source | Author | Licence | Changes |
@@ -34,6 +39,7 @@ Models load from `Assets/Resources/Models/` through `ModelFiles`. Sounds load fr
 | Ice markings: white ice with faint skate scuffs, red goal line, blue line, red centre line, blue crease with red outline, faceoff circles and dots (NHL sizes, lined up with the net) | `Assets/Resources/Models/ice-markings.jpg` | Made for this project by `Tools/make_ice_texture.py` (needs Pillow and numpy; run: `python Tools/make_ice_texture.py <folder>/Ice002_1K-JPG_Roughness.jpg Assets/Resources/Models`). The scuffs are the roughness map below, tiled every 3 m and made near-white. | Hockey Game Test project | CC0 | Made for this project |
 | Ice002 (ice surface, roughness map used for the scuffs) | Baked into `ice-markings.jpg` (not stored on its own) | https://ambientcg.com/view?id=Ice002 , download https://ambientcg.com/get?file=Ice002_1K-JPG.zip | ambientCG | CC0 1.0 | Roughness map tiled every 3 m, made near-white, baked into the markings |
 | Goalie jersey skin for the goalie character | `Assets/Resources/Models/goalie-skin.png` | Kenney "Animated Characters: Protagonists" 1.1, https://kenney.nl/assets/animated-characters-protagonists (`Skins/skaterMaleA.png`) | Kenney (www.kenney.nl) | CC0 | Shirt repainted as a blue goalie jersey with white stripes and crest, jeans repainted as dark pants, by `Tools/make_goalie_skin.py` (run: `python Tools/make_goalie_skin.py <Kenney zip>/Skins/skaterMaleA.png Assets/Resources/Models`) |
+| Crowd of seated fans on the arena seats (one row of 16 seats, repeated round the stands) | `Assets/Resources/Models/crowd.png` | Made for this project by `Tools/make_arena.py`, no outside source | Hockey Game Test project | CC0 | Drawn in code |
 
 ### Notes
 
