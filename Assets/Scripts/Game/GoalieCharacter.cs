@@ -139,7 +139,7 @@ namespace HockeyGame
         static readonly Dictionary<string, Vector3> GearScale = new Dictionary<string, Vector3>
         {
             { "Gear Left Pad", new Vector3(1.4f, 1f, 1f) }, { "Gear Right Pad", new Vector3(1.4f, 1f, 1f) },
-            { "Gear Blocker", Vector3.one * 1.3f }, { "Gear Catcher", Vector3.one * 1.4f },
+            { "Gear Blocker", Vector3.one * 1.6f }, { "Gear Catcher", Vector3.one * 1.5f },
         };
 
         /// <summary>The piece's own axis (0 x, 1 y, 2 z) that lies nearest the world direction, and its sign.</summary>
@@ -200,6 +200,16 @@ namespace HockeyGame
 
         Transform _leftPad, _rightPad;
         Vector3 _leftPadFront, _rightPadFront; // pad-local
+
+        /// <summary>World bounds of a piece of gear as posed now ("Left Pad", "Catcher", ...), or false without it.</summary>
+        public bool GearBounds(string piece, out Bounds bounds)
+        {
+            bounds = default;
+            if (!Present) return false;
+            foreach (MeshRenderer r in _model.GetComponentsInChildren<MeshRenderer>(true))
+                if (r.name == "Gear " + piece) { bounds = r.bounds; return true; }
+            return false;
+        }
 
         /// <summary>The bone for a humanoid body part, or null when there is no model.</summary>
         public Transform Bone(HumanBodyBones bone) => Animator != null ? Animator.GetBoneTransform(bone) : null;

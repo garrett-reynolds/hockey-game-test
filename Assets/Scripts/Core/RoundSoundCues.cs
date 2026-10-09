@@ -143,7 +143,7 @@ namespace HockeyGame.Core
         /// Middle Zones pick the nearer one: the middle row is pad below half height, else a hand; the middle column is
         /// the blocker left of half width, else the glove.
         /// </summary>
-        private static SoundCue SaveContact(double x, double y)
+        public static SoundCue SaveContact(double x, double y)
         {
             int row = Zones.Row(y);
             if (row == 0 || (row == 1 && y < 50.0)) return SoundCue.SaveImpact;

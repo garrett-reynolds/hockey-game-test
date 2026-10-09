@@ -41,7 +41,7 @@ namespace HockeyGame
             _save = SaveStore.Current;
             Transform rink = GameObject.Find("Rink").transform;
             _goalie = new GoalieView(rink, _save.ForceGoalieBlocks ? null : new GoalieCharacter(rink));
-            _effects = new ShotEffects(rink, _camera);
+            _effects = new ShotEffects(rink, _camera, null, _goalie);
             _netFacePlane = new Plane(Vector3.back, Vector3.zero); // Net Face plane: z = 0
             _testShotsOn = _save.TestShotOnAtStart;
             _flow = new ScreenFlow(new SystemRandomSource(), _save);

@@ -6,7 +6,7 @@ namespace HockeyGame
 {
     /// <summary>
     /// Plays what a Shot did: the puck flies from just below the camera to the Shot's spot on the Net Face
-    /// (time from ShotFlight), then Goal (into the net, the netting bulges and the puck drops, red goal light), Save (a goalie block slides
+    /// (time from ShotFlight), then Goal (into the net, the netting bulges and the puck drops, red goal light), Save (on the goalie character's gear, or a goalie block slides
     /// to the spot, the puck bounces away), Miss (the puck flies on past the net) or Too Late (no puck).
     /// Watches the Round and tells it how long the flight takes (Round.DelayResult). Uses real (unscaled) time. No colliders.
     /// </summary>
@@ -34,6 +34,7 @@ namespace HockeyGame
         readonly GoalLight _goalLight;
         readonly NetBulge _net;        // the netting catches a goal
         readonly bool _boards;         // a missed puck comes back off the end boards (only when there are boards)
+        readonly GoalieView _goalie;   // with the goalie character shown, a save stops on its gear (no save block)
 
         readonly ShotResultWatch _newResult = new ShotResultWatch();
 
@@ -47,9 +48,11 @@ namespace HockeyGame
         Vector3 _gloveFrom, _gloveTo;
 
         /// <param name="findFile">Model file lookup for the puck and save glove; null = Assets/Resources/Models (see ModelFiles).</param>
-        public ShotEffects(Transform rink, Camera camera, Func<string, GameObject> findFile = null)
+        /// <param name="goalie">The goalie; when it shows the character, a save stops on the character's gear.</param>
+        public ShotEffects(Transform rink, Camera camera, Func<string, GameObject> findFile = null, GoalieView goalie = null)
         {
             _camera = camera;
+            _goalie = goalie;
             _boards = RinkBoards.Present(rink);
 
             // The flight moves and turns this pivot; its local Y is the puck's flat-face normal.
@@ -127,6 +130,13 @@ namespace HockeyGame
             float z = result.Kind == ShotResultKind.Save ? SaveZ
                 : NetFrame.At(result.X, result.Y) != FrameHit.None ? FrameFrontZ : 0f; // a frame hit stops on the iron's face
             _target = new Vector3((float)right, (float)up, z);
+            bool onGoalie = false; // a save on the goalie character stops on its gear, with no save block
+            if (result.Kind == ShotResultKind.Save && _goalie != null
+                && _goalie.SaveStop(_start, new Vector3((float)right, (float)up, 0f), RoundSoundCues.SaveContact(result.X, result.Y), PuckThickness, out Vector3 stop))
+            {
+                _target = stop;
+                onGoalie = true;
+            }
             _flightSeconds = (float)ShotFlight.Seconds(Vector3.Distance(_start, _target), result.SpeedKmh);
             _velocity = (_target - _start) / _flightSeconds;
 
@@ -136,7 +146,7 @@ namespace HockeyGame
             _stage = Stage.Flying;
             _time = 0f;
 
-            if (result.Kind == ShotResultKind.Save)
+            if (result.Kind == ShotResultKind.Save && !onGoalie)
             {
                 // The block starts at the centre of the Zone the puck hits and slides to the puck spot.
                 NetFaceMapping.ZoneRectangle(Zones.Column(result.X), Zones.Row(result.Y), 1f,

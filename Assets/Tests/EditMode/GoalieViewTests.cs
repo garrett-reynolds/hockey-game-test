@@ -89,5 +89,34 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(0f, Quaternion.Angle(referenceKnee.rotation, knee.rotation), 0.01f, "a new pose shows at the current set");
             Object.DestroyImmediate(reference.Root.transform.parent.gameObject);
         }
+
+        [Test]
+        public void A_save_stops_the_puck_just_in_front_of_the_gear_that_made_it_on_the_puck_line()
+        {
+            var character = new GoalieCharacter(_parent.transform);
+            var view = new GoalieView(_parent.transform, character);
+            var from = new Vector3(0f, 1.2f, -8f);
+
+            Assert.IsFalse(view.SaveStop(from, new Vector3(0.6f, 1f, 0f), SoundCue.GloveCatch, 0.05f, out _), "no stop while the goalie is hidden");
+
+            view.Show(true, GoaliePose.MiddleStandUp, false);
+            foreach (var (cue, piece, net) in new[]
+            {
+                (SoundCue.GloveCatch, "Catcher", new Vector3(0.6f, 1f, 0f)),
+                (SoundCue.BlockerHit, "Blocker", new Vector3(-0.6f, 1f, 0f)),
+                (SoundCue.SaveImpact, "Right Pad", new Vector3(-0.6f, 0.2f, 0f)), // the goalie's right pad is on the shooter's left
+            })
+            {
+                Assert.IsTrue(view.SaveStop(from, net, cue, 0.05f, out Vector3 stop), cue.ToString());
+                Assert.IsTrue(character.GearBounds(piece, out Bounds gear));
+                Assert.AreEqual(gear.min.z - 0.025f, stop.z, 0.001f, cue + ": just in front of the " + piece);
+                Vector3 along = (net - from).normalized;
+                Assert.Less(Vector3.Cross(stop - from, along).magnitude, 0.001f, cue + ": on the puck's line");
+            }
+
+            var blocks = new GoalieView(_parent.transform);
+            blocks.Show(true, GoaliePose.MiddleStandUp, false);
+            Assert.IsFalse(blocks.SaveStop(from, new Vector3(0.6f, 1f, 0f), SoundCue.GloveCatch, 0.05f, out _), "the blocks keep the save block");
+        }
     }
 }

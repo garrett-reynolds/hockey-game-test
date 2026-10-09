@@ -32,39 +32,39 @@ namespace HockeyGame
         {
             new Shape // LeftPostHug: standing on the post leg, the far pad down across the ice, blocker high on the post
             {
-                Spine = V(-0.15f, 0.9f, 0.4f), Neck = V(0f, 1f, 0f),
-                LeftThigh = V(-0.25f, -0.7f, 0.5f), LeftShin = V(-0.1f, -0.95f, -0.1f),
-                RightThigh = V(0.4f, -0.75f, 0.4f), RightShin = V(0.95f, -0.05f, -0.25f),
-                LeftUpperArm = V(-0.8f, 0.2f, 0.3f), LeftForearm = V(-0.1f, 0.9f, 0.3f), LeftFingers = V(-0.1f, 0.9f, 0.3f),
-                RightUpperArm = V(0.6f, -0.5f, 0.4f), RightForearm = V(0.5f, 0.1f, 0.6f), RightFingers = V(0f, 1f, 0f),
+                Spine = V(-0.426f, 0.648f, 0.4f), Neck = V(0f, 1f, 0f),
+                LeftThigh = V(-0.545f, -0.4f, 0.8f), LeftShin = V(-0.1f, -0.6f, 0.267f),
+                RightThigh = V(0.7f, -0.943f, 0.4f), RightShin = V(0.912f, -0.05f, -0.25f),
+                LeftUpperArm = V(-0.8f, 0.2f, 0.3f), LeftForearm = V(-0.1f, 0.9f, 0.3f), LeftFingers = V(-0.1f, 0.9f, 0.309f),
+                RightUpperArm = V(0.3f, -1.05f, 0.222f), RightForearm = V(0.5f, -0.2f, 0.563f), RightFingers = V(-0.6f, 0.4f, 0f),
                 Hips = V(-0.4f, 0f, 0f),
             },
             new Shape // LeftButterfly: down at the left post, the far pad stretched to the far post, blocker high
             {
-                Spine = V(-0.35f, 0.9f, 0.3f), Neck = V(-0.2f, 1f, 0f),
-                LeftThigh = V(-0.1f, -0.85f, 0.4f), LeftShin = V(-0.95f, -0.08f, -0.3f),
-                RightThigh = V(0.75f, -0.6f, 0.3f), RightShin = V(1f, -0.05f, -0.15f),
-                LeftUpperArm = V(-0.85f, 0.1f, 0.3f), LeftForearm = V(-0.1f, 0.95f, 0.2f), LeftFingers = V(-0.1f, 0.95f, 0.2f),
-                RightUpperArm = V(0.5f, -0.7f, 0.4f), RightForearm = V(0.6f, -0.1f, 0.6f), RightFingers = V(0.3f, 0.8f, 0f),
-                Hips = V(-0.3f, 0f, 0f),
+                Spine = V(-0.395f, 0.6f, 1.019f), Neck = V(-0.196f, 0.991f, 0.025f),
+                LeftThigh = V(-0.038f, -0.571f, 0.984f), LeftShin = V(-0.554f, 0.098f, -0.9f),
+                RightThigh = V(0.812f, -0.316f, 0.3f), RightShin = V(1.004f, -0.014f, -0.143f),
+                LeftUpperArm = V(-0.418f, 0.531f, 0.414f), LeftForearm = V(0.4f, 0.821f, 0.05f), LeftFingers = V(0.834f, 0.789f, -0.399f),
+                RightUpperArm = V(0.681f, -0.691f, 0.297f), RightForearm = V(1.313f, -0.166f, 0.658f), RightFingers = V(0.606f, 0.559f, 0.03f),
+                Hips = V(-0.49f, 0f, 0f),
             },
             new Shape // MiddleButterfly: knees down, pads flared flat across the ice, upright chest, hands out at the sides
             {
-                Spine = V(0f, 1f, 0.15f), Neck = V(0f, 1f, 0f),
-                LeftThigh = V(-0.08f, -0.85f, 0.45f), LeftShin = V(-1f, -0.1f, -0.25f),
-                RightThigh = V(0.08f, -0.85f, 0.45f), RightShin = V(1f, -0.1f, -0.25f),
-                LeftUpperArm = V(-0.1f, -0.8f, 0.55f), LeftForearm = V(-0.35f, -0.1f, 0.5f), LeftFingers = V(-0.2f, -0.8f, 0.3f),
-                RightUpperArm = V(0.1f, -0.8f, 0.55f), RightForearm = V(0.35f, 0.2f, 0.5f), RightFingers = V(0.1f, 0.9f, 0.1f),
-                Hips = V(0f, 0f, -0.1f),
+                Spine = V(0.12f, 1.13f, 0.15f), Neck = V(0f, 1f, 0f),
+                LeftThigh = V(-0.61f, -0.45f, 0.05f), LeftShin = V(-0.9f, 0.06f, -0.23f),
+                RightThigh = V(0.48f, -0.45f, 1.25f), RightShin = V(1f, -0.1f, -0.55f),
+                LeftUpperArm = V(-0.029f, -0.9f, 0.4f), LeftForearm = V(-0.5f, -0.33f, 0.6f), LeftFingers = V(-0.5f, -0.656f, 0.3f),
+                RightUpperArm = V(0.05f, -0.9f, 0.4f), RightForearm = V(0.52f, -0.5f, 0.51f), RightFingers = V(0.1f, 0.9f, 0.2f),
+                Hips = V(0f, 0f, 0f),
             },
             new Shape // MiddleStandUp: tall wide stance, knees out, catcher and blocker out wide, five-hole open
             {
-                Spine = V(0f, 0.65f, 0.7f), Neck = V(0f, 1f, 0.15f),
-                LeftThigh = V(-1.05f, -0.2f, 0.5f), LeftShin = V(-0.15f, -0.95f, 0.05f),
-                RightThigh = V(0.85f, -0.4f, 0.2f), RightShin = V(-0.05f, -1f, 0f),
-                LeftUpperArm = V(-0.95f, 0.05f, 0.25f), LeftForearm = V(-0.5f, -0.1f, 0.5f), LeftFingers = V(-0.5f, -0.7f, 0.2f),
-                RightUpperArm = V(0.95f, -0.25f, 0.2f), RightForearm = V(0.5f, 0.3f, 0.55f), RightFingers = V(0.45f, 0.9f, 0f),
-                Hips = V(0f, 0f, -0.05f),
+                Spine = V(0f, 0.9f, 0.4f), Neck = V(0f, 1f, 0.15f),
+                LeftThigh = V(-0.77f, -0.38f, -0.28f), LeftShin = V(-0.15f, -0.95f, 0.05f),
+                RightThigh = V(1.15f, -0.13f, 0.35f), RightShin = V(0.08f, -0.95f, 0.05f),
+                LeftUpperArm = V(-0.6f, -0.5f, 0.25f), LeftForearm = V(-0.55f, 0.25f, 0.4f), LeftFingers = V(-0.5f, -0.7f, 0.2f),
+                RightUpperArm = V(0.8f, -0.2f, 0.3f), RightForearm = V(0.7f, 0.15f, 0.4f), RightFingers = V(0.25f, 0.9f, 0f),
+                Hips = V(0f, 0f, 0.03f),
             },
         };
 
