@@ -4,22 +4,6 @@ using UnityEngine;
 
 namespace HockeyGame
 {
-    /// <summary>Saves sound settings on the PC with PlayerPrefs.</summary>
-    public sealed class PlayerPrefsSoundStore : ISoundSettingsStore
-    {
-        public bool TryGet(string key, out float value)
-        {
-            value = PlayerPrefs.GetFloat(key, 0f);
-            return PlayerPrefs.HasKey(key);
-        }
-
-        public void Set(string key, float value)
-        {
-            PlayerPrefs.SetFloat(key, value);
-            PlayerPrefs.Save();
-        }
-    }
-
     /// <summary>
     /// Plays placeholder sound for the Round: crowd loop, result sounds, window ticks, slow-down muffle and
     /// heartbeat. Watches the Round through RoundSoundCues; holds no rules of its own. Uses real time.
@@ -29,20 +13,17 @@ namespace HockeyGame
     {
         const float CrowdFadePerSecond = 0.6f;
 
-        readonly ISoundSettingsStore _store;
+        readonly SaveData _save;
         readonly RoundSoundCues _cues;
         readonly AudioSource _crowd, _heartbeat, _world, _tick;
         readonly AudioLowPassFilter _crowdFilter, _heartbeatFilter, _worldFilter;
         readonly Dictionary<SoundCue, AudioClip[]> _clips = new Dictionary<SoundCue, AudioClip[]>();
 
-        /// <summary>Master volume, mute and tick on/off. Change fields, then call ApplySettings to use and save them.</summary>
-        public SoundSettings Settings { get; }
-
-        public RoundSound(GameObject listener, ISoundSettingsStore store)
+        /// <summary>Tick on/off, master volume and mute are read from save every frame; the settings screen just changes them.</summary>
+        public RoundSound(GameObject listener, SaveData save)
         {
-            _store = store;
-            Settings = SoundSettings.Load(store);
-            _cues = new RoundSoundCues(Settings);
+            _save = save;
+            _cues = new RoundSoundCues(save);
 
             _crowd = Source(listener, "Crowd", out _crowdFilter);
             _crowd.clip = PlaceholderSounds.CrowdLoop();
@@ -69,19 +50,13 @@ namespace HockeyGame
             _clips[SoundCue.Groan] = new[] { groan };
             _clips[SoundCue.NewBestCheer] = new[] { PlaceholderSounds.NewBestCheer() };
 
-            ApplySettings();
-        }
-
-        /// <summary>Use the current Settings now and save them on the PC.</summary>
-        public void ApplySettings()
-        {
-            AudioListener.volume = Settings.EffectiveVolume;
-            Settings.Save(_store);
+            AudioListener.volume = (float)RoundSoundCues.ListenerVolume(save);
         }
 
         /// <summary>Call once per frame after the Round and ShotEffects update. puckArrived: ShotEffects.PuckArrivedThisFrame.</summary>
         public void Update(Round round, bool puckArrived, float realSeconds)
         {
+            AudioListener.volume = (float)RoundSoundCues.ListenerVolume(_save);
             RoundPhase phase = round.Phase;
             double phaseSeconds = round.PhaseSecondsElapsed;
 

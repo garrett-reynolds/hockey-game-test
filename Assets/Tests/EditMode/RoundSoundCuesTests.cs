@@ -31,7 +31,7 @@ namespace HockeyGame.Core.Tests
         public void Shooting_window_ticks_each_second_then_faster_in_the_last_second()
         {
             var round = StartedRound();
-            var cues = new RoundSoundCues(new SoundSettings());
+            var cues = new RoundSoundCues(new SaveData());
             var heard = Run(round, cues, 3.7 + 3.0 + 0.1); // skate-in, slow-down, the whole window (no Shot)
             Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
             var ticks = heard.FindAll(c => c == SoundCue.Tick || c == SoundCue.FastTick);
@@ -44,7 +44,7 @@ namespace HockeyGame.Core.Tests
         public void Tick_setting_off_silences_the_ticks()
         {
             var round = StartedRound();
-            var cues = new RoundSoundCues(new SoundSettings { TickOn = false });
+            var cues = new RoundSoundCues(new SaveData { TickOn = false });
             var heard = Run(round, cues, 3.7 + 3.0);
             Assert.IsFalse(heard.Contains(SoundCue.Tick));
             Assert.IsFalse(heard.Contains(SoundCue.FastTick));
@@ -54,7 +54,7 @@ namespace HockeyGame.Core.Tests
         public void One_long_frame_plays_at_most_one_tick()
         {
             var round = StartedRound();
-            var cues = new RoundSoundCues(new SoundSettings());
+            var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.7);
             round.Tick(2.5);                             // a hitch inside the window
             var heard = cues.Update(round, false);
@@ -65,7 +65,7 @@ namespace HockeyGame.Core.Tests
         public void Too_late_plays_buzzer_and_groan_at_once()
         {
             var round = StartedRound();
-            var cues = new RoundSoundCues(new SoundSettings());
+            var cues = new RoundSoundCues(new SaveData());
             var heard = Run(round, cues, 3.7 + 3.0 + Frame);
             Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
             CollectionAssert.IsSubsetOf(new[] { SoundCue.Buzzer, SoundCue.Groan }, heard);
@@ -75,7 +75,7 @@ namespace HockeyGame.Core.Tests
         public void Goal_waits_for_the_puck_then_plays_net_hit_horn_and_cheer()
         {
             var round = StartedRound();
-            var cues = new RoundSoundCues(new SoundSettings());
+            var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.8);
             round.SubmitShot(50, 90, 100, false);        // Open Zone for butterflies
             var beforeArrival = Run(round, cues, 0.2);
@@ -91,7 +91,7 @@ namespace HockeyGame.Core.Tests
         public void Save_plays_pad_thud_and_groan_on_arrival()
         {
             var round = StartedRound();
-            var cues = new RoundSoundCues(new SoundSettings());
+            var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.8);
             round.SubmitShot(50, 10, 100, false);        // Covered bottom row
             cues.Update(round, false);
@@ -102,7 +102,7 @@ namespace HockeyGame.Core.Tests
         public void Miss_plays_boards_clang_and_groan_on_arrival()
         {
             var round = StartedRound();
-            var cues = new RoundSoundCues(new SoundSettings());
+            var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.8);
             round.SubmitShot(150, 90, 100, false);       // off the Net Face
             cues.Update(round, false);
@@ -113,7 +113,7 @@ namespace HockeyGame.Core.Tests
         public void Result_sound_still_plays_when_the_puck_never_arrives()
         {
             var round = StartedRound();
-            var cues = new RoundSoundCues(new SoundSettings());
+            var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.8);
             round.SubmitShot(50, 10, 10, false);         // very slow: flight outlasts the hold
             var heard = Run(round, cues, 2.0);
@@ -137,7 +137,7 @@ namespace HockeyGame.Core.Tests
         public void End_screen_cheers_a_new_best_score()
         {
             var round = StartedRound(best: 1);
-            var cues = new RoundSoundCues(new SoundSettings());
+            var cues = new RoundSoundCues(new SaveData());
             var heard = PlayRound(round, cues, goals: 2);
             Assert.AreEqual(RoundPhase.RoundOver, round.Phase);
             Assert.AreEqual(1, heard.FindAll(c => c == SoundCue.NewBestCheer).Count);
@@ -147,7 +147,7 @@ namespace HockeyGame.Core.Tests
         public void End_screen_is_quiet_without_a_new_best_score()
         {
             var round = StartedRound(best: 5);
-            var cues = new RoundSoundCues(new SoundSettings());
+            var cues = new RoundSoundCues(new SaveData());
             var heard = PlayRound(round, cues, goals: 2);
             Assert.AreEqual(RoundPhase.RoundOver, round.Phase);
             Assert.IsFalse(heard.Contains(SoundCue.NewBestCheer));
@@ -185,6 +185,28 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(1.0, after.Pitch, 1e-9);
             Assert.AreEqual(RoundSoundCues.OpenLowPassHz, after.LowPassHz, 1e-9);
             Assert.IsFalse(after.Heartbeat);
+        }
+    
+        [TestCase(0.4, false, 0.4)]
+        [TestCase(0.4, true, 0.0)]
+        [TestCase(1.5, false, 1.0)]
+        [TestCase(-0.2, false, 0.0)]
+        public void Master_volume_and_mute_set_the_volume(double master, bool mute, double expected)
+        {
+            var save = new SaveData { MasterVolume = master, Mute = mute };
+            Assert.AreEqual(expected, RoundSoundCues.ListenerVolume(save), 1e-9);
+        }
+
+        [Test]
+        public void Tick_setting_changed_mid_window_applies_at_once()
+        {
+            var save = new SaveData();
+            var round = StartedRound();
+            var cues = new RoundSoundCues(save);
+            Run(round, cues, 3.8);
+            save.TickOn = false;
+            var heard = Run(round, cues, 2.5);
+            Assert.IsFalse(heard.Contains(SoundCue.Tick) || heard.Contains(SoundCue.FastTick));
         }
     }
 }

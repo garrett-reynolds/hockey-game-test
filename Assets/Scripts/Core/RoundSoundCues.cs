@@ -48,17 +48,21 @@ namespace HockeyGame.Core
         /// <summary>If the puck has not arrived this long into the result hold, play the result sound anyway.</summary>
         public const double ImpactFallbackSeconds = 1.5;
 
-        private readonly SoundSettings _settings;
+        private readonly SaveData _save;
         private readonly List<SoundCue> _cues = new List<SoundCue>();
         private RoundPhase _lastPhase = RoundPhase.Idle;
         private int _ticksPlayed;
         private int _resultsSeen;
         private ShotResultKind? _pendingImpact;
 
-        public RoundSoundCues(SoundSettings settings)
+        /// <summary>Reads the tick on/off setting from save each frame, so a settings change applies at once.</summary>
+        public RoundSoundCues(SaveData save)
         {
-            _settings = settings;
+            _save = save;
         }
+
+        /// <summary>Volume for everything (0..1): 0 when muted, else the master volume, clamped.</summary>
+        public static double ListenerVolume(SaveData save) => save.Mute ? 0 : Clamp01(save.MasterVolume);
 
         /// <summary>
         /// Cues to start this frame. puckArrived is true on the frame the on-screen puck reaches the net
@@ -110,7 +114,7 @@ namespace HockeyGame.Core
                 int due = TicksDue(round.PhaseSecondsElapsed, windowSeconds);
                 if (due > _ticksPlayed)
                 {
-                    if (_settings.TickOn)
+                    if (_save.TickOn)
                         _cues.Add(IsFastTick(due - 1, windowSeconds) ? SoundCue.FastTick : SoundCue.Tick);
                     _ticksPlayed = due; // at most one tick per frame
                 }
