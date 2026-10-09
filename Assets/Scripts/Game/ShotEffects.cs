@@ -7,7 +7,7 @@ namespace HockeyGame
     /// <summary>
     /// Plays what a Shot did: the puck flies from just below the camera to the Shot's spot on the Net Face
     /// (time from ShotFlight), then Goal (into the net, net shakes, red goal light), Save (a goalie block slides
-    /// to the spot, the puck bounces away), Miss (the puck flies on past the net, or rings off a post or the crossbar and deflects) or Too Late (no puck).
+    /// to the spot, the puck bounces away), Miss (the puck flies on past the net) or Too Late (no puck).
     /// Watches the Round and tells it how long the flight takes (Round.DelayResult). Uses real (unscaled) time. No colliders.
     /// </summary>
     public sealed class ShotEffects
@@ -21,7 +21,6 @@ namespace HockeyGame
         const float GloveZ = GoalieView.BlockZ - GoalieView.BlockDepth / 2f - GloveGap - GloveDepth / 2f; // in front of the pose blocks
         const float SaveZ = GloveZ - GloveDepth / 2f - PuckThickness;
         const float MissCarrySeconds = 0.8f;
-        const float FrameFrontZ = -NetBuilder.Post / 2f - PuckThickness / 2f; // puck centre touching the front of a post or the crossbar
         const float ShakeSeconds = 0.8f;
         const float ShakeMetres = 0.04f;
         const float Gravity = 9.81f;
@@ -127,6 +126,7 @@ namespace HockeyGame
             Transform cam = _camera.transform;
             _start = cam.position + cam.forward * 1.0f - cam.up * 0.35f;
             NetFaceMapping.ToMetres(result.X, result.Y, out double right, out double up);
+            const float FrameFrontZ = -NetBuilder.Post / 2f - PuckThickness / 2f; // puck centre touching the front of a post or the crossbar
             float z = result.Kind == ShotResultKind.Save ? SaveZ
                 : NetFrame.At(result.X, result.Y) != FrameHit.None ? FrameFrontZ : 0f; // a frame hit stops on the iron's face
             _target = new Vector3((float)right, (float)up, z);

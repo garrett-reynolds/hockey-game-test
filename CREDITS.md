@@ -72,8 +72,8 @@ Its two inputs are decoded first with `ffmpeg -i oooooooooo.ogg -ac 1 -ar 44100 
 | Goal horn | `goal-horn.wav` | Made by `Tools/make_sounds.py` (synthesised: a low B-flat major chord of detuned sawtooth waves with a short echo) | Hockey Game Test project | CC0 | n/a |
 | Time-up buzzer | `buzzer.wav` | Made by `Tools/make_sounds.py` (synthesised: a rough square plus sawtooth wave around 120 Hz) | Hockey Game Test project | CC0 | n/a |
 | Post or crossbar ping | `post-ping.wav` | Made by `Tools/make_sounds.py` (synthesised: a short bright click, then the first four modes of a ringing steel tube from 1,180 Hz, each a beating pair, with a short echo) | Hockey Game Test project | CC0 | n/a |
-| Glove catch | `glove-catch.wav` | Made by `Tools/make_sounds.py` from Kenney "Impact Sounds", https://kenney.nl/assets/impact-sounds (`impactPunch_heavy_001.ogg` plus `impactSoft_medium_003.ogg` at 35%) | Kenney | CC0 | Two clips mixed, cut to 0.35 s with a 0.12 s fade out |
-| Blocker hit | `blocker-hit.wav` | Made by `Tools/make_sounds.py` from Kenney "Impact Sounds" (`impactWood_medium_002.ogg` plus `impactPunch_medium_000.ogg` at 50%) | Kenney | CC0 | Two clips mixed, cut to 0.4 s with a 0.12 s fade out |
+| Glove catch | `glove-catch.wav` | Made by `Tools/make_sounds.py` from Kenney "Impact Sounds", https://kenney.nl/assets/impact-sounds (`impactPunch_heavy_002.ogg` plus `impactSoft_medium_003.ogg` at 35%) | Kenney | CC0 | Two clips mixed, cut to 0.35 s with a 0.12 s fade out |
+| Blocker hit | `blocker-hit.wav` | Made by `Tools/make_sounds.py` from Kenney "Impact Sounds" (`impactWood_medium_002.ogg` plus `impactWood_light_000.ogg` at 50%) | Kenney | CC0 | Two clips mixed, cut to 0.4 s with a 0.12 s fade out |
 
 ### Notes
 

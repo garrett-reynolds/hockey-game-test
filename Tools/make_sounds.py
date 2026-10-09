@@ -5,8 +5,8 @@
 #   python Tools/make_sounds.py <out dir> --impact <dir>      -> also glove-catch.wav, blocker-hit.wav (Kenney Impact Sounds mixes)
 # goal-horn, buzzer and post-ping are pure synthesis and are always written.
 # --impact <dir> needs these Kenney "Impact Sounds" clips (https://kenney.nl/assets/impact-sounds, CC0) decoded to WAV:
-#   impactPunch_heavy_001, impactSoft_medium_003, impactWood_medium_002, impactPunch_medium_000
-#   e.g. for f in impactPunch_heavy_001 ...; do ffmpeg -i Audio/$f.ogg -ac 1 -ar 44100 <dir>/$f.wav; done
+#   impactPunch_heavy_002, impactSoft_medium_003, impactWood_medium_002, impactWood_light_000
+#   e.g. for f in impactPunch_heavy_002 ...; do ffmpeg -i Audio/$f.ogg -ac 1 -ar 44100 <dir>/$f.wav; done
 # Input WAVs: decode first with ffmpeg, e.g. ffmpeg -i oooooooooo.ogg -ac 1 -ar 44100 ooo.wav
 # Needs numpy. Seeded, so the output is the same on every run.
 import argparse, os, wave
@@ -128,9 +128,9 @@ def glove_catch(punch, soft):
     return normalize(fit(mix((1.0, punch), (0.35, soft)), 0.35, 0.12))
 
 
-def blocker_hit(wood, punch):
-    """Puck off the blocker's hard face: a sharper knock than the pad, with a padded body under it."""
-    return normalize(fit(mix((1.0, wood), (0.5, punch)), 0.4, 0.12))
+def blocker_hit(wood, light):
+    """Puck off the blocker's hard face: a bright two-layer knock, harder than the pad and the glove."""
+    return normalize(fit(mix((1.0, wood), (0.5, light)), 0.4, 0.12))
 
 
 def mix(*parts):
@@ -194,7 +194,7 @@ if __name__ == "__main__":
     write(os.path.join(a.out, "post-ping.wav"), post_ping())
     if a.impact:
         clip = lambda name: read(os.path.join(a.impact, name + ".wav"))
-        write(os.path.join(a.out, "glove-catch.wav"), glove_catch(clip("impactPunch_heavy_001"), clip("impactSoft_medium_003")))
-        write(os.path.join(a.out, "blocker-hit.wav"), blocker_hit(clip("impactWood_medium_002"), clip("impactPunch_medium_000")))
+        write(os.path.join(a.out, "glove-catch.wav"), glove_catch(clip("impactPunch_heavy_002"), clip("impactSoft_medium_003")))
+        write(os.path.join(a.out, "blocker-hit.wav"), blocker_hit(clip("impactWood_medium_002"), clip("impactWood_light_000")))
     if a.voice: write(os.path.join(a.out, "groan.wav"), groan(read(a.voice)))
     if a.crowd: write(os.path.join(a.out, "crowd-loop.wav"), crowd_loop(read(a.crowd)))
