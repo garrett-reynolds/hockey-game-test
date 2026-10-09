@@ -24,7 +24,7 @@ namespace HockeyGame
         ScreenFlow _flow;
         Round _round; // the flow's one Round; each start reuses it
         SaveData _save;
-        SettingsMenu _menu; // made fresh each time F2 opens the settings screen (port list refreshed)
+        SettingsScreen _settingsScreen; // made fresh each time F2 opens it (port list refreshed); null when closed
         GoalieView _goalie;
         ShotEffects _effects;
         UsbShotSource _usb; // real Shots from the electronics
@@ -76,12 +76,15 @@ namespace HockeyGame
                 if (keyboard.f2Key.wasPressedThisFrame)
                 {
                     _flow.ToggleSettings(); // does nothing during a Round or on the end screen
-                    _menu = _flow.SettingsOpen ? new SettingsMenu(_save, PortNames()) : null;
+                    _settingsScreen = _flow.SettingsOpen ? new SettingsScreen(_save) : null;
                 }
                 else if (keyboard.f1Key.wasPressedThisFrame)
                     _testShotsOn = !_testShotsOn;
                 else if (_flow.SettingsOpen)
-                    UpdateSettingsKeys(keyboard);
+                {
+                    if (_settingsScreen.UpdateKeys(keyboard))
+                        SaveStore.Save();
+                }
                 else if (!playing && keyboard.anyKey.wasPressedThisFrame)
                     pressed = true;
             }
@@ -109,27 +112,6 @@ namespace HockeyGame
 
             if (pressed)
                 _flow.Press();
-        }
-
-        void UpdateSettingsKeys(Keyboard keyboard)
-        {
-            bool changed = false;
-            if (keyboard.upArrowKey.wasPressedThisFrame) _menu.MoveSelection(-1);
-            else if (keyboard.downArrowKey.wasPressedThisFrame) _menu.MoveSelection(1);
-            else if (keyboard.leftArrowKey.wasPressedThisFrame) changed = _menu.Change(-1);
-            else if (keyboard.rightArrowKey.wasPressedThisFrame) changed = _menu.Change(1);
-            else if (keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame)
-                changed = _menu.Activate();
-            if (changed)
-                SaveStore.Save();
-        }
-
-        /// <summary>Serial ports on this PC now, sorted. Empty if they cannot be listed.</summary>
-        static string[] PortNames()
-        {
-            if (!UsbPorts.TryList(out var names))
-                Debug.LogWarning("Could not list serial ports.");
-            return names;
         }
 
         void SubmitTestShot(Vector2 screenPosition)
@@ -162,7 +144,7 @@ namespace HockeyGame
 
             if (_flow.SettingsOpen)
             {
-                DrawSettings(w, h);
+                _settingsScreen.Draw(w, h, _big, _small);
                 return;
             }
 
@@ -204,33 +186,6 @@ namespace HockeyGame
                         GUI.Label(new Rect(0, h * 0.2f + 120, w, 40), "Shoot or press any key", _mid);
                     break;
             }
-        }
-
-        void DrawSettings(float w, float h)
-        {
-            var old = GUI.color;
-            GUI.color = new Color(0f, 0f, 0f, 0.8f);
-            GUI.DrawTexture(new Rect(0, 0, w, h), Texture2D.whiteTexture);
-            GUI.color = old;
-
-            GUI.Label(new Rect(0, 30, w, 60), "SETTINGS", _big);
-            const float rowHeight = 32f;
-            float top = 110f, labelX = w * 0.2f, valueX = w * 0.6f;
-            for (int i = 0; i < _menu.RowCount; i++)
-            {
-                float y = top + i * rowHeight;
-                bool selected = i == _menu.Selected;
-                if (selected)
-                {
-                    GUI.color = new Color(1f, 1f, 1f, 0.15f);
-                    GUI.DrawTexture(new Rect(labelX - 10, y, w * 0.6f + 20, rowHeight), Texture2D.whiteTexture);
-                    GUI.color = old;
-                }
-                GUI.Label(new Rect(labelX, y + 4, valueX - labelX, rowHeight), (selected ? "> " : "  ") + _menu.Label(i), _small);
-                GUI.Label(new Rect(valueX, y + 4, w * 0.2f, rowHeight), selected ? "< " + _menu.Value(i) + " >" : _menu.Value(i), _small);
-            }
-            GUI.Label(new Rect(0, top + _menu.RowCount * rowHeight + 20, w, 30),
-                "Up/Down: choose   Left/Right: change   Enter: on/off or reset   F2: close   (saved at once)", _small);
         }
 
         void DrawDots(float width)
