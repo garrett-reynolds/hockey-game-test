@@ -53,7 +53,7 @@ namespace HockeyGame
             Time.timeScale = timeScale;
             _look.weight = (float)Breakaway.LookAmount(timeScale);
 
-            _goalie.SetProgress((float)Breakaway.GoalieSet(phase, phaseSeconds));
+            _goalie.SetProgress((float)Breakaway.GoalieSet(phase, phaseSeconds, _round.Settings));
 
             if (phase == RoundPhase.Idle || phase == RoundPhase.RoundOver) return; // camera stays where it is
 
@@ -61,9 +61,9 @@ namespace HockeyGame
             _gameTime += dt;
             AttackSide side = _round.AttackSide;
             if (phase == RoundPhase.SlowDown || phase == RoundPhase.ShootingWindow)
-                _drift += dt * (float)Breakaway.SkateSpeed(side);
+                _drift += dt * (float)Breakaway.SkateSpeed(side, _round.Settings);
 
-            double u = phase == RoundPhase.SkateIn ? Breakaway.SkateProgress(phaseSeconds) : 1.0;
+            double u = phase == RoundPhase.SkateIn ? Breakaway.SkateProgress(phaseSeconds, _round.Settings) : 1.0;
             Breakaway.SkatePoint(side, u, out double x, out double distance);
             PlaceCamera((float)x, (float)distance);
         }
@@ -116,7 +116,7 @@ namespace HockeyGame
         {
             if (_round == null || _round.Phase != RoundPhase.ShootingWindow || Event.current.type != EventType.Repaint) return;
 
-            float fraction = (float)Breakaway.RingFraction(_round.WindowSecondsLeft);
+            float fraction = (float)Breakaway.RingFraction(_round.WindowSecondsLeft, _round.Settings);
             Vector3 centre = _camera.WorldToScreenPoint(NetCentre);
             Vector3 edge = _camera.WorldToScreenPoint(NetRightEdge);
             if (centre.z <= 0f) return;

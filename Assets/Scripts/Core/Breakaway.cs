@@ -5,13 +5,11 @@ namespace HockeyGame.Core
     /// <summary>
     /// Pure numbers for the breakaway feel (skate-in, slow-down, shooting window ring), from #5 variant B.
     /// Distances are metres in front of the Net Face; x is metres right of the Net Face centre, shooter's view.
-    /// The scene reads these each frame; the Round core still only gets real time.
+    /// The scene reads these each frame; the Round core still only gets real time. Phase lengths come from the
+    /// Round's RoundSettings, so the feel follows the phases the Round actually runs.
     /// </summary>
     public static class Breakaway
     {
-        public const double SkateInSeconds = 2.5;
-        public const double SlowDownSeconds = 1.2;
-        public const double ShootingWindowSeconds = 3.0;
         public const double StartDistance = 22.0;
         public const double StopDistance = 9.0;
         public const double SlowTimeScale = 0.25;
@@ -41,15 +39,15 @@ namespace HockeyGame.Core
         }
 
         /// <summary>Skate-in progress (0..1), linear in real seconds since the skate-in began.</summary>
-        public static double SkateProgress(double skateSeconds) => Clamp01(skateSeconds / SkateInSeconds);
+        public static double SkateProgress(double skateSeconds, RoundSettings settings) => Clamp01(skateSeconds / settings.SkateInSeconds);
 
         /// <summary>Skate speed (m/s): straight start-to-stop distance over the skate-in time. Used for the slow-down drift.</summary>
-        public static double SkateSpeed(AttackSide side)
+        public static double SkateSpeed(AttackSide side, RoundSettings settings)
         {
             SkatePoint(side, 0, out double x0, out double d0);
             SkatePoint(side, 1, out double x1, out double d1);
             double dx = x1 - x0, dd = d1 - d0;
-            return Math.Sqrt(dx * dx + dd * dd) / SkateInSeconds;
+            return Math.Sqrt(dx * dx + dd * dd) / settings.SkateInSeconds;
         }
 
         /// <summary>World time scale for a phase, given real seconds spent in it.</summary>
@@ -71,7 +69,7 @@ namespace HockeyGame.Core
         public static double LookAmount(double timeScale) => Clamp01((1.0 - timeScale) / (1.0 - SlowTimeScale));
 
         /// <summary>How far the goalie has set into the pose (0..1). Real time, done when the window opens.</summary>
-        public static double GoalieSet(RoundPhase phase, double phaseSeconds)
+        public static double GoalieSet(RoundPhase phase, double phaseSeconds, RoundSettings settings)
         {
             switch (phase)
             {
@@ -79,7 +77,7 @@ namespace HockeyGame.Core
                 case RoundPhase.Idle:
                     return 0;
                 case RoundPhase.SlowDown:
-                    double t = Clamp01(phaseSeconds / SlowDownSeconds);
+                    double t = Clamp01(phaseSeconds / settings.SlowDownSeconds);
                     return t * t * (3 - 2 * t);
                 default:
                     return 1;
@@ -87,7 +85,7 @@ namespace HockeyGame.Core
         }
 
         /// <summary>Share of the shooting window ring still showing (1 full, 0 empty).</summary>
-        public static double RingFraction(double windowSecondsLeft) => Clamp01(windowSecondsLeft / ShootingWindowSeconds);
+        public static double RingFraction(double windowSecondsLeft, RoundSettings settings) => Clamp01(windowSecondsLeft / settings.ShootingWindowSeconds);
 
         /// <summary>Drift toward the net, capped so the camera stops ClosestDrift metres from the net.</summary>
         public static double CappedDrift(double drift, double distance) => Math.Max(0, Math.Min(drift, distance - ClosestDrift));

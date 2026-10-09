@@ -163,12 +163,12 @@ namespace HockeyGame.Core
         /// Target crowd loudness (0..1): soft on the start screen, rising through the skate-in, quiet and tense
         /// in the slow-down and shooting window. Result reactions play on top as cues.
         /// </summary>
-        public static double CrowdLevel(RoundPhase phase, double phaseSeconds)
+        public static double CrowdLevel(RoundPhase phase, double phaseSeconds, RoundSettings settings)
         {
             switch (phase)
             {
                 case RoundPhase.SkateIn:
-                    double t = Clamp01(phaseSeconds / Breakaway.SkateInSeconds);
+                    double t = Clamp01(phaseSeconds / settings.SkateInSeconds);
                     return 0.4 + 0.5 * t;
                 case RoundPhase.SlowDown:
                 case RoundPhase.ShootingWindow:

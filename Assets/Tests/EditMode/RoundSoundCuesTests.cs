@@ -7,6 +7,7 @@ namespace HockeyGame.Core.Tests
     public class RoundSoundCuesTests
     {
         private const double Frame = 0.05;
+        private static readonly RoundSettings Defaults = new RoundSettings();
 
         private static Round StartedRound(int best = 0)
         {
@@ -164,17 +165,24 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void Crowd_is_soft_on_the_start_screen_rises_in_the_skate_in_and_drops_in_the_slow_down()
         {
-            double start = RoundSoundCues.CrowdLevel(RoundPhase.Idle, 0);
-            double skateBegin = RoundSoundCues.CrowdLevel(RoundPhase.SkateIn, 0);
-            double skateEnd = RoundSoundCues.CrowdLevel(RoundPhase.SkateIn, 2.5);
-            double slow = RoundSoundCues.CrowdLevel(RoundPhase.SlowDown, 0.5);
-            double window = RoundSoundCues.CrowdLevel(RoundPhase.ShootingWindow, 1.0);
+            double start = RoundSoundCues.CrowdLevel(RoundPhase.Idle, 0, Defaults);
+            double skateBegin = RoundSoundCues.CrowdLevel(RoundPhase.SkateIn, 0, Defaults);
+            double skateEnd = RoundSoundCues.CrowdLevel(RoundPhase.SkateIn, 2.5, Defaults);
+            double slow = RoundSoundCues.CrowdLevel(RoundPhase.SlowDown, 0.5, Defaults);
+            double window = RoundSoundCues.CrowdLevel(RoundPhase.ShootingWindow, 1.0, Defaults);
 
             Assert.Greater(start, 0.0);
             Assert.Greater(skateEnd, skateBegin);
             Assert.Greater(skateEnd, start);
             Assert.Less(slow, start);
             Assert.Less(window, start);
+        }
+
+        [Test]
+        public void Crowd_rise_follows_the_skate_in_length_from_the_Round_settings()
+        {
+            var settings = new RoundSettings { SkateInSeconds = 5 };
+            Assert.AreEqual(0.65, RoundSoundCues.CrowdLevel(RoundPhase.SkateIn, 2.5, settings), 1e-9); // halfway up 0.4..0.9
         }
 
         [Test]

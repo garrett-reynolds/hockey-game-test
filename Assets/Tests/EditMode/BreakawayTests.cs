@@ -6,6 +6,7 @@ namespace HockeyGame.Core.Tests
     public class BreakawayTests
     {
         private const double Tol = 1e-6;
+        private static readonly RoundSettings Defaults = new RoundSettings();
 
         [TestCase(AttackSide.Left, -10.0)]
         [TestCase(AttackSide.Middle, 6.0)]
@@ -40,17 +41,17 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void Skate_progress_is_linear_in_real_time_over_2_5_s()
         {
-            Assert.AreEqual(0.0, Breakaway.SkateProgress(0), Tol);
-            Assert.AreEqual(0.4, Breakaway.SkateProgress(1.0), Tol);
-            Assert.AreEqual(1.0, Breakaway.SkateProgress(2.5), Tol);
-            Assert.AreEqual(1.0, Breakaway.SkateProgress(4.0), Tol);
+            Assert.AreEqual(0.0, Breakaway.SkateProgress(0, Defaults), Tol);
+            Assert.AreEqual(0.4, Breakaway.SkateProgress(1.0, Defaults), Tol);
+            Assert.AreEqual(1.0, Breakaway.SkateProgress(2.5, Defaults), Tol);
+            Assert.AreEqual(1.0, Breakaway.SkateProgress(4.0, Defaults), Tol);
         }
 
         [Test]
         public void Skate_speed_is_start_to_stop_distance_over_the_skate_in_time()
         {
             // Middle: (6, 22) to (0, 9): sqrt(36 + 169) = 14.3178 m over 2.5 s.
-            Assert.AreEqual(5.727128, Breakaway.SkateSpeed(AttackSide.Middle), 1e-5);
+            Assert.AreEqual(5.727128, Breakaway.SkateSpeed(AttackSide.Middle, Defaults), 1e-5);
         }
 
         [Test]
@@ -84,21 +85,21 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void Goalie_sets_over_the_slow_down_on_real_time_and_is_fully_set_when_the_window_opens()
         {
-            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.SkateIn, 2.0), Tol);
-            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.SlowDown, 0), Tol);
-            Assert.AreEqual(0.5, Breakaway.GoalieSet(RoundPhase.SlowDown, 0.6), Tol); // smoothstep(0.5) = 0.5
-            Assert.AreEqual(0.15625, Breakaway.GoalieSet(RoundPhase.SlowDown, 0.3), Tol); // smoothstep(0.25)
-            Assert.AreEqual(1.0, Breakaway.GoalieSet(RoundPhase.SlowDown, 1.2), Tol);
-            Assert.AreEqual(1.0, Breakaway.GoalieSet(RoundPhase.ShootingWindow, 0), Tol);
-            Assert.AreEqual(1.0, Breakaway.GoalieSet(RoundPhase.ResultHold, 0), Tol);
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.SkateIn, 2.0, Defaults), Tol);
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.SlowDown, 0, Defaults), Tol);
+            Assert.AreEqual(0.5, Breakaway.GoalieSet(RoundPhase.SlowDown, 0.6, Defaults), Tol); // smoothstep(0.5) = 0.5
+            Assert.AreEqual(0.15625, Breakaway.GoalieSet(RoundPhase.SlowDown, 0.3, Defaults), Tol); // smoothstep(0.25)
+            Assert.AreEqual(1.0, Breakaway.GoalieSet(RoundPhase.SlowDown, 1.2, Defaults), Tol);
+            Assert.AreEqual(1.0, Breakaway.GoalieSet(RoundPhase.ShootingWindow, 0, Defaults), Tol);
+            Assert.AreEqual(1.0, Breakaway.GoalieSet(RoundPhase.ResultHold, 0, Defaults), Tol);
         }
 
         [Test]
         public void Ring_fraction_drains_over_the_3_s_window()
         {
-            Assert.AreEqual(1.0, Breakaway.RingFraction(3.0), Tol);
-            Assert.AreEqual(0.5, Breakaway.RingFraction(1.5), Tol);
-            Assert.AreEqual(0.0, Breakaway.RingFraction(0), Tol);
+            Assert.AreEqual(1.0, Breakaway.RingFraction(3.0, Defaults), Tol);
+            Assert.AreEqual(0.5, Breakaway.RingFraction(1.5, Defaults), Tol);
+            Assert.AreEqual(0.0, Breakaway.RingFraction(0, Defaults), Tol);
         }
 
         [Test]
@@ -118,6 +119,24 @@ namespace HockeyGame.Core.Tests
             round.Tick(2.0); // 0.5 s into the slow-down
             Assert.AreEqual(RoundPhase.SlowDown, round.Phase);
             Assert.AreEqual(0.5, round.PhaseSecondsElapsed, Tol);
+        }
+
+        [Test]
+        public void Skate_in_slow_down_and_window_follow_the_Round_settings()
+        {
+            var slow = new RoundSettings { SkateInSeconds = 5, SlowDownSeconds = 2.4, ShootingWindowSeconds = 6 };
+            Assert.AreEqual(0.5, Breakaway.SkateProgress(2.5, slow), Tol);
+            Assert.AreEqual(14.317821 / 5, Breakaway.SkateSpeed(AttackSide.Middle, slow), 1e-5);
+            Assert.AreEqual(0.5, Breakaway.GoalieSet(RoundPhase.SlowDown, 1.2, slow), Tol); // smoothstep(0.5)
+            Assert.AreEqual(0.5, Breakaway.RingFraction(3.0, slow), Tol);
+        }
+
+        [Test]
+        public void Round_reports_the_settings_it_runs_on()
+        {
+            var settings = new RoundSettings { SkateInSeconds = 4 };
+            var round = new Round(new ScriptedRandom(ScriptedRandom.AlternatingButterflies()), settings, 0);
+            Assert.AreSame(settings, round.Settings);
         }
     }
 }

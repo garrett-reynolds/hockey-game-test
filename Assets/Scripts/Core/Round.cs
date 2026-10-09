@@ -33,6 +33,9 @@ namespace HockeyGame.Core
             Phase = RoundPhase.Idle;
         }
 
+        /// <summary>The tunable values this Round runs on (phase lengths, Contested chances).</summary>
+        public RoundSettings Settings => _settings;
+
         public RoundPhase Phase { get; private set; }
 
         /// <summary>Current Shot number, 1 to 6. 0 before the Round starts.</summary>

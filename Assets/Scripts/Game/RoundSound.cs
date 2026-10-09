@@ -20,7 +20,7 @@ namespace HockeyGame
         readonly Dictionary<SoundCue, AudioClip[]> _clips = new Dictionary<SoundCue, AudioClip[]>();
 
         /// <summary>Tick on/off, master volume and mute are read from save every frame; the settings screen just changes them.</summary>
-        public RoundSound(GameObject listener, SaveData save)
+        public RoundSound(GameObject listener, SaveData save, RoundSettings settings)
         {
             _save = save;
             _cues = new RoundSoundCues(save);
@@ -28,7 +28,7 @@ namespace HockeyGame
             _crowd = Source(listener, "Crowd", out _crowdFilter);
             _crowd.clip = PlaceholderSounds.CrowdLoop();
             _crowd.loop = true;
-            _crowd.volume = (float)RoundSoundCues.CrowdLevel(RoundPhase.Idle, 0);
+            _crowd.volume = (float)RoundSoundCues.CrowdLevel(RoundPhase.Idle, 0, settings);
             _crowd.Play();
 
             _heartbeat = Source(listener, "Heartbeat", out _heartbeatFilter);
@@ -67,7 +67,7 @@ namespace HockeyGame
                     source.PlayOneShot(clip);
             }
 
-            float target = (float)RoundSoundCues.CrowdLevel(phase, phaseSeconds);
+            float target = (float)RoundSoundCues.CrowdLevel(phase, phaseSeconds, round.Settings);
             _crowd.volume = Mathf.MoveTowards(_crowd.volume, target, CrowdFadePerSecond * realSeconds);
 
             SlowMoSound slow = RoundSoundCues.SlowMo(phase, phaseSeconds);
