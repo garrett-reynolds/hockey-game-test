@@ -8,8 +8,8 @@ namespace HockeyGame
     /// Finds each visual piece's model. To use a real model, drop a model file (.fbx or .obj) into
     /// Assets/Resources/Models/ named after the piece below, for example Assets/Resources/Models/puck.obj.
     /// A piece with no file uses its code-made placeholder (today's simple shape). No code change is needed.
-    /// File names: ice, net, puck, goalie-dressing, boards, arena, goal-light, save-glove,
-    /// and the goalie character's gear: goalie-pad, goalie-blocker, goalie-mask (its catcher is save-glove).
+    /// File names: ice, net, puck, goalie-dressing (the rigged goalie character, gear included), boards, arena, goal-light,
+    /// save-glove.
     /// </summary>
     public static class ModelFiles
     {
@@ -24,9 +24,6 @@ namespace HockeyGame
         public const string Arena = "arena";
         public const string GoalLight = "goal-light";
         public const string SaveGlove = "save-glove";
-        public const string GoaliePad = "goalie-pad";
-        public const string GoalieBlocker = "goalie-blocker";
-        public const string GoalieMask = "goalie-mask";
 
         /// <summary>
         /// A new scene object of the model in the file with this name (no extension), or the placeholder when there is none.
