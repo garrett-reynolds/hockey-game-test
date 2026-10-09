@@ -74,7 +74,7 @@ namespace HockeyGame.Core.Tests
 
             view.SetProgress(0f);
             reference.Pose(GoaliePose.MiddleButterfly, 0f);
-            Assert.AreEqual(0f, Vector3.Distance(referenceKnee.localPosition, knee.localPosition) + Quaternion.Angle(referenceKnee.rotation, knee.rotation), 0.01f, "neutral at the start of the slow-down");
+            Assert.AreEqual(0f, Vector3.Distance(referenceKnee.localPosition, knee.localPosition) + Quaternion.Angle(referenceKnee.rotation, knee.rotation), 0.01f, "ready stance before the Shot");
 
             view.SetProgress(0.5f);
             reference.Pose(GoaliePose.MiddleButterfly, 0.5f);
@@ -117,6 +117,49 @@ namespace HockeyGame.Core.Tests
             var blocks = new GoalieView(_parent.transform);
             blocks.Show(true, GoaliePose.MiddleStandUp, false);
             Assert.IsFalse(blocks.SaveStop(from, new Vector3(0.6f, 1f, 0f), SoundCue.GloveCatch, 0.05f, out _), "the blocks keep the save block");
+        }
+
+        [Test]
+        public void Before_the_Shot_every_pose_shows_the_same_ready_stance()
+        {
+            var reference = new GoalieCharacter(new GameObject("Reference").transform);
+            var character = new GoalieCharacter(_parent.transform);
+            var view = new GoalieView(_parent.transform, character);
+            foreach (GoaliePose pose in System.Enum.GetValues(typeof(GoaliePose)))
+            {
+                view.Show(true, pose, false);
+                view.SetProgress(0f);
+                foreach (var bone in new[] { HumanBodyBones.Hips, HumanBodyBones.LeftLowerLeg, HumanBodyBones.RightLowerLeg, HumanBodyBones.LeftHand, HumanBodyBones.RightHand })
+                {
+                    Transform mine = character.Bone(bone), theirs = reference.Bone(bone);
+                    Assert.AreEqual(0f, Vector3.Distance(theirs.position - reference.Root.transform.position, mine.position - character.Root.transform.position), 0.001f, pose + " " + bone + " position");
+                    Assert.AreEqual(0f, Quaternion.Angle(theirs.rotation, mine.rotation), 0.01f, pose + " " + bone + " rotation");
+                }
+            }
+            Object.DestroyImmediate(reference.Root.transform.parent.gameObject);
+        }
+
+        [Test]
+        public void A_save_taken_while_the_goalie_is_still_ready_stops_on_the_gear_where_the_pose_puts_it()
+        {
+            var character = new GoalieCharacter(_parent.transform);
+            var view = new GoalieView(_parent.transform, character);
+            var reference = new GoalieCharacter(new GameObject("Reference").transform);
+            var from = new Vector3(0f, 1.2f, -8f);
+            var net = new Vector3(0.6f, 1f, 0f);
+            view.Show(true, GoaliePose.LeftButterfly, false);
+
+            view.SetProgress(1f);
+            Assert.IsTrue(view.SaveStop(from, net, SoundCue.GloveCatch, 0.05f, out Vector3 posed));
+
+            view.SetProgress(0f); // the Shot frame: the reaction has not started
+            Assert.IsTrue(view.SaveStop(from, net, SoundCue.GloveCatch, 0.05f, out Vector3 stop));
+            Assert.AreEqual(0f, Vector3.Distance(posed, stop), 0.001f, "measured on the posed gear");
+
+            reference.Pose(GoaliePose.LeftButterfly, 0f);
+            Transform knee = character.Bone(HumanBodyBones.LeftLowerLeg), referenceKnee = reference.Bone(HumanBodyBones.LeftLowerLeg);
+            Assert.AreEqual(0f, Quaternion.Angle(referenceKnee.rotation, knee.rotation), 0.01f, "still in the ready stance afterwards");
+            Object.DestroyImmediate(reference.Root.transform.parent.gameObject);
         }
     }
 }

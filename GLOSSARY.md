@@ -41,8 +41,12 @@ The side the player approaches the net from on one Shot: left, middle, or right.
 _Avoid_: Angle, lane
 
 **Goalie Pose**:
-The way the goalie sets up for one Shot. Each Attack Side has its own Goalie Poses, and each pose fixes which Zones are Open, Covered, or Contested. Left and right are always from the shooter's view.
+The way the goalie sets up for one Shot. Each Attack Side has its own Goalie Poses, and each pose fixes which Zones are Open, Covered, or Contested. Left and right are always from the shooter's view. The goalie only moves into it when the Shot is taken, so the player cannot read it before shooting (see docs/adr/0001).
 _Avoid_: Stance, position
+
+**Ready Stance**:
+The goalie's crouch before the Shot, the same for every Goalie Pose and Attack Side. The goalie holds it through the skate-in and slow-down, reacts out of it on the Shot, and keeps it when there is no Shot in time.
+_Avoid_: Neutral pose, idle pose
 
 **Miss**:
 A Shot that does not reach the Net Face, or no Shot in time. It uses one of the Round's 6 Shots.

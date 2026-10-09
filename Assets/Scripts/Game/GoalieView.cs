@@ -86,7 +86,7 @@ namespace HockeyGame
             for (int i = 0; i < _setBlocks.Length; i++) PlaceSetBlocks(i);
         }
 
-        /// <summary>How far the goalie has set into the pose: 0 = neutral shape, 1 = fully set (the default).</summary>
+        /// <summary>How far the goalie has moved into the pose: 0 = ready stance / neutral shape, 1 = fully posed (the default).</summary>
         public void SetProgress(float progress)
         {
             if (!Mathf.Approximately(progress, _set))
@@ -147,26 +147,33 @@ namespace HockeyGame
 
         /// <summary>
         /// Where a saved puck flying from `from` to `netPoint` stops when the goalie character is shown: just in front of the
-        /// gear that made the save (the same pad, catcher or blocker the save sound picks), on the puck's line.
+        /// gear that made the save (the same pad, catcher or blocker the save sound picks), on the puck's line. The gear is
+        /// where the Goalie Pose puts it, even while the goalie is still in the ready stance or reacting.
         /// False with no character shown (the save block is used instead).
         /// </summary>
         public bool SaveStop(Vector3 from, Vector3 netPoint, SoundCue contact, float puckThickness, out Vector3 stop)
         {
             stop = default;
             if (_character == null || !_visible) return false;
+            // Measured on the full pose: the save is asked for on the Shot, while the goalie is still reacting.
+            _character.Pose((GoaliePose)_shown, 1f);
+            bool found = PosedGear(contact, netPoint, out Bounds gear);
             PoseCharacter();
-            Bounds gear;
-            if (contact == SoundCue.GloveCatch) { if (!_character.GearBounds("Catcher", out gear)) return false; }
-            else if (contact == SoundCue.BlockerHit) { if (!_character.GearBounds("Blocker", out gear)) return false; }
-            else
-            {
-                // A pad save: the pad nearer the puck's spot.
-                if (!_character.GearBounds("Left Pad", out Bounds a) || !_character.GearBounds("Right Pad", out Bounds b)) return false;
-                gear = Mathf.Abs(a.center.x - netPoint.x) < Mathf.Abs(b.center.x - netPoint.x) ? a : b;
-            }
+            if (!found) return false;
             float z = gear.min.z - puckThickness / 2f;
             float t = Mathf.Approximately(netPoint.z, from.z) ? 1f : Mathf.Clamp01((z - from.z) / (netPoint.z - from.z));
             stop = Vector3.Lerp(from, netPoint, t);
+            return true;
+        }
+
+        bool PosedGear(SoundCue contact, Vector3 netPoint, out Bounds gear)
+        {
+            if (contact == SoundCue.GloveCatch) return _character.GearBounds("Catcher", out gear);
+            if (contact == SoundCue.BlockerHit) return _character.GearBounds("Blocker", out gear);
+            // A pad save: the pad nearer the puck's spot.
+            gear = default;
+            if (!_character.GearBounds("Left Pad", out Bounds a) || !_character.GearBounds("Right Pad", out Bounds b)) return false;
+            gear = Mathf.Abs(a.center.x - netPoint.x) < Mathf.Abs(b.center.x - netPoint.x) ? a : b;
             return true;
         }
 
