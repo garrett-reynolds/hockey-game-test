@@ -136,5 +136,12 @@ namespace HockeyGame.Core.Tests
             Assert.That(tex.mipmapCount, Is.GreaterThan(1), "far lines fade instead of breaking up");
             Assert.That(tex.anisoLevel, Is.GreaterThanOrEqualTo(8), "lines stay readable at the skater's low angle");
         }
+        [Test]
+        public void The_ice_is_glossy_so_it_shows_the_arena_lights_and_the_net()
+        {
+            foreach (GameObject ice in new[] { RinkIce.Build(_rink.transform), RinkIce.Build(_rink.transform, name => null) })
+                foreach (Renderer r in ice.GetComponentsInChildren<Renderer>())
+                    Assert.That(r.sharedMaterial.GetFloat("_Smoothness"), Is.GreaterThanOrEqualTo(0.8f), r.name);
+        }
     }
 }

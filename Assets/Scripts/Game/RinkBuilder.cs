@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 
 namespace HockeyGame
 {
@@ -29,6 +30,7 @@ namespace HockeyGame
             cameraObject.AddComponent<AudioListener>();
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = ArenaLighting.Backdrop;
+            camera.GetUniversalAdditionalCameraData().renderPostProcessing = true; // the arena's tonemapping, bloom and vignette
             cameraObject.transform.position = new Vector3(0f, 1.5f, -9f);
             cameraObject.transform.LookAt(new Vector3(0f, H / 2f, 0f));
         }

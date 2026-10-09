@@ -77,23 +77,11 @@ namespace HockeyGame
         static void MakeGlass(Renderer renderer)
         {
             renderer.shadowCastingMode = ShadowCastingMode.Off;
-            var m = new Material(renderer.sharedMaterial);
-            Color c = m.color;
+            // A copy of the glass asset (transparent URP Lit), so the player build keeps the transparent shader variant.
+            var m = new Material(Resources.Load<Material>(ArenaLighting.AssetFolder + "/" + ArenaLighting.GlassMaterial));
+            Color c = renderer.sharedMaterial.color;
             c.a = GlassAlpha;
             m.color = c;
-            m.SetFloat("_Surface", 1f); // URP Lit: transparent, alpha blended
-            m.SetFloat("_Blend", 0f);
-            m.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
-            m.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
-            m.SetFloat("_SrcBlendAlpha", (float)BlendMode.One);
-            m.SetFloat("_DstBlendAlpha", (float)BlendMode.OneMinusSrcAlpha);
-            m.SetFloat("_ZWrite", 0f);
-            m.SetFloat("_Smoothness", 0.9f);
-            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            m.SetOverrideTag("RenderType", "Transparent");
-            m.SetShaderPassEnabled("DepthOnly", false);
-            m.SetShaderPassEnabled("ShadowCaster", false);
-            m.renderQueue = (int)RenderQueue.Transparent;
             renderer.sharedMaterial = m;
         }
     }

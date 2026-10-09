@@ -4,16 +4,33 @@ using UnityEngine.Rendering;
 namespace HockeyGame
 {
     /// <summary>
-    /// Arena lighting: a bright, cool overhead main light from the shooter's side (soft shadows ground the goalie
-    /// and puck on the white ice), a few overhead spots over the skate-in, ambient light from above, and fog that fades
-    /// the far ice into the dark stands. At most three spots, so the goal light glow still lights the ice in URP Forward.
+    /// NHL-style arena lighting: a bright, cool, even ice under rows of glowing light banks, with darker stands so the
+    /// rink "pops". A main light almost straight down plus two shadowed spots over the crease give soft, short shadows
+    /// under the goalie and net; three spots along the skate-in brighten the ice. A cubemap of the arena, rendered once at
+    /// start, is the scene's reflection: the glossy ice mirrors the light banks, boards and net. Post-processing
+    /// (tonemapping, bloom, vignette) and the material templates come from assets in Assets/Resources/Lighting, so a
+    /// player build keeps their shaders.
+    /// Cost: 6 realtime lights (Forward+), 3 of them with soft shadows, and one 128 px cubemap rendered at start.
     /// </summary>
     public static class ArenaLighting
     {
         /// <summary>The dark arena behind the rink: the camera background and the fog colour.</summary>
         public static readonly Color Backdrop = new Color(0.1f, 0.12f, 0.16f);
 
-        static readonly Color ArenaWhite = new Color(0.96f, 0.98f, 1f);
+        /// <summary>Folder under Assets/Resources holding the lighting assets (Hockey Game > Build Arena Lighting Assets).</summary>
+        public const string AssetFolder = "Lighting";
+        /// <summary>Post-processing profile asset: tonemapping, bloom, vignette.</summary>
+        public const string PostProcessingProfile = "ArenaPostProcessing";
+        /// <summary>Material templates the game copies at runtime, kept as assets so the build keeps their shader variants.</summary>
+        public const string GlassMaterial = "Glass", GlowMaterial = "Glow", UnlitMaterial = "Unlit";
+        /// <summary>Name of each glowing overhead light bank under the roof.</summary>
+        public const string LightBank = "Light Bank";
+
+        /// <summary>Cool arena white, about 6,000 K.</summary>
+        static readonly Color ArenaWhite = new Color(0.93f, 0.97f, 1f);
+        /// <summary>HDR glow of a light bank: well above the bloom threshold.</summary>
+        const float BankGlow = 16f;
+        const float BankHeight = 20f;
 
         /// <summary>Adds the lights under rink and sets the scene's ambient light and fog. Returns the main light.</summary>
         public static Light Build(Transform rink)
@@ -21,40 +38,128 @@ namespace HockeyGame
             var main = new GameObject("Arena Light").AddComponent<Light>();
             main.transform.SetParent(rink, false);
             main.type = LightType.Directional;
-            main.transform.rotation = Quaternion.Euler(62f, -15f, 0f); // high, from behind the shooter toward the net
+            main.transform.rotation = Quaternion.Euler(78f, -10f, 0f); // nearly overhead, a little from the shooter's side
             main.color = ArenaWhite;
-            main.intensity = 0.85f;
+            main.intensity = 0.8f;
             main.shadows = LightShadows.Soft;
-            main.shadowStrength = 0.55f;
+            main.shadowStrength = 0.45f;
 
-            // Overhead spots along the skate-in: brighter pools on the ice toward the net.
-            float[] spotZ = { -3f, -11f, -19f };
-            foreach (float z in spotZ)
+            // Two banks over the crease, left and right: two soft, short shadows under the goalie and net.
+            var crease = new Vector3(0f, 0f, -0.5f);
+            foreach (float x in new[] { -7f, 7f })
             {
-                var spot = new GameObject("Overhead Light").AddComponent<Light>();
-                spot.transform.SetParent(rink, false);
-                spot.type = LightType.Spot;
-                spot.transform.position = new Vector3(0f, 14f, z);
-                spot.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-                spot.color = ArenaWhite;
-                spot.spotAngle = 110f;
-                spot.innerSpotAngle = 60f;
-                spot.range = 30f;
-                spot.intensity = 18f;
-                spot.shadows = LightShadows.None;
+                Light spot = Spot(rink, "Crease Light", new Vector3(x, 16f, -6f), crease, 50f, 30f, 110f);
+                spot.shadows = LightShadows.Soft;
+                spot.shadowStrength = 0.5f;
             }
 
-            RenderSettings.ambientMode = AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = new Color(0.4f, 0.42f, 0.48f);
-            RenderSettings.ambientEquatorColor = new Color(0.26f, 0.27f, 0.3f);
-            RenderSettings.ambientGroundColor = new Color(0.16f, 0.17f, 0.19f);
+            // Along the skate-in: brighter pools and highlights on the glossy ice. No shadows (cost).
+            foreach (float z in new[] { -8f, -16f, -24f })
+                Spot(rink, "Overhead Light", new Vector3(0f, 16f, z), new Vector3(0f, 0f, z), 110f, 30f, 70f);
 
+            AddLightBanks(rink);
+            AddReflections(rink);
+
+            // Ambient: bright from above (the ice), dim from the sides and below (the stands).
+            RenderSettings.ambientMode = AmbientMode.Trilight;
+            RenderSettings.ambientSkyColor = new Color(0.46f, 0.49f, 0.55f);
+            RenderSettings.ambientEquatorColor = new Color(0.17f, 0.18f, 0.21f);
+            RenderSettings.ambientGroundColor = new Color(0.1f, 0.11f, 0.13f);
+
+            SetFog();
+
+            var post = new GameObject("Arena Post-processing").AddComponent<Volume>();
+            post.transform.SetParent(rink, false);
+            post.isGlobal = true;
+            post.sharedProfile = Resources.Load<VolumeProfile>(AssetFolder + "/" + PostProcessingProfile);
+            return main;
+        }
+
+        /// <summary>
+        /// Linear fog that fades the far arena into the backdrop. The Rink scene saves the same fog (RinkSceneTool), so a
+        /// player build keeps the linear fog shaders.
+        /// </summary>
+        public static void SetFog()
+        {
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
             RenderSettings.fogColor = Backdrop;
             RenderSettings.fogStartDistance = 35f;
             RenderSettings.fogEndDistance = 90f;
-            return main;
+        }
+
+        /// <summary>A glowing URP Lit material (a copy of the Glow asset, so the build keeps the emission variant).</summary>
+        public static Material Glow(Color baseColour, Color emission)
+        {
+            var m = new Material(Resources.Load<Material>(AssetFolder + "/" + GlowMaterial));
+            m.color = baseColour;
+            m.SetColor("_EmissionColor", emission);
+            return m;
+        }
+
+        static Light Spot(Transform rink, string name, Vector3 position, Vector3 target, float spotAngle, float range, float intensity)
+        {
+            var spot = new GameObject(name).AddComponent<Light>();
+            spot.transform.SetParent(rink, false);
+            spot.type = LightType.Spot;
+            spot.transform.position = position;
+            spot.transform.rotation = Quaternion.LookRotation(target - position);
+            spot.color = ArenaWhite;
+            spot.spotAngle = spotAngle;
+            spot.innerSpotAngle = spotAngle * 0.5f;
+            spot.range = range;
+            spot.intensity = intensity;
+            spot.shadows = LightShadows.None;
+            return spot;
+        }
+
+        /// <summary>Rows of glowing light banks under the roof: seen when looking up, mirrored in the ice.</summary>
+        static void AddLightBanks(Transform rink)
+        {
+            var banks = new GameObject("Light Banks").transform;
+            banks.SetParent(rink, false);
+            Material glow = Glow(new Color(0.2f, 0.2f, 0.2f), ArenaWhite * BankGlow);
+            // A rig over the whole bowl, not just the ice: from the shooter's eye, the far banks are what the ice mirrors.
+            foreach (float z in new[] { -26f, -18f, -10f, -2f, 6f, 14f, 22f })
+                foreach (float x in new[] { -12f, -4f, 4f, 12f })
+                {
+                    GameObject bank = RinkBuilder.Cube(banks, LightBank, new Vector3(x, BankHeight, z), new Vector3(5f, 0.3f, 1.4f), Color.white);
+                    var r = bank.GetComponent<Renderer>();
+                    r.sharedMaterial = glow;
+                    r.shadowCastingMode = ShadowCastingMode.Off;
+                    r.receiveShadows = false;
+                }
+        }
+
+        /// <summary>
+        /// What glossy surfaces (the ice, the glass) reflect: a cubemap of the arena seen from the middle of the rink at eye
+        /// height, rendered once, here, by a temporary camera, and used as the scene's reflection. It holds the stands,
+        /// light banks, boards and net but not the goalie or puck (they move). Rendered in code, so it needs neither baked
+        /// lighting nor Realtime Reflection Probes on in the Quality settings.
+        /// </summary>
+        static void AddReflections(Transform rink)
+        {
+            var cube = new RenderTexture(128, 128, 24, RenderTextureFormat.ARGBHalf)
+            {
+                dimension = TextureDimension.Cube,
+                useMipMap = true,      // blurrier mips for rougher surfaces
+                autoGenerateMips = true,
+                name = "Arena Reflections",
+            };
+            var camera = new GameObject("Reflection Camera").AddComponent<Camera>();
+            camera.transform.SetParent(rink, false);
+            camera.transform.position = new Vector3(0f, 1.5f, RinkBoards.Box.center.z);
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = Backdrop;
+            camera.nearClipPlane = 0.1f;
+            camera.farClipPlane = 200f;
+            camera.enabled = false;
+            camera.RenderToCubemap(cube);
+            if (Application.isPlaying) Object.Destroy(camera.gameObject);
+            else Object.DestroyImmediate(camera.gameObject);
+
+            RenderSettings.defaultReflectionMode = DefaultReflectionMode.Custom;
+            RenderSettings.customReflectionTexture = cube;
         }
     }
 }

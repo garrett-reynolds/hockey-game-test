@@ -2,7 +2,9 @@
     "name": "HockeyGame.Editor",
     "rootNamespace": "HockeyGame.Editor",
     "references": [
-        "HockeyGame"
+        "HockeyGame",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.Universal.Runtime"
     ],
     "includePlatforms": [
         "Editor"

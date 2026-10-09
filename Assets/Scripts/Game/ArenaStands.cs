@@ -8,7 +8,7 @@ namespace HockeyGame
     /// The arena round the boards: stands full of fans, an LED ribbon board and a roof, from the arena model
     /// (Assets/Resources/Models/arena.obj) when there is one, so the shooter never sees the edge of the world.
     /// With no model the dark backdrop stays as it was. The arena casts no shadows (its roof would shade the ice), and
-    /// the model's part named "Ribbon" glows in its own colour.
+    /// the model's part named "Ribbon" glows in its own colour. The other parts are dimmed, so the lit ice pops.
     /// </summary>
     public static class ArenaStands
     {
@@ -18,6 +18,8 @@ namespace HockeyGame
         public const float RoofHeight = 24f;
         /// <summary>Name of the glowing LED ribbon board part in the arena model.</summary>
         public const string GlowPart = "Ribbon";
+        /// <summary>How much of its own colour each non-glowing part shows: the stands sit in the dark, the ice is lit.</summary>
+        const float StandsLight = 0.4f;
 
         /// <summary>The model's outer box in rink space: the boards' box plus Reach all round, from the ice to the roof.</summary>
         public static Bounds Box
@@ -46,17 +48,23 @@ namespace HockeyGame
             {
                 r.shadowCastingMode = ShadowCastingMode.Off;
                 if (r.name == GlowPart) Glow(r);
+                else Dim(r);
             }
             return arena;
         }
 
-        static void Glow(Renderer renderer)
+        static void Dim(Renderer renderer)
         {
             var m = new Material(renderer.sharedMaterial);
-            m.EnableKeyword("_EMISSION");
-            m.SetColor("_EmissionColor", m.color);
-            m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+            Color c = m.color;
+            m.color = new Color(c.r * StandsLight, c.g * StandsLight, c.b * StandsLight, c.a);
             renderer.sharedMaterial = m;
+        }
+
+        static void Glow(Renderer renderer)
+        {
+            Color colour = renderer.sharedMaterial.color;
+            renderer.sharedMaterial = ArenaLighting.Glow(colour, colour);
         }
     }
 }

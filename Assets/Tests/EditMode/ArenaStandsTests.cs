@@ -98,5 +98,13 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual("crowd", crowd.name);
             Assert.That(crowd.mipmapCount, Is.GreaterThan(1), "far rows blur instead of sparkling");
         }
+        [Test]
+        public void The_stands_are_dimmer_than_the_white_ice_so_the_lit_rink_pops()
+        {
+            GameObject arena = ArenaStands.Build(_rink.transform);
+            foreach (Renderer r in arena.GetComponentsInChildren<Renderer>())
+                if (r.name != ArenaStands.GlowPart)
+                    Assert.That(r.sharedMaterial.color.maxColorComponent, Is.LessThanOrEqualTo(0.5f), r.name);
+        }
     }
 }

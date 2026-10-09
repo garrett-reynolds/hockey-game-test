@@ -16,6 +16,14 @@ namespace HockeyGame
         /// <summary>Height an ice model with some thickness is fitted to (metres). The flat ice sheet keeps no height.</summary>
         const float Thickness = 0.05f;
 
+        /// <summary>URP Lit smoothness of the ice: glossy, so it mirrors the light banks, boards and net (ArenaLighting's reflection probe).</summary>
+        public const float Gloss = 0.8f;
+        /// <summary>
+        /// Tint on the ice texture: a touch below pure white and cool, so the lit ice stays under the tonemapper's
+        /// white and the highlights from the light banks still show on it.
+        /// </summary>
+        static readonly Color Tint = new Color(0.8f, 0.85f, 0.9f);
+
         /// <summary>Adds the ice under rink. findFile is for tests; by default the model comes from Assets/Resources/Models.</summary>
         public static GameObject Build(Transform rink, Func<string, GameObject> findFile = null)
         {
@@ -28,6 +36,14 @@ namespace HockeyGame
             // FitTo centres the model on y = 0; a model with thickness is lifted so its top is at y = 0.
             float top = Bounds(model).max.y - ice.transform.position.y;
             model.transform.localPosition -= Vector3.up * top;
+
+            foreach (Renderer r in model.GetComponentsInChildren<Renderer>())
+            {
+                var m = new Material(r.sharedMaterial); // never change the imported model's material asset
+                m.SetFloat("_Smoothness", Gloss);
+                m.color *= Tint;
+                r.sharedMaterial = m;
+            }
             return ice;
         }
 
