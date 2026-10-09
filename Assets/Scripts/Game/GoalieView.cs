@@ -4,9 +4,11 @@ using UnityEngine;
 namespace HockeyGame
 {
     /// <summary>
-    /// Block goalie and Easy mode glow. All six Goalie Poses are built once from the pose table
-    /// (Covered Zone = block filling the Zone, Contested Zone = smaller block, Open Zone = nothing);
-    /// showing a pose enables its group and disables the rest. No colliders.
+    /// The goalie: the rigged goalie character when there is one, otherwise the block goalie, plus the Easy mode glow.
+    /// All six Goalie Poses are built once as blocks from the pose table (Covered Zone = block filling the Zone,
+    /// Contested Zone = smaller block, Open Zone = nothing); showing a pose enables its group and disables the rest.
+    /// The blocks stay in the scene as the rules reference; with the character they are not drawn, and the character
+    /// takes the pose instead, set by the same blend. No colliders.
     /// </summary>
     public sealed class GoalieView
     {
@@ -24,9 +26,12 @@ namespace HockeyGame
         bool _glowOn;
         int _shown = -1;
         bool _visible;
+        readonly GoalieCharacter _character; // null or without a model: the blocks are drawn
 
-        public GoalieView(Transform parent)
+        /// <param name="character">The goalie character to pose; null (or no model) draws the blocks instead.</param>
+        public GoalieView(Transform parent, GoalieCharacter character = null)
         {
+            _character = character != null && character.Present ? character : null;
             Shader unlit = Shader.Find("Universal Render Pipeline/Unlit");
             foreach (GoaliePose pose in System.Enum.GetValues(typeof(GoaliePose)))
             {
@@ -73,6 +78,10 @@ namespace HockeyGame
                     }
                 }
             }
+            if (_character != null)
+                foreach (GameObject group in _blocks)
+                    foreach (Renderer r in group.GetComponentsInChildren<Renderer>(true))
+                        r.enabled = false;
             Apply();
             for (int i = 0; i < _setBlocks.Length; i++) PlaceSetBlocks(i);
         }
@@ -80,9 +89,17 @@ namespace HockeyGame
         /// <summary>How far the goalie has set into the pose: 0 = neutral shape, 1 = fully set (the default).</summary>
         public void SetProgress(float progress)
         {
-            if (Mathf.Approximately(progress, _set)) return;
-            _set = Mathf.Clamp01(progress);
-            for (int i = 0; i < _setBlocks.Length; i++) PlaceSetBlocks(i);
+            if (!Mathf.Approximately(progress, _set))
+            {
+                _set = Mathf.Clamp01(progress);
+                for (int i = 0; i < _setBlocks.Length; i++) PlaceSetBlocks(i);
+            }
+            PoseCharacter(); // every call, so nothing else left on the bones wins
+        }
+
+        void PoseCharacter()
+        {
+            if (_character != null && _visible) _character.Pose((GoaliePose)_shown, _set);
         }
 
         void PlaceSetBlocks(int pose)
@@ -123,6 +140,9 @@ namespace HockeyGame
                 _blocks[i].SetActive(_visible && i == _shown);
                 _glows[i].SetActive(_visible && _glowOn && i == _shown);
             }
+            if (_character == null) return;
+            _character.Show(_visible);
+            PoseCharacter();
         }
 
         static bool IsOpen(GoaliePose pose, int column, int row)

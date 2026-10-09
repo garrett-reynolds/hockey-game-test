@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using HockeyGame.Core;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -21,6 +23,10 @@ namespace HockeyGame
         Renderer[] _skates = new Renderer[0];
         Quaternion _restLeftFoot = Quaternion.identity, _restRightFoot = Quaternion.identity; // in the Root frame
         Vector3 _leftFingers = Vector3.forward, _leftThumb = Vector3.up, _rightFingers = Vector3.forward, _rightThumb = Vector3.up; // hand-local
+        Transform _model;
+        Transform[] _bones = new Transform[0];   // every mapped humanoid bone
+        Snapshot _rest, _ready;                  // T-pose as imported; the ready stance
+        readonly Snapshot[] _poses = new Snapshot[6]; // one per Goalie Pose, fully set
 
         /// <summary>The object that holds the character; the parent of the model. Inactive while hidden.</summary>
         public GameObject Root { get; }
@@ -54,11 +60,146 @@ namespace HockeyGame
             _body = model.GetComponentsInChildren<SkinnedMeshRenderer>(true);
             _skates = Array.FindAll(model.GetComponentsInChildren<Renderer>(true), r => r.name == "Gear Left Skate" || r.name == "Gear Right Skate");
 
+            _model = model.transform;
             FaceTheShooter(model.transform);
+            ScaleGear();
             CaptureRest();
             ReadyStance();
             StandOnIce(model.transform);
+            _ready = Take();
+            foreach (GoaliePose pose in Enum.GetValues(typeof(GoaliePose)))
+                _poses[(int)pose] = MakePose(pose);
+            Put(_ready);
         }
+
+        /// <summary>
+        /// Moves the character from the ready stance (set 0) into the Goalie Pose (set 1). The same pose and set always give
+        /// the same look, whatever was shown before. Does nothing without a model.
+        /// </summary>
+        public void Pose(GoaliePose pose, float set)
+        {
+            if (!Present) return;
+            Snapshot target = _poses[(int)pose];
+            set = Mathf.Clamp01(set);
+            for (int i = 0; i < _bones.Length; i++)
+                _bones[i].localRotation = Quaternion.Slerp(_ready.Rotations[i], target.Rotations[i], set);
+            _model.localPosition = Vector3.Lerp(_ready.ModelPosition, target.ModelPosition, set);
+        }
+
+        sealed class Snapshot
+        {
+            public Quaternion[] Rotations;
+            public Vector3 ModelPosition;
+        }
+
+        Snapshot Take()
+        {
+            var snap = new Snapshot { Rotations = new Quaternion[_bones.Length], ModelPosition = _model.localPosition };
+            for (int i = 0; i < _bones.Length; i++) snap.Rotations[i] = _bones[i].localRotation;
+            return snap;
+        }
+
+        void Put(Snapshot snap)
+        {
+            for (int i = 0; i < _bones.Length; i++) _bones[i].localRotation = snap.Rotations[i];
+            _model.localPosition = snap.ModelPosition;
+        }
+
+        /// <summary>Builds a pose from the T-pose: ready stance first, then the pose's own limbs, then back on the ice.</summary>
+        Snapshot MakePose(GoaliePose pose)
+        {
+            Put(_rest);
+            ReadyStance();
+            Vector3 shift = GoaliePoseLimbs.Apply(this, pose);
+            Ground(shift);
+            return Take();
+        }
+
+        /// <summary>Puts the lowest pad or skate point on the ice and the hips over the stand point plus shift (Root frame).</summary>
+        void Ground(Vector3 shift)
+        {
+            float lowest = float.MaxValue;
+            foreach (Renderer r in _model.GetComponentsInChildren<Renderer>(true))
+            {
+                if (!(r is MeshRenderer) || !(r.name.Contains("Pad") || r.name.Contains("Skate"))) continue;
+                Matrix4x4 toWorld = r.transform.localToWorldMatrix;
+                foreach (Vector3 v in r.GetComponent<MeshFilter>().sharedMesh.vertices)
+                    lowest = Mathf.Min(lowest, toWorld.MultiplyPoint3x4(v).y);
+            }
+            if (lowest == float.MaxValue) return;
+            Vector3 hips = Bone(HumanBodyBones.Hips).position;
+            Vector3 target = Root.transform.TransformPoint(new Vector3(shift.x, 0f, 0f));
+            _model.position += new Vector3(target.x - hips.x, Root.transform.position.y - lowest, 0f) + Root.transform.TransformVector(new Vector3(0f, 0f, shift.z));
+        }
+
+        /// <summary>
+        /// Gear sizes (x the size in the model file) across, up and front-to-back as the piece sits in the T-pose facing the
+        /// shooter, so the posed goalie fills each Covered Zone. Scaled about each piece's centre.
+        /// </summary>
+        static readonly Dictionary<string, Vector3> GearScale = new Dictionary<string, Vector3>
+        {
+            { "Gear Left Pad", new Vector3(1.4f, 1f, 1f) }, { "Gear Right Pad", new Vector3(1.4f, 1f, 1f) },
+            { "Gear Blocker", Vector3.one * 1.3f }, { "Gear Catcher", Vector3.one * 1.4f },
+        };
+
+        /// <summary>The piece's own axis (0 x, 1 y, 2 z) that lies nearest the world direction, and its sign.</summary>
+        static (int axis, float sign) AxisNearest(Transform piece, Vector3 world)
+        {
+            int best = 0;
+            float bestDot = 0f;
+            for (int a = 0; a < 3; a++)
+            {
+                Vector3 local = Vector3.zero;
+                local[a] = 1f;
+                float d = Vector3.Dot(piece.TransformDirection(local).normalized, world);
+                if (Mathf.Abs(d) > Mathf.Abs(bestDot)) { best = a; bestDot = d; }
+            }
+            return (best, Mathf.Sign(bestDot));
+        }
+
+        /// <summary>Scales the gear (call in the T-pose, facing the shooter) and remembers which way each pad's front faces.</summary>
+        void ScaleGear()
+        {
+            Quaternion q = Root.transform.rotation;
+            Vector3[] world = { q * Vector3.right, q * Vector3.up, q * Vector3.back };
+            foreach (MeshRenderer r in _model.GetComponentsInChildren<MeshRenderer>(true))
+            {
+                if (r.name == "Gear Left Pad" || r.name == "Gear Right Pad")
+                {
+                    var (axis, sign) = AxisNearest(r.transform, world[2]);
+                    Vector3 front = Vector3.zero;
+                    front[axis] = sign;
+                    if (r.name == "Gear Left Pad") { _leftPad = r.transform; _leftPadFront = front; }
+                    else { _rightPad = r.transform; _rightPadFront = front; }
+                }
+                if (!GearScale.TryGetValue(r.name, out Vector3 k)) continue;
+                Vector3 scale = Vector3.one;
+                for (int w = 0; w < 3; w++) scale[AxisNearest(r.transform, world[w]).axis] = k[w];
+                Vector3 centre = r.bounds.center;
+                r.transform.localScale = Vector3.Scale(r.transform.localScale, scale);
+                r.transform.position += centre - r.bounds.center;
+            }
+        }
+
+        /// <summary>
+        /// Turns a lower leg about the shin so its pad's front faces as near face as it can. The pad front is the side of the pad
+        /// axis that faces the shooter in the T-pose.
+        /// </summary>
+        internal void FacePad(bool goalieLeft, Vector3 face)
+        {
+            Transform calf = Bone(goalieLeft ? HumanBodyBones.LeftLowerLeg : HumanBodyBones.RightLowerLeg);
+            Transform foot = Bone(goalieLeft ? HumanBodyBones.LeftFoot : HumanBodyBones.RightFoot);
+            Transform pad = goalieLeft ? _leftPad : _rightPad;
+            if (calf == null || foot == null || pad == null) return;
+            Vector3 shin = (foot.position - calf.position).normalized;
+            Vector3 now = Vector3.ProjectOnPlane(pad.TransformDirection(goalieLeft ? _leftPadFront : _rightPadFront), shin);
+            Vector3 want = Vector3.ProjectOnPlane(face, shin);
+            if (now.sqrMagnitude < 1e-6f || want.sqrMagnitude < 1e-6f) return;
+            calf.rotation = Quaternion.AngleAxis(Vector3.SignedAngle(now, want, shin), shin) * calf.rotation;
+        }
+
+        Transform _leftPad, _rightPad;
+        Vector3 _leftPadFront, _rightPadFront; // pad-local
 
         /// <summary>The bone for a humanoid body part, or null when there is no model.</summary>
         public Transform Bone(HumanBodyBones bone) => Animator != null ? Animator.GetBoneTransform(bone) : null;
@@ -144,6 +285,14 @@ namespace HockeyGame
         /// <summary>Remembers, from the rest pose, how the feet sit and which way each hand's fingers and thumb point.</summary>
         void CaptureRest()
         {
+            var bones = new List<Transform>();
+            for (var b = HumanBodyBones.Hips; b < HumanBodyBones.LastBone; b++)
+            {
+                Transform t = Bone(b);
+                if (t != null && !bones.Contains(t)) bones.Add(t);
+            }
+            _bones = bones.ToArray();
+            _rest = Take();
             Quaternion toFrame = Quaternion.Inverse(Root.transform.rotation);
             _restLeftFoot = toFrame * Bone(HumanBodyBones.LeftFoot).rotation;
             _restRightFoot = toFrame * Bone(HumanBodyBones.RightFoot).rotation;

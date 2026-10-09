@@ -40,7 +40,7 @@ namespace HockeyGame.Core.Tests
                 TickOn = false,
                 MasterVolume = 0.4,
                 Mute = true,
-                GoalieCharacterOn = true,
+                ForceGoalieBlocks = true,
             };
         }
 
@@ -59,7 +59,7 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(expected.TickOn, actual.TickOn);
             Assert.AreEqual(expected.MasterVolume, actual.MasterVolume);
             Assert.AreEqual(expected.Mute, actual.Mute);
-            Assert.AreEqual(expected.GoalieCharacterOn, actual.GoalieCharacterOn);
+            Assert.AreEqual(expected.ForceGoalieBlocks, actual.ForceGoalieBlocks);
         }
 
         [Test]
@@ -79,7 +79,18 @@ namespace HockeyGame.Core.Tests
             Assert.IsTrue(d.TickOn);
             Assert.AreEqual(1.0, d.MasterVolume);
             Assert.IsFalse(d.Mute);
-            Assert.IsFalse(d.GoalieCharacterOn, "the rigged goalie character is a developer flag, off by default");
+            Assert.IsFalse(d.ForceGoalieBlocks, "the goalie character shows by default; the blocks are a developer fallback");
+        }
+
+        [Test]
+        public void An_old_settings_file_with_the_character_turned_off_still_shows_the_goalie_character()
+        {
+            // Every file saved before #27 holds goalieCharacterOn=false; that old flag no longer hides the character.
+            Directory.CreateDirectory(_dir);
+            File.WriteAllText(_path, "bestScore=3\ngoalieCharacterOn=false\n");
+            var d = SaveData.Load(_path);
+            Assert.AreEqual(3, d.BestScore);
+            Assert.IsFalse(d.ForceGoalieBlocks);
         }
 
         [Test]
