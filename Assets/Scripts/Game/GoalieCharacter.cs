@@ -5,22 +5,22 @@ using Object = UnityEngine.Object;
 namespace HockeyGame
 {
     /// <summary>
-    /// The rigged goalie character: a Humanoid model (Assets/Resources/Models/goalie-dressing) in a goalie jersey skin,
-    /// with pads, blocker, catcher and mask parented to its bones so they follow every joint. It stands at the net in a
-    /// neutral ready stance and is hidden until shown. It decides nothing: the GoalieView blocks stay the gameplay look.
-    /// To pose it, use Animator (Humanoid, no controller, so nothing overwrites the bones) or Bone(...).
+    /// The rigged goalie character: a life-size Humanoid model (Assets/Resources/Models/goalie-dressing.fbx, built by
+    /// Tools/make_lifelike_goalie.py) wearing jersey, pants and socks that bend with its skin, and gear (pads, blocker,
+    /// catcher, stick, mask, skates) parented to its bones in the file, so the gear follows every joint.
+    /// It stands at the net in a neutral ready stance and is hidden until shown. It decides nothing: the GoalieView blocks
+    /// stay the gameplay look. To pose it, use Animator (Humanoid, no controller, so nothing overwrites the bones) or Bone(...).
     /// With no model file, Present is false and the character draws nothing.
     /// </summary>
     public sealed class GoalieCharacter
     {
         /// <summary>Where the goalie stands: centred on the net, this far in front of the Net Face (metres, -z is toward the shooter).</summary>
         public const float StandZ = -0.4f;
-        /// <summary>Top of the head when standing straight, metres. The ready stance crouches to about the 1.22 m net height.</summary>
-        const float StandingHeight = 1.3f;
-        const string SkinTexture = "goalie-skin";
-        static readonly Color GearWhite = new Color(0.92f, 0.92f, 0.9f);
 
         SkinnedMeshRenderer[] _body = new SkinnedMeshRenderer[0];
+        Renderer[] _skates = new Renderer[0];
+        Quaternion _restLeftFoot = Quaternion.identity, _restRightFoot = Quaternion.identity; // in the Root frame
+        Vector3 _leftFingers = Vector3.forward, _leftThumb = Vector3.up, _rightFingers = Vector3.forward, _rightThumb = Vector3.up; // hand-local
 
         /// <summary>The object that holds the character; the parent of the model. Inactive while hidden.</summary>
         public GameObject Root { get; }
@@ -52,12 +52,11 @@ namespace HockeyGame
             animator.runtimeAnimatorController = null; // bones are posed from code
             model.transform.SetParent(Root.transform, false);
             _body = model.GetComponentsInChildren<SkinnedMeshRenderer>(true);
-            Skin();
+            _skates = Array.FindAll(model.GetComponentsInChildren<Renderer>(true), r => r.name == "Gear Left Skate" || r.name == "Gear Right Skate");
 
             FaceTheShooter(model.transform);
-            ScaleTo(model.transform, StandingHeight);
+            CaptureRest();
             ReadyStance();
-            Dress(findFile);
             StandOnIce(model.transform);
         }
 
@@ -69,7 +68,7 @@ namespace HockeyGame
             if (Root.activeSelf != visible) Root.SetActive(visible);
         }
 
-        /// <summary>World-space bounds of the body as posed now (gear not included).</summary>
+        /// <summary>World-space bounds of the body and its clothes as posed now (the rigid gear is not included).</summary>
         public Bounds BodyBounds()
         {
             bool any = false;
@@ -77,7 +76,7 @@ namespace HockeyGame
             var mesh = new Mesh();
             foreach (SkinnedMeshRenderer body in _body)
             {
-                body.BakeMesh(mesh);
+                body.BakeMesh(mesh, true);
                 Matrix4x4 toWorld = Matrix4x4.TRS(body.transform.position, body.transform.rotation, Vector3.one);
                 foreach (Vector3 v in mesh.vertices)
                 {
@@ -91,9 +90,11 @@ namespace HockeyGame
         }
 
         /// <summary>
-        /// Neutral ready stance: knees bent over the toes, hips back, chest leaning in, head up, catcher and blocker
-        /// out in front at the sides. Each limb is aimed in the goalie's own frame (forward = toward the shooter), so it
-        /// can be re-applied from any pose. #27 can pose the rig the same way (Aim) or through the Humanoid Animator.
+        /// Neutral ready stance: wide stance with the knees bent over the skates, hips back, chest leaning in, head up to
+        /// the shooter, skates flat on the ice. Blocker hand low at the side holding the stick: back of the hand (the
+        /// blocker board) to the shooter, thumb up, so the stick runs down to the ice. Catcher out at the side, palm (the
+        /// pocket) to the shooter, fingers up. Each limb is aimed in the goalie's own frame (forward = toward the shooter),
+        /// so it can be re-applied from any pose. #27 can pose the rig the same way (Aim, Orient) or through the Animator.
         /// </summary>
         public void ReadyStance()
         {
@@ -101,23 +102,59 @@ namespace HockeyGame
             Transform frame = Root.transform;
             Vector3 forward = frame.rotation * Vector3.back, up = frame.up, left = frame.rotation * Vector3.right; // the goalie's own left
 
-            Aim(HumanBodyBones.Spine, HumanBodyBones.Neck, up * 0.9f + forward * 0.35f);
-            Aim(HumanBodyBones.Neck, HumanBodyBones.Head, up + forward * 0.1f);
+            Aim(HumanBodyBones.Spine, HumanBodyBones.Neck, up * 0.6f + forward * 0.8f);
+            Aim(HumanBodyBones.Neck, HumanBodyBones.Head, up + forward * 0.2f);
             foreach (float side in new[] { 1f, -1f })
             {
                 bool l = side > 0f;
                 Vector3 outward = left * side;
                 Aim(l ? HumanBodyBones.LeftUpperLeg : HumanBodyBones.RightUpperLeg, l ? HumanBodyBones.LeftLowerLeg : HumanBodyBones.RightLowerLeg,
-                    -up * 0.4f + forward * 0.9f + outward * 0.25f);
+                    -up * 0.35f + forward * 0.85f + outward * 0.4f);
                 Aim(l ? HumanBodyBones.LeftLowerLeg : HumanBodyBones.RightLowerLeg, l ? HumanBodyBones.LeftFoot : HumanBodyBones.RightFoot,
-                    -up * 0.9f - forward * 0.3f + outward * 0.1f);
-                Aim(l ? HumanBodyBones.LeftFoot : HumanBodyBones.RightFoot, l ? HumanBodyBones.LeftToes : HumanBodyBones.RightToes,
-                    forward - up * 0.15f + outward * 0.15f);
-                Aim(l ? HumanBodyBones.LeftUpperArm : HumanBodyBones.RightUpperArm, l ? HumanBodyBones.LeftLowerArm : HumanBodyBones.RightLowerArm,
-                    -up * 0.7f + outward * 0.55f + forward * 0.35f);
-                Aim(l ? HumanBodyBones.LeftLowerArm : HumanBodyBones.RightLowerArm, l ? HumanBodyBones.LeftHand : HumanBodyBones.RightHand,
-                    forward * 0.8f + outward * 0.45f - up * 0.15f);
+                    -up * 0.85f - forward * 0.45f + outward * 0.12f);
+                // Skates flat on the ice, toes turned out a little.
+                Transform foot = Bone(l ? HumanBodyBones.LeftFoot : HumanBodyBones.RightFoot);
+                foot.rotation = frame.rotation * Quaternion.AngleAxis(l ? -12f : 12f, Vector3.up) * (l ? _restLeftFoot : _restRightFoot);
             }
+            // Catcher (left hand): out at the side, pocket to the shooter, fingers up.
+            Aim(HumanBodyBones.LeftUpperArm, HumanBodyBones.LeftLowerArm, -up * 0.75f + left * 0.5f + forward * 0.3f);
+            Aim(HumanBodyBones.LeftLowerArm, HumanBodyBones.LeftHand, forward * 0.75f + left * 0.45f + up * 0.1f);
+            Orient(HumanBodyBones.LeftHand, up * 0.9f + forward * 0.2f + left * 0.1f, -left);
+            // Blocker (right hand): low at the side, board to the shooter, stick down to the ice in front of the pads.
+            Aim(HumanBodyBones.RightUpperArm, HumanBodyBones.RightLowerArm, -up * 0.6f - left * 0.45f + forward * 0.35f);
+            Aim(HumanBodyBones.RightLowerArm, HumanBodyBones.RightHand, forward * 0.9f - left * 0.15f - up * 0.05f);
+            Orient(HumanBodyBones.RightHand, left * 0.8f + forward * 0.3f, up - forward * 0.5f); // stick slants down and forward
+        }
+
+        /// <summary>
+        /// Turns a hand so its fingers point along fingers and its thumb as near thumb as it can (square to the fingers).
+        /// </summary>
+        public void Orient(HumanBodyBones hand, Vector3 fingers, Vector3 thumb)
+        {
+            Transform bone = Bone(hand);
+            bool l = hand == HumanBodyBones.LeftHand;
+            if (bone == null || (hand != HumanBodyBones.LeftHand && hand != HumanBodyBones.RightHand)) return;
+            Quaternion rest = Quaternion.LookRotation(l ? _leftFingers : _rightFingers, l ? _leftThumb : _rightThumb);
+            bone.rotation = Quaternion.LookRotation(fingers, thumb) * Quaternion.Inverse(rest);
+        }
+
+        /// <summary>Remembers, from the rest pose, how the feet sit and which way each hand's fingers and thumb point.</summary>
+        void CaptureRest()
+        {
+            Quaternion toFrame = Quaternion.Inverse(Root.transform.rotation);
+            _restLeftFoot = toFrame * Bone(HumanBodyBones.LeftFoot).rotation;
+            _restRightFoot = toFrame * Bone(HumanBodyBones.RightFoot).rotation;
+            (_leftFingers, _leftThumb) = HandAxes(HumanBodyBones.LeftHand, HumanBodyBones.LeftMiddleProximal, HumanBodyBones.LeftThumbProximal);
+            (_rightFingers, _rightThumb) = HandAxes(HumanBodyBones.RightHand, HumanBodyBones.RightMiddleProximal, HumanBodyBones.RightThumbProximal);
+        }
+
+        (Vector3 fingers, Vector3 thumb) HandAxes(HumanBodyBones hand, HumanBodyBones middle, HumanBodyBones thumb)
+        {
+            Transform h = Bone(hand), m = Bone(middle), t = Bone(thumb);
+            if (h == null || m == null || t == null) return (Vector3.forward, Vector3.up);
+            Vector3 f = h.InverseTransformDirection(m.position - h.position).normalized;
+            Vector3 th = h.InverseTransformDirection(t.position - h.position);
+            return (f, Vector3.ProjectOnPlane(th, f).normalized);
         }
 
         /// <summary>Turns a bone so the direction from it to the child bone points along direction (shortest turn).</summary>
@@ -128,19 +165,6 @@ namespace HockeyGame
             Vector3 now = to.position - from.position;
             if (now.sqrMagnitude < 1e-10f || direction.sqrMagnitude < 1e-10f) return;
             from.rotation = Quaternion.FromToRotation(now, direction) * from.rotation;
-        }
-
-        void Skin()
-        {
-            var texture = Resources.Load<Texture2D>(ModelFiles.Folder + "/" + SkinTexture);
-            Shader lit = Shader.Find("Universal Render Pipeline/Lit");
-            foreach (SkinnedMeshRenderer body in _body)
-            {
-                var material = new Material(lit != null ? lit : body.sharedMaterial.shader) { name = "Goalie Skin" };
-                if (texture != null) material.mainTexture = texture; // _BaseMap in URP Lit
-                material.color = Color.white;
-                body.sharedMaterial = material;
-            }
         }
 
         /// <summary>Turns the model about Y so its front faces the shooter (-z). Front = from the hips' right x up.</summary>
@@ -154,103 +178,20 @@ namespace HockeyGame
             model.rotation = Quaternion.AngleAxis(Vector3.SignedAngle(forward, Vector3.back, Vector3.up), Vector3.up) * model.rotation;
         }
 
-        void ScaleTo(Transform model, float height)
-        {
-            Bounds b = BodyBounds();
-            if (b.size.y <= 0f) return;
-            model.localScale *= height / b.size.y;
-        }
-
+        /// <summary>Puts the skate blades on the ice (y = 0) and the hips over the stand point.</summary>
         void StandOnIce(Transform model)
         {
-            Bounds b = BodyBounds();
+            float lowest = float.MaxValue;
+            foreach (Renderer skate in _skates)
+            {
+                Matrix4x4 toWorld = skate.transform.localToWorldMatrix;
+                foreach (Vector3 v in skate.GetComponent<MeshFilter>().sharedMesh.vertices)
+                    lowest = Mathf.Min(lowest, toWorld.MultiplyPoint3x4(v).y);
+            }
+            if (lowest == float.MaxValue) lowest = BodyBounds().min.y;
             Vector3 hips = Bone(HumanBodyBones.Hips).position;
             Vector3 root = Root.transform.position;
-            model.position += new Vector3(root.x - hips.x, root.y - b.min.y, 0f);
-        }
-
-        // ---- gear: placed in the ready stance (facing the shooter), then parented to bones so any later pose carries it ----
-
-        void Dress(Func<string, GameObject> findFile)
-        {
-            Vector3 forward = Vector3.back; // toward the shooter
-            foreach (var (side, upper, lower, foot) in new[]
-            {
-                ("Left", HumanBodyBones.LeftUpperLeg, HumanBodyBones.LeftLowerLeg, HumanBodyBones.LeftFoot),
-                ("Right", HumanBodyBones.RightUpperLeg, HumanBodyBones.RightLowerLeg, HumanBodyBones.RightFoot),
-            })
-            {
-                Vector3 knee = Bone(lower).position, ankle = Bone(foot).position;
-                float shin = Vector3.Distance(knee, ankle);
-                Vector3 up = (knee - ankle).normalized;
-                Vector3 centre = Vector3.Lerp(knee, ankle, 0.6f) + forward * (0.25f * shin);
-                Attach(side + " Pad", ModelFiles.GoaliePad, findFile, PrimitiveType.Cube, Bone(lower),
-                    centre, Quaternion.LookRotation(Vector3.ProjectOnPlane(-forward, up), up), new Vector3(0.8f, 1.75f, 0.38f) * shin);
-            }
-
-            float forearm = Vector3.Distance(Bone(HumanBodyBones.RightLowerArm).position, Bone(HumanBodyBones.RightHand).position);
-            Transform rightHand = Bone(HumanBodyBones.RightHand), leftHand = Bone(HumanBodyBones.LeftHand);
-            Attach("Blocker", ModelFiles.GoalieBlocker, findFile, PrimitiveType.Cube, rightHand,
-                rightHand.position + forward * (0.1f * forearm) + Vector3.left * (0.3f * forearm), Quaternion.LookRotation(-forward, Vector3.up),
-                new Vector3(0.95f, 1.6f, 0.2f) * forearm);
-            Attach("Catcher", ModelFiles.SaveGlove, findFile, PrimitiveType.Sphere, leftHand,
-                leftHand.position + forward * (0.1f * forearm) + Vector3.right * (0.25f * forearm), Quaternion.LookRotation(-forward, Vector3.up),
-                new Vector3(1.3f, 1.35f, 0.5f) * forearm);
-
-            // The mask is a helmet shell over the front of the head, its cage just in front of the face.
-            Bounds head = HeadBounds();
-            float maskDepth = head.size.z * 0.8f;
-            Attach("Mask", ModelFiles.GoalieMask, findFile, PrimitiveType.Sphere, Bone(HumanBodyBones.Head),
-                head.center + forward * (head.size.z * 0.5f + 0.015f - maskDepth / 2f), Quaternion.LookRotation(-forward, Vector3.up),
-                new Vector3(head.size.x * 1.2f, head.size.y * 1.05f, maskDepth));
-        }
-
-        void Attach(string name, string fileName, Func<string, GameObject> findFile, PrimitiveType placeholder,
-            Transform bone, Vector3 position, Quaternion rotation, Vector3 size)
-        {
-            var pivot = new GameObject("Gear " + name);
-            pivot.transform.SetPositionAndRotation(position, rotation);
-            GameObject piece = ModelFiles.Load(fileName, () =>
-            {
-                var shape = GameObject.CreatePrimitive(placeholder);
-                shape.name = name + " Placeholder";
-                RinkBuilder.Paint(shape, GearWhite);
-                return shape;
-            }, findFile);
-            piece.transform.SetParent(pivot.transform, false);
-            ModelFiles.FitTo(piece.transform, size);
-            ModelFiles.RemoveColliders(piece);
-            pivot.transform.SetParent(bone, true);
-        }
-
-        /// <summary>World bounds of the vertices mostly weighted to the head bone, in the rest pose.</summary>
-        Bounds HeadBounds()
-        {
-            Transform headBone = Bone(HumanBodyBones.Head);
-            bool any = false;
-            var bounds = new Bounds(headBone.position, Vector3.zero);
-            var mesh = new Mesh();
-            foreach (SkinnedMeshRenderer body in _body)
-            {
-                int head = Array.IndexOf(body.bones, headBone);
-                if (head < 0 || body.sharedMesh == null) continue;
-                BoneWeight[] weights = body.sharedMesh.boneWeights;
-                body.BakeMesh(mesh);
-                Vector3[] vertices = mesh.vertices;
-                Matrix4x4 toWorld = Matrix4x4.TRS(body.transform.position, body.transform.rotation, Vector3.one);
-                for (int i = 0; i < vertices.Length && i < weights.Length; i++)
-                {
-                    BoneWeight w = weights[i];
-                    float onHead = (w.boneIndex0 == head ? w.weight0 : 0f) + (w.boneIndex1 == head ? w.weight1 : 0f)
-                        + (w.boneIndex2 == head ? w.weight2 : 0f) + (w.boneIndex3 == head ? w.weight3 : 0f);
-                    if (onHead < 0.5f) continue;
-                    Vector3 p = toWorld.MultiplyPoint3x4(vertices[i]);
-                    if (!any) { bounds = new Bounds(p, Vector3.zero); any = true; }
-                    else bounds.Encapsulate(p);
-                }
-            }
-            Destroy(mesh);
-            return bounds;
+            model.position += new Vector3(root.x - hips.x, root.y - lowest, 0f);
         }
 
         static void Destroy(Object o)

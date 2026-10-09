@@ -1,4 +1,5 @@
-# Writes low-poly goalie gear OBJ+MTL files: leg pad, blocker, catcher (save-glove) and mask.
+# Writes the low-poly goalie catcher OBJ+MTL (save-glove), shown for the SAVE result.
+# (The goalie character's own gear comes from Tools/make_lifelike_goalie.py.)
 # Run: python Tools/make_goalie_gear.py Assets/Resources/Models
 # Conventions for every piece: metres, Y up, the side that faces the shooter is -Z, centred near the origin.
 # The game scales each piece to its slot (ModelFiles.FitTo), so sizes here only set the proportions.
@@ -89,29 +90,6 @@ def dot(a, b): return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 def cross(a, b): return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
 
 
-def pad():
-    # 0.28 wide, 0.84 tall (knee roll at the top), 0.14 deep. Three vertical rolls and blue bands on the face.
-    o = Obj("GoaliePad")
-    o.box(-0.14, -0.42, -0.02, 0.14, 0.32, 0.12, WHITE)                    # main slab
-    for x in (-0.09, 0.0, 0.09):                                           # vertical rolls
-        o.cylinder((x, 0, -0.02), 0.045, 0.03, -0.40, 0.30, WHITE)
-    o.ellipsoid((0, 0.36, 0.03), (0.15, 0.07, 0.09), WHITE)                # knee roll
-    for y0, y1 in ((-0.12, -0.06), (0.10, 0.16)):                          # blue bands
-        o.box(-0.142, y0, -0.056, 0.142, y1, 0.122, BLUE)
-    o.box(-0.13, -0.42, -0.05, 0.13, -0.36, 0.10, BLUE)                    # toe bridge
-    return o
-
-
-def blocker():
-    # Board 0.22 wide x 0.38 tall x 0.04 thick, white with a blue edge, a hand cuff behind it.
-    o = Obj("GoalieBlocker")
-    o.box(-0.11, -0.19, -0.02, 0.11, 0.19, 0.02, WHITE)
-    o.box(-0.112, 0.12, -0.022, 0.112, 0.16, 0.022, BLUE)
-    o.box(-0.112, -0.16, -0.022, 0.112, -0.12, 0.022, BLUE)
-    o.box(-0.06, -0.08, 0.02, 0.06, 0.06, 0.10, BLUE)                      # glove behind the board
-    return o
-
-
 def catcher():
     # Trapper: rounded palm 0.30 wide x 0.32 tall, tan pocket web at the top, white cuff at the wrist.
     o = Obj("SaveGlove")
@@ -123,24 +101,10 @@ def catcher():
     return o
 
 
-def mask():
-    # Front shell of a helmet (half ellipsoid facing -Z) with a dark cage across the face.
-    o = Obj("GoalieMask")
-    o.ellipsoid((0, 0, 0), (0.12, 0.15, 0.13), WHITE, seg=16, rings=12, front_only=True)
-    for x in (-0.05, 0.0, 0.05):                                           # vertical bars
-        o.box(x - 0.006, -0.10, -0.15, x + 0.006, 0.04, -0.135, DARK)
-    for y in (-0.07, -0.02, 0.03):                                         # cross bars
-        o.box(-0.08, y - 0.006, -0.15, 0.08, y + 0.006, -0.135, DARK)
-    return o
-
-
 def main():
     out = sys.argv[1]
     os.makedirs(out, exist_ok=True)
-    pad().write(out, "goalie-pad", "Goalie leg pad.")
-    blocker().write(out, "goalie-blocker", "Goalie blocker.")
     catcher().write(out, "save-glove", "Goalie catching glove (save glove).")
-    mask().write(out, "goalie-mask", "Goalie mask.")
 
 
 main()
