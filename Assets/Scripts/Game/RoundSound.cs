@@ -5,7 +5,7 @@ using UnityEngine;
 namespace HockeyGame
 {
     /// <summary>
-    /// Plays placeholder sound for the Round: crowd loop, result sounds, window ticks, slow-down muffle and
+    /// Plays sound for the Round (real files from SoundFiles where present, else placeholders): crowd loop, result sounds, window ticks, slow-down muffle and
     /// heartbeat. Watches the Round through RoundSoundCues; holds no rules of its own. Uses real time.
     /// The tick plays unfiltered so it stays clear during the slow-down.
     /// </summary>
@@ -26,29 +26,31 @@ namespace HockeyGame
             _cues = new RoundSoundCues(save);
 
             _crowd = Source(listener, "Crowd", out _crowdFilter);
-            _crowd.clip = PlaceholderSounds.CrowdLoop();
+            _crowd.clip = SoundFiles.Load(SoundFiles.CrowdLoop, PlaceholderSounds.CrowdLoop);
             _crowd.loop = true;
             _crowd.volume = (float)RoundSoundCues.CrowdLevel(RoundPhase.Idle, 0, settings);
             _crowd.Play();
 
             _heartbeat = Source(listener, "Heartbeat", out _heartbeatFilter);
-            _heartbeat.clip = PlaceholderSounds.HeartbeatLoop();
+            _heartbeat.clip = SoundFiles.Load(SoundFiles.HeartbeatLoop, PlaceholderSounds.HeartbeatLoop);
             _heartbeat.loop = true;
 
             _world = Source(listener, "Result Sounds", out _worldFilter);
             _tick = Source(listener, "Tick", out _);
 
-            var cheer = PlaceholderSounds.Cheer();
-            var groan = PlaceholderSounds.Groan();
-            _clips[SoundCue.Tick] = new[] { PlaceholderSounds.Tick() };
-            _clips[SoundCue.FastTick] = new[] { PlaceholderSounds.FastTick() };
-            _clips[SoundCue.Buzzer] = new[] { PlaceholderSounds.Buzzer() };
-            _clips[SoundCue.GoalImpact] = new[] { PlaceholderSounds.NetHit(), PlaceholderSounds.Horn() };
-            _clips[SoundCue.SaveImpact] = new[] { PlaceholderSounds.PadThud() };
-            _clips[SoundCue.MissImpact] = new[] { PlaceholderSounds.BoardsClang() };
-            _clips[SoundCue.Cheer] = new[] { cheer };
-            _clips[SoundCue.Groan] = new[] { groan };
-            _clips[SoundCue.NewBestCheer] = new[] { PlaceholderSounds.NewBestCheer() };
+            _clips[SoundCue.Tick] = new[] { SoundFiles.Load(SoundFiles.Tick, PlaceholderSounds.Tick) };
+            _clips[SoundCue.FastTick] = new[] { SoundFiles.Load(SoundFiles.FastTick, PlaceholderSounds.FastTick) };
+            _clips[SoundCue.Buzzer] = new[] { SoundFiles.Load(SoundFiles.Buzzer, PlaceholderSounds.Buzzer) };
+            _clips[SoundCue.GoalImpact] = new[]
+            {
+                SoundFiles.Load(SoundFiles.NetHit, PlaceholderSounds.NetHit),
+                SoundFiles.Load(SoundFiles.GoalHorn, PlaceholderSounds.Horn)
+            };
+            _clips[SoundCue.SaveImpact] = new[] { SoundFiles.Load(SoundFiles.PadThud, PlaceholderSounds.PadThud) };
+            _clips[SoundCue.MissImpact] = new[] { SoundFiles.Load(SoundFiles.BoardsClang, PlaceholderSounds.BoardsClang) };
+            _clips[SoundCue.Cheer] = new[] { SoundFiles.Load(SoundFiles.Cheer, PlaceholderSounds.Cheer) };
+            _clips[SoundCue.Groan] = new[] { SoundFiles.Load(SoundFiles.Groan, PlaceholderSounds.Groan) };
+            _clips[SoundCue.NewBestCheer] = new[] { SoundFiles.Load(SoundFiles.NewBestCheer, PlaceholderSounds.NewBestCheer) };
 
             AudioListener.volume = (float)RoundSoundCues.ListenerVolume(save);
         }

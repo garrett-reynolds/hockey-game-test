@@ -5,7 +5,7 @@ namespace HockeyGame
 {
     /// <summary>
     /// Placeholder sounds made in code (noise and tones), so no sound files are needed yet.
-    /// Swap these for real clips later; the cue names stay the same.
+    /// Each one is used only while its real file is missing; see SoundFiles for the file names.
     /// </summary>
     public static class PlaceholderSounds
     {
