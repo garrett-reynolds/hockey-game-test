@@ -68,10 +68,11 @@ namespace HockeyGame
             if (!any) return;
 
             Vector3 have = bounds.size;
+            const float flat = 1e-5f; // a flat model (such as Unity's plane) stays flat on that axis, not stretched
             var scale = new Vector3(
-                have.x > 0f ? size.x / have.x : 1f,
-                have.y > 0f ? size.y / have.y : 1f,
-                have.z > 0f ? size.z / have.z : 1f);
+                have.x > flat ? size.x / have.x : 1f,
+                have.y > flat ? size.y / have.y : 1f,
+                have.z > flat ? size.z / have.z : 1f);
             model.localScale = scale;
             model.localPosition = -Vector3.Scale(bounds.center, scale);
         }

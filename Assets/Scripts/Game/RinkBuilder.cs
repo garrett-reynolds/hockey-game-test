@@ -15,11 +15,7 @@ namespace HockeyGame
         {
             var root = new GameObject("Rink").transform;
 
-            var ice = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            ice.name = "Ice";
-            ice.transform.SetParent(root);
-            ice.transform.localScale = new Vector3(6f, 1f, 6f); // 60 m: the skate-in starts 22 m out
-            Paint(ice, new Color(0.85f, 0.93f, 1f));
+            RinkIce.Build(root);
 
             // Net: the Net Face is the opening at z = 0, centred on x = 0, spanning y = 0..H. The back of the net is at z = +NetDepth.
             var white = new Color(0.9f, 0.9f, 0.9f);
