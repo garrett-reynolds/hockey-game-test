@@ -16,6 +16,8 @@ namespace HockeyGame.Core
 
         public int BestScore = 0;
         public string UsbPort = AutoUsbPort;
+        /// <summary>In Auto mode, the last port that sent READY; tried first next time. Blank if none yet.</summary>
+        public string LastUsbPort = "";
         public bool EasyMode = false;
         public double ContestedLowChance = 0.50;
         public double ContestedTopChance = 0.85;
@@ -53,6 +55,7 @@ namespace HockeyGame.Core
             data.BestScore = ReadInt(values, "bestScore", data.BestScore);
             if (data.BestScore < 0) data.BestScore = 0;
             if (values.TryGetValue("usbPort", out var port) && port.Length > 0) data.UsbPort = port;
+            if (values.TryGetValue("lastUsbPort", out var lastPort)) data.LastUsbPort = lastPort;
             data.EasyMode = ReadBool(values, "easyMode", data.EasyMode);
             data.ContestedLowChance = ReadDouble(values, "contestedLowChance", data.ContestedLowChance);
             data.ContestedTopChance = ReadDouble(values, "contestedTopChance", data.ContestedTopChance);
@@ -78,6 +81,7 @@ namespace HockeyGame.Core
                 var sb = new StringBuilder();
                 sb.Append("bestScore=").Append(BestScore.ToString(inv)).Append('\n');
                 sb.Append("usbPort=").Append(UsbPort).Append('\n');
+                sb.Append("lastUsbPort=").Append(LastUsbPort).Append('\n');
                 sb.Append("easyMode=").Append(EasyMode ? "true" : "false").Append('\n');
                 sb.Append("contestedLowChance=").Append(ContestedLowChance.ToString("R", inv)).Append('\n');
                 sb.Append("contestedTopChance=").Append(ContestedTopChance.ToString("R", inv)).Append('\n');
