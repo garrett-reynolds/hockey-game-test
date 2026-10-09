@@ -9,6 +9,7 @@ Models load from `Assets/Resources/Models/` through `ModelFiles`. Sounds load fr
 | What | File in project | Source | Author | Licence |
 |---|---|---|---|---|
 | Hockey puck (low poly, chamfered edges, ridged grip band, 1,536 triangles) | `Assets/Resources/Models/puck.obj`, `puck.mtl` | Made for this project by `Tools/make_puck.py` (run: `python Tools/make_puck.py Assets/Resources/Models`), no outside source | Hockey Game Test project | CC0 |
+| Ice sheet (one flat 60 m square, textured with the rink markings below) | `Assets/Resources/Models/ice.obj`, `ice.mtl` | Made for this project by `Tools/make_ice.py` (run: `python Tools/make_ice.py Assets/Resources/Models`), no outside source | Hockey Game Test project | CC0 |
 
 ### Notes
 
@@ -18,7 +19,14 @@ Models load from `Assets/Resources/Models/` through `ModelFiles`. Sounds load fr
 
 ## Textures
 
-None yet.
+| What | File in project | Source | Author | Licence |
+|---|---|---|---|---|
+| Ice markings: white ice with faint skate scuffs, red goal line, blue line, red centre line, blue crease with red outline, faceoff circles and dots (NHL sizes, lined up with the net) | `Assets/Resources/Models/ice-markings.jpg` | Made for this project by `Tools/make_ice_texture.py` (needs Pillow and numpy; run: `python Tools/make_ice_texture.py <folder>/Ice002_1K-JPG_Roughness.jpg Assets/Resources/Models`). The scuffs are the roughness map below, tiled every 3 m and made near-white. | Hockey Game Test project | CC0 |
+| Ice002 (ice surface, roughness map used for the scuffs) | Baked into `ice-markings.jpg` (not stored on its own) | https://ambientcg.com/view?id=Ice002 , download https://ambientcg.com/get?file=Ice002_1K-JPG.zip | ambientCG | CC0 1.0 |
+
+### Notes
+
+- **Ice.** No free rink-ice model with markings could be downloaded without a login. Most rink diagrams on Wikimedia Commons are CC BY-SA, and the public-domain one (Ice_hockey_layout.svg) is a whole-rink drawing that cannot be lined up with the net, so the markings are drawn by the scripts above from NHL sizes. The markings are a texture rather than separate meshes so that far lines fade smoothly instead of breaking into dots. Delete `ice.obj` to get the plain placeholder ice back.
 
 ## Sounds
 
