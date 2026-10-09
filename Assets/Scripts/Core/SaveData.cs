@@ -31,6 +31,21 @@ namespace HockeyGame.Core
         public static readonly NumberRange AutoReturnRange = new NumberRange(1, 120, 1);
         public static readonly NumberRange VolumeRange = new NumberRange(0, 1, 0.1);
 
+        // File keys, one per setting, shared by Load and Save.
+        private const string BestScoreKey = "bestScore";
+        private const string UsbPortKey = "usbPort";
+        private const string LastUsbPortKey = "lastUsbPort";
+        private const string EasyModeKey = "easyMode";
+        private const string ContestedLowChanceKey = "contestedLowChance";
+        private const string ContestedTopChanceKey = "contestedTopChance";
+        private const string TopSpeedKmhKey = "topSpeedKmh";
+        private const string TestShotOnAtStartKey = "testShotOnAtStart";
+        private const string InputIgnoreSecondsKey = "inputIgnoreSeconds";
+        private const string AutoReturnSecondsKey = "autoReturnSeconds";
+        private const string TickOnKey = "tickOn";
+        private const string MasterVolumeKey = "masterVolume";
+        private const string MuteKey = "mute";
+
         public int BestScore = 0;
         public string UsbPort = AutoUsbPort;
         /// <summary>In Auto mode, the last port that sent READY; tried first next time. Blank if none yet.</summary>
@@ -69,20 +84,20 @@ namespace HockeyGame.Core
                 values[line.Substring(0, eq).Trim()] = line.Substring(eq + 1).Trim();
             }
 
-            data.BestScore = ReadInt(values, "bestScore", data.BestScore);
+            data.BestScore = ReadInt(values, BestScoreKey, data.BestScore);
             if (data.BestScore < 0) data.BestScore = 0;
-            if (values.TryGetValue("usbPort", out var port) && port.Length > 0) data.UsbPort = port;
-            if (values.TryGetValue("lastUsbPort", out var lastPort)) data.LastUsbPort = lastPort;
-            data.EasyMode = ReadBool(values, "easyMode", data.EasyMode);
-            data.ContestedLowChance = ReadDouble(values, "contestedLowChance", data.ContestedLowChance, ChanceRange);
-            data.ContestedTopChance = ReadDouble(values, "contestedTopChance", data.ContestedTopChance, ChanceRange);
-            data.TopSpeedKmh = ReadDouble(values, "topSpeedKmh", data.TopSpeedKmh, TopSpeedRange);
-            data.TestShotOnAtStart = ReadBool(values, "testShotOnAtStart", data.TestShotOnAtStart);
-            data.InputIgnoreSeconds = ReadDouble(values, "inputIgnoreSeconds", data.InputIgnoreSeconds, InputIgnoreRange);
-            data.AutoReturnSeconds = ReadDouble(values, "autoReturnSeconds", data.AutoReturnSeconds, AutoReturnRange);
-            data.TickOn = ReadBool(values, "tickOn", data.TickOn);
-            data.MasterVolume = ReadDouble(values, "masterVolume", data.MasterVolume, VolumeRange);
-            data.Mute = ReadBool(values, "mute", data.Mute);
+            if (values.TryGetValue(UsbPortKey, out var port) && port.Length > 0) data.UsbPort = port;
+            if (values.TryGetValue(LastUsbPortKey, out var lastPort)) data.LastUsbPort = lastPort;
+            data.EasyMode = ReadBool(values, EasyModeKey, data.EasyMode);
+            data.ContestedLowChance = ReadDouble(values, ContestedLowChanceKey, data.ContestedLowChance, ChanceRange);
+            data.ContestedTopChance = ReadDouble(values, ContestedTopChanceKey, data.ContestedTopChance, ChanceRange);
+            data.TopSpeedKmh = ReadDouble(values, TopSpeedKmhKey, data.TopSpeedKmh, TopSpeedRange);
+            data.TestShotOnAtStart = ReadBool(values, TestShotOnAtStartKey, data.TestShotOnAtStart);
+            data.InputIgnoreSeconds = ReadDouble(values, InputIgnoreSecondsKey, data.InputIgnoreSeconds, InputIgnoreRange);
+            data.AutoReturnSeconds = ReadDouble(values, AutoReturnSecondsKey, data.AutoReturnSeconds, AutoReturnRange);
+            data.TickOn = ReadBool(values, TickOnKey, data.TickOn);
+            data.MasterVolume = ReadDouble(values, MasterVolumeKey, data.MasterVolume, VolumeRange);
+            data.Mute = ReadBool(values, MuteKey, data.Mute);
             return data;
         }
 
@@ -96,19 +111,19 @@ namespace HockeyGame.Core
 
                 var inv = CultureInfo.InvariantCulture;
                 var sb = new StringBuilder();
-                sb.Append("bestScore=").Append(BestScore.ToString(inv)).Append('\n');
-                sb.Append("usbPort=").Append(UsbPort).Append('\n');
-                sb.Append("lastUsbPort=").Append(LastUsbPort).Append('\n');
-                sb.Append("easyMode=").Append(EasyMode ? "true" : "false").Append('\n');
-                sb.Append("contestedLowChance=").Append(ContestedLowChance.ToString("R", inv)).Append('\n');
-                sb.Append("contestedTopChance=").Append(ContestedTopChance.ToString("R", inv)).Append('\n');
-                sb.Append("topSpeedKmh=").Append(TopSpeedKmh.ToString("R", inv)).Append('\n');
-                sb.Append("testShotOnAtStart=").Append(TestShotOnAtStart ? "true" : "false").Append('\n');
-                sb.Append("inputIgnoreSeconds=").Append(InputIgnoreSeconds.ToString("R", inv)).Append('\n');
-                sb.Append("autoReturnSeconds=").Append(AutoReturnSeconds.ToString("R", inv)).Append('\n');
-                sb.Append("tickOn=").Append(TickOn ? "true" : "false").Append('\n');
-                sb.Append("masterVolume=").Append(MasterVolume.ToString("R", inv)).Append('\n');
-                sb.Append("mute=").Append(Mute ? "true" : "false").Append('\n');
+                sb.Append(BestScoreKey).Append('=').Append(BestScore.ToString(inv)).Append('\n');
+                sb.Append(UsbPortKey).Append('=').Append(UsbPort).Append('\n');
+                sb.Append(LastUsbPortKey).Append('=').Append(LastUsbPort).Append('\n');
+                sb.Append(EasyModeKey).Append('=').Append(EasyMode ? "true" : "false").Append('\n');
+                sb.Append(ContestedLowChanceKey).Append('=').Append(ContestedLowChance.ToString("R", inv)).Append('\n');
+                sb.Append(ContestedTopChanceKey).Append('=').Append(ContestedTopChance.ToString("R", inv)).Append('\n');
+                sb.Append(TopSpeedKmhKey).Append('=').Append(TopSpeedKmh.ToString("R", inv)).Append('\n');
+                sb.Append(TestShotOnAtStartKey).Append('=').Append(TestShotOnAtStart ? "true" : "false").Append('\n');
+                sb.Append(InputIgnoreSecondsKey).Append('=').Append(InputIgnoreSeconds.ToString("R", inv)).Append('\n');
+                sb.Append(AutoReturnSecondsKey).Append('=').Append(AutoReturnSeconds.ToString("R", inv)).Append('\n');
+                sb.Append(TickOnKey).Append('=').Append(TickOn ? "true" : "false").Append('\n');
+                sb.Append(MasterVolumeKey).Append('=').Append(MasterVolume.ToString("R", inv)).Append('\n');
+                sb.Append(MuteKey).Append('=').Append(Mute ? "true" : "false").Append('\n');
                 File.WriteAllText(path, sb.ToString(), new UTF8Encoding(false));
                 return true;
             }
