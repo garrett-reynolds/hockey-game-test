@@ -105,7 +105,10 @@ namespace HockeyGame
                 if (mouse.leftButton.wasPressedThisFrame)
                 {
                     if (playing && _testShotsOn)
+                    {
                         SubmitTestShot(mouse.position.ReadValue());
+                        _effects.Update(_round, 0f); // start the puck now so the result stays hidden in this frame's OnGUI
+                    }
                     else if (!playing)
                         pressed = true; // a click starts or leaves, even with Test Shots off
                 }
