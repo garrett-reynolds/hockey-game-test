@@ -39,7 +39,7 @@ namespace HockeyGame.Core
 
         public int Goals { get; private set; }
 
-        /// <summary>True only at RoundOver, when Goals beat the best score given at construction.</summary>
+        /// <summary>True only at RoundOver, when Goals beat the current BestScore (which updates when beaten, so a reused Round compares each round against the latest best).</summary>
         public bool IsNewBest { get; private set; }
 
         /// <summary>Best score so far; changes only when beaten at RoundOver.</summary>

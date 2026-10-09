@@ -1,5 +1,5 @@
 {
-    "name": "HockeyGame.Core.Tests",
+    "name": "HockeyGame.Tests",
     "rootNamespace": "HockeyGame.Core.Tests",
     "references": [
         "HockeyGame.Core",

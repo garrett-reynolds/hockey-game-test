@@ -38,6 +38,7 @@ namespace HockeyGame
             var cameraObject = new GameObject("Shooter Camera");
             cameraObject.tag = "MainCamera";
             camera = cameraObject.AddComponent<Camera>();
+            cameraObject.AddComponent<AudioListener>();
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color(0.1f, 0.12f, 0.16f);
             cameraObject.transform.position = new Vector3(0f, 1.5f, -9f);
