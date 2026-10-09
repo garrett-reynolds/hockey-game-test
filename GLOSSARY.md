@@ -46,3 +46,7 @@ _Avoid_: Stance, position
 
 **Miss**:
 A Shot that does not reach the Net Face, or no Shot in time. It uses one of the Round's 6 Shots.
+
+**Frame Hit**:
+A Miss whose position lands on a post or the crossbar: just outside the Net Face, within the frame's 0.08 m thickness. It pings and the puck deflects off the frame, but it is still a Miss.
+_Avoid_: Iron, post shot

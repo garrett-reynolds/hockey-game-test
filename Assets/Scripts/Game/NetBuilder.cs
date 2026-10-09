@@ -15,7 +15,7 @@ namespace HockeyGame
         const float W = (float)NetFaceMapping.WidthMetres;
         const float H = (float)NetFaceMapping.HeightMetres;
         /// <summary>Thickness of the posts and crossbar (metres). The opening is inside them.</summary>
-        public const float Post = 0.08f;
+        public const float Post = (float)Core.NetFrame.ThicknessMetres;
 
         /// <summary>Name of the part that shakes on a goal (the netting).</summary>
         public const string NettingName = "Netting";
