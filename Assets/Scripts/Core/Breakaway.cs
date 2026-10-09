@@ -1,0 +1,99 @@
+using System;
+
+namespace HockeyGame.Core
+{
+    /// <summary>
+    /// Pure numbers for the breakaway feel (skate-in, slow-down, shooting window ring), from #5 variant B.
+    /// Distances are metres in front of the Net Face; x is metres right of the Net Face centre, shooter's view.
+    /// The scene reads these each frame; the Round core still only gets real time.
+    /// </summary>
+    public static class Breakaway
+    {
+        public const double SkateInSeconds = 2.5;
+        public const double SlowDownSeconds = 1.2;
+        public const double ShootingWindowSeconds = 3.0;
+        public const double StartDistance = 22.0;
+        public const double StopDistance = 9.0;
+        public const double SlowTimeScale = 0.25;
+        public const double SlowRampSeconds = 0.35;
+        public const double EyeHeight = 1.5;
+        public const double StrideBob = 0.06;
+        public const double RollRadians = 0.025;
+        /// <summary>The drift toward the net never comes closer than this to the net (metres).</summary>
+        public const double ClosestDrift = 3.0;
+
+        /// <summary>-1 left, 0 middle, +1 right.</summary>
+        public static int Lane(AttackSide side) => side == AttackSide.Left ? -1 : side == AttackSide.Right ? 1 : 0;
+
+        /// <summary>
+        /// Point on the skate-in curl at progress u (0 = start, 1 = stop): a quadratic curve from the wide start,
+        /// through a control point straight ahead of the start halfway in, to the stop point.
+        /// </summary>
+        public static void SkatePoint(AttackSide side, double u, out double x, out double distance)
+        {
+            int lane = Lane(side);
+            double startX = lane == 0 ? 6.0 : lane * 10.0;
+            double stopX = lane * 0.3 * StopDistance;
+            double controlDistance = (StartDistance + StopDistance) / 2.0;
+            double a = (1 - u) * (1 - u), b = 2 * (1 - u) * u, c = u * u;
+            x = a * startX + b * startX + c * stopX;
+            distance = a * StartDistance + b * controlDistance + c * StopDistance;
+        }
+
+        /// <summary>Skate-in progress (0..1), linear in real seconds since the skate-in began.</summary>
+        public static double SkateProgress(double skateSeconds) => Clamp01(skateSeconds / SkateInSeconds);
+
+        /// <summary>Skate speed (m/s): straight start-to-stop distance over the skate-in time. Used for the slow-down drift.</summary>
+        public static double SkateSpeed(AttackSide side)
+        {
+            SkatePoint(side, 0, out double x0, out double d0);
+            SkatePoint(side, 1, out double x1, out double d1);
+            double dx = x1 - x0, dd = d1 - d0;
+            return Math.Sqrt(dx * dx + dd * dd) / SkateInSeconds;
+        }
+
+        /// <summary>World time scale for a phase, given real seconds spent in it.</summary>
+        public static double TimeScale(RoundPhase phase, double phaseSeconds)
+        {
+            switch (phase)
+            {
+                case RoundPhase.SlowDown:
+                    double t = EaseOut(Clamp01(phaseSeconds / SlowRampSeconds));
+                    return 1.0 + (SlowTimeScale - 1.0) * t;
+                case RoundPhase.ShootingWindow:
+                    return SlowTimeScale;
+                default:
+                    return 1.0;
+            }
+        }
+
+        /// <summary>Strength of the slow-mo look (grey, contrast, vignette): 0 at 1x, 1 at the slow time scale.</summary>
+        public static double LookAmount(double timeScale) => Clamp01((1.0 - timeScale) / (1.0 - SlowTimeScale));
+
+        /// <summary>How far the goalie has set into the pose (0..1). Real time, done when the window opens.</summary>
+        public static double GoalieSet(RoundPhase phase, double phaseSeconds)
+        {
+            switch (phase)
+            {
+                case RoundPhase.SkateIn:
+                case RoundPhase.Idle:
+                    return 0;
+                case RoundPhase.SlowDown:
+                    double t = Clamp01(phaseSeconds / SlowDownSeconds);
+                    return t * t * (3 - 2 * t);
+                default:
+                    return 1;
+            }
+        }
+
+        /// <summary>Share of the shooting window ring still showing (1 full, 0 empty).</summary>
+        public static double RingFraction(double windowSecondsLeft) => Clamp01(windowSecondsLeft / ShootingWindowSeconds);
+
+        /// <summary>Drift toward the net, capped so the camera stops ClosestDrift metres from the net.</summary>
+        public static double CappedDrift(double drift, double distance) => Math.Max(0, Math.Min(drift, distance - ClosestDrift));
+
+        static double EaseOut(double t) => 1 - (1 - t) * (1 - t);
+
+        static double Clamp01(double v) => v < 0 ? 0 : v > 1 ? 1 : v;
+    }
+}
