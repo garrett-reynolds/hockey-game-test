@@ -12,6 +12,10 @@ _Avoid_: Game, match, session
 One real puck shot, reported by the tracking electronics as a speed and a Net Face position.
 _Avoid_: Attempt, throw
 
+**Test Shot**:
+A Shot made with the mouse instead of a real puck, for testing and demos. It follows the same rules as a real Shot.
+_Avoid_: Fake shot, mouse shot, debug shot
+
 **Net Face**:
 The goal opening, as a flat plane. Shot positions are measured on it from its bottom-left corner.
 _Avoid_: Goal mouth, target
