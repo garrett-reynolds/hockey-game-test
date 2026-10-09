@@ -5,12 +5,7 @@ namespace HockeyGame.Core.Tests
 {
     public class RoundTests
     {
-        private sealed class FixedRandom : IRandomSource
-        {
-            public double Next() => 0.5;
-        }
-
-        private static Round NewRound(int best = 0) => new Round(new FixedRandom(), new RoundSettings(), best);
+        private static Round NewRound(int best = 0) => new Round(new ScriptedRandom(ScriptedRandom.AlternatingButterflies()), new RoundSettings(), best);
 
         private static Round StartedRound(int best = 0)
         {
@@ -151,13 +146,13 @@ namespace HockeyGame.Core.Tests
         {
             var round = InWindow();
             round.Tick(1.0);
-            round.SubmitShot(30, 70, 95, false);
+            round.SubmitShot(60, 80, 95, false);
             Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
             var result = round.LastResult.Value;
             Assert.AreEqual(ShotResultKind.Goal, result.Kind);
             Assert.IsTrue(result.HasShot);
-            Assert.AreEqual(30, result.X);
-            Assert.AreEqual(70, result.Y);
+            Assert.AreEqual(60, result.X);
+            Assert.AreEqual(80, result.Y);
             Assert.AreEqual(95, result.SpeedKmh);
         }
 
@@ -176,7 +171,7 @@ namespace HockeyGame.Core.Tests
         public void A_Test_Shot_counts_as_the_first_Shot_in_the_window()
         {
             var round = InWindow();
-            round.SubmitShot(40, 40, 80, true);
+            round.SubmitShot(50, 90, 80, true);
             Assert.AreEqual(ShotResultKind.Goal, round.LastResult.Value.Kind);
             round.SubmitShot(0, 0, 80, false);
             Assert.AreEqual(1, round.Results.Count);
@@ -219,22 +214,22 @@ namespace HockeyGame.Core.Tests
         [TestCase(0, 100)]
         [TestCase(100, 0)]
         [TestCase(50, 50)]
-        public void Shot_on_the_Net_Face_including_edges_is_a_Goal(double x, double y)
+        public void Shot_on_the_Net_Face_including_edges_is_not_a_Miss(double x, double y)
         {
             var round = InWindow();
             round.SubmitShot(x, y, 100, false);
-            Assert.AreEqual(ShotResultKind.Goal, round.LastResult.Value.Kind);
-            Assert.AreEqual(1, round.Goals);
+            Assert.AreNotEqual(ShotResultKind.Miss, round.LastResult.Value.Kind);
+            Assert.AreEqual(1, round.Results.Count);
         }
 
         [Test]
         public void Goal_count_and_result_list_match_the_results()
         {
             var round = StartedRound();
-            PlayShot(round, 50, 50);          // Goal
+            PlayShot(round, 50, 90);          // Goal
             PlayShot(round, 150, 50);         // Miss
             PlayShot(round, 0, 0, false);     // TooLate
-            PlayShot(round, 100, 100);        // Goal
+            PlayShot(round, 50, 90);        // Goal
             Assert.AreEqual(2, round.Goals);
             CollectionAssert.AreEqual(
                 new[] { ShotResultKind.Goal, ShotResultKind.Miss, ShotResultKind.TooLate, ShotResultKind.Goal },
@@ -248,7 +243,7 @@ namespace HockeyGame.Core.Tests
             var round = StartedRound();
             for (int i = 1; i <= 5; i++)
             {
-                PlayShot(round, 50, 50);
+                PlayShot(round, 50, 90);
                 Assert.AreEqual(RoundPhase.SkateIn, round.Phase);
                 Assert.AreEqual(i + 1, round.ShotNumber);
             }
@@ -293,7 +288,7 @@ namespace HockeyGame.Core.Tests
         {
             var round = StartedRound(best);
             for (int i = 0; i < 6; i++)
-                PlayShot(round, i < goals ? 50 : 150, 50);
+                PlayShot(round, i < goals ? 50 : 150, 90);
             Assert.AreEqual(RoundPhase.RoundOver, round.Phase);
             return round;
         }
@@ -327,7 +322,7 @@ namespace HockeyGame.Core.Tests
         public void New_best_flag_is_false_before_RoundOver()
         {
             var round = StartedRound(best: 0);
-            PlayShot(round, 50, 50);
+            PlayShot(round, 50, 90);
             Assert.IsFalse(round.IsNewBest);
             Assert.AreEqual(0, round.BestScore);
         }

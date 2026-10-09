@@ -1,18 +1,28 @@
+using System;
 using System.Collections.Generic;
 
 namespace HockeyGame.Core
 {
     /// <summary>
     /// A Round of 6 Shots. Pure logic: time only enters through Tick(realSeconds).
+    /// <para>
+    /// Random call order (public contract): when a Shot starts, per pose pick try, Next() for the Attack Side
+    /// (side = (int)(Next() * 3)), then Next() for the pose (index = (int)(Next() * 2)). A try that repeats the
+    /// previous Shot's pose is retried, up to 10 tries; if all 10 repeat it, the next pose in GoaliePose enum
+    /// order (wrapping) is used. Then one Next() per Contested Shot (Goal when roll is below the chance); none for
+    /// Open, Covered, Miss or TooLate.
+    /// </para>
     /// </summary>
     public sealed class Round
     {
         public const int ShotsPerRound = 6;
 
-        private readonly IRandomSource _random; // unused until Save chances arrive (#12)
+        private readonly IRandomSource _random;
         private readonly RoundSettings _settings;
         private readonly List<ShotResultKind> _results = new List<ShotResultKind>();
+        private const int MaxPickTries = 10;
         private double _phaseElapsed;
+        private GoaliePose? _previousPose;
 
         public Round(IRandomSource random, RoundSettings settings, int bestScore)
         {
@@ -45,13 +55,21 @@ namespace HockeyGame.Core
         /// <summary>Best score so far; changes only when beaten at RoundOver.</summary>
         public int BestScore { get; private set; }
 
+        /// <summary>Attack Side of the current Shot's Goalie Pose.</summary>
+        public AttackSide AttackSide => GoaliePoses.SideOf(GoaliePose);
+
+        /// <summary>Goalie Pose for the current Shot; chosen when the Shot starts.</summary>
+        public GoaliePose GoaliePose { get; private set; }
+
         public void StartRound()
         {
+            _previousPose = null;
             _results.Clear();
             Goals = 0;
             IsNewBest = false;
             LastResult = null;
             ShotNumber = 1;
+            PickGoaliePose();
             EnterPhase(RoundPhase.SkateIn);
         }
 
@@ -62,7 +80,7 @@ namespace HockeyGame.Core
                 return;
 
             bool onNetFace = x >= 0 && x <= 100 && y >= 0 && y <= 100;
-            var kind = onNetFace ? ShotResultKind.Goal : ShotResultKind.Miss;
+            var kind = onNetFace ? ResolveOnNetFace(x, y, speedKmh) : ShotResultKind.Miss;
             Finish(new ShotResult(kind, true, x, y, speedKmh, isTestShot));
         }
 
@@ -104,11 +122,49 @@ namespace HockeyGame.Core
                     else
                     {
                         ShotNumber++;
+                        PickGoaliePose();
                         LastResult = null;
                         EnterPhase(RoundPhase.SkateIn);
                     }
                     break;
             }
+        }
+
+        private ShotResultKind ResolveOnNetFace(double x, double y, double speedKmh)
+        {
+            switch (GoaliePoses.CoverAt(GoaliePose, Zones.Column(x), Zones.Row(y)))
+            {
+                case ZoneCover.Open:
+                    return ShotResultKind.Goal;
+                case ZoneCover.Covered:
+                    return ShotResultKind.Save;
+                default:
+                    double chance = GoaliePoses.ContestedChance(speedKmh, _settings);
+                    return _random.Next() < chance ? ShotResultKind.Goal : ShotResultKind.Save;
+            }
+        }
+
+        private void PickGoaliePose()
+        {
+            for (int attempt = 0; attempt < MaxPickTries; attempt++)
+            {
+                int side = Math.Min((int)(_random.Next() * 3), 2);
+                int index = Math.Min((int)(_random.Next() * GoaliePoses.PosesPerSide), GoaliePoses.PosesPerSide - 1);
+                GoaliePose candidate = GoaliePoses.PosesOf((AttackSide)side)[index];
+                if (_previousPose == null || candidate != _previousPose.Value)
+                {
+                    SetPose(candidate);
+                    return;
+                }
+            }
+            int poseCount = Enum.GetValues(typeof(GoaliePose)).Length;
+            SetPose((GoaliePose)(((int)_previousPose.Value + 1) % poseCount));
+        }
+
+        private void SetPose(GoaliePose pose)
+        {
+            GoaliePose = pose;
+            _previousPose = pose;
         }
 
         private void Finish(ShotResult result)
