@@ -3,7 +3,7 @@
 #   python Tools/make_sounds.py <out dir> --voice ooo.wav     -> also groan.wav (layered, gliding copies of one voice)
 #   python Tools/make_sounds.py <out dir> --crowd crowd.wav   -> also crowd-loop.wav (seamless loop cut from a recording)
 #   python Tools/make_sounds.py <out dir> --impact <dir>      -> also glove-catch.wav, blocker-hit.wav (Kenney Impact Sounds mixes)
-# goal-horn, buzzer and post-ping are pure synthesis and are always written.
+# goal-horn and buzzer are pure synthesis and are always written. post-ping.wav is a real recording now (see CREDITS.md).
 # --impact <dir> needs these Kenney "Impact Sounds" clips (https://kenney.nl/assets/impact-sounds, CC0) decoded to WAV:
 #   impactPunch_heavy_002, impactSoft_medium_003, impactWood_medium_002, impactWood_light_000
 #   e.g. for f in impactPunch_heavy_002 ...; do ffmpeg -i Audio/$f.ogg -ac 1 -ar 44100 <dir>/$f.wav; done
@@ -106,23 +106,6 @@ def buzzer():
     return normalize(room(x, 0.15))
 
 
-def post_ping():
-    """Puck off the post or crossbar: a hard click, then a steel tube ringing (free-bar modes), about 0.9 s."""
-    dur = 0.9; n = int(dur * RATE); t = np.arange(n) / RATE
-    f1 = 1180.0
-    out = np.zeros(n)
-    # Free-free bar mode ratios; each mode is a pair a few Hz apart so the ring beats like a real tube.
-    for ratio, gain, decay in ((1.0, 1.0, 0.32), (2.756, 0.7, 0.22), (5.404, 0.35, 0.12), (8.933, 0.18, 0.06)):
-        f = f1 * ratio
-        out += gain * np.exp(-t / decay) * (np.sin(2 * np.pi * f * t) + 0.6 * np.sin(2 * np.pi * (f + 3.5) * t + 1.0))
-    rng = np.random.default_rng(30)
-    click = rng.standard_normal(n) * np.exp(-t / 0.002)
-    click = lowpass(click - lowpass(click, 2500), 9000)   # keep only the bright crack of the hit (2.5-9 kHz)
-    out = out + 0.8 * click
-    out *= envelope(n, 0.0005, 0.15)
-    return normalize(room(out, 0.12))
-
-
 def glove_catch(punch, soft):
     """Puck snapped into the catching glove: a dull leather pop, tails trimmed short."""
     return normalize(fit(mix((1.0, punch), (0.35, soft)), 0.35, 0.12))
@@ -191,7 +174,6 @@ if __name__ == "__main__":
     os.makedirs(a.out, exist_ok=True)
     write(os.path.join(a.out, "goal-horn.wav"), goal_horn())
     write(os.path.join(a.out, "buzzer.wav"), buzzer())
-    write(os.path.join(a.out, "post-ping.wav"), post_ping())
     if a.impact:
         clip = lambda name: read(os.path.join(a.impact, name + ".wav"))
         write(os.path.join(a.out, "glove-catch.wav"), glove_catch(clip("impactPunch_heavy_002"), clip("impactSoft_medium_003")))
