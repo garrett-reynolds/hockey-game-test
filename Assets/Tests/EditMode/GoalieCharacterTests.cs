@@ -347,7 +347,7 @@ namespace HockeyGame.Core.Tests
                     return (x1 - x0, z1 - z0);
                 }
                 var chest = Slice(HumanBodyBones.UpperChest);
-                foreach (HumanBodyBones waist in new[] { HumanBodyBones.Chest, HumanBodyBones.Spine })
+                foreach (HumanBodyBones waist in new[] { HumanBodyBones.Chest, HumanBodyBones.Spine, HumanBodyBones.Hips })
                 {
                     var s = Slice(waist);
                     Assert.GreaterOrEqual(s.width, 0.95f * chest.width, "the jersey pinches in at " + waist + " (width)");

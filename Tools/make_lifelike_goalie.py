@@ -272,6 +272,8 @@ def garment(name, keep, offset_of, thickness, materials, band=None, smooth=8, sh
                 new[v] = v.co + (avg - v.co) * k
             for v, co in new.items():
                 v.co = co
+    if shape:
+        shape(bm, region_w)  # again: the smoothing (and the pinned hem edge) pull the shape back in a little
     bm.to_mesh(obj.data)
     bm.free()
     obj.data.materials.clear()
@@ -314,7 +316,7 @@ def hang_straight(bm, region_w):
     chest_z = bone_pos("spine_03").z
     def torso(v):
         w = region_w[v]
-        return w.get("arm", 0.0) < 0.2 and w.get("thigh", 0.0) < 0.3 and w.get("head", 0.0) < 0.1 and abs(v.co.x) < 0.28
+        return w.get("arm", 0.0) < 0.2 and w.get("head", 0.0) < 0.1 and abs(v.co.x) < 0.28
     def half_extents(z):
         s = [v.co for v in bm.verts if abs(v.co.z - z) < 0.015 and torso(v)]
         return max(abs(c.x) for c in s), (max(c.y for c in s) - min(c.y for c in s)) / 2, (max(c.y for c in s) + min(c.y for c in s)) / 2
@@ -324,8 +326,10 @@ def hang_straight(bm, region_w):
     top = chest_z + 0.06
     for v in bm.verts:
         z = v.co.z
-        if not torso(v) or z < HEM_Z + 0.02 or z > top:
+        if not torso(v) or z < HEM_Z - 0.05 or z > top:
             continue
+        if z < HEM_Z + 0.04 and abs(v.co.x) < 0.1 and abs(v.co.y - cy) < 0.5 * b:
+            continue  # the crotch, between the legs
         k = 1.0 if z <= chest_z else (top - z) / (top - chest_z)
         dx, dy = v.co.x, v.co.y - cy
         r = math.sqrt((dx / a) ** 2 + (dy / b) ** 2)
