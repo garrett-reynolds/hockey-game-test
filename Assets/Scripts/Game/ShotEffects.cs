@@ -6,16 +6,18 @@ namespace HockeyGame
 {
     /// <summary>
     /// Plays what a Shot did: the puck flies from just below the camera to the Shot's spot on the Net Face
-    /// (time from ShotFlight), then Goal (into the net, the netting bulges and the puck drops, red goal light), Save (on the goalie character's gear, or a goalie block slides
-    /// to the spot, the puck bounces away), Miss (the puck flies on past the net) or Too Late (no puck).
+    /// (time from ShotFlight), spinning flat, then Goal (into the net, the netting bulges and the puck drops, red goal light), Save (on the goalie character's gear, or a goalie block slides
+    /// to the spot; the puck deflects off the surface it hit, or the catching glove holds it), Miss (the puck flies on past the net, or
+    /// deflects off a post or the crossbar) or Too Late (no puck). The deflection is PuckMotion (see #38).
     /// Watches the Round and tells it how long the flight takes (Round.DelayResult). Uses real (unscaled) time. No colliders.
     /// </summary>
     public sealed class ShotEffects
     {
         const float H = (float)NetFaceMapping.HeightMetres;
         const float W = (float)NetFaceMapping.WidthMetres;
-        const float PuckDiameter = 0.15f;            // about 2x a real puck so it reads at 9 m
-        const float PuckThickness = 0.05f;
+        const float PuckDiameter = PuckMotion.Diameter;
+        const float PuckThickness = PuckMotion.Thickness;
+        const float FlightSpin = 25f;                // rad/s about the face: about 4 turns a second, slow enough to read at 60 fps
         const float GloveDepth = 0.1f;
         const float GloveGap = 0.02f;                // between the save block and the pose blocks
         const float GloveZ = GoalieView.BlockZ - GoalieView.BlockDepth / 2f - GloveGap - GloveDepth / 2f; // in front of the pose blocks
@@ -26,7 +28,7 @@ namespace HockeyGame
         const float Gravity = 9.81f;
         static readonly Color SaveBlockColour = new Color(0.45f, 0.6f, 1f); // lighter than the GoalieView blocks so the slide shows on a Covered Zone
 
-        enum Stage { None, Flying, IntoNet, InNet, Bouncing, Carrying }
+        enum Stage { None, Flying, IntoNet, InNet, Deflecting, Carrying }
 
         readonly Camera _camera;
         readonly GameObject _puck;
@@ -47,6 +49,14 @@ namespace HockeyGame
         float _backZ;          // world z where a goal puck meets the netting at the back of the net
         Vector3 _start, _target, _velocity;
         Vector3 _gloveFrom, _gloveTo;
+        Quaternion _flightTurn;  // the puck's flight attitude: flat face toward the camera
+        Vector3 _netPoint;       // the Shot's spot on the Net Face
+        bool _onGoalie;          // the save stops on the goalie character's gear
+        PuckObstacles _obstacles; // the frame (and posed goalie) a deflected puck can hit
+        PuckMotion _motion;
+        bool _onLine;             // the save is made on gear met on the puck line (see Play)
+        Vector3 _lineNormal;
+        PuckSurface _lineSurface;
 
         /// <param name="findFile">Model file lookup for the puck and save glove; null = Assets/Resources/Models (see ModelFiles).</param>
         /// <param name="goalie">The goalie; when it shows the character, a save stops on the character's gear.</param>
@@ -131,18 +141,38 @@ namespace HockeyGame
             float z = result.Kind == ShotResultKind.Save ? SaveZ
                 : NetFrame.At(result.X, result.Y) != FrameHit.None ? FrameFrontZ : 0f; // a frame hit stops on the iron's face
             _target = new Vector3((float)right, (float)up, z);
+            _netPoint = new Vector3((float)right, (float)up, 0f);
             bool onGoalie = false; // a save on the goalie character stops on its gear, with no save block
             if (result.Kind == ShotResultKind.Save && _goalie != null
-                && _goalie.SaveStop(_start, new Vector3((float)right, (float)up, 0f), RoundSoundCues.SaveContact(result.X, result.Y), PuckThickness, out Vector3 stop))
+                && _goalie.SaveStop(_start, _netPoint, RoundSoundCues.SaveContact(result.X, result.Y), PuckThickness, out Vector3 stop))
             {
                 _target = stop;
                 onGoalie = true;
+            }
+            _onGoalie = onGoalie;
+            _obstacles = null;
+            if (result.Kind == ShotResultKind.Save || NetFrame.At(result.X, result.Y) != FrameHit.None)
+            {
+                // Measured now, on the goalie's full pose, so the rebound meets the gear where the save was made.
+                _obstacles = new PuckObstacles();
+                NetBuilder.AddFrame(_obstacles);
+                _goalie?.AddObstacles(_obstacles);
+            }
+            _onLine = false;
+            if (onGoalie && RoundSoundCues.SaveContact(result.X, result.Y) != SoundCue.GloveCatch
+                && _obstacles.Cast(_start, _target, PuckThickness / 2f, out Vector3 first, out _lineNormal, out _lineSurface))
+            {
+                // Other gear (the stick blade, a skate) is on the puck line in front of the gear that makes the save: the puck
+                // stops there, not through it, and deflects off that gear's real face. The catching glove always catches.
+                _target = first;
+                _onLine = true;
             }
             _flightSeconds = (float)ShotFlight.Seconds(Vector3.Distance(_start, _target), result.SpeedKmh);
             _velocity = (_target - _start) / _flightSeconds;
 
             _puck.transform.position = _start;
-            _puck.transform.rotation = Quaternion.LookRotation(Vector3.up, -_velocity.normalized); // flat face toward the camera
+            _flightTurn = Quaternion.LookRotation(Vector3.up, -_velocity.normalized); // flat face toward the camera
+            _puck.transform.rotation = _flightTurn;
             _puck.SetActive(true);
             _stage = Stage.Flying;
             _time = 0f;
@@ -170,10 +200,14 @@ namespace HockeyGame
                     if (_time < _flightSeconds)
                     {
                         _puck.transform.position = _start + _velocity * _time;
+                        _puck.transform.rotation = FlightRotation(_time);
                         break;
                     }
                     _puck.transform.position = _target;
+                    _puck.transform.rotation = FlightRotation(_flightSeconds);
+                    float past = _time - _flightSeconds;
                     Arrive();
+                    if (_stage == Stage.Deflecting) Deflect(past); // the motion runs from the moment of contact, whatever the frame length
                     break;
                 case Stage.IntoNet:
                     {
@@ -204,13 +238,8 @@ namespace HockeyGame
                         _puck.transform.position = p;
                     }
                     break;
-                case Stage.Bouncing:
-                    _velocity.y -= Gravity * dt;
-                    {
-                        Vector3 p = _puck.transform.position + _velocity * dt;
-                        if (p.y < PuckThickness / 2f) { p.y = PuckThickness / 2f; _velocity.y = -_velocity.y * 0.4f; }
-                        _puck.transform.position = p;
-                    }
+                case Stage.Deflecting:
+                    Deflect(dt);
                     break;
                 case Stage.Carrying:
                     {
@@ -242,23 +271,42 @@ namespace HockeyGame
                     _stage = Stage.IntoNet;
                     break;
                 case ShotResultKind.Save:
-                    // Bounce back toward the shooter and off to the side the puck was already heading.
-                    float side = _target.x >= 0f ? 1f : -1f;
-                    float speed = Mathf.Clamp(_velocity.magnitude * 0.3f, 2f, 8f);
-                    _velocity = new Vector3(side * speed * 0.6f, speed * 0.5f, -speed);
-                    _stage = Stage.Bouncing;
+                    {
+                        SoundCue contact = RoundSoundCues.SaveContact(_result.X, _result.Y);
+                        Vector3 normal = _lineNormal;
+                        PuckSurface surface = _lineSurface;
+                        if (!_onLine && (!_onGoalie || !_goalie.SaveSurface(_obstacles, _target, _netPoint, contact, out normal, out surface)))
+                        {
+                            // The save block: its face is square to the shooter; the gear it stands for decides the feel.
+                            normal = Vector3.back;
+                            surface = contact == SoundCue.GloveCatch ? PuckSurface.Catcher : contact == SoundCue.BlockerHit ? PuckSurface.Blocker : PuckSurface.Pad;
+                        }
+                        StartDeflection(normal, surface);
+                    }
                     break;
                 default:
-                    FrameHit frame = NetFrame.At(_result.X, _result.Y);
-                    if (frame == FrameHit.None) { _stage = Stage.Carrying; break; } // wide Miss: carry on past the net
-                    // Off the iron: back toward the shooter, kicked outward off a post or up off the crossbar.
-                    float bounce = Mathf.Clamp(_velocity.magnitude * 0.35f, 2.5f, 9f);
-                    _velocity = frame == FrameHit.Crossbar
-                        ? new Vector3(_velocity.normalized.x * bounce * 0.3f, bounce * 0.8f, -bounce * 0.6f)
-                        : new Vector3((frame == FrameHit.LeftPost ? -1f : 1f) * bounce * 0.8f, bounce * 0.2f, -bounce * 0.6f);
-                    _stage = Stage.Bouncing;
+                    if (NetFrame.At(_result.X, _result.Y) == FrameHit.None) { _stage = Stage.Carrying; break; } // wide Miss: carry on past the net
+                    // Off the round iron: the tube normal where the puck met it.
+                    _obstacles.Nearest(_target, null, out Vector3 tube, out _);
+                    StartDeflection(tube, PuckSurface.Frame);
                     break;
             }
+        }
+
+        Quaternion FlightRotation(float seconds) => _flightTurn * Quaternion.AngleAxis(FlightSpin * seconds * Mathf.Rad2Deg, Vector3.up);
+
+        void StartDeflection(Vector3 normal, PuckSurface surface)
+        {
+            _motion = new PuckMotion(_target, _puck.transform.rotation, _velocity, FlightSpin, _obstacles);
+            _motion.Hit(normal, surface);
+            _stage = Stage.Deflecting;
+        }
+
+        void Deflect(float dt)
+        {
+            _motion.Advance(dt);
+            _puck.transform.position = _motion.Position;
+            _puck.transform.rotation = _motion.Rotation;
         }
 
         void SetGoalLight(bool on) => _goalLight.SetOn(on);

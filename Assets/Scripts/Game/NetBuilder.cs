@@ -20,6 +20,18 @@ namespace HockeyGame
         /// <summary>Name of the part that shakes on a goal (the netting).</summary>
         public const string NettingName = "Netting";
 
+        /// <summary>
+        /// Adds the posts and crossbar to what a puck can hit, as round tubes Post across, centred on z = 0 just outside the
+        /// Net Face (where Build fits them). Pieces "Left Post", "Right Post", "Crossbar".
+        /// </summary>
+        public static void AddFrame(PuckObstacles obstacles)
+        {
+            float x = W / 2f + Post / 2f, top = H + Post / 2f;
+            obstacles.AddTube(new Vector3(-x, 0f, 0f), new Vector3(-x, top, 0f), Post / 2f, PuckSurface.Frame, "Left Post");
+            obstacles.AddTube(new Vector3(x, 0f, 0f), new Vector3(x, top, 0f), Post / 2f, PuckSurface.Frame, "Right Post");
+            obstacles.AddTube(new Vector3(-x, top, 0f), new Vector3(x, top, 0f), Post / 2f, PuckSurface.Frame, "Crossbar");
+        }
+
         /// <summary>A new "Net" object under the rink. findFile is for tests; see ModelFiles.Load.</summary>
         public static GameObject Build(Transform rink, Func<string, GameObject> findFile = null)
         {
