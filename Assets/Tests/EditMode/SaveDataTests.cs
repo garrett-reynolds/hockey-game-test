@@ -132,9 +132,11 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void ToRoundSettings_CopiesChancesAndTopSpeed()
+        public void ApplyTo_CopiesChancesAndTopSpeed_AndKeepsPhaseLengths()
         {
-            var settings = NonDefault().ToRoundSettings();
+            var settings = new RoundSettings { SkateInSeconds = 9 };
+            NonDefault().ApplyTo(settings);
+            Assert.AreEqual(9, settings.SkateInSeconds);
             Assert.AreEqual(0.35, settings.ContestedLowChance);
             Assert.AreEqual(0.7, settings.ContestedTopChance);
             Assert.AreEqual(95.5, settings.TopSpeedKmh);

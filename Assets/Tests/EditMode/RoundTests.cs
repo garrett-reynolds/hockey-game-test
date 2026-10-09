@@ -319,6 +319,18 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void StartRound_with_a_best_score_compares_against_that_best()
+        {
+            var round = RoundWithGoals(best: 5, goals: 2);
+            round.StartRound(1);
+            Assert.AreEqual(1, round.BestScore);
+            for (int i = 0; i < 6; i++)
+                PlayShot(round, i < 2 ? 50 : 150, 90);
+            Assert.IsTrue(round.IsNewBest);
+            Assert.AreEqual(2, round.BestScore);
+        }
+
+        [Test]
         public void New_best_flag_is_false_before_RoundOver()
         {
             var round = StartedRound(best: 0);

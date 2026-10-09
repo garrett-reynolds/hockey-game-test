@@ -97,15 +97,12 @@ namespace HockeyGame.Core
             }
         }
 
-        /// <summary>Makes the Round core's settings from the saved tuning values.</summary>
-        public RoundSettings ToRoundSettings()
+        /// <summary>Copies the saved tuning values into the Round core's settings. Phase lengths are left as they are.</summary>
+        public void ApplyTo(RoundSettings settings)
         {
-            return new RoundSettings
-            {
-                ContestedLowChance = ContestedLowChance,
-                ContestedTopChance = ContestedTopChance,
-                TopSpeedKmh = TopSpeedKmh,
-            };
+            settings.ContestedLowChance = ContestedLowChance;
+            settings.ContestedTopChance = ContestedTopChance;
+            settings.TopSpeedKmh = TopSpeedKmh;
         }
 
         private static int ReadInt(Dictionary<string, string> values, string key, int fallback)

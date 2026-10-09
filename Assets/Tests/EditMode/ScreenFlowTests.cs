@@ -54,8 +54,7 @@ namespace HockeyGame.Core.Tests
             Assert.IsTrue(flow.EndAcceptsInput);
             flow.Press();
             Assert.AreEqual(FlowScreen.Start, flow.Screen);
-            Assert.AreEqual(RoundPhase.Idle, flow.Round.Phase);
-            Assert.AreEqual(0, flow.Round.Results.Count);
+            Assert.AreEqual(RoundPhase.RoundOver, flow.Round.Phase); // not restarted
         }
 
         [Test]
@@ -86,7 +85,7 @@ namespace HockeyGame.Core.Tests
             PlayRound(flow, 0);
             flow.Tick(1000);
             Assert.AreEqual(FlowScreen.Start, flow.Screen);
-            Assert.AreEqual(RoundPhase.Idle, flow.Round.Phase);
+            Assert.AreEqual(RoundPhase.RoundOver, flow.Round.Phase); // not restarted
         }
 
         [Test]
@@ -141,6 +140,45 @@ namespace HockeyGame.Core.Tests
             Assert.IsFalse(flow.Round.IsNewBest);
             Assert.AreEqual(2, save.BestScore);
             Assert.AreEqual(2, flow.Round.BestScore);
+        }
+
+        [Test]
+        public void The_flow_keeps_one_Round_for_the_whole_run_so_views_can_hold_it()
+        {
+            var flow = NewFlow();
+            var round = flow.Round;
+            PlayRound(flow, 1);
+            flow.Tick(20);
+            flow.Press();
+            Assert.AreSame(round, flow.Round);
+            Assert.AreEqual(RoundPhase.SkateIn, round.Phase);
+            Assert.AreEqual(0, round.Results.Count);
+        }
+
+        [Test]
+        public void A_best_score_reset_in_SaveData_applies_to_the_next_Round()
+        {
+            var save = new SaveData();
+            var flow = NewFlow(save);
+            PlayRound(flow, 3);
+            flow.Tick(20);
+            save.BestScore = 0; // e.g. "Reset best score" on the settings screen
+            PlayRound(flow, 1);
+            Assert.IsTrue(flow.Round.IsNewBest);
+            Assert.AreEqual(1, save.BestScore);
+        }
+
+        [Test]
+        public void Tuning_changed_in_SaveData_applies_to_the_next_Round()
+        {
+            var save = new SaveData();
+            var flow = NewFlow(save);
+            save.ContestedLowChance = 1; // default chance would give a Save with this roll (0.83)
+            save.ContestedTopChance = 1;
+            flow.Press();
+            flow.Tick(3.7);
+            flow.SubmitShot(50, 50, 100, false); // middle Zone: Contested in both butterflies
+            Assert.AreEqual(ShotResultKind.Goal, flow.Round.LastResult.Value.Kind);
         }
 
         [Test]

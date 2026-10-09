@@ -24,7 +24,7 @@ namespace HockeyGame
         bool _easyMode; // Easy mode: Open Zones glow. From the saved settings; F2 toggles and saves it.
 
         ScreenFlow _flow;
-        Round _round; // the flow's current Round; refreshed after each Tick and Press
+        Round _round; // the flow's one Round; each start reuses it
         SaveData _save;
         GoalieView _goalie;
         Camera _camera;
@@ -43,14 +43,13 @@ namespace HockeyGame
             _testShotsOn = _save.TestShotOnAtStart;
             _flow = new ScreenFlow(new SystemRandomSource(), _save);
             _flow.BestScoreChanged += SaveStore.Save;
-            _round = _flow.Round; // one Round for the whole run; each start reuses it
+            _round = _flow.Round;
             gameObject.AddComponent<BreakawayView>().Init(_round, _camera, _goalie);
         }
 
         void Update()
         {
             _flow.Tick(Time.unscaledDeltaTime);
-            _round = _flow.Round;
 
             var keyboard = Keyboard.current;
             var mouse = Mouse.current;
@@ -94,10 +93,7 @@ namespace HockeyGame
             }
 
             if (pressed)
-            {
                 _flow.Press();
-                _round = _flow.Round;
-            }
         }
 
         void SubmitTestShot(Vector2 screenPosition)
@@ -117,8 +113,11 @@ namespace HockeyGame
             if (_big == null) MakeStyles();
             float w = Screen.width, h = Screen.height;
 
-            DrawDots(w);
-            GUI.Label(new Rect(0, 70, w, 40), "Goals: " + _round.Goals, _mid);
+            if (_flow.Screen != FlowScreen.Start) // the start screen shows no old Round
+            {
+                DrawDots(w);
+                GUI.Label(new Rect(0, 70, w, 40), "Goals: " + _round.Goals, _mid);
+            }
 
             string testShots = _testShotsOn
                 ? "Test Shots: ON  (" + _testShotSpeedKmh + " km/h, wheel to change, F1 off)"
@@ -127,8 +126,8 @@ namespace HockeyGame
 
             GUI.Label(new Rect(10, h - 64, w, 30), "Easy mode: " + (_easyMode ? "ON" : "OFF") + " (F2)", _small);
 
-            string phase = _round.Phase.ToString();
-            if (_round.ShotNumber > 0)
+            string phase = _flow.Screen == FlowScreen.Playing ? _round.Phase.ToString() : _flow.Screen + " screen";
+            if (_flow.Screen == FlowScreen.Playing)
                 phase += "  -  Shot " + _round.ShotNumber + " of " + Round.ShotsPerRound;
             GUI.Label(new Rect(10, 10, w / 3f, 30), phase, _small);
 

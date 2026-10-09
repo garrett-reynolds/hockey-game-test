@@ -11,8 +11,9 @@ namespace HockeyGame.Core
 
     /// <summary>
     /// The screens around a Round: start screen, the Round, end screen. Pure logic: time only enters
-    /// through Tick(realSeconds). Settings and the best score are read from the SaveData each time a
-    /// Round starts, so changes made on the start screen apply to the next Round.
+    /// through Tick(realSeconds). One Round object serves the whole run, so views can hold it. Settings and
+    /// the best score are read from the SaveData each time a Round starts, so changes made on the start
+    /// screen (settings, "Reset best score") apply to the next Round.
     /// <para>
     /// Start: a key, click (Press) or Shot starts a Round; that Shot does not count.
     /// Playing: Shots go to the Round; keys and clicks do nothing (no pause). The Round ending shows End.
@@ -22,14 +23,14 @@ namespace HockeyGame.Core
     /// </summary>
     public sealed class ScreenFlow
     {
-        private readonly IRandomSource _random;
         private readonly SaveData _save;
+        private readonly RoundSettings _settings = new RoundSettings();
 
         public ScreenFlow(IRandomSource random, SaveData save)
         {
-            _random = random;
             _save = save;
-            Round = NewRound();
+            _save.ApplyTo(_settings);
+            Round = new Round(random, _settings, save.BestScore);
         }
 
         /// <summary>Raised when a Round beats the best score, after SaveData.BestScore is updated. Save then.</summary>
@@ -37,8 +38,8 @@ namespace HockeyGame.Core
 
         public FlowScreen Screen { get; private set; }
 
-        /// <summary>The current Round: idle on the start screen, finished on the end screen.</summary>
-        public Round Round { get; private set; }
+        /// <summary>The one Round for the whole run: idle (or the last Round, over) on the start screen.</summary>
+        public Round Round { get; }
 
         /// <summary>Real seconds spent on the end screen so far; 0 on other screens.</summary>
         public double EndSecondsElapsed { get; private set; }
@@ -52,8 +53,8 @@ namespace HockeyGame.Core
             switch (Screen)
             {
                 case FlowScreen.Start:
-                    Round = NewRound();
-                    Round.StartRound();
+                    _save.ApplyTo(_settings);
+                    Round.StartRound(_save.BestScore);
                     Screen = FlowScreen.Playing;
                     break;
                 case FlowScreen.End:
@@ -104,9 +105,6 @@ namespace HockeyGame.Core
         {
             Screen = FlowScreen.Start;
             EndSecondsElapsed = 0;
-            Round = NewRound();
         }
-
-        private Round NewRound() => new Round(_random, _save.ToRoundSettings(), _save.BestScore);
     }
 }
