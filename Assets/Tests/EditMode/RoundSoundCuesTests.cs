@@ -78,6 +78,7 @@ namespace HockeyGame.Core.Tests
             var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.8);
             round.SubmitShot(50, 90, 100, false);        // Open Zone for butterflies
+            round.DelayResult(0.5);                      // the scene holds the result while the puck flies
             var beforeArrival = Run(round, cues, 0.2);
             Assert.IsFalse(beforeArrival.Contains(SoundCue.GoalImpact));
             Assert.IsFalse(beforeArrival.Contains(SoundCue.Cheer));
@@ -94,6 +95,7 @@ namespace HockeyGame.Core.Tests
             var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.8);
             round.SubmitShot(50, 10, 100, false);        // Covered bottom row
+            round.DelayResult(0.5);
             cues.Update(round, false);
             CollectionAssert.AreEquivalent(new[] { SoundCue.SaveImpact, SoundCue.Groan }, cues.Update(round, true));
         }
@@ -105,20 +107,26 @@ namespace HockeyGame.Core.Tests
             var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.8);
             round.SubmitShot(150, 90, 100, false);       // off the Net Face
+            round.DelayResult(0.5);
             cues.Update(round, false);
             CollectionAssert.AreEquivalent(new[] { SoundCue.MissImpact, SoundCue.Groan }, cues.Update(round, true));
         }
 
         [Test]
-        public void Result_sound_still_plays_when_the_puck_never_arrives()
+        public void Slow_Shot_result_sound_waits_for_the_landing_even_when_the_arrival_is_missed()
         {
             var round = StartedRound();
             var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.8);
-            round.SubmitShot(50, 10, 10, false);         // very slow: flight outlasts the hold
-            var heard = Run(round, cues, 2.0);
-            CollectionAssert.IsSubsetOf(new[] { SoundCue.SaveImpact, SoundCue.Groan }, heard);
-            Assert.AreEqual(1, heard.FindAll(c => c == SoundCue.SaveImpact).Count);
+            round.SubmitShot(50, 10, 10, false);         // very slow: the puck flies 2.9 s
+            round.DelayResult(2.9);
+            var inFlight = Run(round, cues, 2.8);
+            Assert.IsFalse(inFlight.Contains(SoundCue.SaveImpact));
+            Assert.IsFalse(inFlight.Contains(SoundCue.Groan));
+
+            var landed = Run(round, cues, 0.3);          // no arrival frame seen: the result showing still plays it
+            CollectionAssert.IsSubsetOf(new[] { SoundCue.SaveImpact, SoundCue.Groan }, landed);
+            Assert.AreEqual(1, landed.FindAll(c => c == SoundCue.SaveImpact).Count);
         }
 
         private static List<SoundCue> PlayRound(Round round, RoundSoundCues cues, int goals)

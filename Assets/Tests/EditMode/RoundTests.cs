@@ -338,5 +338,55 @@ namespace HockeyGame.Core.Tests
             Assert.IsFalse(round.IsNewBest);
             Assert.AreEqual(0, round.BestScore);
         }
+
+        [Test]
+        public void A_delayed_result_holds_for_the_delay_plus_the_normal_hold()
+        {
+            var round = InWindow();
+            round.SubmitShot(50, 90, 10, false);
+            round.DelayResult(2.9);                    // the puck flies for 2.9 s
+            round.Tick(2.9 + 2.4);
+            Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
+            round.Tick(0.2);
+            Assert.AreEqual(RoundPhase.SkateIn, round.Phase);
+            Assert.AreEqual(2, round.ShotNumber);
+        }
+
+        [Test]
+        public void A_delayed_result_shows_only_once_the_delay_has_passed()
+        {
+            var round = InWindow();
+            round.SubmitShot(50, 90, 10, false);
+            round.DelayResult(2.9);
+            round.Tick(2.8);
+            Assert.IsFalse(round.ResultShowing);
+            round.Tick(0.2);
+            Assert.IsTrue(round.ResultShowing);
+        }
+
+        [Test]
+        public void A_result_with_no_delay_shows_at_once_and_holds_2_5_seconds()
+        {
+            var round = InWindow();
+            round.SubmitShot(50, 90, 100, false);
+            Assert.IsTrue(round.ResultShowing);
+            round.Tick(2.4);
+            Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
+            round.Tick(0.2);
+            Assert.AreEqual(RoundPhase.SkateIn, round.Phase);
+        }
+
+        [Test]
+        public void DelayResult_does_nothing_outside_the_result_hold_and_does_not_carry_to_the_next_Shot()
+        {
+            var round = InWindow();
+            round.DelayResult(5);                      // shooting window: ignored
+            round.SubmitShot(50, 90, 100, false);
+            Assert.IsTrue(round.ResultShowing);
+            round.DelayResult(1);
+            round.Tick(1 + 2.5 + 3.7);                 // hold ends, next Shot's window opens
+            round.SubmitShot(50, 90, 100, false);
+            Assert.IsTrue(round.ResultShowing);
+        }
     }
 }

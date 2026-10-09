@@ -22,6 +22,7 @@ namespace HockeyGame.Core
         private readonly List<ShotResultKind> _results = new List<ShotResultKind>();
         private const int MaxPickTries = 10;
         private double _phaseElapsed;
+        private double _resultDelay;
         private GoaliePose? _previousPose;
 
         public Round(IRandomSource random, RoundSettings settings, int bestScore)
@@ -63,6 +64,22 @@ namespace HockeyGame.Core
 
         /// <summary>Goalie Pose for the current Shot; chosen when the Shot starts.</summary>
         public GoaliePose GoaliePose { get; private set; }
+
+        /// <summary>
+        /// False while a delayed result is still hidden (see DelayResult); true otherwise. The scene shows the
+        /// result text and plays the result sound only once this is true.
+        /// </summary>
+        public bool ResultShowing => Phase != RoundPhase.ResultHold || _phaseElapsed >= _resultDelay;
+
+        /// <summary>
+        /// Holds back the current result for this many real seconds (the on-screen puck flight), then holds it
+        /// for the normal ResultHoldSeconds. Only in ResultHold; later calls replace the delay.
+        /// </summary>
+        public void DelayResult(double seconds)
+        {
+            if (Phase == RoundPhase.ResultHold)
+                _resultDelay = Math.Max(0, seconds);
+        }
 
         /// <summary>Starts a Round against the given best score (for example after a reset on the settings screen).</summary>
         public void StartRound(int bestScore)
@@ -200,6 +217,7 @@ namespace HockeyGame.Core
         {
             Phase = phase;
             _phaseElapsed = 0;
+            _resultDelay = 0;
         }
 
         private double PhaseLength(RoundPhase phase)
@@ -209,7 +227,7 @@ namespace HockeyGame.Core
                 case RoundPhase.SkateIn: return _settings.SkateInSeconds;
                 case RoundPhase.SlowDown: return _settings.SlowDownSeconds;
                 case RoundPhase.ShootingWindow: return _settings.ShootingWindowSeconds;
-                default: return _settings.ResultHoldSeconds;
+                default: return _resultDelay + _settings.ResultHoldSeconds;
             }
         }
     }

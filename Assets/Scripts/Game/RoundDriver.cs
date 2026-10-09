@@ -160,7 +160,7 @@ namespace HockeyGame
             if (_flow.Screen != FlowScreen.Start) // the start screen shows no old Round
             {
                 DrawDots(w);
-                GUI.Label(new Rect(0, 70, w, 40), "Goals: " + _round.Goals, _mid);
+                GUI.Label(new Rect(0, 70, w, 40), "Goals: " + ShownGoals(), _mid);
             }
 
             string testShots = _testShotsOn
@@ -185,7 +185,7 @@ namespace HockeyGame
                     GUI.Label(new Rect(0, h * 0.2f, w, 60), _round.WindowSecondsLeft.ToString("0.0") + " s", _big);
                     break;
                 case RoundPhase.ResultHold:
-                    if (_round.LastResult.HasValue)
+                    if (_round.LastResult.HasValue && _round.ResultShowing) // lands with the puck
                     {
                         GUI.Label(new Rect(0, h * 0.2f, w, 60), ResultText(_round.LastResult.Value.Kind), _big);
                         string speed = ShotResultText.Speed(_round.LastResult.Value);
@@ -247,15 +247,24 @@ namespace HockeyGame
             float total = Round.ShotsPerRound * size + (Round.ShotsPerRound - 1) * gap;
             float left = (width - total) / 2f;
             var results = _round.Results;
+            int shown = results.Count - (_round.ResultShowing ? 0 : 1); // the Shot in flight shows on landing
             for (int i = 0; i < Round.ShotsPerRound; i++)
             {
-                Color colour = i < results.Count ? DotColour(results[i]) : new Color(1f, 1f, 1f, 0.15f);
+                Color colour = i < shown ? DotColour(results[i]) : new Color(1f, 1f, 1f, 0.15f);
                 var rect = new Rect(left + i * (size + gap), 36, size, size);
                 var old = GUI.color;
                 GUI.color = colour;
                 GUI.DrawTexture(rect, Texture2D.whiteTexture);
                 GUI.color = old;
             }
+        }
+
+        /// <summary>Goals so far, not counting a Goal whose puck is still in flight.</summary>
+        int ShownGoals()
+        {
+            bool goalInFlight = !_round.ResultShowing && _round.LastResult.HasValue
+                                && _round.LastResult.Value.Kind == ShotResultKind.Goal;
+            return _round.Goals - (goalInFlight ? 1 : 0);
         }
 
         static Color DotColour(ShotResultKind kind)

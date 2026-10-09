@@ -7,7 +7,7 @@ namespace HockeyGame
     /// Plays what a Shot did: the puck flies from just below the camera to the Shot's spot on the Net Face
     /// (time from ShotFlight), then Goal (into the net, net shakes, red goal light), Save (a goalie block slides
     /// to the spot, the puck bounces away), Miss (the puck flies on past the net) or Too Late (no puck).
-    /// Watches the Round; the Round does not know about the flight. Uses real (unscaled) time. No colliders.
+    /// Watches the Round and tells it how long the flight takes (Round.DelayResult). Uses real (unscaled) time. No colliders.
     /// </summary>
     public sealed class ShotEffects
     {
@@ -93,7 +93,10 @@ namespace HockeyGame
             Clear();
         }
 
-        /// <summary>Call once per frame with real seconds. Starts effects when the Round records a new Shot result.</summary>
+        /// <summary>
+        /// Call once per frame with real seconds. Starts effects when the Round records a new Shot result, and
+        /// delays the Round's result by the puck flight so the hold runs its full length after the puck lands.
+        /// </summary>
         public void Update(Round round, float realSeconds)
         {
             PuckArrivedThisFrame = false;
@@ -107,7 +110,11 @@ namespace HockeyGame
             if (count > _seenResults)
             {
                 _seenResults = count;
-                if (round.LastResult.HasValue) Play(round.LastResult.Value);
+                if (round.LastResult.HasValue)
+                {
+                    Play(round.LastResult.Value);
+                    if (_stage == Stage.Flying) round.DelayResult(_flightSeconds);
+                }
             }
             Step(realSeconds);
         }

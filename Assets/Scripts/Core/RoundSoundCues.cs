@@ -45,8 +45,6 @@ namespace HockeyGame.Core
         public const double SlowPitch = 0.8;
         /// <summary>Spacing of the ticks in the last second of the shooting window.</summary>
         public const double FastTickSeconds = 0.25;
-        /// <summary>If the puck has not arrived this long into the result hold, play the result sound anyway.</summary>
-        public const double ImpactFallbackSeconds = 1.5;
 
         private readonly SaveData _save;
         private readonly List<SoundCue> _cues = new List<SoundCue>();
@@ -104,8 +102,8 @@ namespace HockeyGame.Core
                 }
             }
 
-            if (_pendingImpact.HasValue
-                && (puckArrived || (phase == RoundPhase.ResultHold && round.PhaseSecondsElapsed >= ImpactFallbackSeconds)))
+            // The result shows when the puck lands (Round.DelayResult), so a missed arrival frame still plays it then.
+            if (_pendingImpact.HasValue && (puckArrived || (phase == RoundPhase.ResultHold && round.ResultShowing)))
                 PlayPendingImpact();
 
             if (phase == RoundPhase.ShootingWindow)
