@@ -5,8 +5,8 @@ namespace HockeyGame
 {
     /// <summary>
     /// The character pose for each Goalie Pose, laid on top of the ready stance. Each limb is aimed in the shooter's
-    /// frame: up, toward the shooter, and toward the shooter's right. Left and Middle poses are written out; each Right
-    /// pose is its Left pose mirrored, so the limb on the post side swaps (blocker at the left post, catcher at the right).
+    /// frame: up, toward the shooter, and toward the shooter's right. Each Right pose is written in a mirrored
+    /// frame, so the limb on the post side swaps (blocker at the left post, catcher at the right); it is tuned on its own.
     /// Hands keep their gear to the shooter: the blocker board and the catcher pocket face the shooter.
     /// The shapes are tuned so the posed goalie, seen from the shooter, matches the Goalie Pose table (see GoalieCoverageTests).
     /// </summary>
@@ -27,7 +27,10 @@ namespace HockeyGame
 
         static Vector3 V(float right, float up, float forward) => new Vector3(right, up, forward);
 
-        /// <summary>Shapes for LeftPostHug, LeftButterfly, MiddleButterfly and MiddleStandUp; the Right poses mirror the Left ones.</summary>
+        /// <summary>
+        /// One shape per Goalie Pose, in GoaliePose order. The Right shapes are written in a mirrored frame (as the Left ones),
+        /// but kept separate: the post-side hand is the blocker on the left and the catcher on the right, so each side is tuned on its own.
+        /// </summary>
         internal static readonly Shape[] Shapes =
         {
             new Shape // LeftPostHug: standing on the post leg, the far pad down across the ice, blocker high on the post
@@ -66,14 +69,31 @@ namespace HockeyGame
                 RightUpperArm = V(0.8f, -0.2f, 0.3f), RightForearm = V(0.7f, 0.15f, 0.4f), RightFingers = V(0.25f, 0.9f, 0f),
                 Hips = V(0f, 0f, 0.03f),
             },
+            new Shape // RightPostHug: LeftPostHug mirrored (written in its own mirrored frame), tuned on its own
+            {
+                Spine = V(-0.426f, 0.648f, 0.4f), Neck = V(0f, 1f, 0f),
+                LeftThigh = V(-0.545f, -0.4f, 0.8f), LeftShin = V(-0.1f, -0.6f, 0.267f),
+                RightThigh = V(0.7f, -0.943f, 0.4f), RightShin = V(0.912f, -0.05f, -0.25f),
+                LeftUpperArm = V(-0.8f, 0.2f, 0.3f), LeftForearm = V(-0.1f, 0.9f, 0.3f), LeftFingers = V(-0.1f, 0.9f, 0.309f),
+                RightUpperArm = V(0.3f, -1.05f, 0.222f), RightForearm = V(0.5f, -0.2f, 0.563f), RightFingers = V(-0.6f, 0.4f, 0f),
+                Hips = V(-0.4f, 0f, 0f),
+            },
+            new Shape // RightButterfly: LeftButterfly mirrored (written in its own mirrored frame), tuned on its own
+            {
+                Spine = V(-0.37f, 0.6f, 1.019f), Neck = V(-0.196f, 0.991f, 0.025f),
+                LeftThigh = V(-0.038f, -0.571f, 0.984f), LeftShin = V(-0.554f, 0.098f, -0.9f),
+                RightThigh = V(0.812f, -0.316f, 0.3f), RightShin = V(1.004f, -0.014f, -0.143f),
+                LeftUpperArm = V(-0.418f, 0.531f, 0.414f), LeftForearm = V(0.4f, 0.821f, 0.05f), LeftFingers = V(0.834f, 0.789f, -0.399f),
+                RightUpperArm = V(0.681f, -0.691f, 0.297f), RightForearm = V(1.313f, -0.166f, 0.658f), RightFingers = V(0.606f, 0.559f, 0.03f),
+                Hips = V(-0.49f, 0f, 0f),
+            },
         };
 
         /// <summary>Poses the limbs and returns where the hips go: metres from the stand point, in the Root frame.</summary>
         public static Vector3 Apply(GoalieCharacter character, GoaliePose pose)
         {
             AttackSide side = GoaliePoses.SideOf(pose);
-            int shape = side == AttackSide.Middle ? (int)pose : (int)pose % GoaliePoses.PosesPerSide;
-            return Apply(character, Shapes[shape], side == AttackSide.Right);
+            return Apply(character, Shapes[(int)pose], side == AttackSide.Right);
         }
 
         static Vector3 Apply(GoalieCharacter character, Shape s, bool mirror)
