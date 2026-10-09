@@ -17,6 +17,16 @@ namespace HockeyGame
         }
 
         /// <summary>
+        /// Net Face coordinates (0-100 from the bottom-left; outside 0-100 = off the net) to metres right of the
+        /// Net Face centre and metres up from its bottom. Same frame as ZoneRectangle.
+        /// </summary>
+        public static void ToMetres(double x, double y, out double metresRight, out double metresUp)
+        {
+            metresRight = (x / 100.0 - 0.5) * WidthMetres;
+            metresUp = y / 100.0 * HeightMetres;
+        }
+
+        /// <summary>
         /// Rectangle (metres; x right of Net Face centre, y up from the bottom of the Net Face) of a Zone
         /// (column 0 = left, row 0 = bottom, shooter's view), shrunk about its centre by fraction
         /// (1 = the whole Zone, 0.55 = a smaller block leaving a margin open).
