@@ -1,17 +1,8 @@
-# Writes the hockey net and goal light models as OBJ+MTL, in metres, Y up.
-#   python Tools/make_net.py Assets/Resources/Models
-# Net: the opening (Net Face) is 1.83 m wide and 1.22 m high at z = 0, centred on x = 0, bottom on the ice (y = 0).
-# Red posts and crossbar (0.08 m thick) stand just outside the opening, centred on z = 0. White padded base frame and
-# white mesh netting run back to z = 0.6 m (the game's net depth). Nothing sticks out past the posts or behind 0.6 m,
-# because the game fits the model's outer box to exactly that frame.
-# Goal light: grey housing with a red dome, 0.26 m square, 0.31 m high, base at y = 0.
+# Writes the goal light model as OBJ+MTL, in metres, Y up.
+#   python Tools/make_goal_light.py Assets/Resources/Models
+# Grey housing with a red dome, 0.26 m square, 0.31 m high, base at y = 0.
+# (The net is the model Garrett supplied, converted by Tools/make_supplied_net.py.)
 import math, os, sys
-
-W, H, D, P = 1.83, 1.22, 0.6, 0.08   # opening width, height, net depth, post thickness
-STRAND = 0.008                       # netting strand thickness
-MESH = 0.075                         # netting hole size (about)
-TUBE = 0.035                         # base frame tube radius
-BEND = 0.15                          # base frame back corner radius
 
 
 def sub(a, b): return (a[0] - b[0], a[1] - b[1], a[2] - b[2])
@@ -83,7 +74,7 @@ class Obj:
 
     def write(self, folder, name, header, materials):
         with open(os.path.join(folder, name + ".obj"), "w", newline="\n") as o:
-            o.write(f"# {header} Made for Hockey Game Test by Tools/make_net.py. CC0.\nmtllib {name}.mtl\n")
+            o.write(f"# {header} Made for Hockey Game Test by Tools/make_goal_light.py. CC0.\nmtllib {name}.mtl\n")
             for x, y, z in self.v:
                 o.write(f"v {x:.5f} {y:.5f} {z:.5f}\n")
             for part, material, faces in self.parts:
@@ -108,60 +99,6 @@ def steps(lo, hi, size):
     return [lo + (hi - lo) * k / n for k in range(n + 1)]
 
 
-def strand(m, a, b):
-    """A netting strand from a to b, cut into pieces about one hole long so the game can bend it (the goal bulge)."""
-    n = max(1, round(math.sqrt(dot(sub(b, a), sub(b, a))) / MESH))
-    for k in range(n):
-        m.bar(add(a, mul(sub(b, a), k / n)), add(a, mul(sub(b, a), (k + 1) / n)), STRAND)
-
-
-def net():
-    m = Obj()
-    x = W / 2 + P / 2   # post centre line
-    r = P / 2
-    m.part("LeftPost", "PostRed")
-    m.cylinder((-x, 0, 0), (-x, H + r, 0), r)
-    m.part("RightPost", "PostRed")
-    m.cylinder((x, 0, 0), (x, H + r, 0), r)
-    m.part("Crossbar", "PostRed")
-    m.cylinder((-x, H + r, 0), (x, H + r, 0), r)
-    m.sphere((-x, H + r, 0), r)
-    m.sphere((x, H + r, 0), r)
-
-    # Base frame: a padded tube on the ice from each post back, round the back corners, across the back.
-    m.part("BaseFrame", "FrameWhite")
-    zb = D - TUBE
-    path = [(-x, TUBE, 0.0), (-x, TUBE, zb - BEND)]
-    for k in range(1, 7):
-        t = math.pi / 2 * k / 6
-        path.append((-x + BEND - BEND * math.cos(t), TUBE, zb - BEND + BEND * math.sin(t)))
-    path += [(x - BEND + BEND * math.cos(math.pi / 2 * k / 6), TUBE, zb - BEND + BEND * math.sin(math.pi / 2 * k / 6))
-             for k in range(6, -1, -1)]
-    path.append((x, TUBE, 0.0))
-    for a, b in zip(path, path[1:]):
-        if a != b: m.cylinder(a, b, TUBE, up=(0, 1, 0))
-    for p in path[1:-1]:
-        m.sphere(p, TUBE, rings=6, seg=12)
-
-    # Netting: a grid of thin strands on the back, both sides and the roof.
-    m.part("Netting", "NetWhite")
-    s = STRAND
-    zf, zr = P / 2, D - s / 2       # front edge (behind the posts) and back panel
-    ys = steps(s / 2, H, MESH)
-    xs = steps(-W / 2, W / 2, MESH)
-    zs = steps(zf, zr, MESH)
-    for xx in xs: strand(m, (xx, s / 2, zr), (xx, H, zr))                 # back
-    for yy in ys: strand(m, (-W / 2, yy, zr), (W / 2, yy, zr))
-    for side in (-1, 1):                                                  # sides
-        xx = side * (W / 2 + s / 2)
-        for zz in zs: strand(m, (xx, s / 2, zz), (xx, H, zz))
-        for yy in ys: strand(m, (xx, yy, zf), (xx, yy, zr))
-    yr = H + s / 2                                                        # roof
-    for xx in xs: strand(m, (xx, yr, zf), (xx, yr, zr))
-    for zz in zs: strand(m, (-W / 2, yr, zz), (W / 2, yr, zz))
-    return m
-
-
 def goal_light():
     m = Obj()
     m.part("Housing", "HousingGrey")
@@ -175,8 +112,6 @@ def goal_light():
 
 if __name__ == "__main__":
     out = sys.argv[1]
-    n = net().write(out, "net", "Hockey net.", [
-        ("PostRed", (0.75, 0.04, 0.04), 60), ("FrameWhite", (0.92, 0.92, 0.92), 20), ("NetWhite", (0.86, 0.86, 0.86), 10)])
     g = goal_light().write(out, "goal-light", "Goal light.", [
         ("HousingGrey", (0.25, 0.25, 0.27), 30), ("DomeRed", (0.6, 0.03, 0.03), 80)])
-    print("net", n, "tris; goal light", g, "tris")
+    print("goal light", g, "tris")

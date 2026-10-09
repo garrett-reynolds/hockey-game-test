@@ -1,4 +1,4 @@
-# Goal light. Made for Hockey Game Test by Tools/make_net.py. CC0.
+# Goal light. Made for Hockey Game Test by Tools/make_goal_light.py. CC0.
 mtllib goal-light.mtl
 v 0.13000 0.00000 -0.13000
 v -0.13000 0.00000 -0.13000

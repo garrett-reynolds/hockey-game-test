@@ -3,7 +3,7 @@ using UnityEngine;
 namespace HockeyGame
 {
     /// <summary>
-    /// Makes the netting catch a goal. When the netting part carries its own mesh (the net model, see Tools/make_net.py),
+    /// Makes the netting catch a goal. When the netting part carries its own mesh (the net model, see Tools/make_supplied_net.py),
     /// its vertices bulge back around the hit point like a damped spring, ripple outward, and settle back to rest.
     /// The bulge is biggest at the hit point, fades with distance, and is pinned where the netting meets the posts,
     /// crossbar and base frame. Faster Shots bulge more. Positions are world metres with the rink at the origin
@@ -22,6 +22,7 @@ namespace HockeyGame
         const float SettleSeconds = 2.3f;          // inside the 2.5 s result; the spring is spent by then
         const float ShakeSeconds = 0.8f;           // box net placeholder
         const float ShakeMetres = 0.04f;
+        const float ColumnMetres = 0.03f;          // BackOfNet looks this far across and up for the netting
 
         readonly Transform _netting;
         readonly Vector3 _nettingRest;
@@ -62,6 +63,24 @@ namespace HockeyGame
             Bounds b = _mesh.bounds;
             b.Expand(new Vector3(Mathf.Abs(push.x), Mathf.Abs(push.y), Mathf.Abs(push.z)) * 2f);
             _mesh.bounds = b;
+        }
+
+        /// <summary>World z where a goal at this Net Face point (world x, y metres) meets the netting at the back of the net.</summary>
+        /// The deepest netting within a few centimetres of that point across and up (else the nearest netting); the net depth for the box net.
+        public float BackOfNet(float x, float y)
+        {
+            if (_mesh == null) return RinkBuilder.NetDepth;
+            Matrix4x4 toWorld = _netting.localToWorldMatrix;
+            float back = float.NegativeInfinity, nearest = float.MaxValue, nearestZ = RinkBuilder.NetDepth;
+            for (int i = 0; i < _rest.Length; i++)
+            {
+                Vector3 w = toWorld.MultiplyPoint3x4(_rest[i]);
+                float dx = w.x - x, dy = w.y - y;
+                if (Mathf.Abs(dx) <= ColumnMetres && Mathf.Abs(dy) <= ColumnMetres && w.z > back) back = w.z;
+                float r = dx * dx + dy * dy;
+                if (r < nearest) { nearest = r; nearestZ = w.z; }
+            }
+            return float.IsNegativeInfinity(back) ? nearestZ : back; // in a hole wider than the column: the nearest strand
         }
 
         /// <summary>The puck hits the netting at this point at this Shot speed.</summary>

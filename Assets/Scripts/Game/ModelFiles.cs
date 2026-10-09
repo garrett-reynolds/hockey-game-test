@@ -44,15 +44,32 @@ namespace HockeyGame
             model.localRotation = Quaternion.identity;
             model.localScale = Vector3.one;
             model.localPosition = Vector3.zero;
+            if (!TryMeshBounds(model, null, out Bounds bounds)) return;
+
+            Vector3 have = bounds.size;
+            const float flat = 1e-5f; // a flat model (such as Unity's plane) stays flat on that axis, not stretched
+            var scale = new Vector3(
+                have.x > flat ? size.x / have.x : 1f,
+                have.y > flat ? size.y / have.y : 1f,
+                have.z > flat ? size.z / have.z : 1f);
+            model.localScale = scale;
+            model.localPosition = -Vector3.Scale(bounds.center, scale);
+        }
+
+        /// <summary>
+        /// The box round the model's meshes (only those include accepts; null = all), in the model's parent's space.
+        /// False when there are none.
+        /// </summary>
+        public static bool TryMeshBounds(Transform model, Func<MeshFilter, bool> include, out Bounds bounds)
+        {
             Transform parent = model.parent;
             Matrix4x4 toParent = parent != null ? parent.worldToLocalMatrix : Matrix4x4.identity;
-
             bool any = false;
-            var bounds = new Bounds();
+            bounds = new Bounds();
             foreach (MeshFilter filter in model.GetComponentsInChildren<MeshFilter>(true))
             {
                 Mesh mesh = filter.sharedMesh;
-                if (mesh == null) continue;
+                if (mesh == null || (include != null && !include(filter))) continue;
                 Matrix4x4 m = toParent * filter.transform.localToWorldMatrix;
                 Bounds b = mesh.bounds;
                 for (int i = 0; i < 8; i++)
@@ -66,16 +83,7 @@ namespace HockeyGame
                     else bounds.Encapsulate(p);
                 }
             }
-            if (!any) return;
-
-            Vector3 have = bounds.size;
-            const float flat = 1e-5f; // a flat model (such as Unity's plane) stays flat on that axis, not stretched
-            var scale = new Vector3(
-                have.x > flat ? size.x / have.x : 1f,
-                have.y > flat ? size.y / have.y : 1f,
-                have.z > flat ? size.z / have.z : 1f);
-            model.localScale = scale;
-            model.localPosition = -Vector3.Scale(bounds.center, scale);
+            return any;
         }
 
         /// <summary>Removes every collider in the model (models are only for show). Safe outside Play mode.</summary>

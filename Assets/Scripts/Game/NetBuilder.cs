@@ -27,13 +27,38 @@ namespace HockeyGame
             net.transform.SetParent(rink, false);
             GameObject model = ModelFiles.Load(ModelFiles.Net, PlaceholderNet, findFile);
             model.transform.SetParent(net.transform, false);
-            // Any model's outer box is fitted to the posts' outer edges, the crossbar top, and the post front to the net back,
-            // so a model built that way (see Tools/make_net.py) keeps its opening exactly on the Net Face.
-            float depth = RinkBuilder.NetDepth;
-            ModelFiles.FitTo(model.transform, new Vector3(W + 2f * Post, H + Post, depth + Post / 2f));
-            model.transform.localPosition += new Vector3(0f, (H + Post) / 2f, (depth - Post / 2f) / 2f);
+            Fit(model.transform);
             foreach (Collider c in model.GetComponentsInChildren<Collider>(true)) DestroyNow(c);
             return net;
+        }
+
+        /// <summary>
+        /// Fits the model so its posts and crossbar (LeftPost, RightPost, Crossbar) stand just outside the Net Face:
+        /// their outer box is the posts' outer edges by the crossbar top, from the ice. The depth runs from the posts' front
+        /// to the back of the whole model at the net depth. Anything wider (a base flaring out past the posts) keeps its
+        /// shape. A model with no such parts is fitted by its whole outer box instead.
+        /// </summary>
+        static void Fit(Transform model)
+        {
+            model.localRotation = Quaternion.identity;
+            model.localScale = Vector3.one;
+            model.localPosition = Vector3.zero;
+            if (!ModelFiles.TryMeshBounds(model, null, out Bounds all)) return;
+            if (!ModelFiles.TryMeshBounds(model, f => IsFrame(f.transform, model), out Bounds frame)) frame = all;
+            float depth = RinkBuilder.NetDepth;
+            var scale = new Vector3(
+                (W + 2f * Post) / frame.size.x,
+                (H + Post) / frame.size.y,
+                (depth + Post / 2f) / (all.max.z - frame.min.z));
+            model.localScale = scale;
+            model.localPosition = new Vector3(-frame.center.x * scale.x, -frame.min.y * scale.y, -Post / 2f - frame.min.z * scale.z);
+        }
+
+        static bool IsFrame(Transform part, Transform model)
+        {
+            for (Transform t = part; t != null && t != model; t = t.parent)
+                if (t.name == "LeftPost" || t.name == "RightPost" || t.name == "Crossbar") return true;
+            return false;
         }
 
         /// <summary>The part of the net under the rink that shakes on a goal, or null.</summary>

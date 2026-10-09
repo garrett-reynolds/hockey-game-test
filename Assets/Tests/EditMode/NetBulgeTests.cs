@@ -17,11 +17,11 @@ namespace HockeyGame.Core.Tests
         [TearDown]
         public void TearDown() => Object.DestroyImmediate(_rink.gameObject);
 
-        /// <summary>Where a goal at this Net Face point (0-100 across, 0-100 up) reaches the back of the net.</summary>
-        static Vector3 BackOfNet(double x, double y)
+        /// <summary>Where a goal at this Net Face point (0-100 across, 0-100 up) reaches the netting at the back of the net.</summary>
+        static Vector3 BackOfNet(NetBulge bulge, double x, double y)
         {
             NetFaceMapping.ToMetres(x, y, out double right, out double up);
-            return new Vector3((float)right, (float)up, Depth);
+            return new Vector3((float)right, (float)up, bulge.BackOfNet((float)right, (float)up));
         }
 
         static void Run(NetBulge bulge, float seconds)
@@ -43,7 +43,7 @@ namespace HockeyGame.Core.Tests
             Transform netting = NetBuilder.FindNetting(_rink);
             var bulge = new NetBulge(netting);
             Vector3[] rest = WorldVertices(netting);
-            Vector3 hit = BackOfNet(30, 60);
+            Vector3 hit = BackOfNet(bulge, 30, 60);
 
             bulge.Hit(hit, 100f);
             Run(bulge, 0.1f);
@@ -77,7 +77,7 @@ namespace HockeyGame.Core.Tests
             Transform netting = NetBuilder.FindNetting(_rink);
             var bulge = new NetBulge(netting);
             Vector3[] rest = WorldVertices(netting);
-            Vector3 hit = BackOfNet(50, 4);
+            Vector3 hit = BackOfNet(bulge, 50, 4);
 
             bulge.Hit(hit, 110f);
             Run(bulge, 0.1f);
@@ -90,13 +90,50 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void A_goal_anywhere_on_the_Net_Face_stops_on_the_netting_not_past_it()
+        {
+            NetBuilder.Build(_rink);
+            Transform netting = NetBuilder.FindNetting(_rink);
+            var bulge = new NetBulge(netting);
+            Vector3[] rest = WorldVertices(netting);
+
+            for (int x = 5; x <= 95; x += 5)
+                for (int y = 5; y <= 95; y += 5)
+                {
+                    Vector3 stop = BackOfNet(bulge, x, y);
+                    string at = " at " + x + "," + y + " (stop z " + stop.z + ")";
+                    Assert.LessOrEqual(stop.z, Depth + 0.003f, "inside the net depth" + at);
+                    Assert.Greater(stop.z, 0.2f, "well behind the Net Face" + at);
+                    bool touches = false;
+                    for (int i = 0; i < rest.Length; i++)
+                    {
+                        Vector3 v = rest[i];
+                        if (Mathf.Abs(v.x - stop.x) > 0.03f || Mathf.Abs(v.y - stop.y) > 0.03f) continue;
+                        Assert.LessOrEqual(v.z, stop.z + 0.02f, "no netting behind the stop point in that column" + at);
+                        if (Mathf.Abs(v.z - stop.z) < 0.04f) touches = true;
+                    }
+                    Assert.IsTrue(touches, "the stop point is on the netting" + at);
+                }
+            Assert.Less(BackOfNet(bulge, 50, 95).z, BackOfNet(bulge, 50, 5).z - 0.1f, "the back slopes: a high goal stops nearer the Net Face");
+        }
+
+        [Test]
+        public void With_the_box_net_placeholder_a_goal_stops_at_the_net_depth()
+        {
+            NetBuilder.Build(_rink, name => null);
+            var bulge = new NetBulge(NetBuilder.FindNetting(_rink));
+
+            Assert.AreEqual(Depth, bulge.BackOfNet(0.3f, 0.9f), 1e-4f);
+        }
+
+        [Test]
         public void A_faster_Shot_makes_a_bigger_bulge()
         {
             NetBuilder.Build(_rink);
             Transform netting = NetBuilder.FindNetting(_rink);
             var bulge = new NetBulge(netting);
             Vector3[] rest = WorldVertices(netting);
-            Vector3 hit = BackOfNet(50, 50);
+            Vector3 hit = BackOfNet(bulge, 50, 50);
 
             float Peak(float speedKmh)
             {
@@ -121,7 +158,7 @@ namespace HockeyGame.Core.Tests
             Vector3 rest = netting.localPosition;
             var bulge = new NetBulge(netting);
 
-            bulge.Hit(BackOfNet(50, 50), 100f);
+            bulge.Hit(BackOfNet(bulge, 50, 50), 100f);
             Run(bulge, 0.1f);
             Assert.Greater((netting.localPosition - rest).magnitude, 0.001f, "the box netting shakes");
 
