@@ -66,18 +66,21 @@ namespace HockeyGame
         }
 
         /// <summary>World z where a goal at this Net Face point (world x, y metres) meets the netting at the back of the net.</summary>
-        /// The deepest netting within a few centimetres of that point across and up; the net depth for the box net.
+        /// The deepest netting within a few centimetres of that point across and up (else the nearest netting); the net depth for the box net.
         public float BackOfNet(float x, float y)
         {
             if (_mesh == null) return RinkBuilder.NetDepth;
             Matrix4x4 toWorld = _netting.localToWorldMatrix;
-            float back = float.NegativeInfinity;
+            float back = float.NegativeInfinity, nearest = float.MaxValue, nearestZ = RinkBuilder.NetDepth;
             for (int i = 0; i < _rest.Length; i++)
             {
                 Vector3 w = toWorld.MultiplyPoint3x4(_rest[i]);
-                if (Mathf.Abs(w.x - x) <= ColumnMetres && Mathf.Abs(w.y - y) <= ColumnMetres && w.z > back) back = w.z;
+                float dx = w.x - x, dy = w.y - y;
+                if (Mathf.Abs(dx) <= ColumnMetres && Mathf.Abs(dy) <= ColumnMetres && w.z > back) back = w.z;
+                float r = dx * dx + dy * dy;
+                if (r < nearest) { nearest = r; nearestZ = w.z; }
             }
-            return float.IsNegativeInfinity(back) ? RinkBuilder.NetDepth : back;
+            return float.IsNegativeInfinity(back) ? nearestZ : back; // in a hole wider than the column: the nearest strand
         }
 
         /// <summary>The puck hits the netting at this point at this Shot speed.</summary>

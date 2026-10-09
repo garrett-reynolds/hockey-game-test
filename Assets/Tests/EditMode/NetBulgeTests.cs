@@ -97,8 +97,8 @@ namespace HockeyGame.Core.Tests
             var bulge = new NetBulge(netting);
             Vector3[] rest = WorldVertices(netting);
 
-            for (int x = 5; x <= 95; x += 15)
-                for (int y = 5; y <= 95; y += 15)
+            for (int x = 5; x <= 95; x += 5)
+                for (int y = 5; y <= 95; y += 5)
                 {
                     Vector3 stop = BackOfNet(bulge, x, y);
                     string at = " at " + x + "," + y + " (stop z " + stop.z + ")";
