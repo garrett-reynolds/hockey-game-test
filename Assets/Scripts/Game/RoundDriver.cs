@@ -27,6 +27,7 @@ namespace HockeyGame
         Round _round; // the flow's one Round; each start reuses it
         SaveData _save;
         GoalieView _goalie;
+        ShotEffects _effects;
         Camera _camera;
         Plane _netFacePlane;
         bool _testShotsOn;
@@ -37,6 +38,7 @@ namespace HockeyGame
         {
             RinkBuilder.Build(out _camera);
             _goalie = new GoalieView(GameObject.Find("Rink").transform);
+            _effects = new ShotEffects(GameObject.Find("Rink").transform, _camera);
             _netFacePlane = new Plane(Vector3.back, Vector3.zero); // Net Face plane: z = 0
             _save = SaveStore.Current;
             _easyMode = _save.EasyMode;
@@ -57,6 +59,7 @@ namespace HockeyGame
             // Goalie shows for the whole Shot (SkateIn to ResultHold); hidden in Idle and RoundOver.
             var phaseNow = _round.Phase;
             _goalie.Show(phaseNow != RoundPhase.Idle && phaseNow != RoundPhase.RoundOver, _round.GoaliePose, _easyMode);
+            _effects.Update(_round, Time.unscaledDeltaTime);
 
             bool playing = _flow.Screen == FlowScreen.Playing;
             bool pressed = false; // key or click outside a Round: at most one Press per frame
@@ -138,7 +141,11 @@ namespace HockeyGame
                     break;
                 case RoundPhase.ResultHold:
                     if (_round.LastResult.HasValue)
+                    {
                         GUI.Label(new Rect(0, h * 0.2f, w, 60), ResultText(_round.LastResult.Value.Kind), _big);
+                        string speed = ShotResultText.Speed(_round.LastResult.Value);
+                        if (speed != null) GUI.Label(new Rect(0, h * 0.2f + 60, w, 60), speed, _big);
+                    }
                     break;
             }
 
