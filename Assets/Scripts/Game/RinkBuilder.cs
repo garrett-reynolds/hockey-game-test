@@ -2,11 +2,12 @@ using UnityEngine;
 
 namespace HockeyGame
 {
-    /// <summary>Builds the flat rink, the net around the Net Face, a light and the fixed camera.</summary>
+    /// <summary>Builds the flat rink, the box net around the Net Face, a light and the fixed camera.</summary>
     public static class RinkBuilder
     {
         const float W = (float)NetFaceMapping.WidthMetres;
         const float H = (float)NetFaceMapping.HeightMetres;
+        const float Post = 0.08f;
         /// <summary>How deep the net goes behind the Net Face (metres).</summary>
         internal const float NetDepth = 0.6f;
 
