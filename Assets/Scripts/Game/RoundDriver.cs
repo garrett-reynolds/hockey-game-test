@@ -43,7 +43,8 @@ namespace HockeyGame
             _testShotsOn = _save.TestShotOnAtStart;
             _flow = new ScreenFlow(new SystemRandomSource(), _save);
             _flow.BestScoreChanged += SaveStore.Save;
-            _round = _flow.Round;
+            _round = _flow.Round; // one Round for the whole run; each start reuses it
+            gameObject.AddComponent<BreakawayView>().Init(_round, _camera, _goalie);
         }
 
         void Update()
