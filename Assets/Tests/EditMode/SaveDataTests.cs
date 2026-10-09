@@ -117,6 +117,38 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void Load_OutOfRangeNumbers_ClampToTheSettingsScreenLimits()
+        {
+            Directory.CreateDirectory(_dir);
+            File.WriteAllText(_path,
+                "contestedLowChance=-0.5\ncontestedTopChance=4\ntopSpeedKmh=0\ninputIgnoreSeconds=-3\n" +
+                "autoReturnSeconds=0\nmasterVolume=-1\n");
+
+            var loaded = SaveData.Load(_path);
+
+            Assert.AreEqual(0.0, loaded.ContestedLowChance);
+            Assert.AreEqual(1.0, loaded.ContestedTopChance);
+            Assert.AreEqual(10.0, loaded.TopSpeedKmh);
+            Assert.AreEqual(0.0, loaded.InputIgnoreSeconds);
+            Assert.AreEqual(1.0, loaded.AutoReturnSeconds);
+            Assert.AreEqual(0.0, loaded.MasterVolume);
+        }
+
+        [Test]
+        public void Load_TooLargeNumbers_ClampToTheSettingsScreenMaximums()
+        {
+            Directory.CreateDirectory(_dir);
+            File.WriteAllText(_path, "topSpeedKmh=900\ninputIgnoreSeconds=99\nautoReturnSeconds=500\nmasterVolume=3\n");
+
+            var loaded = SaveData.Load(_path);
+
+            Assert.AreEqual(300.0, loaded.TopSpeedKmh);
+            Assert.AreEqual(30.0, loaded.InputIgnoreSeconds);
+            Assert.AreEqual(120.0, loaded.AutoReturnSeconds);
+            Assert.AreEqual(1.0, loaded.MasterVolume);
+        }
+
+        [Test]
         public void SaveThenLoad_UnderCommaDecimalCulture_KeepsDecimals()
         {
             var saved = CultureInfo.CurrentCulture;

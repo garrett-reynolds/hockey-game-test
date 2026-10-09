@@ -9,8 +9,7 @@ namespace HockeyGame.Core
     /// straight on the shared SaveData. Up/Down moves the selection (MoveSelection), Left/Right changes the
     /// selected value (Change), Enter flips an on/off row or presses "Reset best score" (Activate).
     /// Change and Activate return true when SaveData changed, so the caller can save it.
-    /// Numbers step and stay in range: chances 0–100 %, top speed at least 10 km/h (so the Contested chance
-    /// never divides by 0), times never below their minimum, volume 0–100 %.
+    /// Numbers step and stay in the ranges SaveData defines (the same limits Load clamps to).
     /// </summary>
     public sealed class SettingsMenu
     {
@@ -38,14 +37,14 @@ namespace HockeyGame.Core
 
             AddRow("USB port", () => _save.UsbPort, ChangePort, null);
             AddToggle("Easy mode", () => _save.EasyMode, v => _save.EasyMode = v);
-            AddNumber("Contested chance at 0 km/h", () => _save.ContestedLowChance, v => _save.ContestedLowChance = v, 0.05, 0, 1, Percent);
-            AddNumber("Contested chance at top speed", () => _save.ContestedTopChance, v => _save.ContestedTopChance = v, 0.05, 0, 1, Percent);
-            AddNumber("Top speed", () => _save.TopSpeedKmh, v => _save.TopSpeedKmh = v, 5, 10, 300, v => Format("0", v) + " km/h");
+            AddNumber("Contested chance at 0 km/h", () => _save.ContestedLowChance, v => _save.ContestedLowChance = v, SaveData.ChanceRange, Percent);
+            AddNumber("Contested chance at top speed", () => _save.ContestedTopChance, v => _save.ContestedTopChance = v, SaveData.ChanceRange, Percent);
+            AddNumber("Top speed", () => _save.TopSpeedKmh, v => _save.TopSpeedKmh = v, SaveData.TopSpeedRange, v => Format("0", v) + " km/h");
             AddToggle("Test Shots on at start", () => _save.TestShotOnAtStart, v => _save.TestShotOnAtStart = v);
-            AddNumber("End screen input-ignore time", () => _save.InputIgnoreSeconds, v => _save.InputIgnoreSeconds = v, 0.5, 0, 30, Seconds);
-            AddNumber("End screen auto-return time", () => _save.AutoReturnSeconds, v => _save.AutoReturnSeconds = v, 1, 1, 120, Seconds);
+            AddNumber("End screen input-ignore time", () => _save.InputIgnoreSeconds, v => _save.InputIgnoreSeconds = v, SaveData.InputIgnoreRange, Seconds);
+            AddNumber("End screen auto-return time", () => _save.AutoReturnSeconds, v => _save.AutoReturnSeconds = v, SaveData.AutoReturnRange, Seconds);
             AddToggle("Tick", () => _save.TickOn, v => _save.TickOn = v);
-            AddNumber("Master volume", () => _save.MasterVolume, v => _save.MasterVolume = v, 0.1, 0, 1, Percent);
+            AddNumber("Master volume", () => _save.MasterVolume, v => _save.MasterVolume = v, SaveData.VolumeRange, Percent);
             AddToggle("Mute", () => _save.Mute, v => _save.Mute = v);
             AddRow("Reset best score", () => "best " + _save.BestScore.ToString(CultureInfo.InvariantCulture), null, ResetBestScore);
         }
@@ -90,14 +89,14 @@ namespace HockeyGame.Core
         }
 
         private void AddNumber(string label, Func<double> get, Action<double> set,
-            double step, double min, double max, Func<double, string> format)
+            SaveData.NumberRange range, Func<double, string> format)
         {
             AddRow(label, () => format(get()), dir =>
             {
                 double old = get();
                 // Snap to the step grid so repeated steps do not drift (0.1 + 0.2 ...).
-                double next = Math.Round((old + dir * step) / step) * step;
-                next = Math.Round(Math.Max(min, Math.Min(max, next)), 6);
+                double next = Math.Round((old + dir * range.Step) / range.Step) * range.Step;
+                next = Math.Round(range.Clamp(next), 6);
                 if (next == old) return false;
                 set(next);
                 return true;

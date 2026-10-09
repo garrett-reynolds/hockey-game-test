@@ -8,11 +8,28 @@ namespace HockeyGame.Core
 {
     /// <summary>
     /// Best score and operator settings, kept in a plain key=value text file.
-    /// Numbers use the invariant culture. A missing file, missing key or bad value gives the default.
+    /// Numbers use the invariant culture. A missing file, missing key or bad value gives the default;
+    /// an out-of-range number is clamped to its NumberRange.
     /// </summary>
     public sealed class SaveData
     {
         public const string AutoUsbPort = "Auto";
+
+        /// <summary>Allowed values and step for one number setting. The settings screen steps by these; Load clamps to them.</summary>
+        public readonly struct NumberRange
+        {
+            public readonly double Min, Max, Step;
+            public NumberRange(double min, double max, double step) { Min = min; Max = max; Step = step; }
+            public double Clamp(double value) => Math.Max(Min, Math.Min(Max, value));
+        }
+
+        /// <summary>Contested chances: 0–100 %.</summary>
+        public static readonly NumberRange ChanceRange = new NumberRange(0, 1, 0.05);
+        /// <summary>Top speed: at least 10 km/h, so the Contested chance never divides by 0.</summary>
+        public static readonly NumberRange TopSpeedRange = new NumberRange(10, 300, 5);
+        public static readonly NumberRange InputIgnoreRange = new NumberRange(0, 30, 0.5);
+        public static readonly NumberRange AutoReturnRange = new NumberRange(1, 120, 1);
+        public static readonly NumberRange VolumeRange = new NumberRange(0, 1, 0.1);
 
         public int BestScore = 0;
         public string UsbPort = AutoUsbPort;
@@ -57,14 +74,14 @@ namespace HockeyGame.Core
             if (values.TryGetValue("usbPort", out var port) && port.Length > 0) data.UsbPort = port;
             if (values.TryGetValue("lastUsbPort", out var lastPort)) data.LastUsbPort = lastPort;
             data.EasyMode = ReadBool(values, "easyMode", data.EasyMode);
-            data.ContestedLowChance = ReadDouble(values, "contestedLowChance", data.ContestedLowChance);
-            data.ContestedTopChance = ReadDouble(values, "contestedTopChance", data.ContestedTopChance);
-            data.TopSpeedKmh = ReadDouble(values, "topSpeedKmh", data.TopSpeedKmh);
+            data.ContestedLowChance = ReadDouble(values, "contestedLowChance", data.ContestedLowChance, ChanceRange);
+            data.ContestedTopChance = ReadDouble(values, "contestedTopChance", data.ContestedTopChance, ChanceRange);
+            data.TopSpeedKmh = ReadDouble(values, "topSpeedKmh", data.TopSpeedKmh, TopSpeedRange);
             data.TestShotOnAtStart = ReadBool(values, "testShotOnAtStart", data.TestShotOnAtStart);
-            data.InputIgnoreSeconds = ReadDouble(values, "inputIgnoreSeconds", data.InputIgnoreSeconds);
-            data.AutoReturnSeconds = ReadDouble(values, "autoReturnSeconds", data.AutoReturnSeconds);
+            data.InputIgnoreSeconds = ReadDouble(values, "inputIgnoreSeconds", data.InputIgnoreSeconds, InputIgnoreRange);
+            data.AutoReturnSeconds = ReadDouble(values, "autoReturnSeconds", data.AutoReturnSeconds, AutoReturnRange);
             data.TickOn = ReadBool(values, "tickOn", data.TickOn);
-            data.MasterVolume = ReadDouble(values, "masterVolume", data.MasterVolume);
+            data.MasterVolume = ReadDouble(values, "masterVolume", data.MasterVolume, VolumeRange);
             data.Mute = ReadBool(values, "mute", data.Mute);
             return data;
         }
@@ -115,11 +132,11 @@ namespace HockeyGame.Core
                 && int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : fallback;
         }
 
-        private static double ReadDouble(Dictionary<string, string> values, string key, double fallback)
+        private static double ReadDouble(Dictionary<string, string> values, string key, double fallback, NumberRange range)
         {
             return values.TryGetValue(key, out var text)
                 && double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var d)
-                && !double.IsNaN(d) && !double.IsInfinity(d) ? d : fallback;
+                && !double.IsNaN(d) && !double.IsInfinity(d) ? range.Clamp(d) : fallback;
         }
 
         private static bool ReadBool(Dictionary<string, string> values, string key, bool fallback)
