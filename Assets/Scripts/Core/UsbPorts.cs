@@ -37,6 +37,25 @@ namespace HockeyGame.Core
             return ports;
         }
 
+        /// <summary>
+        /// Serial ports this PC lists now, sorted (case-insensitive). False, with an empty list, when they cannot
+        /// be listed. The one place the game asks the PC for its ports.
+        /// </summary>
+        public static bool TryList(out string[] names)
+        {
+            try
+            {
+                names = System.IO.Ports.SerialPort.GetPortNames();
+            }
+            catch (Exception)
+            {
+                names = new string[0];
+                return false;
+            }
+            Array.Sort(names, StringComparer.OrdinalIgnoreCase);
+            return true;
+        }
+
         /// <summary>"Connected (COM3)", or "No electronics found" when no port is connected.</summary>
         public static string StatusText(string connectedPort)
         {

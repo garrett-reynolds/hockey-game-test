@@ -113,9 +113,7 @@ namespace HockeyGame
         {
             string setting = _setting;
             bool auto = UsbPorts.IsAuto(setting);
-            string[] names;
-            try { names = SerialPort.GetPortNames(); }
-            catch (Exception) { names = new string[0]; }
+            UsbPorts.TryList(out var names);
 
             foreach (var name in UsbPorts.ToTry(setting, _remembered, names))
             {
@@ -211,8 +209,8 @@ namespace HockeyGame
 
         static bool IsListed(string name)
         {
-            try { return Array.IndexOf(SerialPort.GetPortNames(), name) >= 0; }
-            catch (Exception) { return true; } // can't tell: keep reading
+            if (!UsbPorts.TryList(out var names)) return true; // can't tell: keep reading
+            return Array.IndexOf(names, name) >= 0;
         }
 
         void ClosePort()

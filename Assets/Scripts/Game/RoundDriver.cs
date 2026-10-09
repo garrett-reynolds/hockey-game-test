@@ -127,17 +127,9 @@ namespace HockeyGame
         /// <summary>Serial ports on this PC now, sorted. Empty if they cannot be listed.</summary>
         static string[] PortNames()
         {
-            try
-            {
-                var names = System.IO.Ports.SerialPort.GetPortNames();
-                System.Array.Sort(names, System.StringComparer.OrdinalIgnoreCase);
-                return names;
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogWarning("Could not list serial ports: " + e.Message);
-                return new string[0];
-            }
+            if (!UsbPorts.TryList(out var names))
+                Debug.LogWarning("Could not list serial ports.");
+            return names;
         }
 
         void SubmitTestShot(Vector2 screenPosition)
