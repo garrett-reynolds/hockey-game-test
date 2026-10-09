@@ -13,11 +13,11 @@ namespace HockeyGame
     {
         const float H = (float)NetFaceMapping.HeightMetres;
         const float W = (float)NetFaceMapping.WidthMetres;
-        const float NetDepth = 0.6f;                 // matches RinkBuilder
         const float PuckDiameter = 0.15f;            // about 2x a real puck so it reads at 9 m
         const float PuckThickness = 0.05f;
-        const float GloveZ = -0.2f;                  // in front of the pose blocks (z -0.13..-0.03)
         const float GloveDepth = 0.1f;
+        const float GloveGap = 0.02f;                // between the save block and the pose blocks
+        const float GloveZ = GoalieView.BlockZ - GoalieView.BlockDepth / 2f - GloveGap - GloveDepth / 2f; // in front of the pose blocks
         const float SaveZ = GloveZ - GloveDepth / 2f - PuckThickness;
         const float MissCarrySeconds = 0.8f;
         const float ShakeSeconds = 0.8f;
@@ -62,7 +62,7 @@ namespace HockeyGame
 
             _glove = RinkBuilder.Cube(rink, "Save Block", Vector3.zero, new Vector3(0.3f, 0.25f, GloveDepth), SaveBlockColour);
 
-            var lamp = RinkBuilder.Cube(rink, "Goal Light", new Vector3(0f, H + 0.3f, NetDepth / 2f), new Vector3(0.25f, 0.25f, 0.25f), LightOff);
+            var lamp = RinkBuilder.Cube(rink, "Goal Light", new Vector3(0f, H + 0.3f, RinkBuilder.NetDepth / 2f), new Vector3(0.25f, 0.25f, 0.25f), LightOff);
             Shader unlit = Shader.Find("Universal Render Pipeline/Unlit");
             if (unlit != null)
             {
@@ -170,9 +170,9 @@ namespace HockeyGame
                 case Stage.IntoNet:
                     {
                         Vector3 p = _puck.transform.position + _velocity * dt;
-                        if (p.z >= NetDepth - PuckThickness)
+                        if (p.z >= RinkBuilder.NetDepth - PuckThickness)
                         {
-                            p.z = NetDepth - PuckThickness;
+                            p.z = RinkBuilder.NetDepth - PuckThickness;
                             _stage = Stage.InNet;
                             _shakeLeft = ShakeSeconds;
                         }
