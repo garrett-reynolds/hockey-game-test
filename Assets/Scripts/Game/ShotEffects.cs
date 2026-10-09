@@ -123,7 +123,9 @@ namespace HockeyGame
             Transform cam = _camera.transform;
             _start = cam.position + cam.forward * 1.0f - cam.up * 0.35f;
             NetFaceMapping.ToMetres(result.X, result.Y, out double right, out double up);
-            float z = result.Kind == ShotResultKind.Save ? SaveZ : 0f;
+            const float FrameFrontZ = -NetBuilder.Post / 2f - PuckThickness / 2f; // puck centre touching the front of a post or the crossbar
+            float z = result.Kind == ShotResultKind.Save ? SaveZ
+                : NetFrame.At(result.X, result.Y) != FrameHit.None ? FrameFrontZ : 0f; // a frame hit stops on the iron's face
             _target = new Vector3((float)right, (float)up, z);
             _flightSeconds = (float)ShotFlight.Seconds(Vector3.Distance(_start, _target), result.SpeedKmh);
             _velocity = (_target - _start) / _flightSeconds;
@@ -234,8 +236,15 @@ namespace HockeyGame
                     _velocity = new Vector3(side * speed * 0.6f, speed * 0.5f, -speed);
                     _stage = Stage.Bouncing;
                     break;
-                default: // Miss: carry on past the net
-                    _stage = Stage.Carrying;
+                default:
+                    FrameHit frame = NetFrame.At(_result.X, _result.Y);
+                    if (frame == FrameHit.None) { _stage = Stage.Carrying; break; } // wide Miss: carry on past the net
+                    // Off the iron: back toward the shooter, kicked outward off a post or up off the crossbar.
+                    float bounce = Mathf.Clamp(_velocity.magnitude * 0.35f, 2.5f, 9f);
+                    _velocity = frame == FrameHit.Crossbar
+                        ? new Vector3(_velocity.normalized.x * bounce * 0.3f, bounce * 0.8f, -bounce * 0.6f)
+                        : new Vector3((frame == FrameHit.LeftPost ? -1f : 1f) * bounce * 0.8f, bounce * 0.2f, -bounce * 0.6f);
+                    _stage = Stage.Bouncing;
                     break;
             }
         }

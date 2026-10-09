@@ -7,8 +7,8 @@ namespace HockeyGame
     /// </summary>
     public static class NetFaceMapping
     {
-        public const double WidthMetres = 1.83;
-        public const double HeightMetres = 1.22;
+        public const double WidthMetres = Core.NetFrame.FaceWidthMetres;
+        public const double HeightMetres = Core.NetFrame.FaceHeightMetres;
 
         public static void FromOffsetFromCentre(double metresRight, double metresUp, out double x, out double y)
         {

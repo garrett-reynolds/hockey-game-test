@@ -47,7 +47,10 @@ namespace HockeyGame
                 SoundFiles.Load(SoundFiles.GoalHorn, PlaceholderSounds.Horn)
             };
             _clips[SoundCue.SaveImpact] = new[] { SoundFiles.Load(SoundFiles.PadThud, PlaceholderSounds.PadThud) };
+            _clips[SoundCue.GloveCatch] = new[] { SoundFiles.Load(SoundFiles.GloveCatch, PlaceholderSounds.GloveCatch) };
+            _clips[SoundCue.BlockerHit] = new[] { SoundFiles.Load(SoundFiles.BlockerHit, PlaceholderSounds.BlockerHit) };
             _clips[SoundCue.MissImpact] = new[] { SoundFiles.Load(SoundFiles.BoardsClang, PlaceholderSounds.BoardsClang) };
+            _clips[SoundCue.PostPing] = new[] { SoundFiles.Load(SoundFiles.PostPing, PlaceholderSounds.PostPing) };
             _clips[SoundCue.Cheer] = new[] { SoundFiles.Load(SoundFiles.Cheer, PlaceholderSounds.Cheer) };
             _clips[SoundCue.Groan] = new[] { SoundFiles.Load(SoundFiles.Groan, PlaceholderSounds.Groan) };
             _clips[SoundCue.NewBestCheer] = new[] { SoundFiles.Load(SoundFiles.NewBestCheer, PlaceholderSounds.NewBestCheer) };

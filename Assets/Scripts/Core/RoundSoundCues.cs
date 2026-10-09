@@ -14,7 +14,10 @@ namespace HockeyGame.Core
         MissImpact,   // puck clangs on the boards
         Cheer,
         Groan,
-        NewBestCheer
+        NewBestCheer,
+        PostPing,     // a Miss rings off a post or the crossbar
+        GloveCatch,   // a Save in the catching glove
+        BlockerHit    // a Save off the blocker
     }
 
     /// <summary>Slow-down audio for one frame: low-pass cutoff, pitch, heartbeat on/off.</summary>
@@ -51,7 +54,7 @@ namespace HockeyGame.Core
         private RoundPhase _lastPhase = RoundPhase.Idle;
         private int _ticksPlayed;
         private readonly ShotResultWatch _newResult = new ShotResultWatch();
-        private ShotResultKind? _pendingImpact;
+        private ShotResult? _pendingImpact;
 
         /// <summary>Reads the tick on/off setting from save each frame, so a settings change applies at once.</summary>
         public RoundSoundCues(SaveData save)
@@ -89,7 +92,7 @@ namespace HockeyGame.Core
                 }
                 else
                 {
-                    _pendingImpact = round.LastResult.Value.Kind;
+                    _pendingImpact = round.LastResult.Value;
                 }
             }
 
@@ -115,22 +118,38 @@ namespace HockeyGame.Core
         private void PlayPendingImpact()
         {
             if (!_pendingImpact.HasValue) return;
-            switch (_pendingImpact.Value)
+            ShotResult result = _pendingImpact.Value;
+            switch (result.Kind)
             {
                 case ShotResultKind.Goal:
                     _cues.Add(SoundCue.GoalImpact);
                     _cues.Add(SoundCue.Cheer);
                     break;
                 case ShotResultKind.Save:
-                    _cues.Add(SoundCue.SaveImpact);
+                    _cues.Add(SaveContact(result.X, result.Y));
                     _cues.Add(SoundCue.Groan);
                     break;
                 default:
-                    _cues.Add(SoundCue.MissImpact);
+                    _cues.Add(NetFrame.At(result.X, result.Y) == FrameHit.None ? SoundCue.MissImpact : SoundCue.PostPing);
                     _cues.Add(SoundCue.Groan);
                     break;
             }
             _pendingImpact = null;
+        }
+
+        /// <summary>
+        /// What stopped a Save at this Net Face position. Bottom row: the leg pads. Top row: the catching glove on the
+        /// shooter's right (the goalie's left hand faces the shooter on that side), the blocker on the shooter's left.
+        /// Middle Zones pick the nearer one: the middle row is pad below half height, else a hand; the middle column is
+        /// the blocker left of half width, else the glove.
+        /// </summary>
+        private static SoundCue SaveContact(double x, double y)
+        {
+            int row = Zones.Row(y);
+            if (row == 0 || (row == 1 && y < 50.0)) return SoundCue.SaveImpact;
+            int column = Zones.Column(x);
+            bool gloveSide = column == 2 || (column == 1 && x >= 50.0);
+            return gloveSide ? SoundCue.GloveCatch : SoundCue.BlockerHit;
         }
 
         /// <summary>Whole-second ticks before the last second of the window (tick 0 when it opens).</summary>
