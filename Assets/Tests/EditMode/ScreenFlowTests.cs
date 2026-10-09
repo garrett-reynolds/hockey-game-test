@@ -104,6 +104,46 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void Beating_the_best_score_updates_the_saved_best_and_reports_it_once()
+        {
+            var save = new SaveData { BestScore = 2 };
+            var flow = NewFlow(save);
+            int reports = 0;
+            flow.BestScoreChanged += () => reports++;
+            PlayRound(flow, 3);
+            Assert.AreEqual(3, save.BestScore);
+            Assert.IsTrue(flow.Round.IsNewBest);
+            Assert.AreEqual(1, reports);
+            flow.Tick(20);
+            Assert.AreEqual(1, reports);
+        }
+
+        [Test]
+        public void Equalling_the_best_score_does_not_change_it()
+        {
+            var save = new SaveData { BestScore = 3 };
+            var flow = NewFlow(save);
+            int reports = 0;
+            flow.BestScoreChanged += () => reports++;
+            PlayRound(flow, 3);
+            Assert.AreEqual(3, save.BestScore);
+            Assert.AreEqual(0, reports);
+        }
+
+        [Test]
+        public void The_next_Round_compares_against_the_new_best()
+        {
+            var save = new SaveData();
+            var flow = NewFlow(save);
+            PlayRound(flow, 2);
+            flow.Tick(20);
+            PlayRound(flow, 1);
+            Assert.IsFalse(flow.Round.IsNewBest);
+            Assert.AreEqual(2, save.BestScore);
+            Assert.AreEqual(2, flow.Round.BestScore);
+        }
+
+        [Test]
         public void A_new_flow_shows_the_start_screen()
         {
             Assert.AreEqual(FlowScreen.Start, NewFlow().Screen);

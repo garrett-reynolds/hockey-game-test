@@ -1,3 +1,5 @@
+using System;
+
 namespace HockeyGame.Core
 {
     public enum FlowScreen
@@ -29,6 +31,9 @@ namespace HockeyGame.Core
             _save = save;
             Round = NewRound();
         }
+
+        /// <summary>Raised when a Round beats the best score, after SaveData.BestScore is updated. Save then.</summary>
+        public event Action BestScoreChanged;
 
         public FlowScreen Screen { get; private set; }
 
@@ -88,6 +93,11 @@ namespace HockeyGame.Core
         {
             Screen = FlowScreen.End;
             EndSecondsElapsed = 0;
+            if (Round.IsNewBest)
+            {
+                _save.BestScore = Round.BestScore;
+                BestScoreChanged?.Invoke();
+            }
         }
 
         private void GoToStart()
