@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace HockeyGame
 {
-    /// <summary>Builds the flat rink, the box net around the Net Face, a light and the fixed camera.</summary>
+    /// <summary>Builds the ice, the box net around the Net Face, the arena lights and the fixed camera.</summary>
     public static class RinkBuilder
     {
         const float W = (float)NetFaceMapping.WidthMetres;
@@ -27,17 +27,14 @@ namespace HockeyGame
             Cube(root, "Right Side", new Vector3(W / 2f, H / 2f, NetDepth / 2f), new Vector3(0.03f, H, NetDepth), white);
             Cube(root, "Roof", new Vector3(0f, H, NetDepth / 2f), new Vector3(W, 0.03f, NetDepth), white);
 
-            var light = new GameObject("Light").AddComponent<Light>();
-            light.type = LightType.Directional;
-            light.transform.SetParent(root);
-            light.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+            ArenaLighting.Build(root);
 
             var cameraObject = new GameObject("Shooter Camera");
             cameraObject.tag = "MainCamera";
             camera = cameraObject.AddComponent<Camera>();
             cameraObject.AddComponent<AudioListener>();
             camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(0.1f, 0.12f, 0.16f);
+            camera.backgroundColor = ArenaLighting.Backdrop;
             cameraObject.transform.position = new Vector3(0f, 1.5f, -9f);
             cameraObject.transform.LookAt(new Vector3(0f, H / 2f, 0f));
         }
