@@ -37,7 +37,7 @@ namespace HockeyGame
         readonly Transform[] _netParts;
         readonly Vector3[] _netRest;
 
-        int _seenResults;
+        readonly ShotResultWatch _newResult = new ShotResultWatch();
 
         /// <summary>True on the frame the puck reaches the Net Face (or passes it on a Miss). Sound times the result to this.</summary>
         public bool PuckArrivedThisFrame { get; private set; }
@@ -100,21 +100,16 @@ namespace HockeyGame
         public void Update(Round round, float realSeconds)
         {
             PuckArrivedThisFrame = false;
-            int count = round.Results.Count;
-            if (count < _seenResults || round.Phase != RoundPhase.ResultHold)
+            bool isNew = _newResult.TakeNew(round);
+            if (round.Phase != RoundPhase.ResultHold)
             {
                 if (_stage != Stage.None || _shakeLeft > 0f || _glove.activeSelf) Clear();
-                _seenResults = count;
                 return;
             }
-            if (count > _seenResults)
+            if (isNew)
             {
-                _seenResults = count;
-                if (round.LastResult.HasValue)
-                {
-                    Play(round.LastResult.Value);
-                    if (_stage == Stage.Flying) round.DelayResult(_flightSeconds);
-                }
+                Play(round.LastResult.Value);
+                if (_stage == Stage.Flying) round.DelayResult(_flightSeconds);
             }
             Step(realSeconds);
         }

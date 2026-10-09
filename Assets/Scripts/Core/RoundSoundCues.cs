@@ -50,7 +50,7 @@ namespace HockeyGame.Core
         private readonly List<SoundCue> _cues = new List<SoundCue>();
         private RoundPhase _lastPhase = RoundPhase.Idle;
         private int _ticksPlayed;
-        private int _resultsSeen;
+        private readonly ShotResultWatch _newResult = new ShotResultWatch();
         private ShotResultKind? _pendingImpact;
 
         /// <summary>Reads the tick on/off setting from save each frame, so a settings change applies at once.</summary>
@@ -79,26 +79,17 @@ namespace HockeyGame.Core
                 _lastPhase = phase;
             }
 
-            int results = round.Results.Count;
-            if (results < _resultsSeen)
+            // A pending impact never outlives its result hold: leaving ResultHold plays it (above).
+            if (_newResult.TakeNew(round))
             {
-                _resultsSeen = results; // a new Round started
-                _pendingImpact = null;
-            }
-            else if (results > _resultsSeen)
-            {
-                _resultsSeen = results;
-                if (round.LastResult.HasValue)
+                if (round.LastResult.Value.Kind == ShotResultKind.TooLate)
                 {
-                    if (round.LastResult.Value.Kind == ShotResultKind.TooLate)
-                    {
-                        _cues.Add(SoundCue.Buzzer);
-                        _cues.Add(SoundCue.Groan);
-                    }
-                    else
-                    {
-                        _pendingImpact = round.LastResult.Value.Kind;
-                    }
+                    _cues.Add(SoundCue.Buzzer);
+                    _cues.Add(SoundCue.Groan);
+                }
+                else
+                {
+                    _pendingImpact = round.LastResult.Value.Kind;
                 }
             }
 
