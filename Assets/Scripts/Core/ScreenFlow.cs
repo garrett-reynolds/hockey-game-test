@@ -19,6 +19,8 @@ namespace HockeyGame.Core
     /// Playing: Shots go to the Round; keys and clicks do nothing (no pause). The Round ending shows End.
     /// End: all input is ignored until InputIgnoreSeconds; from then a key, click or Shot goes to Start.
     /// At AutoReturnSeconds it goes to Start by itself.
+    /// Settings: F2 (ToggleSettings) opens and closes the settings screen over the start screen only.
+    /// While it is open, keys, clicks and Shots do not start a Round.
     /// </para>
     /// </summary>
     public sealed class ScreenFlow
@@ -47,9 +49,20 @@ namespace HockeyGame.Core
         /// <summary>True on the end screen once the input-ignore time has passed.</summary>
         public bool EndAcceptsInput => Screen == FlowScreen.End && EndSecondsElapsed >= _save.InputIgnoreSeconds;
 
+        /// <summary>True while the operator settings screen is open (only ever on the start screen).</summary>
+        public bool SettingsOpen { get; private set; }
+
+        /// <summary>F2: opens or closes the settings screen. Does nothing during a Round or on the end screen.</summary>
+        public void ToggleSettings()
+        {
+            if (Screen == FlowScreen.Start)
+                SettingsOpen = !SettingsOpen;
+        }
+
         /// <summary>A key or a mouse click.</summary>
         public void Press()
         {
+            if (SettingsOpen) return;
             switch (Screen)
             {
                 case FlowScreen.Start:
@@ -67,6 +80,7 @@ namespace HockeyGame.Core
         /// <summary>A real Shot or Test Shot. Counts only while Playing; on other screens it acts as a Press.</summary>
         public void SubmitShot(double x, double y, double speedKmh, bool isTestShot)
         {
+            if (SettingsOpen) return;
             if (Screen == FlowScreen.Playing)
                 Round.SubmitShot(x, y, speedKmh, isTestShot);
             else
