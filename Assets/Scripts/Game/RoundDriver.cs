@@ -23,6 +23,7 @@ namespace HockeyGame
         Round _round;
         GoalieView _goalie;
         ShotEffects _effects;
+        RoundSound _sound; // Settings (volume, mute, tick) for the settings screen (#17): change, then ApplySettings()
         Camera _camera;
         Plane _netFacePlane;
         bool _testShotsOn = true; // default on until the setting exists (#17)
@@ -35,6 +36,7 @@ namespace HockeyGame
             _goalie = new GoalieView(GameObject.Find("Rink").transform);
             _effects = new ShotEffects(GameObject.Find("Rink").transform, _camera);
             _netFacePlane = new Plane(Vector3.back, Vector3.zero); // Net Face plane: z = 0
+            _sound = new RoundSound(_camera.gameObject, new PlayerPrefsSoundStore());
             _round = new Round(new SystemRandomSource(), new RoundSettings(), 0);
             gameObject.AddComponent<BreakawayView>().Init(_round, _camera, _goalie);
         }
@@ -55,6 +57,7 @@ namespace HockeyGame
             var phaseNow = _round.Phase;
             _goalie.Show(phaseNow != RoundPhase.Idle && phaseNow != RoundPhase.RoundOver, _round.GoaliePose, _easyMode);
             _effects.Update(_round, Time.unscaledDeltaTime);
+            _sound.Update(_round, _effects.PuckArrivedThisFrame, Time.unscaledDeltaTime);
 
             if (keyboard != null)
             {
