@@ -3,6 +3,7 @@
     "rootNamespace": "HockeyGame.Core.Tests",
     "references": [
         "HockeyGame.Core",
+        "HockeyGame",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],
