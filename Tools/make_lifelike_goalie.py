@@ -2,11 +2,13 @@
 #
 # Run (Git Bash; the .blend is opened with scripts disabled):
 #   "/c/Program Files/Blender Foundation/Blender 4.5/blender.exe" -b --factory-startup --disable-autoexec \
-#     --python Tools/make_lifelike_goalie.py -- \
+#     --python-exit-code 1 --python Tools/make_lifelike_goalie.py -- \
 #     --body <Quaternius>/Base Characters/Unity/Superhero_Male_FullBody.fbx --body-textures <Quaternius>/Base Characters/Textures \
 #     --gear "<gear>/CP31 V1.blend" --helmet <helmet>/helmet_sketchfab.fbx --helmet-texture <helmet>/Kissel_no_decals.png \
 #     --skate <skate>/IceHockey_Skate.fbx --skate-texture <skate>/Hockey_Skate_retopo.jpeg \
 #     --out Assets/Resources/Models/goalie-dressing.fbx [--preview <folder for check renders>]
+# Blender cannot open paths longer than 260 characters: copy the inputs to a short folder first, and pass Windows
+# paths (C:/...), not /c/.... The script writes the FBX and its four goalie-dressing-*.png textures next to it.
 #
 # What it makes, on the body's own rig (UE-style bones: pelvis, spine_01..03, thigh_l, calf_l, hand_r...), in T-pose:
 # - "Skin": the body's head, neck and hands (the rest of the body is under clothes or skates and is removed).
