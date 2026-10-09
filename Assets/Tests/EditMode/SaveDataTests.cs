@@ -40,6 +40,7 @@ namespace HockeyGame.Core.Tests
                 TickOn = false,
                 MasterVolume = 0.4,
                 Mute = true,
+                GoalieCharacterOn = true,
             };
         }
 
@@ -58,6 +59,7 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(expected.TickOn, actual.TickOn);
             Assert.AreEqual(expected.MasterVolume, actual.MasterVolume);
             Assert.AreEqual(expected.Mute, actual.Mute);
+            Assert.AreEqual(expected.GoalieCharacterOn, actual.GoalieCharacterOn);
         }
 
         [Test]
@@ -77,6 +79,7 @@ namespace HockeyGame.Core.Tests
             Assert.IsTrue(d.TickOn);
             Assert.AreEqual(1.0, d.MasterVolume);
             Assert.IsFalse(d.Mute);
+            Assert.IsFalse(d.GoalieCharacterOn, "the rigged goalie character is a developer flag, off by default");
         }
 
         [Test]

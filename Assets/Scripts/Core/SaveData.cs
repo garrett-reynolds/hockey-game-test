@@ -45,6 +45,7 @@ namespace HockeyGame.Core
         private const string TickOnKey = "tickOn";
         private const string MasterVolumeKey = "masterVolume";
         private const string MuteKey = "mute";
+        private const string GoalieCharacterOnKey = "goalieCharacterOn";
 
         public int BestScore = 0;
         public string UsbPort = AutoUsbPort;
@@ -60,6 +61,11 @@ namespace HockeyGame.Core
         public bool TickOn = true;
         public double MasterVolume = 1.0;
         public bool Mute = false;
+        /// <summary>
+        /// Developer flag, not on the settings screen: shows the rigged goalie character at the net.
+        /// The goalie blocks still decide the gameplay look. Set goalieCharacterOn=true in the settings file to turn it on.
+        /// </summary>
+        public bool GoalieCharacterOn = false;
 
         /// <summary>Loads from a path. Never throws: any problem leaves defaults for what could not be read.</summary>
         public static SaveData Load(string path)
@@ -98,6 +104,7 @@ namespace HockeyGame.Core
             data.TickOn = ReadBool(values, TickOnKey, data.TickOn);
             data.MasterVolume = ReadDouble(values, MasterVolumeKey, data.MasterVolume, VolumeRange);
             data.Mute = ReadBool(values, MuteKey, data.Mute);
+            data.GoalieCharacterOn = ReadBool(values, GoalieCharacterOnKey, data.GoalieCharacterOn);
             return data;
         }
 
@@ -124,6 +131,7 @@ namespace HockeyGame.Core
                 sb.Append(TickOnKey).Append('=').Append(TickOn ? "true" : "false").Append('\n');
                 sb.Append(MasterVolumeKey).Append('=').Append(MasterVolume.ToString("R", inv)).Append('\n');
                 sb.Append(MuteKey).Append('=').Append(Mute ? "true" : "false").Append('\n');
+                sb.Append(GoalieCharacterOnKey).Append('=').Append(GoalieCharacterOn ? "true" : "false").Append('\n');
                 File.WriteAllText(path, sb.ToString(), new UTF8Encoding(false));
                 return true;
             }
