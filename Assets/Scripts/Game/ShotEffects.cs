@@ -1,3 +1,4 @@
+using System;
 using HockeyGame.Core;
 using UnityEngine;
 
@@ -46,19 +47,26 @@ namespace HockeyGame
         Vector3 _gloveFrom, _gloveTo;
         float _shakeLeft;
 
-        public ShotEffects(Transform rink, Camera camera)
+        /// <param name="findFile">Model file lookup for the puck and save glove; null = Assets/Resources/Models (see ModelFiles).</param>
+        public ShotEffects(Transform rink, Camera camera, Func<string, GameObject> findFile = null)
         {
             _camera = camera;
 
             // The flight moves and turns this pivot; its local Y is the puck's flat-face normal.
             _puck = new GameObject("Puck");
             _puck.transform.SetParent(rink, false);
-            GameObject puckModel = ModelFiles.Load(ModelFiles.Puck, PlaceholderPuck);
+            GameObject puckModel = ModelFiles.Load(ModelFiles.Puck, PlaceholderPuck, findFile);
             puckModel.transform.SetParent(_puck.transform, false);
             ModelFiles.FitTo(puckModel.transform, new Vector3(PuckDiameter, PuckThickness, PuckDiameter));
-            foreach (Collider c in puckModel.GetComponentsInChildren<Collider>(true)) Object.Destroy(c);
+            ModelFiles.RemoveColliders(puckModel);
 
-            _glove = RinkBuilder.Cube(rink, "Save Block", Vector3.zero, new Vector3(0.3f, 0.25f, GloveDepth), SaveBlockColour);
+            // The save block slides this pivot; the save-glove model (or the old light blue block) fills 0.3 x 0.25 x GloveDepth.
+            _glove = new GameObject("Save Block");
+            _glove.transform.SetParent(rink, false);
+            GameObject gloveModel = ModelFiles.Load(ModelFiles.SaveGlove, PlaceholderSaveBlock, findFile);
+            gloveModel.transform.SetParent(_glove.transform, false);
+            ModelFiles.FitTo(gloveModel.transform, new Vector3(0.3f, 0.25f, GloveDepth));
+            ModelFiles.RemoveColliders(gloveModel);
 
             _goalLight = new GoalLight(rink);
 
@@ -66,6 +74,15 @@ namespace HockeyGame
             if (_netting != null) _nettingRest = _netting.localPosition;
 
             Clear();
+        }
+
+        /// <summary>Today's light blue save block, used when Assets/Resources/Models has no save-glove model.</summary>
+        static GameObject PlaceholderSaveBlock()
+        {
+            var block = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            block.name = "Save Block Placeholder";
+            RinkBuilder.Paint(block, SaveBlockColour);
+            return block;
         }
 
         /// <summary>Today's black cylinder puck, used when Assets/Resources/Models has no puck model.</summary>

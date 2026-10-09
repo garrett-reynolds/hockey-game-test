@@ -8,7 +8,8 @@ namespace HockeyGame
     /// Finds each visual piece's model. To use a real model, drop a model file (.fbx or .obj) into
     /// Assets/Resources/Models/ named after the piece below, for example Assets/Resources/Models/puck.obj.
     /// A piece with no file uses its code-made placeholder (today's simple shape). No code change is needed.
-    /// File names: ice, net, puck, goalie-dressing, boards, arena, goal-light, save-glove.
+    /// File names: ice, net, puck, goalie-dressing, boards, arena, goal-light, save-glove,
+    /// and the goalie character's gear: goalie-pad, goalie-blocker, goalie-mask (its catcher is save-glove).
     /// </summary>
     public static class ModelFiles
     {
@@ -23,6 +24,9 @@ namespace HockeyGame
         public const string Arena = "arena";
         public const string GoalLight = "goal-light";
         public const string SaveGlove = "save-glove";
+        public const string GoaliePad = "goalie-pad";
+        public const string GoalieBlocker = "goalie-blocker";
+        public const string GoalieMask = "goalie-mask";
 
         /// <summary>
         /// A new scene object of the model in the file with this name (no extension), or the placeholder when there is none.
@@ -75,6 +79,16 @@ namespace HockeyGame
                 have.z > flat ? size.z / have.z : 1f);
             model.localScale = scale;
             model.localPosition = -Vector3.Scale(bounds.center, scale);
+        }
+
+        /// <summary>Removes every collider in the model (models are only for show). Safe outside Play mode.</summary>
+        public static void RemoveColliders(GameObject model)
+        {
+            foreach (Collider c in model.GetComponentsInChildren<Collider>(true))
+            {
+                if (Application.isPlaying) Object.Destroy(c);
+                else Object.DestroyImmediate(c);
+            }
         }
 
         static GameObject FromResources(string fileName)

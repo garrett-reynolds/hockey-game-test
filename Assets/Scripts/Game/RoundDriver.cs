@@ -26,6 +26,7 @@ namespace HockeyGame
         SaveData _save;
         SettingsScreen _settingsScreen; // made fresh each time F2 opens it (port list refreshed); null when closed
         GoalieView _goalie;
+        GoalieCharacter _goalieCharacter; // rigged goalie, shown only with the goalieCharacterOn developer flag
         ShotEffects _effects;
         UsbShotSource _usb; // real Shots from the electronics
         RoundSound _sound; // reads tick on/off, master volume and mute from _save each frame
@@ -39,6 +40,7 @@ namespace HockeyGame
         {
             RinkBuilder.Build(out _camera);
             _goalie = new GoalieView(GameObject.Find("Rink").transform);
+            _goalieCharacter = new GoalieCharacter(GameObject.Find("Rink").transform);
             _effects = new ShotEffects(GameObject.Find("Rink").transform, _camera);
             _netFacePlane = new Plane(Vector3.back, Vector3.zero); // Net Face plane: z = 0
             _save = SaveStore.Current;
@@ -65,7 +67,9 @@ namespace HockeyGame
 
             // Goalie shows for the whole Shot (SkateIn to ResultHold); hidden in Idle and RoundOver.
             var phaseNow = _round.Phase;
-            _goalie.Show(phaseNow != RoundPhase.Idle && phaseNow != RoundPhase.RoundOver, _round.GoaliePose, _save.EasyMode);
+            bool goalieShown = phaseNow != RoundPhase.Idle && phaseNow != RoundPhase.RoundOver;
+            _goalie.Show(goalieShown, _round.GoaliePose, _save.EasyMode);
+            _goalieCharacter.Show(goalieShown && _save.GoalieCharacterOn); // the blocks still decide the gameplay look
             _effects.Update(_round, Time.unscaledDeltaTime);
             _sound.Update(_round, _effects.PuckArrivedThisFrame, Time.unscaledDeltaTime);
 

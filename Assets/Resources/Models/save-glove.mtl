@@ -1,0 +1,13 @@
+# Goalie catching glove (save glove). materials. CC0.
+newmtl GearWhite
+Kd 0.92 0.92 0.9
+Ks 0.05 0.05 0.05
+Ns 10
+newmtl GearTan
+Kd 0.62 0.42 0.22
+Ks 0.05 0.05 0.05
+Ns 10
+newmtl GearBlue
+Kd 0.12 0.2 0.55
+Ks 0.05 0.05 0.05
+Ns 10
