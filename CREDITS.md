@@ -51,11 +51,11 @@ Models load from `Assets/Resources/Models/` through `ModelFiles`. Sounds load fr
 
 ## Sounds
 
-All 12 are 16-bit PCM WAV, 44.1 kHz, in `Assets/Resources/Sounds/`. The one-shots are normalised to a -3 dBFS peak. Every outside clip was decoded with ffmpeg and then trimmed, mixed, or had its level changed as listed below. Clips marked "made by `Tools/make_sounds.py`" come from this command, run from the repo root:
+All 15 are 16-bit PCM WAV, 44.1 kHz, in `Assets/Resources/Sounds/`. The one-shots are normalised to a -3 dBFS peak. Every outside clip was decoded with ffmpeg and then trimmed, mixed, or had its level changed as listed below. Clips marked "made by `Tools/make_sounds.py`" come from this command, run from the repo root:
 
-`python Tools/make_sounds.py Assets/Resources/Sounds --voice ooo.wav --crowd crowd.wav`
+`python Tools/make_sounds.py Assets/Resources/Sounds --voice ooo.wav --crowd crowd.wav --impact impact`
 
-Its two inputs are decoded first with `ffmpeg -i oooooooooo.ogg -ac 1 -ar 44100 ooo.wav` and `ffmpeg -i crowd_shouting_0.ogg -ar 44100 crowd.wav`.
+Its two inputs are decoded first with `ffmpeg -i oooooooooo.ogg -ac 1 -ar 44100 ooo.wav` and `ffmpeg -i crowd_shouting_0.ogg -ar 44100 crowd.wav`. The `impact` folder holds the four Kenney Impact Sounds clips named in the table, each decoded with `ffmpeg -i Audio/<name>.ogg -ac 1 -ar 44100 impact/<name>.wav`.
 
 | What | File in project | Source | Author | Licence | Changes |
 |---|---|---|---|---|---|
@@ -71,6 +71,9 @@ Its two inputs are decoded first with `ffmpeg -i oooooooooo.ogg -ac 1 -ar 44100 
 | Crowd groan ("awww") | `groan.wav` | Made by `Tools/make_sounds.py` from "Oooooooooooooo", https://opengameart.org/content/oooooooooooooo (`oooooooooo.ogg`) | Nocturnal_Vanguard (voice); Hockey Game Test project (script) | CC0 | 8 staggered, detuned, panned copies of the voice, each gliding down 3 to 4.5 semitones, low-passed, 2 s |
 | Goal horn | `goal-horn.wav` | Made by `Tools/make_sounds.py` (synthesised: a low B-flat major chord of detuned sawtooth waves with a short echo) | Hockey Game Test project | CC0 | n/a |
 | Time-up buzzer | `buzzer.wav` | Made by `Tools/make_sounds.py` (synthesised: a rough square plus sawtooth wave around 120 Hz) | Hockey Game Test project | CC0 | n/a |
+| Post or crossbar ping | `post-ping.wav` | Made by `Tools/make_sounds.py` (synthesised: a short bright click, then the first four modes of a ringing steel tube from 1,180 Hz, each a beating pair, with a short echo) | Hockey Game Test project | CC0 | n/a |
+| Glove catch | `glove-catch.wav` | Made by `Tools/make_sounds.py` from Kenney "Impact Sounds", https://kenney.nl/assets/impact-sounds (`impactPunch_heavy_002.ogg` plus `impactSoft_medium_003.ogg` at 35%) | Kenney | CC0 | Two clips mixed, cut to 0.35 s with a 0.12 s fade out |
+| Blocker hit | `blocker-hit.wav` | Made by `Tools/make_sounds.py` from Kenney "Impact Sounds" (`impactWood_medium_002.ogg` plus `impactWood_light_000.ogg` at 50%) | Kenney | CC0 | Two clips mixed, cut to 0.4 s with a 0.12 s fade out |
 
 ### Notes
 

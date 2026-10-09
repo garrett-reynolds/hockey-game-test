@@ -113,6 +113,91 @@ namespace HockeyGame.Core.Tests
             CollectionAssert.AreEquivalent(new[] { SoundCue.MissImpact, SoundCue.Groan }, cues.Update(round, true));
         }
 
+        // Plays one Shot at (x, y) and returns the cues on the puck's arrival frame.
+        private static List<SoundCue> ArrivalCues(Round round, double x, double y)
+        {
+            var cues = new RoundSoundCues(new SaveData());
+            Run(round, cues, 3.8);
+            round.SubmitShot(x, y, 100, false);
+            round.DelayResult(0.5);
+            cues.Update(round, false);
+            return new List<SoundCue>(cues.Update(round, true));
+        }
+
+        [Test]
+        public void Miss_on_the_left_post_pings_and_still_counts_as_a_Miss()
+        {
+            var round = StartedRound();
+            var heard = ArrivalCues(round, -2, 50);      // 2 units left of the opening: inside the post's thickness
+            CollectionAssert.AreEquivalent(new[] { SoundCue.PostPing, SoundCue.Groan }, heard);
+            Assert.AreEqual(ShotResultKind.Miss, round.LastResult.Value.Kind);
+        }
+
+        [TestCase(102, 50, TestName = "Right post")]
+        [TestCase(50, 103, TestName = "Crossbar")]
+        [TestCase(-3, 104, TestName = "Top left corner of the frame")]
+        public void Miss_on_the_frame_pings(double x, double y)
+        {
+            var heard = ArrivalCues(StartedRound(), x, y);
+            CollectionAssert.AreEquivalent(new[] { SoundCue.PostPing, SoundCue.Groan }, heard);
+        }
+
+        // MiddleStandUp covers the top and middle rows; its bottom row is Contested, Open, Contested.
+        private static Round StandUpRound()
+        {
+            var round = new Round(ScriptedRandom.Picking(GoaliePose.MiddleStandUp), new RoundSettings(), 0);
+            round.StartRound();
+            return round;
+        }
+
+        // The goalie catches with the left hand, which faces the shooter on the shooter's right.
+        [Test]
+        public void Save_high_on_the_right_is_a_glove_catch()
+        {
+            var round = StandUpRound();
+            var heard = ArrivalCues(round, 85, 85);
+            Assert.AreEqual(ShotResultKind.Save, round.LastResult.Value.Kind);
+            CollectionAssert.AreEquivalent(new[] { SoundCue.GloveCatch, SoundCue.Groan }, heard);
+        }
+
+        [Test]
+        public void Save_high_on_the_left_is_a_blocker_hit()
+        {
+            var round = StandUpRound();
+            var heard = ArrivalCues(round, 15, 85);
+            Assert.AreEqual(ShotResultKind.Save, round.LastResult.Value.Kind);
+            CollectionAssert.AreEquivalent(new[] { SoundCue.BlockerHit, SoundCue.Groan }, heard);
+        }
+
+        // Middle Zones pick the nearer of pad, glove and blocker: the middle row splits at half height (pad below),
+        // the middle column at half width (blocker left, glove right).
+        [TestCase(55, 85, SoundCue.GloveCatch, TestName = "Top centre, right of middle: glove")]
+        [TestCase(45, 85, SoundCue.BlockerHit, TestName = "Top centre, left of middle: blocker")]
+        [TestCase(85, 60, SoundCue.GloveCatch, TestName = "Middle right, upper half: glove")]
+        [TestCase(15, 60, SoundCue.BlockerHit, TestName = "Middle left, upper half: blocker")]
+        [TestCase(40, 60, SoundCue.BlockerHit, TestName = "Centre, upper half, left: blocker")]
+        [TestCase(85, 40, SoundCue.SaveImpact, TestName = "Middle right, lower half: pad")]
+        [TestCase(15, 40, SoundCue.SaveImpact, TestName = "Middle left, lower half: pad")]
+        [TestCase(50, 40, SoundCue.SaveImpact, TestName = "Centre, lower half: pad")]
+        public void Save_in_a_middle_Zone_sounds_the_nearer_body_part(double x, double y, SoundCue expected)
+        {
+            var round = StandUpRound();
+            var heard = ArrivalCues(round, x, y);
+            Assert.AreEqual(ShotResultKind.Save, round.LastResult.Value.Kind);
+            CollectionAssert.AreEquivalent(new[] { expected, SoundCue.Groan }, heard);
+        }
+
+        // The post is 0.08 m of a 1.83 m wide Net Face (4.4 units); the crossbar 0.08 m of 1.22 m (6.6 units).
+        [TestCase(-5, 50, TestName = "Just wide of the left post")]
+        [TestCase(106, 50, TestName = "Just wide of the right post")]
+        [TestCase(50, 108, TestName = "Just over the crossbar")]
+        [TestCase(-2, -3, TestName = "Below the ice by the post")]
+        public void Miss_wide_of_the_frame_clangs_off_the_boards(double x, double y)
+        {
+            var heard = ArrivalCues(StartedRound(), x, y);
+            CollectionAssert.AreEquivalent(new[] { SoundCue.MissImpact, SoundCue.Groan }, heard);
+        }
+
         [Test]
         public void Slow_Shot_result_sound_waits_for_the_landing_even_when_the_arrival_is_missed()
         {

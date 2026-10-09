@@ -108,6 +108,13 @@ def steps(lo, hi, size):
     return [lo + (hi - lo) * k / n for k in range(n + 1)]
 
 
+def strand(m, a, b):
+    """A netting strand from a to b, cut into pieces about one hole long so the game can bend it (the goal bulge)."""
+    n = max(1, round(math.sqrt(dot(sub(b, a), sub(b, a))) / MESH))
+    for k in range(n):
+        m.bar(add(a, mul(sub(b, a), k / n)), add(a, mul(sub(b, a), (k + 1) / n)), STRAND)
+
+
 def net():
     m = Obj()
     x = W / 2 + P / 2   # post centre line
@@ -143,15 +150,15 @@ def net():
     ys = steps(s / 2, H, MESH)
     xs = steps(-W / 2, W / 2, MESH)
     zs = steps(zf, zr, MESH)
-    for xx in xs: m.bar((xx, s / 2, zr), (xx, H, zr), s)                 # back
-    for yy in ys: m.bar((-W / 2, yy, zr), (W / 2, yy, zr), s)
+    for xx in xs: strand(m, (xx, s / 2, zr), (xx, H, zr))                 # back
+    for yy in ys: strand(m, (-W / 2, yy, zr), (W / 2, yy, zr))
     for side in (-1, 1):                                                  # sides
         xx = side * (W / 2 + s / 2)
-        for zz in zs: m.bar((xx, s / 2, zz), (xx, H, zz), s)
-        for yy in ys: m.bar((xx, yy, zf), (xx, yy, zr), s)
+        for zz in zs: strand(m, (xx, s / 2, zz), (xx, H, zz))
+        for yy in ys: strand(m, (xx, yy, zf), (xx, yy, zr))
     yr = H + s / 2                                                        # roof
-    for xx in xs: m.bar((xx, yr, zf), (xx, yr, zr), s)
-    for zz in zs: m.bar((-W / 2, yr, zz), (W / 2, yr, zz), s)
+    for xx in xs: strand(m, (xx, yr, zf), (xx, yr, zr))
+    for zz in zs: strand(m, (-W / 2, yr, zz), (W / 2, yr, zz))
     return m
 
 

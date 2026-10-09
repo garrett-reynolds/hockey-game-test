@@ -6,7 +6,7 @@ namespace HockeyGame
 {
     /// <summary>
     /// Plays what a Shot did: the puck flies from just below the camera to the Shot's spot on the Net Face
-    /// (time from ShotFlight), then Goal (into the net, net shakes, red goal light), Save (a goalie block slides
+    /// (time from ShotFlight), then Goal (into the net, the netting bulges and the puck drops, red goal light), Save (a goalie block slides
     /// to the spot, the puck bounces away), Miss (the puck flies on past the net) or Too Late (no puck).
     /// Watches the Round and tells it how long the flight takes (Round.DelayResult). Uses real (unscaled) time. No colliders.
     /// </summary>
@@ -21,8 +21,8 @@ namespace HockeyGame
         const float GloveZ = GoalieView.BlockZ - GoalieView.BlockDepth / 2f - GloveGap - GloveDepth / 2f; // in front of the pose blocks
         const float SaveZ = GloveZ - GloveDepth / 2f - PuckThickness;
         const float MissCarrySeconds = 0.8f;
-        const float ShakeSeconds = 0.8f;
-        const float ShakeMetres = 0.04f;
+        const float CaughtSeconds = 0.25f;           // a goal puck rests in the netting bulge this long, then drops
+        const float BaseRailMetres = 0.07f;          // the net's back base-frame tube on the ice (Tools/make_net.py: 2 x TUBE)
         const float Gravity = 9.81f;
         static readonly Color SaveBlockColour = new Color(0.45f, 0.6f, 1f); // lighter than the GoalieView blocks so the slide shows on a Covered Zone
 
@@ -32,8 +32,7 @@ namespace HockeyGame
         readonly GameObject _puck;
         readonly GameObject _glove;
         readonly GoalLight _goalLight;
-        readonly Transform _netting;   // shakes on a goal; null if the net has none
-        readonly Vector3 _nettingRest;
+        readonly NetBulge _net;        // the netting catches a goal
         readonly bool _boards;         // a missed puck comes back off the end boards (only when there are boards)
 
         readonly ShotResultWatch _newResult = new ShotResultWatch();
@@ -46,7 +45,6 @@ namespace HockeyGame
         float _flightSeconds;
         Vector3 _start, _target, _velocity;
         Vector3 _gloveFrom, _gloveTo;
-        float _shakeLeft;
 
         /// <param name="findFile">Model file lookup for the puck and save glove; null = Assets/Resources/Models (see ModelFiles).</param>
         public ShotEffects(Transform rink, Camera camera, Func<string, GameObject> findFile = null)
@@ -72,8 +70,7 @@ namespace HockeyGame
 
             _goalLight = new GoalLight(rink);
 
-            _netting = NetBuilder.FindNetting(rink);
-            if (_netting != null) _nettingRest = _netting.localPosition;
+            _net = new NetBulge(NetBuilder.FindNetting(rink));
 
             Clear();
         }
@@ -106,7 +103,7 @@ namespace HockeyGame
             bool isNew = _newResult.TakeNew(round);
             if (round.Phase != RoundPhase.ResultHold)
             {
-                if (_stage != Stage.None || _shakeLeft > 0f || _glove.activeSelf) Clear();
+                if (_stage != Stage.None || _net.Moving || _glove.activeSelf) Clear();
                 return;
             }
             if (isNew)
@@ -126,7 +123,9 @@ namespace HockeyGame
             Transform cam = _camera.transform;
             _start = cam.position + cam.forward * 1.0f - cam.up * 0.35f;
             NetFaceMapping.ToMetres(result.X, result.Y, out double right, out double up);
-            float z = result.Kind == ShotResultKind.Save ? SaveZ : 0f;
+            const float FrameFrontZ = -NetBuilder.Post / 2f - PuckThickness / 2f; // puck centre touching the front of a post or the crossbar
+            float z = result.Kind == ShotResultKind.Save ? SaveZ
+                : NetFrame.At(result.X, result.Y) != FrameHit.None ? FrameFrontZ : 0f; // a frame hit stops on the iron's face
             _target = new Vector3((float)right, (float)up, z);
             _flightSeconds = (float)ShotFlight.Seconds(Vector3.Distance(_start, _target), result.SpeedKmh);
             _velocity = (_target - _start) / _flightSeconds;
@@ -172,7 +171,24 @@ namespace HockeyGame
                         {
                             p.z = RinkBuilder.NetDepth - PuckThickness;
                             _stage = Stage.InNet;
-                            _shakeLeft = ShakeSeconds;
+                            _time = 0f;
+                            _velocity = Vector3.zero;
+                            _net.Hit(new Vector3(p.x, p.y, RinkBuilder.NetDepth), (float)_result.SpeedKmh);
+                        }
+                        _puck.transform.position = p;
+                    }
+                    break;
+                case Stage.InNet:
+                    {
+                        // Rides the bulge at the back of the net, then drops to the ice.
+                        // While it drops it eases forward so it lands in front of the back base rail, not inside it.
+                        Vector3 p = _puck.transform.position;
+                        float clear = Mathf.Clamp01((_time - CaughtSeconds) / 0.2f);
+                        p.z = RinkBuilder.NetDepth - Mathf.Lerp(PuckThickness, BaseRailMetres + PuckThickness / 2f, clear) + _net.BackAtHit;
+                        if (_time > CaughtSeconds && p.y > PuckDiameter / 2f)
+                        {
+                            _velocity.y -= Gravity * dt;
+                            p.y = Mathf.Max(p.y + _velocity.y * dt, PuckDiameter / 2f);
                         }
                         _puck.transform.position = p;
                     }
@@ -194,7 +210,7 @@ namespace HockeyGame
                     if (_time > MissCarrySeconds) { _puck.SetActive(false); _stage = Stage.None; }
                     break;
             }
-            Shake(dt);
+            _net.Step(dt);
         }
 
         void Arrive()
@@ -220,20 +236,17 @@ namespace HockeyGame
                     _velocity = new Vector3(side * speed * 0.6f, speed * 0.5f, -speed);
                     _stage = Stage.Bouncing;
                     break;
-                default: // Miss: carry on past the net
-                    _stage = Stage.Carrying;
+                default:
+                    FrameHit frame = NetFrame.At(_result.X, _result.Y);
+                    if (frame == FrameHit.None) { _stage = Stage.Carrying; break; } // wide Miss: carry on past the net
+                    // Off the iron: back toward the shooter, kicked outward off a post or up off the crossbar.
+                    float bounce = Mathf.Clamp(_velocity.magnitude * 0.35f, 2.5f, 9f);
+                    _velocity = frame == FrameHit.Crossbar
+                        ? new Vector3(_velocity.normalized.x * bounce * 0.3f, bounce * 0.8f, -bounce * 0.6f)
+                        : new Vector3((frame == FrameHit.LeftPost ? -1f : 1f) * bounce * 0.8f, bounce * 0.2f, -bounce * 0.6f);
+                    _stage = Stage.Bouncing;
                     break;
             }
-        }
-
-        void Shake(float dt)
-        {
-            if (_shakeLeft <= 0f) return;
-            _shakeLeft -= dt;
-            float strength = Mathf.Max(_shakeLeft, 0f) / ShakeSeconds;
-            float wobble = Mathf.Sin(_shakeLeft * 70f) * ShakeMetres * strength;
-            if (_netting != null)
-                _netting.localPosition = _nettingRest + new Vector3(wobble * 0.5f, wobble * 0.3f, wobble);
         }
 
         void SetGoalLight(bool on) => _goalLight.SetOn(on);
@@ -244,8 +257,7 @@ namespace HockeyGame
             _puck.SetActive(false);
             _glove.SetActive(false);
             SetGoalLight(false);
-            _shakeLeft = 0f;
-            if (_netting != null) _netting.localPosition = _nettingRest;
+            _net.Reset();
         }
     }
 }
