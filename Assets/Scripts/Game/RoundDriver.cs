@@ -49,6 +49,7 @@ namespace HockeyGame
             _sound = new RoundSound(_camera.gameObject, _save, _round.Settings);
             gameObject.AddComponent<BreakawayView>().Init(_round, _camera, _goalie);
             _usb = gameObject.AddComponent<UsbShotSource>();
+            _usb.Init(_save);
         }
 
         void Update()

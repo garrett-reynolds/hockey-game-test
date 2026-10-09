@@ -14,8 +14,9 @@ namespace HockeyGame
     /// One background thread finds the port, loops on ReadLine() with a 500 ms timeout and queues Shots;
     /// the main thread takes them with <see cref="TryTakeShot"/>. If the port is lost the thread closes it
     /// and keeps retrying by itself. DataReceived is not used: it never fires in Unity's Mono.
-    /// Port choice comes from SaveStore.Current.UsbPort (Auto or a port name) and is re-read every frame,
+    /// Port choice comes from the shared SaveData's UsbPort (Auto or a port name) and is re-read every frame,
     /// so a settings change reconnects. In Auto mode the port that answered is saved as LastUsbPort.
+    /// Call Init right after AddComponent; reading starts then.
     /// </summary>
     public sealed class UsbShotSource : MonoBehaviour
     {
@@ -30,6 +31,7 @@ namespace HockeyGame
         readonly AutoResetEvent _wake = new AutoResetEvent(false);
         readonly object _portLock = new object();
 
+        SaveData _save;
         Thread _thread;
         SerialPort _port;
         volatile bool _running;
@@ -51,11 +53,23 @@ namespace HockeyGame
             return _shots.TryDequeue(out shot);
         }
 
+        /// <summary>Gives the shared SaveData (port setting in, last Auto port out) and starts reading.</summary>
+        public void Init(SaveData save)
+        {
+            _save = save;
+            if (isActiveAndEnabled) StartReading();
+        }
+
         void OnEnable()
         {
-            var save = SaveStore.Current;
-            _setting = save.UsbPort;
-            _remembered = save.LastUsbPort;
+            if (_save != null) StartReading(); // re-enabled after Init
+        }
+
+        void StartReading()
+        {
+            if (_thread != null) return;
+            _setting = _save.UsbPort;
+            _remembered = _save.LastUsbPort;
             _running = true;
             _thread = new Thread(Run) { IsBackground = true, Name = "USB electronics" };
             _thread.Start();
@@ -74,7 +88,8 @@ namespace HockeyGame
 
         void Update()
         {
-            var save = SaveStore.Current;
+            var save = _save;
+            if (save == null) return;
             if (save.UsbPort != _setting)
             {
                 _setting = save.UsbPort;
