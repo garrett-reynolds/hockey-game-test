@@ -1,18 +1,6 @@
-# Hockey ice materials. CC0.
+# Hockey ice material. CC0.
 newmtl Ice
 Kd 1 1 1
 Ks 0.15 0.15 0.15
 Ns 40
-map_Kd ice-detail.png
-newmtl LineRed
-Kd 0.578 0.005 0.027
-Ks 0.1 0.1 0.1
-Ns 40
-newmtl LineBlue
-Kd 0.0 0.04 0.38
-Ks 0.1 0.1 0.1
-Ns 40
-newmtl CreaseBlue
-Kd 0.171 0.418 0.83
-Ks 0.1 0.1 0.1
-Ns 40
+map_Kd ice-markings.jpg
