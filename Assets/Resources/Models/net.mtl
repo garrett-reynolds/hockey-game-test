@@ -1,0 +1,13 @@
+# Hockey net. materials. CC0.
+newmtl PostRed
+Kd 0.75 0.04 0.04
+Ks 0.2 0.2 0.2
+Ns 60
+newmtl FrameWhite
+Kd 0.92 0.92 0.92
+Ks 0.2 0.2 0.2
+Ns 20
+newmtl NetWhite
+Kd 0.86 0.86 0.86
+Ks 0.2 0.2 0.2
+Ns 10

@@ -24,18 +24,15 @@ namespace HockeyGame
         const float ShakeMetres = 0.04f;
         const float Gravity = 9.81f;
         static readonly Color SaveBlockColour = new Color(0.45f, 0.6f, 1f); // lighter than the GoalieView blocks so the slide shows on a Covered Zone
-        static readonly Color LightOff = new Color(0.25f, 0.05f, 0.05f);
-        static readonly Color LightOn = new Color(1f, 0.1f, 0.1f);
 
         enum Stage { None, Flying, IntoNet, InNet, Bouncing, Carrying }
 
         readonly Camera _camera;
         readonly GameObject _puck;
         readonly GameObject _glove;
-        readonly Material _lightMaterial;
-        readonly Light _lightGlow;
-        readonly Transform[] _netParts;
-        readonly Vector3[] _netRest;
+        readonly GoalLight _goalLight;
+        readonly Transform _netting;   // shakes on a goal; null if the net has none
+        readonly Vector3 _nettingRest;
 
         readonly ShotResultWatch _newResult = new ShotResultWatch();
 
@@ -63,33 +60,10 @@ namespace HockeyGame
 
             _glove = RinkBuilder.Cube(rink, "Save Block", Vector3.zero, new Vector3(0.3f, 0.25f, GloveDepth), SaveBlockColour);
 
-            var lamp = RinkBuilder.Cube(rink, "Goal Light", new Vector3(0f, H + 0.3f, RinkBuilder.NetDepth / 2f), new Vector3(0.25f, 0.25f, 0.25f), LightOff);
-            Shader unlit = Shader.Find("Universal Render Pipeline/Unlit");
-            if (unlit != null)
-            {
-                _lightMaterial = new Material(unlit);
-                lamp.GetComponent<Renderer>().sharedMaterial = _lightMaterial;
-            }
-            else
-            {
-                _lightMaterial = lamp.GetComponent<Renderer>().sharedMaterial;
-            }
-            _lightGlow = new GameObject("Goal Light Glow").AddComponent<Light>();
-            _lightGlow.transform.SetParent(rink);
-            _lightGlow.transform.position = lamp.transform.position + new Vector3(0f, 0f, -0.4f);
-            _lightGlow.type = LightType.Point;
-            _lightGlow.color = LightOn;
-            _lightGlow.range = 4f;
-            _lightGlow.intensity = 3f;
+            _goalLight = new GoalLight(rink);
 
-            string[] names = { "Back", "Left Side", "Right Side", "Roof" };
-            _netParts = new Transform[names.Length];
-            _netRest = new Vector3[names.Length];
-            for (int i = 0; i < names.Length; i++)
-            {
-                _netParts[i] = rink.Find(names[i]);
-                if (_netParts[i] != null) _netRest[i] = _netParts[i].localPosition;
-            }
+            _netting = NetBuilder.FindNetting(rink);
+            if (_netting != null) _nettingRest = _netting.localPosition;
 
             Clear();
         }
@@ -235,16 +209,11 @@ namespace HockeyGame
             _shakeLeft -= dt;
             float strength = Mathf.Max(_shakeLeft, 0f) / ShakeSeconds;
             float wobble = Mathf.Sin(_shakeLeft * 70f) * ShakeMetres * strength;
-            for (int i = 0; i < _netParts.Length; i++)
-                if (_netParts[i] != null)
-                    _netParts[i].localPosition = _netRest[i] + new Vector3(wobble * 0.5f, wobble * 0.3f, wobble);
+            if (_netting != null)
+                _netting.localPosition = _nettingRest + new Vector3(wobble * 0.5f, wobble * 0.3f, wobble);
         }
 
-        void SetGoalLight(bool on)
-        {
-            _lightMaterial.color = on ? LightOn : LightOff;
-            _lightGlow.enabled = on;
-        }
+        void SetGoalLight(bool on) => _goalLight.SetOn(on);
 
         void Clear()
         {
@@ -253,8 +222,7 @@ namespace HockeyGame
             _glove.SetActive(false);
             SetGoalLight(false);
             _shakeLeft = 0f;
-            for (int i = 0; i < _netParts.Length; i++)
-                if (_netParts[i] != null) _netParts[i].localPosition = _netRest[i];
+            if (_netting != null) _netting.localPosition = _nettingRest;
         }
     }
 }

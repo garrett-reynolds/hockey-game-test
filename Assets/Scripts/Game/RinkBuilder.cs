@@ -21,15 +21,7 @@ namespace HockeyGame
             ice.transform.localScale = new Vector3(6f, 1f, 6f); // 60 m: the skate-in starts 22 m out
             Paint(ice, new Color(0.85f, 0.93f, 1f));
 
-            // Net: the Net Face is the opening at z = 0, centred on x = 0, spanning y = 0..H. The back of the net is at z = +NetDepth.
-            var white = new Color(0.9f, 0.9f, 0.9f);
-            Cube(root, "Left Post", new Vector3(-W / 2f - Post / 2f, H / 2f, 0f), new Vector3(Post, H + Post, Post), Color.red);
-            Cube(root, "Right Post", new Vector3(W / 2f + Post / 2f, H / 2f, 0f), new Vector3(Post, H + Post, Post), Color.red);
-            Cube(root, "Crossbar", new Vector3(0f, H + Post / 2f, 0f), new Vector3(W + 2f * Post, Post, Post), Color.red);
-            Cube(root, "Back", new Vector3(0f, H / 2f, NetDepth), new Vector3(W, H, 0.03f), white);
-            Cube(root, "Left Side", new Vector3(-W / 2f, H / 2f, NetDepth / 2f), new Vector3(0.03f, H, NetDepth), white);
-            Cube(root, "Right Side", new Vector3(W / 2f, H / 2f, NetDepth / 2f), new Vector3(0.03f, H, NetDepth), white);
-            Cube(root, "Roof", new Vector3(0f, H, NetDepth / 2f), new Vector3(W, 0.03f, NetDepth), white);
+            NetBuilder.Build(root); // the net around the Net Face, back at z = +NetDepth
 
             var light = new GameObject("Light").AddComponent<Light>();
             light.type = LightType.Directional;
