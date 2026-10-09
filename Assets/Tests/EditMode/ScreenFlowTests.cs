@@ -8,6 +8,101 @@ namespace HockeyGame.Core.Tests
         private static ScreenFlow NewFlow(SaveData save = null) =>
             new ScreenFlow(new ScriptedRandom(ScriptedRandom.AlternatingButterflies()), save ?? new SaveData());
 
+        // Starts a Round and plays all 6 Shots: the first `goals` score (top middle is Open in both
+        // butterflies), the rest miss. Ends on the tick that finishes Shot 6's hold.
+        private static void PlayRound(ScreenFlow flow, int goals)
+        {
+            flow.Press();
+            for (int shot = 0; shot < Round.ShotsPerRound; shot++)
+            {
+                flow.Tick(3.7);
+                if (shot < goals)
+                    flow.SubmitShot(50, 90, 100, false);
+                else
+                    flow.SubmitShot(-10, 50, 100, false);
+                flow.Tick(2.5);
+            }
+        }
+
+        [Test]
+        public void After_Shot_6_the_end_screen_shows()
+        {
+            var flow = NewFlow();
+            PlayRound(flow, 2);
+            Assert.AreEqual(FlowScreen.End, flow.Screen);
+            Assert.AreEqual(2, flow.Round.Goals);
+        }
+
+        [Test]
+        public void The_end_screen_ignores_keys_clicks_and_Shots_for_the_input_ignore_time()
+        {
+            var flow = NewFlow();
+            PlayRound(flow, 0);
+            flow.Tick(1.9);
+            Assert.IsFalse(flow.EndAcceptsInput);
+            flow.Press();
+            flow.SubmitShot(50, 90, 100, false);
+            Assert.AreEqual(FlowScreen.End, flow.Screen);
+        }
+
+        [Test]
+        public void At_the_input_ignore_time_a_key_or_click_goes_to_the_start_screen_without_starting_a_Round()
+        {
+            var flow = NewFlow();
+            PlayRound(flow, 0);
+            flow.Tick(2.0);
+            Assert.IsTrue(flow.EndAcceptsInput);
+            flow.Press();
+            Assert.AreEqual(FlowScreen.Start, flow.Screen);
+            Assert.AreEqual(RoundPhase.Idle, flow.Round.Phase);
+            Assert.AreEqual(0, flow.Round.Results.Count);
+        }
+
+        [Test]
+        public void After_the_input_ignore_time_a_Shot_goes_to_the_start_screen()
+        {
+            var flow = NewFlow();
+            PlayRound(flow, 0);
+            flow.Tick(2.5);
+            flow.SubmitShot(50, 90, 100, false);
+            Assert.AreEqual(FlowScreen.Start, flow.Screen);
+        }
+
+        [Test]
+        public void The_end_screen_goes_back_to_start_by_itself_after_the_auto_return_time()
+        {
+            var flow = NewFlow();
+            PlayRound(flow, 0);
+            flow.Tick(14.9);
+            Assert.AreEqual(FlowScreen.End, flow.Screen);
+            flow.Tick(0.1);
+            Assert.AreEqual(FlowScreen.Start, flow.Screen);
+        }
+
+        [Test]
+        public void A_long_tick_on_the_end_screen_stops_on_the_start_screen()
+        {
+            var flow = NewFlow();
+            PlayRound(flow, 0);
+            flow.Tick(1000);
+            Assert.AreEqual(FlowScreen.Start, flow.Screen);
+            Assert.AreEqual(RoundPhase.Idle, flow.Round.Phase);
+        }
+
+        [Test]
+        public void End_screen_times_come_from_the_saved_settings()
+        {
+            var flow = NewFlow(new SaveData { InputIgnoreSeconds = 4, AutoReturnSeconds = 6 });
+            PlayRound(flow, 0);
+            flow.Tick(3.9);
+            flow.Press();
+            Assert.AreEqual(FlowScreen.End, flow.Screen);
+            flow.Tick(1.9);
+            Assert.AreEqual(FlowScreen.End, flow.Screen); // 5.8 s: not yet auto-returned, and no Press since
+            flow.Tick(0.3);
+            Assert.AreEqual(FlowScreen.Start, flow.Screen);
+        }
+
         [Test]
         public void A_new_flow_shows_the_start_screen()
         {
