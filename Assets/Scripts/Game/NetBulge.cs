@@ -30,6 +30,7 @@ namespace HockeyGame
         readonly float[] _weight, _delay;
         Vector3 _localPush;   // one metre toward the back of the net, in the netting's local space
         float _amplitude;
+        int _hitVertex;       // the netting vertex nearest the hit point: the puck rides it
         float _time;
         bool _moving;
 
@@ -73,10 +74,12 @@ namespace HockeyGame
             _localPush = _netting.InverseTransformVector(Vector3.forward);
             _amplitude = Mathf.Clamp(speedKmh * MetresPerKmh, MinMetres, MaxMetres);
             Matrix4x4 toWorld = _netting.localToWorldMatrix;
+            float nearest = float.MaxValue;
             for (int i = 0; i < _rest.Length; i++)
             {
                 Vector3 w = toWorld.MultiplyPoint3x4(_rest[i]);
                 float r = Vector3.Distance(w, point);
+                if (r < nearest) { nearest = r; _hitVertex = i; }
                 float pin = Mathf.SmoothStep(0f, 1f, w.y / PinMetres) * Mathf.SmoothStep(0f, 1f, w.z / PinMetres);
                 _weight[i] = Mathf.Exp(-(r * r) / (RadiusMetres * RadiusMetres)) * pin;
                 _delay[i] = r / RippleMetresPerSecond;
@@ -92,7 +95,6 @@ namespace HockeyGame
             if (_time >= SettleSeconds) { Reset(); return; }
             float w0 = 2f * Mathf.PI * SpringHz;
             float wd = w0 * Mathf.Sqrt(1f - Damping * Damping);
-            BackAtHit = _amplitude * Mathf.Exp(-Damping * w0 * _time) * Mathf.Sin(wd * _time);
             for (int i = 0; i < _rest.Length; i++)
             {
                 float tau = _time - _delay[i];
@@ -100,6 +102,7 @@ namespace HockeyGame
                     ? 0f
                     : _amplitude * _weight[i] * Mathf.Exp(-Damping * w0 * tau) * Mathf.Sin(wd * tau);
                 _moved[i] = _rest[i] + _localPush * back;
+                if (i == _hitVertex) BackAtHit = back;
             }
             _mesh.vertices = _moved;
         }

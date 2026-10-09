@@ -71,6 +71,25 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void The_puck_rides_the_netting_at_a_low_hit_where_the_netting_is_held_by_the_base_frame()
+        {
+            NetBuilder.Build(_rink);
+            Transform netting = NetBuilder.FindNetting(_rink);
+            var bulge = new NetBulge(netting);
+            Vector3[] rest = WorldVertices(netting);
+            Vector3 hit = BackOfNet(50, 4);
+
+            bulge.Hit(hit, 110f);
+            Run(bulge, 0.1f);
+            Vector3[] moved = WorldVertices(netting);
+
+            int nearest = 0;
+            for (int i = 1; i < rest.Length; i++)
+                if ((rest[i] - hit).sqrMagnitude < (rest[nearest] - hit).sqrMagnitude) nearest = i;
+            Assert.AreEqual(moved[nearest].z - rest[nearest].z, bulge.BackAtHit, 0.003f);
+        }
+
+        [Test]
         public void A_faster_Shot_makes_a_bigger_bulge()
         {
             NetBuilder.Build(_rink);

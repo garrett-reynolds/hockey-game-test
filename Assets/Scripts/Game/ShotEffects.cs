@@ -22,6 +22,7 @@ namespace HockeyGame
         const float SaveZ = GloveZ - GloveDepth / 2f - PuckThickness;
         const float MissCarrySeconds = 0.8f;
         const float CaughtSeconds = 0.25f;           // a goal puck rests in the netting bulge this long, then drops
+        const float BaseRailMetres = 0.07f;          // the net's back base-frame tube on the ice (Tools/make_net.py: 2 x TUBE)
         const float Gravity = 9.81f;
         static readonly Color SaveBlockColour = new Color(0.45f, 0.6f, 1f); // lighter than the GoalieView blocks so the slide shows on a Covered Zone
 
@@ -178,8 +179,10 @@ namespace HockeyGame
                 case Stage.InNet:
                     {
                         // Rides the bulge at the back of the net, then drops to the ice.
+                        // While it drops it eases forward so it lands in front of the back base rail, not inside it.
                         Vector3 p = _puck.transform.position;
-                        p.z = RinkBuilder.NetDepth - PuckThickness + _net.BackAtHit;
+                        float clear = Mathf.Clamp01((_time - CaughtSeconds) / 0.2f);
+                        p.z = RinkBuilder.NetDepth - Mathf.Lerp(PuckThickness, BaseRailMetres + PuckThickness / 2f, clear) + _net.BackAtHit;
                         if (_time > CaughtSeconds && p.y > PuckDiameter / 2f)
                         {
                             _velocity.y -= Gravity * dt;
