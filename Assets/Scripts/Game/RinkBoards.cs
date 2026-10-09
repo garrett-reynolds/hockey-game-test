@@ -28,6 +28,8 @@ namespace HockeyGame
         public const string GlassPart = "Glass";
 
         const float GlassAlpha = 0.15f;
+        /// <summary>Share of its speed into the boards a puck keeps coming back off them.</summary>
+        const float BoardsBounce = 0.3f;
 
         /// <summary>The model's outer box in rink space: the boards' outside faces, from the ice to the top of the glass.</summary>
         public static Bounds Box
@@ -54,6 +56,22 @@ namespace HockeyGame
             foreach (Renderer r in model.GetComponentsInChildren<Renderer>())
                 if (r.name == GlassPart) MakeGlass(r);
             return boards;
+        }
+
+        /// <summary>True when the rink got the boards model (not the empty stand-in), so pucks can hit them.</summary>
+        public static bool Present(Transform rink)
+        {
+            Transform boards = rink.Find("Boards");
+            return boards != null && boards.GetComponentInChildren<Renderer>() != null;
+        }
+
+        /// <summary>A puck (of this radius) that has gone into the end boards behind the net comes back off them, slower.</summary>
+        public static void BounceOffEndBoards(ref Vector3 position, ref Vector3 velocity, float radius)
+        {
+            float face = EndZ - radius;
+            if (position.z <= face || position.y > GlassTop || velocity.z <= 0f) return; // short of them, or over the glass
+            position.z = face;
+            velocity.z = -velocity.z * BoardsBounce;
         }
 
         static void MakeGlass(Renderer renderer)

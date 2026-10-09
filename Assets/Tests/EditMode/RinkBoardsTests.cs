@@ -84,5 +84,34 @@ namespace HockeyGame.Core.Tests
             Assert.That(solid.sharedMaterial.renderQueue, Is.LessThan((int)RenderQueue.Transparent));
             Assert.AreEqual(ShadowCastingMode.On, solid.shadowCastingMode, "the boards still shade the ice");
         }
+
+        [Test]
+        public void A_missed_puck_that_reaches_the_end_boards_bounces_back_off_them_slower()
+        {
+            var position = new Vector3(1f, 1.5f, RinkBoards.EndZ + 0.2f);
+            var velocity = new Vector3(0.5f, 1f, 20f);
+            RinkBoards.BounceOffEndBoards(ref position, ref velocity, 0.04f);
+            Assert.AreEqual(RinkBoards.EndZ - 0.04f, position.z, 0.001f, "back on the rink side of the boards");
+            Assert.That(velocity.z, Is.LessThan(0f).And.GreaterThan(-10f), "heading back toward the shooter, slower");
+            Assert.AreEqual(0.5f, velocity.x, 1e-5f);
+            Assert.AreEqual(1f, position.x, 1e-5f);
+
+            var inside = new Vector3(0f, 0.5f, 2f);
+            var going = new Vector3(0f, 0f, 20f);
+            RinkBoards.BounceOffEndBoards(ref inside, ref going, 0.04f);
+            Assert.AreEqual(new Vector3(0f, 0.5f, 2f), inside, "a puck short of the boards flies on");
+            Assert.AreEqual(new Vector3(0f, 0f, 20f), going);
+        }
+
+        [Test]
+        public void The_rink_has_boards_only_when_the_boards_model_was_found()
+        {
+            RinkBoards.Build(_rink.transform, name => null);
+            Assert.IsFalse(RinkBoards.Present(_rink.transform));
+            Object.DestroyImmediate(_rink);
+            _rink = new GameObject("Rink");
+            RinkBoards.Build(_rink.transform, name => FakeBoardsFile());
+            Assert.IsTrue(RinkBoards.Present(_rink.transform));
+        }
     }
 }

@@ -34,6 +34,7 @@ namespace HockeyGame
         readonly GoalLight _goalLight;
         readonly Transform _netting;   // shakes on a goal; null if the net has none
         readonly Vector3 _nettingRest;
+        readonly bool _boards;         // a missed puck comes back off the end boards (only when there are boards)
 
         readonly ShotResultWatch _newResult = new ShotResultWatch();
 
@@ -51,6 +52,7 @@ namespace HockeyGame
         public ShotEffects(Transform rink, Camera camera, Func<string, GameObject> findFile = null)
         {
             _camera = camera;
+            _boards = RinkBoards.Present(rink);
 
             // The flight moves and turns this pivot; its local Y is the puck's flat-face normal.
             _puck = new GameObject("Puck");
@@ -184,7 +186,11 @@ namespace HockeyGame
                     }
                     break;
                 case Stage.Carrying:
-                    _puck.transform.position += _velocity * dt;
+                    {
+                        Vector3 p = _puck.transform.position + _velocity * dt;
+                        if (_boards) RinkBoards.BounceOffEndBoards(ref p, ref _velocity, PuckDiameter / 2f);
+                        _puck.transform.position = p;
+                    }
                     if (_time > MissCarrySeconds) { _puck.SetActive(false); _stage = Stage.None; }
                     break;
             }
