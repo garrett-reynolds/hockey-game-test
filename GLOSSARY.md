@@ -42,7 +42,7 @@ _Avoid_: Angle, lane
 
 **Goalie Pose**:
 The way the goalie sets up for one Shot. Each Attack Side has its own Goalie Poses, and each pose fixes which Zones are Open, Covered, or Contested. Left and right are always from the shooter's view. The goalie only moves into it when the Shot is taken, so the player cannot read it before shooting (see docs/adr/0001).
-_Avoid_: Stance, position
+_Avoid_: Stance (on its own it is ambiguous: say Goalie Pose or Ready Stance), position
 
 **Ready Stance**:
 The goalie's crouch before the Shot, the same for every Goalie Pose and Attack Side. The goalie holds it through the skate-in and slow-down, reacts out of it on the Shot, and keeps it when there is no Shot in time.
