@@ -8,7 +8,7 @@ namespace HockeyGame.Core.Tests
     public class GoalieCharacterTests
     {
         static readonly string[] GearNames =
-            { "Left Pad", "Right Pad", "Blocker", "Catcher", "Stick", "Mask", "Left Skate", "Right Skate" };
+            { "Left Pad", "Right Pad", "Blocker", "Catcher", "Stick", "Mask", "Visor", "Left Skate", "Right Skate" };
         static readonly string[] ClothesNames = { "Jersey", "Pants", "Socks" };
 
         static GameObject LoadModel()
@@ -233,6 +233,7 @@ namespace HockeyGame.Core.Tests
                 ("Stick", rightArm),
                 ("Catcher", new[] { HumanBodyBones.Spine, HumanBodyBones.Chest, HumanBodyBones.LeftShoulder, HumanBodyBones.LeftUpperArm, HumanBodyBones.LeftLowerArm, HumanBodyBones.LeftHand }),
                 ("Mask", new[] { HumanBodyBones.Neck, HumanBodyBones.Head }),
+                ("Visor", new[] { HumanBodyBones.Neck, HumanBodyBones.Head }),
             };
             foreach (var (gearName, joints) in cases)
             {
@@ -264,6 +265,118 @@ namespace HockeyGame.Core.Tests
                 bone.localRotation = jointBefore;
                 Assert.Greater((after.min - before.min).magnitude + (after.max - before.max).magnitude, 0.05f, clothes + " does not bend with " + joint);
             }
+        }
+
+        [Test]
+        public void In_the_ready_stance_the_blocker_board_faces_the_shooter_with_its_long_side_along_the_forearm()
+        {
+            var character = new GoalieCharacter(_parent.transform);
+            Vector3 toShooter = Vector3.back;
+            Transform blocker = Gear(character, "Blocker").transform;
+            Mesh mesh = blocker.GetComponent<MeshFilter>().sharedMesh;
+            Vector3[] v = mesh.vertices;
+            int[] t = mesh.triangles;
+            // The board is the big flat face toward the shooter: the triangles whose normals point at the shooter.
+            var board = new List<Vector3>();
+            float area = 0f;
+            for (int i = 0; i < t.Length; i += 3)
+            {
+                Vector3 a = blocker.TransformPoint(v[t[i]]), b = blocker.TransformPoint(v[t[i + 1]]), c = blocker.TransformPoint(v[t[i + 2]]);
+                Vector3 n = Vector3.Cross(b - a, c - a);
+                if (n.sqrMagnitude < 1e-12f || Vector3.Dot(n.normalized, toShooter) < 0.7f) continue;
+                area += n.magnitude / 2f;
+                board.Add(a); board.Add(b); board.Add(c);
+            }
+            Assert.Greater(area, 0.05f, "a blocker board (about 0.4 x 0.2 m) faces the shooter");
+
+            Vector3 forearm = Vector3.ProjectOnPlane(character.Bone(HumanBodyBones.RightHand).position - character.Bone(HumanBodyBones.RightLowerArm).position, toShooter).normalized;
+            Vector3 across = Vector3.Cross(toShooter, forearm);
+            float Extent(Vector3 axis)
+            {
+                float lo = float.MaxValue, hi = float.MinValue;
+                foreach (Vector3 p in board) { float d = Vector3.Dot(p, axis); lo = Mathf.Min(lo, d); hi = Mathf.Max(hi, d); }
+                return hi - lo;
+            }
+            Assert.Greater(Extent(forearm), 1.4f * Extent(across), "the board's long side runs along the forearm, not across it");
+        }
+
+        [Test]
+        public void In_the_ready_stance_the_blocker_hand_still_holds_the_stick()
+        {
+            var character = new GoalieCharacter(_parent.transform);
+            Vector3 palm = (character.Bone(HumanBodyBones.RightHand).position + character.Bone(HumanBodyBones.RightMiddleProximal).position) / 2f;
+            Transform stick = Gear(character, "Stick").transform;
+            float nearest = float.MaxValue;
+            foreach (Vector3 p in stick.GetComponent<MeshFilter>().sharedMesh.vertices)
+                nearest = Mathf.Min(nearest, Vector3.Distance(stick.TransformPoint(p), palm));
+            Assert.Less(nearest, 0.06f, "the stick runs through the blocker hand's palm");
+        }
+
+        [Test]
+        public void The_jersey_hangs_straight_from_the_chest_to_the_hem_with_no_waist_pinch()
+        {
+            var model = LoadModel();
+            try
+            {
+                var animator = model.GetComponentInChildren<Animator>();
+                Vector3 hips = animator.GetBoneTransform(HumanBodyBones.Hips).position;
+                Vector3 up = (animator.GetBoneTransform(HumanBodyBones.Head).position - hips).normalized;
+                Vector3 right = Vector3.ProjectOnPlane(animator.GetBoneTransform(HumanBodyBones.RightUpperLeg).position - animator.GetBoneTransform(HumanBodyBones.LeftUpperLeg).position, up).normalized;
+                Vector3 front = Vector3.Cross(right, up);
+                var jersey = Find(model.transform, "Jersey").GetComponent<SkinnedMeshRenderer>();
+                var baked = new Mesh();
+                jersey.BakeMesh(baked, true);
+                Matrix4x4 m = Matrix4x4.TRS(jersey.transform.position, jersey.transform.rotation, Vector3.one);
+                var points = new List<Vector3>();
+                foreach (Vector3 p in baked.vertices) points.Add(m.MultiplyPoint3x4(p) - hips);
+                Object.DestroyImmediate(baked);
+
+                // Width and depth of a slice of the torso (arms left out) at the height of a bone.
+                (float width, float depth) Slice(HumanBodyBones bone)
+                {
+                    float h = Vector3.Dot(animator.GetBoneTransform(bone).position - hips, up);
+                    float x0 = float.MaxValue, x1 = float.MinValue, z0 = float.MaxValue, z1 = float.MinValue;
+                    foreach (Vector3 p in points)
+                    {
+                        float x = Vector3.Dot(p, right);
+                        if (Mathf.Abs(Vector3.Dot(p, up) - h) > 0.015f || Mathf.Abs(x) > 0.28f) continue;
+                        float z = Vector3.Dot(p, front);
+                        x0 = Mathf.Min(x0, x); x1 = Mathf.Max(x1, x); z0 = Mathf.Min(z0, z); z1 = Mathf.Max(z1, z);
+                    }
+                    Assert.Less(x0, x1, "no jersey at the height of " + bone);
+                    return (x1 - x0, z1 - z0);
+                }
+                var chest = Slice(HumanBodyBones.UpperChest);
+                foreach (HumanBodyBones waist in new[] { HumanBodyBones.Chest, HumanBodyBones.Spine })
+                {
+                    var s = Slice(waist);
+                    Assert.GreaterOrEqual(s.width, 0.95f * chest.width, "the jersey pinches in at " + waist + " (width)");
+                    Assert.GreaterOrEqual(s.depth, 0.95f * chest.depth, "the jersey pinches in at " + waist + " (depth)");
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(model);
+            }
+        }
+
+        [Test]
+        public void A_dark_visor_inside_the_mask_hides_the_face_from_the_shooter()
+        {
+            var character = new GoalieCharacter(_parent.transform);
+            Renderer visor = Gear(character, "Visor");
+            Color c = visor.sharedMaterial.color;
+            Assert.Less(Mathf.Max(c.r, c.g, c.b), 0.15f, "a dark, tinted visor");
+            Assert.Greater(visor.sharedMaterial.GetFloat("_Smoothness"), 0.6f, "slightly glossy");
+
+            Bounds eyes = WorldBounds(Find(character.Root.transform, "Eyes").GetComponent<Renderer>());
+            Bounds v = WorldBounds(visor), mask = WorldBounds(Gear(character, "Mask"));
+            Assert.Less(v.min.z, eyes.min.z, "the visor is in front of the eyes (toward the shooter, -z)");
+            Assert.Less(v.min.x, eyes.min.x - 0.03f, "covers the face to the cheeks");
+            Assert.Greater(v.max.x, eyes.max.x + 0.03f, "covers the face to the cheeks");
+            Assert.Less(v.min.y, eyes.min.y - 0.08f, "covers the face down to the chin");
+            Assert.Greater(v.max.y, eyes.max.y, "covers the eyes");
+            Assert.Greater(v.min.z, mask.min.z, "inside the mask cage");
         }
 
         static Renderer Gear(GoalieCharacter character, string name) =>
