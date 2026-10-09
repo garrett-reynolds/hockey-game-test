@@ -83,15 +83,34 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void Goalie_sets_over_the_slow_down_on_real_time_and_is_fully_set_when_the_window_opens()
+        public void Goalie_holds_the_ready_stance_until_the_Shot()
         {
-            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.SkateIn, 2.0, Defaults), Tol);
-            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.SlowDown, 0, Defaults), Tol);
-            Assert.AreEqual(0.5, Breakaway.GoalieSet(RoundPhase.SlowDown, 0.6, Defaults), Tol); // smoothstep(0.5) = 0.5
-            Assert.AreEqual(0.15625, Breakaway.GoalieSet(RoundPhase.SlowDown, 0.3, Defaults), Tol); // smoothstep(0.25)
-            Assert.AreEqual(1.0, Breakaway.GoalieSet(RoundPhase.SlowDown, 1.2, Defaults), Tol);
-            Assert.AreEqual(1.0, Breakaway.GoalieSet(RoundPhase.ShootingWindow, 0, Defaults), Tol);
-            Assert.AreEqual(1.0, Breakaway.GoalieSet(RoundPhase.ResultHold, 0, Defaults), Tol);
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.Idle, 0, false), Tol);
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.SkateIn, 2.0, false), Tol);
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.SlowDown, 0.6, false), Tol);
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.SlowDown, 5.0, false), Tol);
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.ShootingWindow, 0, false), Tol);
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.ShootingWindow, 3.0, false), Tol);
+        }
+
+        [Test]
+        public void On_the_Shot_the_goalie_reacts_into_the_pose_before_the_fastest_puck_reaches_the_Net_Face()
+        {
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.ResultHold, 0, true), Tol, "still ready at the Shot");
+            double midway = Breakaway.GoalieSet(RoundPhase.ResultHold, 0.1, true);
+            Assert.Greater(midway, 0.0, "moving");
+            Assert.Less(midway, 1.0, "not there yet");
+            // The fastest puck: a huge speed from the closest the shooter gets to the net.
+            double fastestFlight = ShotFlight.Seconds(Breakaway.ClosestDrift, 1000);
+            Assert.AreEqual(1.0, Breakaway.GoalieSet(RoundPhase.ResultHold, fastestFlight, true), Tol, "fully posed when the puck lands");
+            Assert.AreEqual(1.0, Breakaway.GoalieSet(RoundPhase.ResultHold, 2.0, true), Tol);
+        }
+
+        [Test]
+        public void With_no_Shot_too_late_the_goalie_stays_in_the_ready_stance()
+        {
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.ResultHold, 0, false), Tol);
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.ResultHold, 2.0, false), Tol);
         }
 
         [Test]
@@ -122,12 +141,11 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void Skate_in_slow_down_and_window_follow_the_Round_settings()
+        public void Skate_in_and_window_follow_the_Round_settings()
         {
             var slow = new RoundSettings { SkateInSeconds = 5, SlowDownSeconds = 2.4, ShootingWindowSeconds = 6 };
             Assert.AreEqual(0.5, Breakaway.SkateProgress(2.5, slow), Tol);
             Assert.AreEqual(14.317821 / 5, Breakaway.SkateSpeed(AttackSide.Middle, slow), 1e-5);
-            Assert.AreEqual(0.5, Breakaway.GoalieSet(RoundPhase.SlowDown, 1.2, slow), Tol); // smoothstep(0.5)
             Assert.AreEqual(0.5, Breakaway.RingFraction(3.0, slow), Tol);
         }
 
