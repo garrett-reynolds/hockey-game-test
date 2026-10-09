@@ -11,8 +11,8 @@ namespace HockeyGame
     public sealed class GoalieView
     {
         const float CoveredFraction = 1f;
-        const float BlockDepth = 0.1f;
-        const float BlockZ = -0.08f;   // centre; block spans z -0.13..-0.03, in front of the Net Face
+        internal const float BlockDepth = 0.1f;
+        internal const float BlockZ = -0.08f;   // centre; block spans z -0.13..-0.03, in front of the Net Face
         const float GlowZ = 0.06f;     // just behind the Net Face
         static readonly Color GoalieColour = new Color(0.15f, 0.25f, 0.6f);
         static readonly Color GlowColour = new Color(0.3f, 1f, 0.3f);
@@ -46,7 +46,7 @@ namespace HockeyGame
                             {
                                 NetFaceMapping.ZoneRectangle(column, row, CoveredFraction, out float a, out float b, out float c, out float d);
                                 var block = Block(_blocks[i].transform, column, row, a, b, c, d, BlockDepth, BlockZ, GoalieColour, null);
-                                _setBlocks[i].Add(new SetBlock(block, GoalieSet.Neutral(column, row), new GoalieSet.Rect(a, b, c, d)));
+                                _setBlocks[i].Add(new SetBlock(block, GoaliePoseBlend.Neutral(column, row), new GoaliePoseBlend.Shape(a, b, c, d)));
                             }
                             break;
                         case ZoneCover.Contested:
@@ -56,16 +56,16 @@ namespace HockeyGame
                                     IsOpen(pose, column, row - 1), IsOpen(pose, column, row + 1),
                                     out float a, out float b, out float c, out float d);
                                 var block = Block(_blocks[i].transform, column, row, a, b, c, d, BlockDepth, BlockZ, GoalieColour, null);
-                                _setBlocks[i].Add(new SetBlock(block, GoalieSet.Neutral(column, row), new GoalieSet.Rect(a, b, c, d)));
+                                _setBlocks[i].Add(new SetBlock(block, GoaliePoseBlend.Neutral(column, row), new GoaliePoseBlend.Shape(a, b, c, d)));
                             }
                             break;
                         case ZoneCover.Open:
                             {
-                                // Neutral-stance block that shrinks away as the goalie sets; hidden once set.
-                                var n = GoalieSet.Neutral(column, row);
+                                // Neutral-shape block that shrinks away as the goalie sets; hidden once set.
+                                var n = GoaliePoseBlend.Neutral(column, row);
                                 var settle = Block(_blocks[i].transform, column, row, n.MinX, n.MinY, n.MaxX, n.MaxY, BlockDepth, BlockZ, GoalieColour, null);
                                 settle.name += " (setting)";
-                                _setBlocks[i].Add(new SetBlock(settle, n, GoalieSet.OpenTarget(column, row)));
+                                _setBlocks[i].Add(new SetBlock(settle, n, GoaliePoseBlend.OpenTarget(column, row)));
                                 NetFaceMapping.ZoneRectangle(column, row, 0.96f, out float a, out float b, out float c, out float d);
                                 Block(_glows[i].transform, column, row, a, b, c, d, 0.02f, GlowZ, GlowColour, unlit);
                             }
@@ -77,7 +77,7 @@ namespace HockeyGame
             for (int i = 0; i < _setBlocks.Length; i++) PlaceSetBlocks(i);
         }
 
-        /// <summary>How far the goalie has set into the pose: 0 = neutral stance, 1 = fully set (the default).</summary>
+        /// <summary>How far the goalie has set into the pose: 0 = neutral shape, 1 = fully set (the default).</summary>
         public void SetProgress(float progress)
         {
             if (Mathf.Approximately(progress, _set)) return;
@@ -89,7 +89,7 @@ namespace HockeyGame
         {
             foreach (var block in _setBlocks[pose])
             {
-                var r = GoalieSet.Lerp(block.Neutral, block.Pose, _set);
+                var r = GoaliePoseBlend.Lerp(block.Neutral, block.Pose, _set);
                 float w = r.MaxX - r.MinX, h = r.MaxY - r.MinY;
                 bool show = w > 0.005f && h > 0.005f;
                 block.Cube.SetActive(show);
@@ -102,8 +102,8 @@ namespace HockeyGame
         readonly struct SetBlock
         {
             public readonly GameObject Cube;
-            public readonly GoalieSet.Rect Neutral, Pose;
-            public SetBlock(GameObject cube, GoalieSet.Rect neutral, GoalieSet.Rect pose) { Cube = cube; Neutral = neutral; Pose = pose; }
+            public readonly GoaliePoseBlend.Shape Neutral, Pose;
+            public SetBlock(GameObject cube, GoaliePoseBlend.Shape neutral, GoaliePoseBlend.Shape pose) { Cube = cube; Neutral = neutral; Pose = pose; }
         }
 
         /// <summary>Show the goalie in the given pose (or hide it when visible is false) and set the Easy mode glow.</summary>
