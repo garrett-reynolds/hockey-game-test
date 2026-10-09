@@ -31,5 +31,12 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual("Buzzer", clip.name);
             Object.DestroyImmediate(clip);
         }
+
+        [Test]
+        public void Every_contact_sound_has_a_real_file_in_Resources_Sounds()
+        {
+            foreach (string name in new[] { SoundFiles.PostPing, SoundFiles.GloveCatch, SoundFiles.BlockerHit, SoundFiles.PadThud })
+                Assert.IsNotNull(Resources.Load<AudioClip>(SoundFiles.Folder + "/" + name), name);
+        }
     }
 }

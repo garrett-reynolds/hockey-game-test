@@ -20,6 +20,9 @@ namespace HockeyGame
         public static AudioClip Horn() => Make("Goal Horn", Horn(1.6f));
         public static AudioClip PadThud() => Make("Pad Thud", Thud(0.35f));
         public static AudioClip BoardsClang() => Make("Boards Clang", Clang(0.9f));
+        public static AudioClip PostPing() => Make("Post Ping", Ping(0.8f));
+        public static AudioClip GloveCatch() => Make("Glove Catch", NoiseBurst(0.18f, 0.6f, 0.75f, 35f, 13));
+        public static AudioClip BlockerHit() => Make("Blocker Hit", NoiseBurst(0.2f, 0.6f, 0.45f, 30f, 17));
         public static AudioClip Cheer() => Make("Cheer", Swell(Crowd(3f, 0.9f, 0.2f), 0.4f, 1.8f));
         public static AudioClip Groan() => Make("Groan", Swell(Crowd(1.8f, 0.7f, 0.65f), 0.25f, 1.0f));
         public static AudioClip NewBestCheer() => Make("New Best Cheer", Swell(Crowd(3.5f, 1f, 0.15f), 0.5f, 2.2f));
@@ -160,6 +163,22 @@ namespace HockeyGame
             var hit = NoiseBurst(0.05f, 1f, 0f, 80f, 11);
             for (int i = 0; i < hit.Length; i++) s[i] += 0.5f * hit[i];
             Normalise(s, 0.55f);
+            return s;
+        }
+
+        static float[] Ping(float seconds)
+        {
+            var s = Buffer(seconds);
+            float[] partials = { 1180f, 3252f, 6377f }; // a steel tube's first modes
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = (float)i / Rate;
+                float v = 0f;
+                for (int p = 0; p < partials.Length; p++)
+                    v += Mathf.Sin(2 * Mathf.PI * partials[p] * t) * Mathf.Exp(-t * (3f + 6f * p)) / (p + 1);
+                s[i] = v;
+            }
+            Normalise(s, 0.5f);
             return s;
         }
 

@@ -2,6 +2,11 @@
 #   python Tools/make_sounds.py <out dir>                     -> goal-horn.wav, buzzer.wav (pure synthesis)
 #   python Tools/make_sounds.py <out dir> --voice ooo.wav     -> also groan.wav (layered, gliding copies of one voice)
 #   python Tools/make_sounds.py <out dir> --crowd crowd.wav   -> also crowd-loop.wav (seamless loop cut from a recording)
+#   python Tools/make_sounds.py <out dir> --impact <dir>      -> also glove-catch.wav, blocker-hit.wav (Kenney Impact Sounds mixes)
+# goal-horn, buzzer and post-ping are pure synthesis and are always written.
+# --impact <dir> needs these Kenney "Impact Sounds" clips (https://kenney.nl/assets/impact-sounds, CC0) decoded to WAV:
+#   impactPunch_heavy_001, impactSoft_medium_003, impactWood_medium_002, impactPunch_medium_000
+#   e.g. for f in impactPunch_heavy_001 ...; do ffmpeg -i Audio/$f.ogg -ac 1 -ar 44100 <dir>/$f.wav; done
 # Input WAVs: decode first with ffmpeg, e.g. ffmpeg -i oooooooooo.ogg -ac 1 -ar 44100 ooo.wav
 # Needs numpy. Seeded, so the output is the same on every run.
 import argparse, os, wave
@@ -101,6 +106,46 @@ def buzzer():
     return normalize(room(x, 0.15))
 
 
+def post_ping():
+    """Puck off the post or crossbar: a hard click, then a steel tube ringing (free-bar modes), about 0.9 s."""
+    dur = 0.9; n = int(dur * RATE); t = np.arange(n) / RATE
+    f1 = 1180.0
+    out = np.zeros(n)
+    # Free-free bar mode ratios; each mode is a pair a few Hz apart so the ring beats like a real tube.
+    for ratio, gain, decay in ((1.0, 1.0, 0.32), (2.756, 0.7, 0.22), (5.404, 0.35, 0.12), (8.933, 0.18, 0.06)):
+        f = f1 * ratio
+        out += gain * np.exp(-t / decay) * (np.sin(2 * np.pi * f * t) + 0.6 * np.sin(2 * np.pi * (f + 3.5) * t + 1.0))
+    rng = np.random.default_rng(30)
+    click = rng.standard_normal(n) * np.exp(-t / 0.002)
+    click = lowpass(click - lowpass(click, 2500), 9000)   # keep only the bright crack of the hit (2.5-9 kHz)
+    out = out + 0.8 * click
+    out *= envelope(n, 0.0005, 0.15)
+    return normalize(room(out, 0.12))
+
+
+def glove_catch(punch, soft):
+    """Puck snapped into the catching glove: a dull leather pop, tails trimmed short."""
+    return normalize(fit(mix((1.0, punch), (0.35, soft)), 0.35, 0.12))
+
+
+def blocker_hit(wood, punch):
+    """Puck off the blocker's hard face: a sharper knock than the pad, with a padded body under it."""
+    return normalize(fit(mix((1.0, wood), (0.5, punch)), 0.4, 0.12))
+
+
+def mix(*parts):
+    n = max(len(p) for _, p in parts); out = np.zeros(n)
+    for g, p in parts: out[:len(p)] += g * p
+    return out
+
+
+def fit(x, seconds, release):
+    """Cut or pad x to seconds, fading out over the last release seconds."""
+    n = int(seconds * RATE)
+    x = np.concatenate([x, np.zeros(max(0, n - len(x)))])[:n]
+    return x * envelope(n, 0.0, release)
+
+
 def groan(voice):
     """Crowd "awww": 8 staggered, detuned copies of one sung "ooo", each gliding down about 4 semitones."""
     rng = np.random.default_rng(7)
@@ -141,9 +186,15 @@ if __name__ == "__main__":
     p.add_argument("out")
     p.add_argument("--voice", help="16-bit 44.1 kHz WAV of one voice singing 'ooo' (makes groan.wav)")
     p.add_argument("--crowd", help="16-bit 44.1 kHz WAV of steady crowd noise (makes crowd-loop.wav)")
+    p.add_argument("--impact", help="folder of Kenney Impact Sounds clips decoded to WAV (makes glove-catch.wav, blocker-hit.wav)")
     a = p.parse_args()
     os.makedirs(a.out, exist_ok=True)
     write(os.path.join(a.out, "goal-horn.wav"), goal_horn())
     write(os.path.join(a.out, "buzzer.wav"), buzzer())
+    write(os.path.join(a.out, "post-ping.wav"), post_ping())
+    if a.impact:
+        clip = lambda name: read(os.path.join(a.impact, name + ".wav"))
+        write(os.path.join(a.out, "glove-catch.wav"), glove_catch(clip("impactPunch_heavy_001"), clip("impactSoft_medium_003")))
+        write(os.path.join(a.out, "blocker-hit.wav"), blocker_hit(clip("impactWood_medium_002"), clip("impactPunch_medium_000")))
     if a.voice: write(os.path.join(a.out, "groan.wav"), groan(read(a.voice)))
     if a.crowd: write(os.path.join(a.out, "crowd-loop.wav"), crowd_loop(read(a.crowd)))
