@@ -29,6 +29,7 @@ namespace HockeyGame.Core.Tests
             {
                 BestScore = 5,
                 UsbPort = "COM7",
+                LastUsbPort = "COM4",
                 EasyMode = true,
                 ContestedLowChance = 0.35,
                 ContestedTopChance = 0.7,
@@ -46,6 +47,7 @@ namespace HockeyGame.Core.Tests
         {
             Assert.AreEqual(expected.BestScore, actual.BestScore);
             Assert.AreEqual(expected.UsbPort, actual.UsbPort);
+            Assert.AreEqual(expected.LastUsbPort, actual.LastUsbPort);
             Assert.AreEqual(expected.EasyMode, actual.EasyMode);
             Assert.AreEqual(expected.ContestedLowChance, actual.ContestedLowChance);
             Assert.AreEqual(expected.ContestedTopChance, actual.ContestedTopChance);
@@ -64,6 +66,7 @@ namespace HockeyGame.Core.Tests
             var d = new SaveData();
             Assert.AreEqual(0, d.BestScore);
             Assert.AreEqual("Auto", d.UsbPort);
+            Assert.AreEqual("", d.LastUsbPort);
             Assert.IsFalse(d.EasyMode);
             Assert.AreEqual(0.50, d.ContestedLowChance);
             Assert.AreEqual(0.85, d.ContestedTopChance);

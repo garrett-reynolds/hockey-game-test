@@ -27,6 +27,7 @@ namespace HockeyGame
         SettingsMenu _menu; // made fresh each time F2 opens the settings screen (port list refreshed)
         GoalieView _goalie;
         ShotEffects _effects;
+        UsbShotSource _usb; // real Shots from the electronics
         RoundSound _sound; // reads tick on/off, master volume and mute from _save each frame
         Camera _camera;
         Plane _netFacePlane;
@@ -47,11 +48,16 @@ namespace HockeyGame
             _round = _flow.Round;
             _sound = new RoundSound(_camera.gameObject, _save);
             gameObject.AddComponent<BreakawayView>().Init(_round, _camera, _goalie);
+            _usb = gameObject.AddComponent<UsbShotSource>();
         }
 
         void Update()
         {
             _flow.Tick(Time.unscaledDeltaTime);
+
+            // Real Shots count whether Test Shots are on or off; on the start or end screen one acts as a Press.
+            while (_usb.TryTakeShot(out var shot))
+                _flow.SubmitShot(shot.X, shot.Y, shot.SpeedKmh, false);
 
             var keyboard = Keyboard.current;
             var mouse = Mouse.current;
@@ -194,6 +200,7 @@ namespace HockeyGame
                     GUI.Label(new Rect(0, h * 0.2f, w, 60), GameName, _big);
                     GUI.Label(new Rect(0, h * 0.2f + 70, w, 40), "Best score: " + _save.BestScore + " / " + Round.ShotsPerRound, _mid);
                     GUI.Label(new Rect(0, h * 0.2f + 120, w, 40), "Shoot or press any key", _mid);
+                    GUI.Label(new Rect(0, h * 0.2f + 170, w, 40), _usb.StatusText, _mid);
                     GUI.Label(new Rect(10, h - 64, w, 30), "F2: settings", _small);
                     break;
                 case FlowScreen.End:
