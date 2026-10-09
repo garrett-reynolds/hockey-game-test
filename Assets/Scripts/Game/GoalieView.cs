@@ -11,7 +11,6 @@ namespace HockeyGame
     public sealed class GoalieView
     {
         const float CoveredFraction = 1f;
-        const float ContestedFraction = 0.55f;
         const float BlockDepth = 0.1f;
         const float BlockZ = -0.08f;   // centre; block spans z -0.13..-0.03, in front of the Net Face
         const float GlowZ = 0.06f;     // just behind the Net Face
@@ -41,13 +40,25 @@ namespace HockeyGame
                     switch (GoaliePoses.CoverAt(pose, column, row))
                     {
                         case ZoneCover.Covered:
-                            Block(_blocks[i].transform, column, row, CoveredFraction, BlockDepth, BlockZ, GoalieColour, null);
+                            {
+                                NetFaceMapping.ZoneRectangle(column, row, CoveredFraction, out float a, out float b, out float c, out float d);
+                                Block(_blocks[i].transform, column, row, a, b, c, d, BlockDepth, BlockZ, GoalieColour, null);
+                            }
                             break;
                         case ZoneCover.Contested:
-                            Block(_blocks[i].transform, column, row, ContestedFraction, BlockDepth, BlockZ, GoalieColour, null);
+                            {
+                                NetFaceMapping.ContestedRectangle(column, row,
+                                    IsOpen(pose, column - 1, row), IsOpen(pose, column + 1, row),
+                                    IsOpen(pose, column, row - 1), IsOpen(pose, column, row + 1),
+                                    out float a, out float b, out float c, out float d);
+                                Block(_blocks[i].transform, column, row, a, b, c, d, BlockDepth, BlockZ, GoalieColour, null);
+                            }
                             break;
                         case ZoneCover.Open:
-                            Block(_glows[i].transform, column, row, 0.96f, 0.02f, GlowZ, GlowColour, unlit);
+                            {
+                                NetFaceMapping.ZoneRectangle(column, row, 0.96f, out float a, out float b, out float c, out float d);
+                                Block(_glows[i].transform, column, row, a, b, c, d, 0.02f, GlowZ, GlowColour, unlit);
+                            }
                             break;
                     }
                 }
@@ -74,9 +85,13 @@ namespace HockeyGame
             }
         }
 
-        static void Block(Transform parent, int column, int row, float fraction, float depth, float z, Color colour, Shader unlit)
+        static bool IsOpen(GoaliePose pose, int column, int row)
         {
-            NetFaceMapping.ZoneRectangle(column, row, fraction, out float minX, out float minY, out float maxX, out float maxY);
+            return column >= 0 && column < 3 && row >= 0 && row < 3 && GoaliePoses.CoverAt(pose, column, row) == ZoneCover.Open;
+        }
+
+        static void Block(Transform parent, int column, int row, float minX, float minY, float maxX, float maxY, float depth, float z, Color colour, Shader unlit)
+        {
             var cube = RinkBuilder.Cube(parent, "Zone " + column + "," + row,
                 new Vector3((minX + maxX) / 2f, (minY + maxY) / 2f, z),
                 new Vector3(maxX - minX, maxY - minY, depth), colour);

@@ -29,6 +29,25 @@ namespace HockeyGame.Tests
             Assert.AreEqual(maxY, d, 1e-3f);
         }
 
+        [Test]
+        public void ContestedRectangle_IsFlushOnSidesBorderingOpenZone_AndInsetElsewhere()
+        {
+            // Zone (1,0): x -0.305..0.305, y 0..0.40667. Open neighbour above only.
+            NetFaceMapping.ContestedRectangle(1, 0, false, false, false, true, out float minX, out float minY, out float maxX, out float maxY);
+            Assert.AreEqual(0.40667f, maxY, 1e-3f);          // flush on top
+            Assert.AreEqual(0.122f, minY, 1e-3f);            // inset below (30% of 0.40667)
+            Assert.AreEqual(-0.305f + 0.183f, minX, 1e-3f);  // inset left
+            Assert.AreEqual(0.305f - 0.183f, maxX, 1e-3f);   // inset right
+        }
+
+        [Test]
+        public void ContestedRectangle_OpenOnBothSides_IsFlushLeftAndRight()
+        {
+            NetFaceMapping.ContestedRectangle(1, 1, true, true, false, false, out float minX, out _, out float maxX, out _);
+            Assert.AreEqual(-0.305f, minX, 1e-3f);
+            Assert.AreEqual(0.305f, maxX, 1e-3f);
+        }
+
         [TestCase(80, 1, 85)]
         [TestCase(80, -2, 70)]
         [TestCase(200, 1, 200)]

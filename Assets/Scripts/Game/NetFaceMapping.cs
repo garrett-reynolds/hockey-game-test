@@ -32,5 +32,24 @@ namespace HockeyGame
             minY = centreY - zoneH * fraction / 2f;
             maxY = centreY + zoneH * fraction / 2f;
         }
+
+        /// <summary>Share of a Contested Zone left open on a side that borders a Covered Zone or the net frame.</summary>
+        public const float ContestedMarginShare = 0.3f;
+
+        /// <summary>
+        /// Rectangle of the goalie block in a Contested Zone. A side that borders an Open Zone is flush with the
+        /// Zone edge (so the visible gap that touches an Open Zone only holds Open Zones); every other side
+        /// (Covered neighbour or the frame) is inset by ContestedMarginShare of the Zone, leaving a visible partial opening.
+        /// </summary>
+        public static void ContestedRectangle(int column, int row, bool openLeft, bool openRight, bool openBelow, bool openAbove,
+            out float minX, out float minY, out float maxX, out float maxY)
+        {
+            ZoneRectangle(column, row, 1f, out float zMinX, out float zMinY, out float zMaxX, out float zMaxY);
+            float marginX = (zMaxX - zMinX) * ContestedMarginShare, marginY = (zMaxY - zMinY) * ContestedMarginShare;
+            minX = openLeft ? zMinX : zMinX + marginX;
+            maxX = openRight ? zMaxX : zMaxX - marginX;
+            minY = openBelow ? zMinY : zMinY + marginY;
+            maxY = openAbove ? zMaxY : zMaxY - marginY;
+        }
     }
 }

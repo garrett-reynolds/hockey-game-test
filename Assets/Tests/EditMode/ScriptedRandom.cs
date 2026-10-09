@@ -45,7 +45,7 @@ namespace HockeyGame.Core.Tests
             return new[] { left[0], left[1], right[0], right[1] };
         }
 
-        /// <summary>Queue: the pick values for each pose in order, with the given extra values after the first pose's pick. Then the alternating fallback.</summary>
+        /// <summary>Queue: the pick values (side, then pose) for each given pose in order. Then the alternating fallback.</summary>
         public static ScriptedRandom Picking(params GoaliePose[] poses)
         {
             var values = new List<double>();

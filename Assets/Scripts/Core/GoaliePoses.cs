@@ -99,7 +99,8 @@ namespace HockeyGame.Core
             {
                 case 'O': return ZoneCover.Open;
                 case 'C': return ZoneCover.Contested;
-                default: return ZoneCover.Covered;
+                case 'X': return ZoneCover.Covered;
+                default: throw new System.ArgumentException("Unknown pose table letter: " + c);
             }
         }
     }
