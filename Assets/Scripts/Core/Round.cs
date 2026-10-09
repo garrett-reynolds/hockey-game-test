@@ -64,6 +64,13 @@ namespace HockeyGame.Core
         /// <summary>Goalie Pose for the current Shot; chosen when the Shot starts.</summary>
         public GoaliePose GoaliePose { get; private set; }
 
+        /// <summary>Starts a Round against the given best score (for example after a reset on the settings screen).</summary>
+        public void StartRound(int bestScore)
+        {
+            BestScore = bestScore;
+            StartRound();
+        }
+
         public void StartRound()
         {
             _previousPose = null;

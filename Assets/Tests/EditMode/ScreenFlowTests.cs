@@ -1,0 +1,217 @@
+using HockeyGame.Core;
+using NUnit.Framework;
+
+namespace HockeyGame.Core.Tests
+{
+    public class ScreenFlowTests
+    {
+        private static ScreenFlow NewFlow(SaveData save = null) =>
+            new ScreenFlow(new ScriptedRandom(ScriptedRandom.AlternatingButterflies()), save ?? new SaveData());
+
+        // Starts a Round and plays all 6 Shots: the first `goals` score (top middle is Open in both
+        // butterflies), the rest miss. Ends on the tick that finishes Shot 6's hold.
+        private static void PlayRound(ScreenFlow flow, int goals)
+        {
+            flow.Press();
+            for (int shot = 0; shot < Round.ShotsPerRound; shot++)
+            {
+                flow.Tick(3.7);
+                if (shot < goals)
+                    flow.SubmitShot(50, 90, 100, false);
+                else
+                    flow.SubmitShot(-10, 50, 100, false);
+                flow.Tick(2.5);
+            }
+        }
+
+        [Test]
+        public void After_Shot_6_the_end_screen_shows()
+        {
+            var flow = NewFlow();
+            PlayRound(flow, 2);
+            Assert.AreEqual(FlowScreen.End, flow.Screen);
+            Assert.AreEqual(2, flow.Round.Goals);
+        }
+
+        [Test]
+        public void The_end_screen_ignores_keys_clicks_and_Shots_for_the_input_ignore_time()
+        {
+            var flow = NewFlow();
+            PlayRound(flow, 0);
+            flow.Tick(1.9);
+            Assert.IsFalse(flow.EndAcceptsInput);
+            flow.Press();
+            flow.SubmitShot(50, 90, 100, false);
+            Assert.AreEqual(FlowScreen.End, flow.Screen);
+        }
+
+        [Test]
+        public void At_the_input_ignore_time_a_key_or_click_goes_to_the_start_screen_without_starting_a_Round()
+        {
+            var flow = NewFlow();
+            PlayRound(flow, 0);
+            flow.Tick(2.0);
+            Assert.IsTrue(flow.EndAcceptsInput);
+            flow.Press();
+            Assert.AreEqual(FlowScreen.Start, flow.Screen);
+            Assert.AreEqual(RoundPhase.RoundOver, flow.Round.Phase); // not restarted
+        }
+
+        [Test]
+        public void After_the_input_ignore_time_a_Shot_goes_to_the_start_screen()
+        {
+            var flow = NewFlow();
+            PlayRound(flow, 0);
+            flow.Tick(2.5);
+            flow.SubmitShot(50, 90, 100, false);
+            Assert.AreEqual(FlowScreen.Start, flow.Screen);
+        }
+
+        [Test]
+        public void The_end_screen_goes_back_to_start_by_itself_after_the_auto_return_time()
+        {
+            var flow = NewFlow();
+            PlayRound(flow, 0);
+            flow.Tick(14.9);
+            Assert.AreEqual(FlowScreen.End, flow.Screen);
+            flow.Tick(0.1);
+            Assert.AreEqual(FlowScreen.Start, flow.Screen);
+        }
+
+        [Test]
+        public void A_long_tick_on_the_end_screen_stops_on_the_start_screen()
+        {
+            var flow = NewFlow();
+            PlayRound(flow, 0);
+            flow.Tick(1000);
+            Assert.AreEqual(FlowScreen.Start, flow.Screen);
+            Assert.AreEqual(RoundPhase.RoundOver, flow.Round.Phase); // not restarted
+        }
+
+        [Test]
+        public void End_screen_times_come_from_the_saved_settings()
+        {
+            var flow = NewFlow(new SaveData { InputIgnoreSeconds = 4, AutoReturnSeconds = 6 });
+            PlayRound(flow, 0);
+            flow.Tick(3.9);
+            flow.Press();
+            Assert.AreEqual(FlowScreen.End, flow.Screen);
+            flow.Tick(1.9);
+            Assert.AreEqual(FlowScreen.End, flow.Screen); // 5.8 s: not yet auto-returned, and no Press since
+            flow.Tick(0.3);
+            Assert.AreEqual(FlowScreen.Start, flow.Screen);
+        }
+
+        [Test]
+        public void Beating_the_best_score_updates_the_saved_best_and_reports_it_once()
+        {
+            var save = new SaveData { BestScore = 2 };
+            var flow = NewFlow(save);
+            int reports = 0;
+            flow.BestScoreChanged += () => reports++;
+            PlayRound(flow, 3);
+            Assert.AreEqual(3, save.BestScore);
+            Assert.IsTrue(flow.Round.IsNewBest);
+            Assert.AreEqual(1, reports);
+            flow.Tick(20);
+            Assert.AreEqual(1, reports);
+        }
+
+        [Test]
+        public void Equalling_the_best_score_does_not_change_it()
+        {
+            var save = new SaveData { BestScore = 3 };
+            var flow = NewFlow(save);
+            int reports = 0;
+            flow.BestScoreChanged += () => reports++;
+            PlayRound(flow, 3);
+            Assert.AreEqual(3, save.BestScore);
+            Assert.AreEqual(0, reports);
+        }
+
+        [Test]
+        public void The_next_Round_compares_against_the_new_best()
+        {
+            var save = new SaveData();
+            var flow = NewFlow(save);
+            PlayRound(flow, 2);
+            flow.Tick(20);
+            PlayRound(flow, 1);
+            Assert.IsFalse(flow.Round.IsNewBest);
+            Assert.AreEqual(2, save.BestScore);
+            Assert.AreEqual(2, flow.Round.BestScore);
+        }
+
+        [Test]
+        public void The_flow_keeps_one_Round_for_the_whole_run_so_views_can_hold_it()
+        {
+            var flow = NewFlow();
+            var round = flow.Round;
+            PlayRound(flow, 1);
+            flow.Tick(20);
+            flow.Press();
+            Assert.AreSame(round, flow.Round);
+            Assert.AreEqual(RoundPhase.SkateIn, round.Phase);
+            Assert.AreEqual(0, round.Results.Count);
+        }
+
+        [Test]
+        public void A_best_score_reset_in_SaveData_applies_to_the_next_Round()
+        {
+            var save = new SaveData();
+            var flow = NewFlow(save);
+            PlayRound(flow, 3);
+            flow.Tick(20);
+            save.BestScore = 0; // e.g. "Reset best score" on the settings screen
+            PlayRound(flow, 1);
+            Assert.IsTrue(flow.Round.IsNewBest);
+            Assert.AreEqual(1, save.BestScore);
+        }
+
+        [Test]
+        public void Tuning_changed_in_SaveData_applies_to_the_next_Round()
+        {
+            var save = new SaveData();
+            var flow = NewFlow(save);
+            save.ContestedLowChance = 1; // default chance would give a Save with this roll (0.83)
+            save.ContestedTopChance = 1;
+            flow.Press();
+            flow.Tick(3.7);
+            flow.SubmitShot(50, 50, 100, false); // middle Zone: Contested in both butterflies
+            Assert.AreEqual(ShotResultKind.Goal, flow.Round.LastResult.Value.Kind);
+        }
+
+        [Test]
+        public void A_new_flow_shows_the_start_screen()
+        {
+            Assert.AreEqual(FlowScreen.Start, NewFlow().Screen);
+        }
+
+        [Test]
+        public void A_key_or_click_on_the_start_screen_starts_a_Round_at_Shot_1_skate_in()
+        {
+            var flow = NewFlow();
+            flow.Press();
+            Assert.AreEqual(FlowScreen.Playing, flow.Screen);
+            Assert.AreEqual(RoundPhase.SkateIn, flow.Round.Phase);
+            Assert.AreEqual(1, flow.Round.ShotNumber);
+        }
+
+        [Test]
+        public void A_Shot_on_the_start_screen_starts_a_Round_and_does_not_count()
+        {
+            var flow = NewFlow();
+            flow.SubmitShot(50, 90, 100, false);
+            Assert.AreEqual(FlowScreen.Playing, flow.Screen);
+            Assert.AreEqual(RoundPhase.SkateIn, flow.Round.Phase);
+            Assert.AreEqual(0, flow.Round.Results.Count);
+
+            // Shot 1 still gets its own window, and a Shot there counts.
+            flow.Tick(3.7);
+            Assert.AreEqual(RoundPhase.ShootingWindow, flow.Round.Phase);
+            flow.SubmitShot(50, 90, 100, false);
+            Assert.AreEqual(ShotResultKind.Goal, flow.Round.LastResult.Value.Kind);
+            Assert.AreEqual(1, flow.Round.Results.Count);
+        }
+    }
+}
