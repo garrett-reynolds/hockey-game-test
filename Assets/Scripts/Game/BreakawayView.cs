@@ -88,7 +88,7 @@ namespace HockeyGame
 
             // The goalie squares up to the shooter: shuffles round during the skate-in, follows closely through the slow-down
             // and window (game time), and holds still from the Shot on (the camera stops too, so the target the save was
-            // measured on stays put while the goalie reacts into the pose at that angle).
+            // measured on stays put while the goalie reacts, at that angle, to where the Shot goes: never showing the Goalie Pose).
             float target = GoalieCharacter.FacingToward(ground);
             if (phase != RoundPhase.ResultHold) _turn.Step(target, dt, phase != RoundPhase.SkateIn);
             _goalie.Face((float)_turn.Shown, target);
