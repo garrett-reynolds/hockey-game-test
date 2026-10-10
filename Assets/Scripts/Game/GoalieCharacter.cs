@@ -852,8 +852,8 @@ namespace HockeyGame
                 Vector3 lp = lf.position, rp = rf.position, lk = Bone(HumanBodyBones.LeftLowerLeg).position, rk = Bone(HumanBodyBones.RightLowerLeg).position;
                 Quaternion lr = lf.rotation, rr = rf.rotation;
                 _model.position += left * shift;
-                Plant(HumanBodyBones.LeftUpperLeg, HumanBodyBones.LeftLowerLeg, lf, lp, lr, lk + left * shift + forward * 0.3f);
-                Plant(HumanBodyBones.RightUpperLeg, HumanBodyBones.RightLowerLeg, rf, rp, rr, rk + left * shift + forward * 0.3f);
+                Plant(HumanBodyBones.LeftUpperLeg, HumanBodyBones.LeftLowerLeg, lf, lp, lr, lk + left * shift);
+                Plant(HumanBodyBones.RightUpperLeg, HumanBodyBones.RightLowerLeg, rf, rp, rr, rk + left * shift);
             }
             Transform chest = Bone(HumanBodyBones.Chest) ?? Bone(HumanBodyBones.Spine);
             if (chest != null) Bend(chest == Bone(HumanBodyBones.Chest) ? HumanBodyBones.Chest : HumanBodyBones.Spine, -forward, BreathDegrees * (float)life.Breath * weight);
@@ -866,7 +866,7 @@ namespace HockeyGame
             }
         }
 
-        /// <summary>Keeps a foot (and its skate) where it was: two-bone IK on the leg, the knee toward `knee`.</summary>
+        /// <summary>Keeps a foot (and its skate) where it was: two-bone IK on the leg, the knee kept in its own plane (`knee`: where it was, moved with the hips), so a tiny shift gives a tiny change.</summary>
         void Plant(HumanBodyBones upper, HumanBodyBones lower, Transform foot, Vector3 at, Quaternion turn, Vector3 knee)
         {
             Transform u = Bone(upper), l = Bone(lower);

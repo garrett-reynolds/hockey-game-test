@@ -355,11 +355,15 @@ namespace HockeyGame.Core.Tests
                 List<Triangle> near = Near(goalie, run.Contact, run.Path);
                 string where = pose + " (" + x.ToString("F1") + ", " + y.ToString("F1") + ") ";
                 Vector3 last = run.Contact;
-                bool rested = false; // held or settled: no more physics, and from then on it may ride on the recovering goalie (#44)
+                // Still for longer than PuckMotion's 0.15 s wedge-to-settle span (the glove holds it still until its 0.25 s
+                // follow-through): held or settled, no more physics, and from then on it may ride on the recovering goalie (#44).
+                bool rested = false;
+                int stillFrames = 0;
                 for (int i = 0; i < run.Path.Count; i++)
                 {
                     Vector3 p = run.Path[i];
-                    rested |= p == last;
+                    stillFrames = p == last ? stillFrames + 1 : 0;
+                    rested |= stillFrames >= 10;
                     Vector3 axis = run.Turns[i] * Vector3.up;
                     float lowest = p.y - 0.075f * Mathf.Sqrt(Mathf.Max(0f, 1f - axis.y * axis.y)) - 0.025f * Mathf.Abs(axis.y);
                     if (lowest < -0.002f) { failures.Add(where + "into the ice at frame " + i); break; }

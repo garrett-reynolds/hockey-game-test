@@ -65,7 +65,7 @@ What the goalie character does once his reaction has played out (a Save's follow
 _Avoid_: Reset, return to idle
 
 **Stance Life**:
-The goalie character's small, steady motion in the Ready Stance: breathing, weight shifts from skate to skate (the skates stay put) and now and then a stick tap. It runs on game time from a clock alone, never from the Goalie Pose, the Attack Side or the Shot, so it gives no hint. It fades out as he reacts (none once he has fully reacted) and back in during Recovery.
+The goalie character's small, steady motion in the Ready Stance: breathing, weight shifts from skate to skate (the skates stay put) and now and then a stick tap. It runs on real time (so it carries on at full speed through the slow-down) from a clock alone, never from the Goalie Pose, the Attack Side or the Shot, so it gives no hint. It fades out as he reacts (none once he has fully reacted) and back in during Recovery.
 _Avoid_: Idle animation, idle pose (Idle is the start screen's phase)
 
 **Miss**:

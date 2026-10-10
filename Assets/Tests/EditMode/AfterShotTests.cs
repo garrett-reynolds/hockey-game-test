@@ -115,7 +115,7 @@ namespace HockeyGame.Core.Tests
         public void On_a_save_the_goalie_follows_through_watches_the_rebound_then_recovers()
         {
             Assert.AreEqual(0, AfterShot.At(AfterShotGesture.None, 0.1, -1).FollowThrough, 1e-9, "the gear holds while the puck comes off it");
-            Assert.AreEqual(1, AfterShot.At(AfterShotGesture.None, 0.6, -1).FollowThrough, 1e-9, "glove held up, blocker followed through");
+            Assert.AreEqual(1, AfterShot.At(AfterShotGesture.None, 0.7, -1).FollowThrough, 1e-9, "glove held up, blocker followed through");
             Assert.AreEqual(1, AfterShot.At(AfterShotGesture.None, 0.2, -1).Watch, 1e-9);
             Assert.AreEqual(1, AfterShot.At(AfterShotGesture.None, 1.4, -1).Watch, 1e-9, "watching the rebound");
             Assert.AreEqual(0, AfterShot.At(AfterShotGesture.None, 1.4, -1).Recover, 1e-9);

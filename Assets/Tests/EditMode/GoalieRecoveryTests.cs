@@ -105,6 +105,26 @@ namespace HockeyGame.Core.Tests
                 lift = Mathf.Max(lift, b);
                 dip = Mathf.Min(dip, b);
             }
+            // Frame to frame (60 fps), as he turns a little too: never a jump.
+            float worstStep = 0f, worstAt = 0f;
+            int worstPoint = 0;
+            Vector3[] last = null;
+            for (float t = 0f; t < 60f; t += 1f / 60f)
+            {
+                float turn = facing + 10f * Mathf.Sin(t * 0.7f);
+                view.Face(turn, turn);
+                view.Live(t);
+                view.SetProgress(0f);
+                Vector3[] now = Points(character);
+                if (last != null)
+                {
+                    float step = Most(last, now, out int which);
+                    if (step > worstStep) { worstStep = step; worstPoint = which; worstAt = t; }
+                }
+                last = now;
+            }
+            TestContext.Out.WriteLine("worst frame step " + worstStep.ToString("F4") + " m (" + Name(worstPoint) + " at " + worstAt.ToString("F2") + " s)");
+            Assert.Less(worstStep, 0.012f, "smooth from frame to frame: the " + Name(worstPoint) + " at " + worstAt + " s");
             TestContext.Out.WriteLine("facing " + facing + ": mask " + mask.ToString("F4") + " m, gear " + gear.ToString("F4") + " m, hips " + hips.ToString("F4")
                 + " m, skates " + skates.ToString("F4") + " m, blade lift " + lift.ToString("F4") + " m, blade dip " + dip.ToString("F4") + " m");
             Assert.Greater(mask, 0.005f, "the head moves (he breathes and shifts)");
@@ -284,7 +304,7 @@ namespace HockeyGame.Core.Tests
                 RoundPhase last = RoundPhase.Idle;
                 Vector3[] before = null;
                 float worstBoundary = 0f, worstTurn = 0f, lastFacing = 0f, worstLate = 0f;
-                string worstWhere = "";
+                string worstWhere = "", lateWhere = "";
                 var boundaries = new List<string>();
                 round.StartRound();
                 for (int frame = 0; frame < 60 * 80 && !(round.Phase == RoundPhase.RoundOver && afterHold >= 1.5f); frame++)
@@ -298,7 +318,7 @@ namespace HockeyGame.Core.Tests
                     }
                     RoundPhase phase = round.Phase;
                     effects.Update(round, Frame);
-                    breakaway.Step(Frame * Time.timeScale);
+                    breakaway.Step(Frame * Time.timeScale, Frame);
                     Vector3[] now = Points(character);
                     float facing = view.ShownFacing;
                     if (before != null && last == RoundPhase.ResultHold && phase != RoundPhase.ResultHold)
@@ -313,7 +333,8 @@ namespace HockeyGame.Core.Tests
                     // The next skate-in's first 1.5 s (or the end screen's): smooth, and turning gently to the new shooter.
                     if (before != null && afterHold >= 0f && afterHold < 1.5f)
                     {
-                        worstLate = Mathf.Max(worstLate, Most(before, now, out _));
+                        float move = Most(before, now, out int movedMost);
+                        if (move > worstLate) { worstLate = move; lateWhere = phase + " after Shot " + shot + ", " + afterHold.ToString("F2") + " s in: the " + Name(movedMost); }
                         worstTurn = Mathf.Max(worstTurn, Mathf.Abs(facing - lastFacing));
                     }
                     before = now;
@@ -326,7 +347,7 @@ namespace HockeyGame.Core.Tests
                 Assert.AreEqual(RoundPhase.RoundOver, round.Phase);
                 Assert.AreEqual(6, boundaries.Count, "five skate-ins and the end screen");
                 Assert.Less(worstBoundary, 0.03f, "no snap as a hold ends (only the start of the turn to the new shooter): " + worstWhere);
-                Assert.Less(worstLate, 0.05f, "smooth from the end of the hold into the next skate-in");
+                Assert.Less(worstLate, 0.05f, "smooth from the end of the hold into the next skate-in: " + lateWhere);
                 Assert.Less(worstTurn, 2f, "turns to the next shooter at most 2 degrees a frame (no snap)");
             }
             finally

@@ -10,7 +10,7 @@ namespace HockeyGame
     /// the world slows down with a grey, high-contrast, vignetted look while the goalie waits in its Ready Stance, and a
     /// red ring around the net drains over the shooting window. The goalie turns to face the shooter as they come in. A Shot
     /// snaps time and look back to normal, and the goalie reacts to the Shot (its Save Reaction) at the shooter's angle.
-    /// The goalie's Stance Life runs on game time throughout. Sets Time.timeScale; the Round core keeps ticking on unscaled real time.
+    /// The goalie's Stance Life runs on real time throughout, so he stays alive through the slow-down. Sets Time.timeScale; the Round core keeps ticking on unscaled real time.
     /// </summary>
     public sealed class BreakawayView : MonoBehaviour
     {
@@ -27,7 +27,7 @@ namespace HockeyGame
         float _drift;      // metres drifted toward the net since the skate-in ended (scaled time)
         float _gameTime;   // game seconds since the skate-in began (stride bob and roll; the stride sounds use the same clock)
         readonly GoalieTurn _turn = new GoalieTurn(0.0); // the goalie squaring up to the shooter
-        float _life;       // the goalie's Stance Life clock: game seconds, never reset, so it never jumps
+        float _life;       // the goalie's Stance Life clock: real seconds, never reset, so it never jumps
 
         public void Init(Round round, Camera shooterCamera, GoalieView goalie)
         {
@@ -40,11 +40,11 @@ namespace HockeyGame
 
         void LateUpdate()
         {
-            if (_round != null) Step(Time.deltaTime);
+            if (_round != null) Step(Time.deltaTime, Time.unscaledDeltaTime);
         }
 
-        /// <summary>One frame: dt is the game (scaled) seconds since the last one. LateUpdate runs it each frame.</summary>
-        public void Step(float dt)
+        /// <summary>One frame: dt is the game (scaled) seconds since the last one, realDt the real seconds. LateUpdate runs it each frame.</summary>
+        public void Step(float dt, float realDt)
         {
             RoundPhase phase = _round.Phase;
             double phaseSeconds = _round.PhaseSecondsElapsed;
@@ -58,7 +58,8 @@ namespace HockeyGame
             if (phase != _lastPhase && (phase == RoundPhase.SkateIn || phase == RoundPhase.Idle || phase == RoundPhase.RoundOver))
                 _turn.Reset(_goalie.ShownFacing);
             _lastPhase = phase;
-            _life += dt;
+            // Real time: at the slow-down's quarter speed the 4 s he waits would be 1 game-second, a third of a breath.
+            _life += realDt;
             _goalie.Live(_life);
 
             // Time and look come from the phase every frame, so a Shot (window -> result hold) snaps both back at once.

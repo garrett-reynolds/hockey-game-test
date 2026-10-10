@@ -169,7 +169,7 @@ namespace HockeyGame
         float _life; // Stance Life clock (Live)
 
         /// <summary>
-        /// The Stance Life clock (seconds; BreakawayView runs it on game time, so it slows down with the world): the goalie's
+        /// The Stance Life clock (seconds; BreakawayView runs it on real time, so he stays alive through the slow-down): the goalie's
         /// breathing, weight shifts and stick taps in the Ready Stance (StanceLife). Shown by the next SetProgress.
         /// </summary>
         public void Live(float seconds) => _life = seconds;

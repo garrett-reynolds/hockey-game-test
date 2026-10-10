@@ -68,8 +68,8 @@ namespace HockeyGame.Core
         public const double ReliefFrom = 0.8, ReliefTo = 1.7, GlanceTo = 1.2;
         /// <summary>A Miss: glides back to his spot once a Frame Hit's deflection is clear of him (0.9..1.7 s), then recovers (1.7..2.35 s).</summary>
         public const double MissReturnFrom = 0.9, MissReturnTo = 1.7, MissRecoverFrom = 1.7, MissRecoverTo = 2.35;
-        /// <summary>A Save: the follow-through once the puck is off the gear (0.15..0.55 s).</summary>
-        public const double FollowThroughFrom = 0.15, FollowThroughTo = 0.55;
+        /// <summary>A Save: the follow-through once the puck is off the gear, or has come to rest in it (0.25..0.65 s).</summary>
+        public const double FollowThroughFrom = 0.25, FollowThroughTo = 0.65;
         /// <summary>A Save: glides back to his spot (1.0..2.0 s), recovers (1.5..2.3 s).</summary>
         public const double SaveReturnFrom = 1.0, SaveReturnTo = 2.0, SaveRecoverFrom = 1.5, SaveRecoverTo = 2.3;
         /// <summary>Every gesture is in its end pose this long after the puck gets there, at the latest.</summary>
