@@ -32,6 +32,8 @@ parser.add_argument("--out", required=True, help="output FBX, e.g. Assets/Resour
 args = parser.parse_args(argv)
 
 HALF_W, H, DEPTH, POST = 1.83 / 2, 1.22, 0.6, 0.08   # Net Face, net depth, post thickness (metres)
+# Copied by hand in the game: NetFaceMapping (Net Face), RinkBuilder.NetDepth, NetFrame.ThicknessMetres; the base tube
+# and skirt this writes reach ShotEffects.BaseRailMetres (0.07 m) in from the back of the net on the ice. Change both ends together.
 STRAND = 0.006                                       # netting strip width (metres)
 CAMERA = np.array([0.0, -9.0, 1.5])                  # the shooter's camera (Unity 0, 1.5, -9) in these axes
 

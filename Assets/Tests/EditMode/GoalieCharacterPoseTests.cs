@@ -23,11 +23,11 @@ namespace HockeyGame.Core.Tests
             var ready = Snapshot(character);
 
             character.Pose(GoaliePose.MiddleButterfly, 0f);
-            AssertSame(ready, Snapshot(character), "set 0 = ready stance");
+            AssertSame(ready, Snapshot(character), "set 0 = Ready Stance");
 
             character.Pose(GoaliePose.MiddleButterfly, 1f);
             var butterfly = Snapshot(character);
-            Assert.Greater(Difference(ready, butterfly), 10f, "the butterfly moves the bones away from the ready stance");
+            Assert.Greater(Difference(ready, butterfly), 10f, "the butterfly moves the bones away from the Ready Stance");
 
             character.Pose(GoaliePose.LeftPostHug, 1f);
             character.Pose(GoaliePose.RightButterfly, 0.5f);
@@ -66,8 +66,8 @@ namespace HockeyGame.Core.Tests
             {
                 character.Pose(pose, 1f);
                 // On or near the ice: within NearIce (the stand-up holds its hands up, so its blade sits ~11 cm up).
-                Assert.That(LowestY(Gear(character, "Stick")), Is.InRange(-0.03f, NearIce), pose + ": stick blade on or near the ice");
-                foreach (string pad in new[] { "Left Pad", "Right Pad" })
+                Assert.That(LowestY(Gear(character, GearPiece.Stick)), Is.InRange(-0.03f, NearIce), pose + ": stick blade on or near the ice");
+                foreach (string pad in new[] { GearPiece.LeftPad, GearPiece.RightPad })
                     Assert.Less(LowestY(Gear(character, pad)), NearIce, pose + ": " + pad + " down on the ice, not floating");
                 Vector3 neck = character.Bone(HumanBodyBones.Neck).position, head = character.Bone(HumanBodyBones.Head).position;
                 Assert.Less(Vector3.Angle(head - neck, Vector3.up), 20f, pose + ": head upright");
@@ -85,9 +85,9 @@ namespace HockeyGame.Core.Tests
             GameObject file = ModelFiles.Load(ModelFiles.GoalieDressing, () => null);
             try
             {
-                foreach (string piece in new[] { "Left Pad", "Right Pad", "Blocker", "Catcher" })
+                foreach (string piece in new[] { GearPiece.LeftPad, GearPiece.RightPad, GearPiece.Blocker, GearPiece.Catcher })
                 {
-                    Vector3 posed = Gear(character, piece).transform.localScale, real = Find(file.transform, "Gear " + piece).localScale;
+                    Vector3 posed = Gear(character, piece).transform.localScale, real = Find(file.transform, GearPiece.ObjectName(piece)).localScale;
                     for (int axis = 0; axis < 3; axis++)
                         Assert.LessOrEqual(posed[axis] / real[axis], 1.15f + 1e-4f, piece + " is at most 15% bigger than in the model file");
                 }
@@ -103,7 +103,7 @@ namespace HockeyGame.Core.Tests
         }
 
         static Renderer Gear(GoalieCharacter character, string name) =>
-            Find(character.Root.transform, "Gear " + name).GetComponent<Renderer>();
+            Find(character.Root.transform, GearPiece.ObjectName(name)).GetComponent<Renderer>();
 
         static Transform Find(Transform root, string name)
         {

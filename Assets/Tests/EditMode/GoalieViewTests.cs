@@ -74,7 +74,7 @@ namespace HockeyGame.Core.Tests
 
             view.SetProgress(0f);
             reference.Pose(GoaliePose.MiddleButterfly, 0f);
-            Assert.AreEqual(0f, Vector3.Distance(referenceKnee.localPosition, knee.localPosition) + Quaternion.Angle(referenceKnee.rotation, knee.rotation), 0.01f, "ready stance before the Shot");
+            Assert.AreEqual(0f, Vector3.Distance(referenceKnee.localPosition, knee.localPosition) + Quaternion.Angle(referenceKnee.rotation, knee.rotation), 0.01f, "Ready Stance before the Shot");
 
             view.SetProgress(0.5f);
             reference.Pose(GoaliePose.MiddleButterfly, 0.5f);
@@ -102,9 +102,9 @@ namespace HockeyGame.Core.Tests
             view.Show(true, GoaliePose.MiddleStandUp, false);
             foreach (var (cue, piece, net) in new[]
             {
-                (SoundCue.GloveCatch, "Catcher", new Vector3(0.6f, 1f, 0f)),
-                (SoundCue.BlockerHit, "Blocker", new Vector3(-0.6f, 1f, 0f)),
-                (SoundCue.SaveImpact, "Right Pad", new Vector3(-0.6f, 0.2f, 0f)), // the goalie's right pad is on the shooter's left
+                (SoundCue.GloveCatch, GearPiece.Catcher, new Vector3(0.6f, 1f, 0f)),
+                (SoundCue.BlockerHit, GearPiece.Blocker, new Vector3(-0.6f, 1f, 0f)),
+                (SoundCue.SaveImpact, GearPiece.RightPad, new Vector3(-0.6f, 0.2f, 0f)), // the goalie's right pad is on the shooter's left
             })
             {
                 Assert.IsTrue(view.SaveStop(from, net, cue, 0.05f, out Vector3 stop), cue.ToString());
@@ -158,7 +158,7 @@ namespace HockeyGame.Core.Tests
 
             reference.Pose(GoaliePose.LeftButterfly, 0f);
             Transform knee = character.Bone(HumanBodyBones.LeftLowerLeg), referenceKnee = reference.Bone(HumanBodyBones.LeftLowerLeg);
-            Assert.AreEqual(0f, Quaternion.Angle(referenceKnee.rotation, knee.rotation), 0.01f, "still in the ready stance afterwards");
+            Assert.AreEqual(0f, Quaternion.Angle(referenceKnee.rotation, knee.rotation), 0.01f, "still in the Ready Stance afterwards");
             Object.DestroyImmediate(reference.Root.transform.parent.gameObject);
         }
 
@@ -189,7 +189,7 @@ namespace HockeyGame.Core.Tests
             view.Face(12f, 18f);
             view.SetProgress(0f);
             reference.Pose(GoaliePose.MiddleStandUp, 0f);
-            AssertTurned(12f, "ready stance, facing where the goalie has turned so far");
+            AssertTurned(12f, "Ready Stance, facing where the goalie has turned so far");
 
             view.SetProgress(0.5f);
             reference.Pose(GoaliePose.MiddleStandUp, 0.5f);
@@ -220,14 +220,14 @@ namespace HockeyGame.Core.Tests
 
             view.Face(17.4f, 17.4f);
             Assert.IsTrue(view.SaveStop(from, net, SoundCue.GloveCatch, 0.05f, out Vector3 turned));
-            Assert.IsTrue(character.GearBounds("Catcher", out Bounds gear));
+            Assert.IsTrue(character.GearBounds(GearPiece.Catcher, out Bounds gear));
             Assert.AreEqual(gear.min.z - 0.025f, turned.z, 0.001f, "just in front of the turned catcher");
             Assert.Less(Vector3.Cross(turned - from, (net - from).normalized).magnitude, 0.001f, "on the puck's line");
             Assert.Greater(Vector3.Distance(straight, turned), 0.01f, "the turn moves the catcher");
             var turnedGear = new PuckObstacles();
             view.AddObstacles(turnedGear);
-            Assert.IsTrue(turnedGear.Nearest(turned, "Catcher", out _, out _, out float onTurned));
-            Assert.IsTrue(straightGear.Nearest(turned, "Catcher", out _, out _, out float onStraight));
+            Assert.IsTrue(turnedGear.Nearest(turned, GearPiece.Catcher, out _, out _, out float onTurned));
+            Assert.IsTrue(straightGear.Nearest(turned, GearPiece.Catcher, out _, out _, out float onStraight));
             Assert.AreNotEqual(onStraight, onTurned, "the puck meets the turned gear, not the straight one");
 
             // The Shot frame: the goalie has shuffled to 15 degrees, the shooter is at 17.4; nothing has reacted yet.
@@ -237,7 +237,7 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(0f, Vector3.Distance(turned, onShot), 0.001f, "measured where the reaction ends");
             var shotGear = new PuckObstacles();
             view.AddObstacles(shotGear);
-            Assert.IsTrue(shotGear.Nearest(turned, "Catcher", out _, out _, out float onShotGear));
+            Assert.IsTrue(shotGear.Nearest(turned, GearPiece.Catcher, out _, out _, out float onShotGear));
             Assert.AreEqual(onTurned, onShotGear, 0.001f, "obstacles too");
             Assert.IsTrue(view.SaveSurface(shotGear, onShot, net, SoundCue.GloveCatch, out _, out PuckSurface surface));
             Assert.AreEqual(PuckSurface.Catcher, surface);
@@ -246,7 +246,7 @@ namespace HockeyGame.Core.Tests
             view.Face(0f, 0f);
             Quaternion straightHips = hips.rotation;
             view.Face(15f, 17.4f);
-            Assert.AreEqual(15f, Quaternion.Angle(straightHips, hips.rotation), 0.05f, "still shown at 15 degrees, in the ready stance, afterwards");
+            Assert.AreEqual(15f, Quaternion.Angle(straightHips, hips.rotation), 0.05f, "still shown at 15 degrees, in the Ready Stance, afterwards");
         }
 
         [Test]

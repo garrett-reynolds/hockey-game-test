@@ -19,16 +19,19 @@ namespace HockeyGame
         /// <summary>Name of the part that shakes on a goal (the netting).</summary>
         public const string NettingName = "Netting";
 
+        /// <summary>The frame's pieces a puck can hit (AddFrame).</summary>
+        public const string LeftPostPiece = "Left Post", RightPostPiece = "Right Post", CrossbarPiece = "Crossbar";
+
         /// <summary>
         /// Adds the posts and crossbar to what a puck can hit, as round tubes Post across, centred on z = 0 just outside the
-        /// Net Face (where Build fits them). Pieces "Left Post", "Right Post", "Crossbar".
+        /// Net Face (where Build fits them). Pieces LeftPostPiece, RightPostPiece, CrossbarPiece.
         /// </summary>
         public static void AddFrame(PuckObstacles obstacles)
         {
             float x = W / 2f + Post / 2f, top = H + Post / 2f;
-            obstacles.AddTube(new Vector3(-x, 0f, 0f), new Vector3(-x, top, 0f), Post / 2f, PuckSurface.Frame, "Left Post");
-            obstacles.AddTube(new Vector3(x, 0f, 0f), new Vector3(x, top, 0f), Post / 2f, PuckSurface.Frame, "Right Post");
-            obstacles.AddTube(new Vector3(-x, top, 0f), new Vector3(x, top, 0f), Post / 2f, PuckSurface.Frame, "Crossbar");
+            obstacles.AddTube(new Vector3(-x, 0f, 0f), new Vector3(-x, top, 0f), Post / 2f, PuckSurface.Frame, LeftPostPiece);
+            obstacles.AddTube(new Vector3(x, 0f, 0f), new Vector3(x, top, 0f), Post / 2f, PuckSurface.Frame, RightPostPiece);
+            obstacles.AddTube(new Vector3(-x, top, 0f), new Vector3(x, top, 0f), Post / 2f, PuckSurface.Frame, CrossbarPiece);
         }
 
         /// <summary>A new "Net" object under the rink. findFile is for tests; see ModelFiles.Load.</summary>

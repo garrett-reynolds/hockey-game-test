@@ -9,7 +9,7 @@ namespace HockeyGame
         const float W = (float)NetFaceMapping.WidthMetres;
         const float H = (float)NetFaceMapping.HeightMetres;
         const float Post = 0.08f;
-        /// <summary>How deep the net goes behind the Net Face (metres).</summary>
+        /// <summary>How deep the net goes behind the Net Face (metres). Tools/make_supplied_net.py copies it (DEPTH).</summary>
         internal const float NetDepth = 0.6f;
 
         public static void Build(out Camera camera)

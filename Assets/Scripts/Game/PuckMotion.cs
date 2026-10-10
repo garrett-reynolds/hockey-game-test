@@ -42,6 +42,20 @@ namespace HockeyGame
             }
         }
 
+        /// <summary>How a piece of the goalie character (GearPiece) feels to the puck.</summary>
+        public static PuckSurface SurfaceOf(string piece)
+        {
+            switch (piece)
+            {
+                case GearPiece.LeftPad: case GearPiece.RightPad: return PuckSurface.Pad;
+                case GearPiece.Blocker: return PuckSurface.Blocker;
+                case GearPiece.Catcher: return PuckSurface.Catcher;
+                case GearPiece.Stick: return PuckSurface.Stick;
+                case GearPiece.LeftSkate: case GearPiece.RightSkate: return PuckSurface.Skate;
+                default: return PuckSurface.Body; // mask, visor, body
+            }
+        }
+
         public static Feel FeelOf(PuckSurface surface)
         {
             switch (surface)

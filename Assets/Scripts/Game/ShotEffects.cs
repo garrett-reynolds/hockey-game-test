@@ -24,7 +24,7 @@ namespace HockeyGame
         const float SaveZ = GloveZ - GloveDepth / 2f - PuckThickness;
         const float MissCarrySeconds = 0.8f;
         const float CaughtSeconds = 0.25f;           // a goal puck rests in the netting bulge this long, then drops
-        const float BaseRailMetres = 0.07f;          // the net's back base tube and skirt on the ice (Tools/make_supplied_net.py)
+        const float BaseRailMetres = 0.07f;          // the net's back base tube and skirt on the ice: copied by hand from Tools/make_supplied_net.py's output, change both together
         static readonly Color SaveBlockColour = new Color(0.45f, 0.6f, 1f); // lighter than the GoalieView blocks so the slide shows on a Covered Zone
 
         enum Stage { None, Flying, IntoNet, InNet, Deflecting, Carrying }
@@ -53,8 +53,9 @@ namespace HockeyGame
         bool _onGoalie;          // the save stops on the goalie character's gear
         PuckObstacles _obstacles; // the frame (and posed goalie) a deflected puck can hit
         PuckMotion _motion;
-        static readonly string[] LineGear = { "Stick", "Left Skate", "Right Skate" };
-        static readonly string[] GoalieGear = { "Left Pad", "Right Pad", "Blocker", "Catcher", "Stick", "Left Skate", "Right Skate", "Mask", "Visor", "Body" };
+        static readonly string[] LineGear = { GearPiece.Stick, GearPiece.LeftSkate, GearPiece.RightSkate };
+        static readonly string[] GoalieGear = { GearPiece.LeftPad, GearPiece.RightPad, GearPiece.Blocker, GearPiece.Catcher, GearPiece.Stick,
+            GearPiece.LeftSkate, GearPiece.RightSkate, GearPiece.Mask, GearPiece.Visor, GearPiece.Body };
         bool _onLine;             // the save is made on gear met on the puck line (see Play)
         Vector3 _lineNormal;
         PuckSurface _lineSurface;
@@ -134,7 +135,7 @@ namespace HockeyGame
             NetFaceMapping.ToMetres(result.X, result.Y, out double right, out double up);
             const float FrameFrontZ = -NetBuilder.Post / 2f - PuckThickness / 2f; // puck centre touching the front of a post or the crossbar
             float z = result.Kind == ShotResultKind.Save ? SaveZ
-                : NetFrame.At(result.X, result.Y) != FrameHit.None ? FrameFrontZ : 0f; // a frame hit stops on the iron's face
+                : NetFrame.At(result.X, result.Y) != FrameHit.None ? FrameFrontZ : 0f; // a Frame Hit stops on the frame's face
             _target = new Vector3((float)right, (float)up, z);
             _netPoint = new Vector3((float)right, (float)up, 0f);
             bool onGoalie = false; // a save on the goalie character stops on its gear, with no save block
@@ -286,9 +287,9 @@ namespace HockeyGame
                 default:
                     if (NetFrame.At(_result.X, _result.Y) == FrameHit.None) { _stage = Stage.Carrying; break; } // wide Miss: carry on past the net
                     if (_onLine) { StartDeflection(_lineNormal, _lineSurface); break; }
-                    // Off the round iron: the tube normal where the puck met it.
+                    // Off the round frame: the tube normal where the puck met it.
                     FrameHit hit = NetFrame.At(_result.X, _result.Y);
-                    _obstacles.Nearest(_target, hit == FrameHit.LeftPost ? "Left Post" : hit == FrameHit.RightPost ? "Right Post" : "Crossbar", out Vector3 tube, out _);
+                    _obstacles.Nearest(_target, hit == FrameHit.LeftPost ? NetBuilder.LeftPostPiece : hit == FrameHit.RightPost ? NetBuilder.RightPostPiece : NetBuilder.CrossbarPiece, out Vector3 tube, out _);
                     StartDeflection(tube, PuckSurface.Frame);
                     break;
             }

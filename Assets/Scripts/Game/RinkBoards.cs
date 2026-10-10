@@ -31,7 +31,10 @@ namespace HockeyGame
         /// <summary>Share of its speed into the boards a puck keeps coming back off them.</summary>
         const float BoardsBounce = 0.3f;
 
-        /// <summary>The model's outer box in rink space: the boards' outside faces, from the ice to the top of the glass.</summary>
+        /// <summary>
+        /// The model's outer box in rink space: the boards' outside faces, from the ice to the top of the glass. The sizes are
+        /// copied by hand in Tools/make_arena.py: change both together.
+        /// </summary>
         public static Bounds Box
         {
             get

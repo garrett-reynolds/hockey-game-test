@@ -16,7 +16,7 @@
 #   thickness. They keep the body's skin weights, so they bend with the rig.
 # - Rigid gear, each parented to one bone so it follows every joint above it: "Gear Left Pad"/"Gear Right Pad" (calf),
 #   "Gear Blocker" and "Gear Stick" (right hand), "Gear Catcher" (left hand), "Gear Mask" and "Gear Visor" (head),
-#   "Gear Left Skate"/"Gear Right Skate" (foot).
+#   "Gear Left Skate"/"Gear Right Skate" (foot). The game finds them by these names (GearPiece.cs): keep both the same.
 # Hand frame used for the gear (T-pose): fingers point out along the arm, the back of the hand faces up, the thumb forward.
 # The blocker board lies on the back of the right hand, long side along the fingers and forearm; the stick crosses the
 # right palm on a diagonal (GRIP_ANGLE), knob back past the heel of the hand, paddle toward the thumb and fingertips, its

@@ -9,7 +9,7 @@ namespace HockeyGame
     /// The rigged goalie character: a life-size Humanoid model (Assets/Resources/Models/goalie-dressing.fbx, built by
     /// Tools/make_lifelike_goalie.py) wearing jersey, pants and socks that bend with its skin, and gear (pads, blocker,
     /// catcher, stick, mask, skates) parented to its bones in the file, so the gear follows every joint.
-    /// It stands at the net in a neutral ready stance and is hidden until shown. It decides nothing: the GoalieView blocks
+    /// It stands at the net in a neutral Ready Stance and is hidden until shown. It decides nothing: the GoalieView blocks
     /// stay the gameplay look. To pose it, use Animator (Humanoid, no controller, so nothing overwrites the bones) or Bone(...).
     /// With no model file, Present is false and the character draws nothing.
     /// </summary>
@@ -24,7 +24,7 @@ namespace HockeyGame
         Vector3 _leftFingers = Vector3.forward, _leftThumb = Vector3.up, _rightFingers = Vector3.forward, _rightThumb = Vector3.up; // hand-local
         Transform _model;
         Transform[] _bones = new Transform[0];   // every mapped humanoid bone
-        Snapshot _rest, _ready;                  // T-pose as imported; the ready stance
+        Snapshot _rest, _ready;                  // T-pose as imported; the Ready Stance
         readonly Snapshot[] _poses = new Snapshot[6]; // one per Goalie Pose, fully set
 
         /// <summary>The object that holds the character; the parent of the model. Inactive while hidden.</summary>
@@ -57,7 +57,7 @@ namespace HockeyGame
             animator.runtimeAnimatorController = null; // bones are posed from code
             model.transform.SetParent(Root.transform, false);
             _body = model.GetComponentsInChildren<SkinnedMeshRenderer>(true);
-            _skates = Array.FindAll(model.GetComponentsInChildren<Renderer>(true), r => r.name == "Gear Left Skate" || r.name == "Gear Right Skate");
+            _skates = Array.FindAll(model.GetComponentsInChildren<Renderer>(true), r => r.name == GearPiece.ObjectName(GearPiece.LeftSkate) || r.name == GearPiece.ObjectName(GearPiece.RightSkate));
 
             _model = model.transform;
             FaceTheShooter(model.transform);
@@ -72,7 +72,7 @@ namespace HockeyGame
         }
 
         /// <summary>
-        /// Moves the character from the ready stance (set 0) into the Goalie Pose (set 1). The same pose and set always give
+        /// Moves the character from the Ready Stance (set 0) into the Goalie Pose (set 1). The same pose and set always give
         /// the same look, whatever was shown before. facing: a body turn (degrees about the vertical, + toward the shooter's
         /// left; see GoalieTurn) about the goalie's own spot, the vertical through its hips. Does nothing without a model.
         /// </summary>
@@ -119,7 +119,7 @@ namespace HockeyGame
             _model.localPosition = snap.ModelPosition;
         }
 
-        /// <summary>Builds a pose from the T-pose: ready stance first, then the pose's own limbs, then back on the ice.</summary>
+        /// <summary>Builds a pose from the T-pose: Ready Stance first, then the pose's own limbs, then back on the ice.</summary>
         Snapshot MakePose(GoaliePose pose)
         {
             Put(_rest);
@@ -153,8 +153,8 @@ namespace HockeyGame
         /// </summary>
         static readonly Dictionary<string, Vector3> GearScale = new Dictionary<string, Vector3>
         {
-            { "Gear Left Pad", new Vector3(1.12f, 1f, 1f) }, { "Gear Right Pad", new Vector3(1.12f, 1f, 1f) },
-            { "Gear Blocker", Vector3.one * 1.05f }, { "Gear Catcher", Vector3.one * 1.1f },
+            { GearPiece.LeftPad, new Vector3(1.12f, 1f, 1f) }, { GearPiece.RightPad, new Vector3(1.12f, 1f, 1f) },
+            { GearPiece.Blocker, Vector3.one * 1.05f }, { GearPiece.Catcher, Vector3.one * 1.1f },
         };
 
         /// <summary>The piece's own axis (0 x, 1 y, 2 z) that lies nearest the world direction, and its sign.</summary>
@@ -179,15 +179,17 @@ namespace HockeyGame
             Vector3[] world = { q * Vector3.right, q * Vector3.up, q * Vector3.back };
             foreach (MeshRenderer r in _model.GetComponentsInChildren<MeshRenderer>(true))
             {
-                if (r.name == "Gear Left Pad" || r.name == "Gear Right Pad")
+                string piece = GearPiece.PieceOf(r.name);
+                if (piece == null) continue;
+                if (piece == GearPiece.LeftPad || piece == GearPiece.RightPad)
                 {
                     var (axis, sign) = AxisNearest(r.transform, world[2]);
                     Vector3 front = Vector3.zero;
                     front[axis] = sign;
-                    if (r.name == "Gear Left Pad") { _leftPad = r.transform; _leftPadFront = front; }
+                    if (piece == GearPiece.LeftPad) { _leftPad = r.transform; _leftPadFront = front; }
                     else { _rightPad = r.transform; _rightPadFront = front; }
                 }
-                if (!GearScale.TryGetValue(r.name, out Vector3 k)) continue;
+                if (!GearScale.TryGetValue(piece, out Vector3 k)) continue;
                 Vector3 scale = Vector3.one;
                 for (int w = 0; w < 3; w++) scale[AxisNearest(r.transform, world[w]).axis] = k[w];
                 Vector3 centre = r.bounds.center;
@@ -216,36 +218,36 @@ namespace HockeyGame
         Transform _leftPad, _rightPad;
         Vector3 _leftPadFront, _rightPadFront; // pad-local
 
-        /// <summary>World bounds of a piece of gear as posed now ("Left Pad", "Catcher", ...), or false without it.</summary>
+        /// <summary>World bounds of a piece of gear (GearPiece) as posed now, or false without it.</summary>
         public bool GearBounds(string piece, out Bounds bounds)
         {
             bounds = default;
             if (!Present) return false;
             foreach (MeshRenderer r in _model.GetComponentsInChildren<MeshRenderer>(true))
-                if (r.name == "Gear " + piece) { bounds = r.bounds; return true; }
+                if (r.name == GearPiece.ObjectName(piece)) { bounds = r.bounds; return true; }
             return false;
         }
 
         /// <summary>
         /// Adds the gear and body as posed now, in world space, to what a puck can hit. Each gear piece is named as in
-        /// GearBounds ("Left Pad", "Stick", ...); the body and clothes are "Body". Does nothing without a model.
+        /// GearBounds (GearPiece); the body and clothes are GearPiece.Body. Does nothing without a model.
         /// </summary>
         public void AddTo(PuckObstacles obstacles)
         {
             if (!Present) return;
             foreach (MeshRenderer r in _model.GetComponentsInChildren<MeshRenderer>(true))
             {
-                if (!r.name.StartsWith("Gear ")) continue;
+                string piece = GearPiece.PieceOf(r.name);
+                if (piece == null) continue;
                 Mesh shared = r.GetComponent<MeshFilter>().sharedMesh;
-                string piece = r.name.Substring("Gear ".Length);
-                obstacles.AddMesh(ToWorld(shared.vertices, r.transform.localToWorldMatrix), shared.triangles, SurfaceOf(piece), piece);
+                obstacles.AddMesh(ToWorld(shared.vertices, r.transform.localToWorldMatrix), shared.triangles, PuckMotion.SurfaceOf(piece), piece);
             }
             var mesh = new Mesh();
             foreach (SkinnedMeshRenderer body in _body)
             {
                 body.BakeMesh(mesh, true);
                 Matrix4x4 toWorld = Matrix4x4.TRS(body.transform.position, body.transform.rotation, Vector3.one);
-                obstacles.AddMesh(ToWorld(mesh.vertices, toWorld), mesh.triangles, PuckSurface.Body, "Body");
+                obstacles.AddMesh(ToWorld(mesh.vertices, toWorld), mesh.triangles, PuckSurface.Body, GearPiece.Body);
             }
             SceneObjects.DestroySafely(mesh);
         }
@@ -255,20 +257,6 @@ namespace HockeyGame
             var world = new Vector3[vertices.Length];
             for (int i = 0; i < vertices.Length; i++) world[i] = toWorld.MultiplyPoint3x4(vertices[i]);
             return world;
-        }
-
-        /// <summary>How a gear piece feels to the puck.</summary>
-        public static PuckSurface SurfaceOf(string piece)
-        {
-            switch (piece)
-            {
-                case "Left Pad": case "Right Pad": return PuckSurface.Pad;
-                case "Blocker": return PuckSurface.Blocker;
-                case "Catcher": return PuckSurface.Catcher;
-                case "Stick": return PuckSurface.Stick;
-                case "Left Skate": case "Right Skate": return PuckSurface.Skate;
-                default: return PuckSurface.Body; // mask, visor
-            }
         }
 
         /// <summary>The bone for a humanoid body part, or null when there is no model.</summary>
@@ -301,7 +289,7 @@ namespace HockeyGame
         }
 
         /// <summary>
-        /// Neutral ready stance: wide stance with the knees bent over the skates, hips back, chest leaning in, head up to
+        /// Neutral Ready Stance: wide stance with the knees bent over the skates, hips back, chest leaning in, head up to
         /// the shooter, skates flat on the ice. Blocker hand low at the side holding the stick: forearm and fingers
         /// pointing down, back of the hand (the blocker board) to the shooter, thumb inward, so the stick (diagonal in
         /// the palm) runs down and in to the ice. Catcher out at the side, palm (the

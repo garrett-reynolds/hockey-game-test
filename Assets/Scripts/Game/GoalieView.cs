@@ -23,7 +23,7 @@ namespace HockeyGame
         readonly GameObject[] _glows = new GameObject[6];
         readonly System.Collections.Generic.List<SetBlock>[] _setBlocks = new System.Collections.Generic.List<SetBlock>[6];
         float _set = 1f;
-        float _ready, _target; // facing (degrees): turned so far in the ready stance; squared up to the shooter
+        float _ready, _target; // facing (degrees): turned so far in the Ready Stance; squared up to the shooter
         bool _glowOn;
         int _shown = -1;
         bool _visible;
@@ -87,7 +87,7 @@ namespace HockeyGame
             for (int i = 0; i < _setBlocks.Length; i++) PlaceSetBlocks(i);
         }
 
-        /// <summary>How far the goalie has moved into the pose: 0 = ready stance / neutral shape, 1 = fully posed (the default).</summary>
+        /// <summary>How far the goalie has moved into the pose: 0 = Ready Stance / neutral shape, 1 = fully posed (the default).</summary>
         public void SetProgress(float progress)
         {
             if (!Mathf.Approximately(progress, _set))
@@ -100,7 +100,7 @@ namespace HockeyGame
 
         /// <summary>
         /// Which way the goalie character faces (degrees about the vertical, + toward the shooter's left; see GoalieTurn):
-        /// `ready` is where it has turned so far in the ready stance; `target` squares up to the shooter. Reacting into the
+        /// `ready` is where it has turned so far in the Ready Stance; `target` squares up to the shooter. Reacting into the
         /// pose, it finishes the turn to the target, so it stays squared up to the shooter (every pose is shaped to read as the
         /// pose table turned, #40). The blocks never turn.
         /// </summary>
@@ -168,7 +168,7 @@ namespace HockeyGame
         /// <summary>
         /// Where a saved puck flying from `from` to `netPoint` stops when the goalie character is shown: just in front of the
         /// gear that made the save (the same pad, catcher or blocker the save sound picks), on the puck's line. The gear is
-        /// where the Goalie Pose and the turn to the shooter put it, even while the goalie is still in the ready stance or reacting.
+        /// where the Goalie Pose and the turn to the shooter put it, even while the goalie is still in the Ready Stance or reacting.
         /// False with no character shown (the save block is used instead).
         /// </summary>
         public bool SaveStop(Vector3 from, Vector3 netPoint, SoundCue contact, float puckThickness, out Vector3 stop)
@@ -196,11 +196,11 @@ namespace HockeyGame
         /// <summary>The gear piece that makes a save (the same one the save sound picks); null if it is missing.</summary>
         string SavePiece(SoundCue contact, Vector3 netPoint)
         {
-            if (contact == SoundCue.GloveCatch) return "Catcher";
-            if (contact == SoundCue.BlockerHit) return "Blocker";
+            if (contact == SoundCue.GloveCatch) return GearPiece.Catcher;
+            if (contact == SoundCue.BlockerHit) return GearPiece.Blocker;
             // A pad save: the pad nearer the puck's spot.
-            if (!_character.GearBounds("Left Pad", out Bounds a) || !_character.GearBounds("Right Pad", out Bounds b)) return null;
-            return Mathf.Abs(a.center.x - netPoint.x) < Mathf.Abs(b.center.x - netPoint.x) ? "Left Pad" : "Right Pad";
+            if (!_character.GearBounds(GearPiece.LeftPad, out Bounds a) || !_character.GearBounds(GearPiece.RightPad, out Bounds b)) return null;
+            return Mathf.Abs(a.center.x - netPoint.x) < Mathf.Abs(b.center.x - netPoint.x) ? GearPiece.LeftPad : GearPiece.RightPad;
         }
 
         /// <summary>
@@ -230,7 +230,7 @@ namespace HockeyGame
             string piece = SavePiece(contact, netPoint);
             PoseCharacter();
             if (piece == null || !obstacles.Nearest(stop, piece, out normal, out surface, out float distance)) return false;
-            if (contact == SoundCue.SaveImpact && obstacles.Nearest(stop, "Stick", out Vector3 blade, out PuckSurface stick, out float toStick) && toStick < distance)
+            if (contact == SoundCue.SaveImpact && obstacles.Nearest(stop, GearPiece.Stick, out Vector3 blade, out PuckSurface stick, out float toStick) && toStick < distance)
             {
                 normal = blade;
                 surface = stick;

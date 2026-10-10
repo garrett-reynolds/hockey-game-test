@@ -79,7 +79,7 @@ namespace HockeyGame.Core.Tests
         /// <summary>Outward direction of the gear at a point, from its nearest vertex (the test's own look at the mesh).</summary>
         static Vector3 GearFacing(GoalieCharacter character, string piece, Vector3 point)
         {
-            var r = Find(character.Root.transform, "Gear " + piece).GetComponent<MeshFilter>();
+            var r = Find(character.Root.transform, GearPiece.ObjectName(piece)).GetComponent<MeshFilter>();
             float best = float.PositiveInfinity;
             Vector3 nearest = point;
             foreach (Vector3 v in r.sharedMesh.vertices)
@@ -108,7 +108,7 @@ namespace HockeyGame.Core.Tests
             var character = new GoalieCharacter(_rink.transform);
             Run run = Shoot(GoaliePose.MiddleButterfly, 10, 15, character: character);
             Assert.AreEqual(ShotResultKind.Save, run.Kind);
-            Vector3 facing = GearFacing(character, "Right Pad", run.Contact); // the goalie's right pad is on the shooter's left
+            Vector3 facing = GearFacing(character, GearPiece.RightPad, run.Contact); // the goalie's right pad is on the shooter's left
             Assert.Greater(Vector3.Dot(run.Leaving.normalized, facing), 0.3f, "away from the pad face");
             Assert.Less(run.Leaving.z, 0f, "back toward the shooter");
             Assert.AreEqual(Mathf.Sign(facing.x), Mathf.Sign(run.Leaving.x), "off to the side the pad faces");
@@ -150,7 +150,7 @@ namespace HockeyGame.Core.Tests
             NetFaceMapping.ToMetres(StickX, StickY, out double right, out double up);
             Assert.IsTrue(probe.SaveSurface(obstacles, run.Contact, new Vector3((float)right, (float)up, 0f), SoundCue.SaveImpact, out _, out PuckSurface surface));
             Assert.AreEqual(PuckSurface.Stick, surface, "made on the stick");
-            Assert.Greater(Vector3.Dot(run.Leaving.normalized, GearFacing(character, "Stick", run.Contact)), 0.2f, "away from the blade");
+            Assert.Greater(Vector3.Dot(run.Leaving.normalized, GearFacing(character, GearPiece.Stick, run.Contact)), 0.2f, "away from the blade");
 
             float highest = float.NegativeInfinity;
             foreach (Vector3 p in run.Path) highest = Mathf.Max(highest, p.y);

@@ -8,7 +8,7 @@ namespace HockeyGame.Core.Tests
     public class GoalieCharacterTests
     {
         static readonly string[] GearNames =
-            { "Left Pad", "Right Pad", "Blocker", "Catcher", "Stick", "Mask", "Visor", "Left Skate", "Right Skate" };
+            { GearPiece.LeftPad, GearPiece.RightPad, GearPiece.Blocker, GearPiece.Catcher, GearPiece.Stick, GearPiece.Mask, GearPiece.Visor, GearPiece.LeftSkate, GearPiece.RightSkate };
         static readonly string[] ClothesNames = { "Jersey", "Pants", "Socks" };
 
         static GameObject LoadModel()
@@ -134,10 +134,10 @@ namespace HockeyGame.Core.Tests
                 Assert.IsNotNull(Find(character.Root.transform, clothes)?.GetComponent<SkinnedMeshRenderer>(), "no " + clothes);
             foreach (string gear in GearNames)
             {
-                Assert.IsNotNull(Find(character.Root.transform, "Gear " + gear)?.GetComponent<Renderer>(), "no " + gear);
+                Assert.IsNotNull(Find(character.Root.transform, GearPiece.ObjectName(gear))?.GetComponent<Renderer>(), "no " + gear);
                 int count = 0;
                 foreach (Transform t in character.Root.GetComponentsInChildren<Transform>(true))
-                    if (t.name == "Gear " + gear) count++;
+                    if (t.name == GearPiece.ObjectName(gear)) count++;
                 Assert.AreEqual(1, count, "one " + gear + ", not a second copy");
             }
         }
@@ -170,7 +170,7 @@ namespace HockeyGame.Core.Tests
                     Assert.IsNotNull(m, r.name + " has an empty material slot");
                     StringAssert.StartsWith("Universal Render Pipeline/", m.shader.name, r.name + " would draw pink");
                 }
-            foreach (string textured in new[] { "Skin", "Gear Mask", "Gear Left Skate", "Gear Right Skate" })
+            foreach (string textured in new[] { "Skin", GearPiece.ObjectName(GearPiece.Mask), GearPiece.ObjectName(GearPiece.LeftSkate), GearPiece.ObjectName(GearPiece.RightSkate) })
                 Assert.IsNotNull(Find(character.Root.transform, textured).GetComponent<Renderer>().sharedMaterial.mainTexture, textured + " lost its texture");
         }
 
@@ -179,16 +179,16 @@ namespace HockeyGame.Core.Tests
         {
             var character = new GoalieCharacter(_parent.transform);
             character.Show(true);
-            Bounds skates = WorldBounds(Gear(character, "Left Skate"), Gear(character, "Right Skate"));
+            Bounds skates = WorldBounds(Gear(character, GearPiece.LeftSkate), Gear(character, GearPiece.RightSkate));
             Assert.AreEqual(0f, skates.min.y, 0.02f, "skate blades on the ice");
             Bounds body = character.BodyBounds();
-            // A 1.8 m goalie crouched in the ready stance is about 1.25-1.5 m tall: just over the 1.22 m crossbar.
-            Bounds mask = WorldBounds(Gear(character, "Mask"));
+            // A 1.8 m goalie crouched in the Ready Stance is about 1.25-1.5 m tall: just over the 1.22 m crossbar.
+            Bounds mask = WorldBounds(Gear(character, GearPiece.Mask));
             Assert.That(mask.max.y, Is.InRange(1.25f, 1.5f), "a crouched lifelike goalie about fills the 1.22 m net");
             Assert.AreEqual(0f, body.center.x, 0.1f, "centred on the net");
             Assert.Less(body.max.z, -0.13f, "in front of the Net Face and the goalie blocks (z -0.13 to -0.03)");
-            Assert.Less(WorldBounds(Gear(character, "Left Pad"), Gear(character, "Right Pad")).min.y, 0.12f, "pads reach down to the skates");
-            Bounds stick = WorldBounds(Gear(character, "Stick"));
+            Assert.Less(WorldBounds(Gear(character, GearPiece.LeftPad), Gear(character, GearPiece.RightPad)).min.y, 0.12f, "pads reach down to the skates");
+            Bounds stick = WorldBounds(Gear(character, GearPiece.Stick));
             Assert.That(stick.min.y, Is.InRange(-0.03f, 0.08f), "stick blade down on the ice");
         }
 
@@ -196,7 +196,7 @@ namespace HockeyGame.Core.Tests
         public void The_goalie_faces_the_shooter()
         {
             var character = new GoalieCharacter(_parent.transform);
-            foreach (var (skate, foot) in new[] { ("Left Skate", HumanBodyBones.LeftFoot), ("Right Skate", HumanBodyBones.RightFoot) })
+            foreach (var (skate, foot) in new[] { (GearPiece.LeftSkate, HumanBodyBones.LeftFoot), (GearPiece.RightSkate, HumanBodyBones.RightFoot) })
                 Assert.Less(WorldBounds(Gear(character, skate)).center.z, character.Bone(foot).position.z - 0.02f, skate + " toe points at the shooter (-z)");
             // The goalie's left hand (catcher) is on the shooter's right (+x), as for a goalie facing you.
             Assert.Greater(character.Bone(HumanBodyBones.LeftHand).position.x, character.Bone(HumanBodyBones.RightHand).position.x);
@@ -225,19 +225,19 @@ namespace HockeyGame.Core.Tests
             HumanBodyBones[] rightArm = { HumanBodyBones.Spine, HumanBodyBones.Chest, HumanBodyBones.RightShoulder, HumanBodyBones.RightUpperArm, HumanBodyBones.RightLowerArm, HumanBodyBones.RightHand };
             var cases = new (string gear, HumanBodyBones[] joints)[]
             {
-                ("Left Pad", new[] { HumanBodyBones.Hips, HumanBodyBones.LeftUpperLeg, HumanBodyBones.LeftLowerLeg }),
-                ("Right Pad", new[] { HumanBodyBones.Hips, HumanBodyBones.RightUpperLeg, HumanBodyBones.RightLowerLeg }),
-                ("Left Skate", new[] { HumanBodyBones.Hips, HumanBodyBones.LeftUpperLeg, HumanBodyBones.LeftLowerLeg, HumanBodyBones.LeftFoot }),
-                ("Right Skate", new[] { HumanBodyBones.Hips, HumanBodyBones.RightUpperLeg, HumanBodyBones.RightLowerLeg, HumanBodyBones.RightFoot }),
-                ("Blocker", rightArm),
-                ("Stick", rightArm),
-                ("Catcher", new[] { HumanBodyBones.Spine, HumanBodyBones.Chest, HumanBodyBones.LeftShoulder, HumanBodyBones.LeftUpperArm, HumanBodyBones.LeftLowerArm, HumanBodyBones.LeftHand }),
-                ("Mask", new[] { HumanBodyBones.Neck, HumanBodyBones.Head }),
-                ("Visor", new[] { HumanBodyBones.Neck, HumanBodyBones.Head }),
+                (GearPiece.LeftPad, new[] { HumanBodyBones.Hips, HumanBodyBones.LeftUpperLeg, HumanBodyBones.LeftLowerLeg }),
+                (GearPiece.RightPad, new[] { HumanBodyBones.Hips, HumanBodyBones.RightUpperLeg, HumanBodyBones.RightLowerLeg }),
+                (GearPiece.LeftSkate, new[] { HumanBodyBones.Hips, HumanBodyBones.LeftUpperLeg, HumanBodyBones.LeftLowerLeg, HumanBodyBones.LeftFoot }),
+                (GearPiece.RightSkate, new[] { HumanBodyBones.Hips, HumanBodyBones.RightUpperLeg, HumanBodyBones.RightLowerLeg, HumanBodyBones.RightFoot }),
+                (GearPiece.Blocker, rightArm),
+                (GearPiece.Stick, rightArm),
+                (GearPiece.Catcher, new[] { HumanBodyBones.Spine, HumanBodyBones.Chest, HumanBodyBones.LeftShoulder, HumanBodyBones.LeftUpperArm, HumanBodyBones.LeftLowerArm, HumanBodyBones.LeftHand }),
+                (GearPiece.Mask, new[] { HumanBodyBones.Neck, HumanBodyBones.Head }),
+                (GearPiece.Visor, new[] { HumanBodyBones.Neck, HumanBodyBones.Head }),
             };
             foreach (var (gearName, joints) in cases)
             {
-                Transform gear = Find(character.Root.transform, "Gear " + gearName);
+                Transform gear = Find(character.Root.transform, GearPiece.ObjectName(gearName));
                 Assert.IsNotNull(gear, "no " + gearName);
                 foreach (HumanBodyBones joint in joints)
                 {
@@ -272,7 +272,7 @@ namespace HockeyGame.Core.Tests
         {
             var character = new GoalieCharacter(_parent.transform);
             Vector3 toShooter = Vector3.back;
-            Transform blocker = Gear(character, "Blocker").transform;
+            Transform blocker = Gear(character, GearPiece.Blocker).transform;
             Mesh mesh = blocker.GetComponent<MeshFilter>().sharedMesh;
             Vector3[] v = mesh.vertices;
             int[] t = mesh.triangles;
@@ -305,7 +305,7 @@ namespace HockeyGame.Core.Tests
         {
             var character = new GoalieCharacter(_parent.transform);
             Vector3 palm = (character.Bone(HumanBodyBones.RightHand).position + character.Bone(HumanBodyBones.RightMiddleProximal).position) / 2f;
-            Transform stick = Gear(character, "Stick").transform;
+            Transform stick = Gear(character, GearPiece.Stick).transform;
             float nearest = float.MaxValue;
             foreach (Vector3 p in stick.GetComponent<MeshFilter>().sharedMesh.vertices)
                 nearest = Mathf.Min(nearest, Vector3.Distance(stick.TransformPoint(p), palm));
@@ -364,13 +364,13 @@ namespace HockeyGame.Core.Tests
         public void A_dark_visor_inside_the_mask_hides_the_face_from_the_shooter()
         {
             var character = new GoalieCharacter(_parent.transform);
-            Renderer visor = Gear(character, "Visor");
+            Renderer visor = Gear(character, GearPiece.Visor);
             Color c = visor.sharedMaterial.color;
             Assert.Less(Mathf.Max(c.r, c.g, c.b), 0.15f, "a dark, tinted visor");
             Assert.Greater(visor.sharedMaterial.GetFloat("_Smoothness"), 0.6f, "slightly glossy");
 
             Bounds eyes = WorldBounds(Find(character.Root.transform, "Eyes").GetComponent<Renderer>());
-            Bounds v = WorldBounds(visor), mask = WorldBounds(Gear(character, "Mask"));
+            Bounds v = WorldBounds(visor), mask = WorldBounds(Gear(character, GearPiece.Mask));
             Assert.Less(v.min.z, eyes.min.z, "the visor is in front of the eyes (toward the shooter, -z)");
             Assert.Less(v.min.x, eyes.min.x - 0.03f, "covers the face to the cheeks");
             Assert.Greater(v.max.x, eyes.max.x + 0.03f, "covers the face to the cheeks");
@@ -380,7 +380,7 @@ namespace HockeyGame.Core.Tests
         }
 
         static Renderer Gear(GoalieCharacter character, string name) =>
-            Find(character.Root.transform, "Gear " + name).GetComponent<Renderer>();
+            Find(character.Root.transform, GearPiece.ObjectName(name)).GetComponent<Renderer>();
 
         /// <summary>World bounds of the renderers' actual vertices (skinned meshes as posed now).</summary>
         static Bounds WorldBounds(params Renderer[] renderers)

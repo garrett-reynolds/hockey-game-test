@@ -39,7 +39,7 @@ namespace HockeyGame.Core.Tests
             // looks the other way (+x, as on a turned RightPostHug, #40) must still come off that face.
             var obstacles = new PuckObstacles();
             Vector3 face = new Vector3(0.93f, -0.16f, -0.32f).normalized;
-            AddSquare(obstacles, new Vector3(0f, 1f, 0f), face, PuckSurface.Blocker, "Blocker");
+            AddSquare(obstacles, new Vector3(0f, 1f, 0f), face, PuckSurface.Blocker, GearPiece.Blocker);
             var motion = new PuckMotion(new Vector3(0f, 1f, 0f) + face * 0.2f, Quaternion.identity, new Vector3(-3.09f, 0f, -1.41f), 0f, obstacles);
             for (int i = 0; i < 15; i++) motion.Advance(1f / 60f);
             Assert.Greater(Vector3.Dot(motion.Velocity, face), 0f, "moving away from the face");
@@ -50,17 +50,17 @@ namespace HockeyGame.Core.Tests
         {
             var obstacles = new PuckObstacles();
             Vector3 tilted = new Vector3(0.5f, 0f, -1f).normalized;
-            AddSquare(obstacles, Vector3.zero, tilted, PuckSurface.Blocker, "Blocker");
+            AddSquare(obstacles, Vector3.zero, tilted, PuckSurface.Blocker, GearPiece.Blocker);
 
-            Assert.IsTrue(obstacles.Nearest(tilted * 0.1f, "Blocker", out Vector3 n, out PuckSurface s));
+            Assert.IsTrue(obstacles.Nearest(tilted * 0.1f, GearPiece.Blocker, out Vector3 n, out PuckSurface s));
             Assert.AreEqual(0f, Vector3.Angle(tilted, n), 0.5f, "in front of the face: the face's normal");
             Assert.AreEqual(PuckSurface.Blocker, s);
 
             Vector3 offSide = Quaternion.LookRotation(-tilted) * new Vector3(1.3f, 0f, 0f) + tilted * 0.05f;
-            Assert.IsTrue(obstacles.Nearest(offSide, "Blocker", out Vector3 side, out _));
+            Assert.IsTrue(obstacles.Nearest(offSide, GearPiece.Blocker, out Vector3 side, out _));
             Assert.Greater(Vector3.Dot(side, Quaternion.LookRotation(-tilted) * Vector3.right), 0.9f, "off the edge: out from the edge");
 
-            Assert.IsFalse(obstacles.Nearest(Vector3.zero, "Catcher", out _, out _), "only the named piece");
+            Assert.IsFalse(obstacles.Nearest(Vector3.zero, GearPiece.Catcher, out _, out _), "only the named piece");
         }
 
         [Test]

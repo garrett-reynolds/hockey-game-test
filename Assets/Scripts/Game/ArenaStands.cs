@@ -21,7 +21,10 @@ namespace HockeyGame
         /// <summary>How much of its own colour each non-glowing part shows: the stands sit in the dark, the ice is lit.</summary>
         const float StandsLight = 0.4f;
 
-        /// <summary>The model's outer box in rink space: the boards' box plus Reach all round, from the ice to the roof.</summary>
+        /// <summary>
+        /// The model's outer box in rink space: the boards' box plus Reach all round, from the ice to the roof. The sizes are
+        /// copied by hand in Tools/make_arena.py: change both together.
+        /// </summary>
         public static Bounds Box
         {
             get
