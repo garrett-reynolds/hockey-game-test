@@ -255,6 +255,7 @@ namespace HockeyGame.Core.Tests
                 // Squared up to the shooter (#39): the pose's own turn limit applies.
                 Run run = Shoot(pose, x, y, character: character, facing: GoalieCharacter.FacingToward(_camera.transform.position));
                 List<Triangle> goalie = GoalieTriangles(character);
+                List<Triangle> near = Near(goalie, run.Contact, run.Path);
                 string where = pose + " (" + x.ToString("F1") + ", " + y.ToString("F1") + ") ";
                 Vector3 last = run.Contact;
                 for (int i = 0; i < run.Path.Count; i++)
@@ -263,7 +264,7 @@ namespace HockeyGame.Core.Tests
                     Vector3 axis = run.Turns[i] * Vector3.up;
                     float lowest = p.y - 0.075f * Mathf.Sqrt(Mathf.Max(0f, 1f - axis.y * axis.y)) - 0.025f * Mathf.Abs(axis.y);
                     if (lowest < -0.002f) { failures.Add(where + "into the ice at frame " + i); break; }
-                    if (Crosses(goalie, last, p)) { failures.Add(where + "through the goalie at frame " + i); break; }
+                    if (Crosses(near, last, p)) { failures.Add(where + "through the goalie at frame " + i); break; }
                     if (InFrame(p)) { failures.Add(where + "in the frame at frame " + i); break; }
                     last = p;
                 }
@@ -278,6 +279,26 @@ namespace HockeyGame.Core.Tests
                     failures.Add(where + "not lying still, flat on the ice (or held in the gear), at the end: " + end.ToString("F3"));
             }
             Assert.IsEmpty(failures, string.Join("\n", failures));
+        }
+
+        /// <summary>
+        /// The triangles whose bounds overlap the bounds of the whole path (contact and every frame, padded 1 mm). Each
+        /// frame's straight move lies inside those bounds, so any triangle it crosses is among these: the same answer as
+        /// checking all ~55k, at a fraction of the cost.
+        /// </summary>
+        static List<Triangle> Near(List<Triangle> triangles, Vector3 contact, List<Vector3> path)
+        {
+            var box = new Bounds(contact, Vector3.zero);
+            foreach (Vector3 p in path) box.Encapsulate(p);
+            box.Expand(0.002f);
+            var near = new List<Triangle>();
+            foreach (Triangle t in triangles)
+            {
+                Vector3 min = Vector3.Min(t.A, Vector3.Min(t.B, t.C)), max = Vector3.Max(t.A, Vector3.Max(t.B, t.C));
+                if (min.x <= box.max.x && max.x >= box.min.x && min.y <= box.max.y && max.y >= box.min.y && min.z <= box.max.z && max.z >= box.min.z)
+                    near.Add(t);
+            }
+            return near;
         }
 
         /// <summary>Within 5 cm of a goalie triangle corner or edge midpoint: resting in a crease of the gear.</summary>
