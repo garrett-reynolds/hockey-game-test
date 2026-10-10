@@ -17,8 +17,8 @@ namespace HockeyGame
         const float RadiusMetres = 0.3f;           // falloff: about 1/e at this distance from the hit point
         const float RippleMetresPerSecond = 3f;    // how fast the bulge spreads outward
         const float PinMetres = 0.12f;             // fades to nothing this close to the ice and to the posts/crossbar
-        const float MinMetres = 0.04f, MaxMetres = 0.22f;
-        const float MetresPerKmh = MaxMetres / TestShotSpeed.MaxKmh; // the biggest bulge only at the fastest Test Shot (#46)
+        const float MetresPerKmh = 0.0016f;
+        const float MinMetres = 0.04f, MaxMetres = MetresPerKmh * TestShotSpeed.MaxKmh; // grows up to the fastest Test Shot (#46)
         const float SettleSeconds = 2.3f;          // inside the 2.5 s result; the spring is spent by then
         const float ShakeSeconds = 0.8f;           // box net placeholder
         const float ShakeMetres = 0.04f;
