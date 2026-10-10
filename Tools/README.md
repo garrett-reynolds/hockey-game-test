@@ -1,0 +1,40 @@
+# Tools
+
+Scripts that make the game's models, textures and sounds. Each script's first lines give its exact command.
+Run them from the repo root. `CREDITS.md` says which script made which file.
+
+## Plain Python 3
+
+Install the packages once: `py -3 -m pip install -r Tools/requirements.txt` (Pillow and numpy).
+
+| Script | Makes | Needs |
+|---|---|---|
+| `make_arena.py` | `boards.obj`, `arena.obj` (+ `.mtl`), `crowd.png` | Pillow, numpy |
+| `make_goal_light.py` | `goal-light.obj` (+ `.mtl`) | - |
+| `make_goalie_gear.py` | `save-glove.obj` (+ `.mtl`) | - |
+| `make_ice.py` | `ice.obj` (+ `.mtl`) | - |
+| `make_ice_texture.py` | `ice-markings.jpg` | Pillow, numpy |
+| `make_sounds.py` | the made-for-this-project sounds | numpy |
+
+Example: `py -3 Tools/make_arena.py Assets/Resources/Models`
+
+`vector3.py` holds the vector helpers the model scripts share; it is not run on its own.
+
+## Blender 4.5 (headless)
+
+These run inside Blender 4.5 (`bpy`), not plain Python. Each needs a file Garrett supplied as input:
+
+| Script | Makes |
+|---|---|
+| `make_lifelike_goalie.py` | `goalie-dressing.fbx` and its textures |
+| `make_supplied_net.py` | `net.fbx` |
+| `make_supplied_puck.py` | `puck.fbx` |
+
+Run from Git Bash, for example:
+
+```bash
+"/c/Program Files/Blender Foundation/Blender 4.5/blender.exe" -b --factory-startup --disable-autoexec \
+  --python Tools/make_supplied_puck.py -- <arguments at the top of the script>
+```
+
+`make_supplied_net.py` also uses numpy; Blender 4.5 ships with it.
