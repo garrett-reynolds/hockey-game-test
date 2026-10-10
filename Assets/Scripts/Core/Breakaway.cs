@@ -17,6 +17,19 @@ namespace HockeyGame.Core
         public const double EyeHeight = 1.5;
         public const double StrideBob = 0.06;
         public const double RollRadians = 0.025;
+        /// <summary>The stride bob goes round this fast (radians per game second): one visible stride per cycle.</summary>
+        public const double BobRadiansPerSecond = 10.0;
+        /// <summary>The roll goes round half as fast as the bob: it leans one way on one stride and the other way on the next.</summary>
+        public const double RollRadiansPerSecond = 5.0;
+
+        /// <summary>Camera height offset (metres) from the stride bob, gameSeconds into the skate-in.</summary>
+        public static double Bob(double gameSeconds) => StrideBob * Math.Sin(gameSeconds * BobRadiansPerSecond);
+
+        /// <summary>Camera roll (radians) gameSeconds into the skate-in. Positive leans the camera left (Unity +z roll).</summary>
+        public static double Roll(double gameSeconds) => RollRadians * Math.Sin(gameSeconds * RollRadiansPerSecond);
+
+        /// <summary>When the k-th push of the stride lands (game seconds into the skate-in, k from 0): the low point of the bob.</summary>
+        public static double StridePushSeconds(int k) => (1.5 * Math.PI + 2.0 * Math.PI * k) / BobRadiansPerSecond;
         /// <summary>The drift toward the net never comes closer than this to the net (metres).</summary>
         public const double ClosestDrift = 3.0;
 

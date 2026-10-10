@@ -351,6 +351,65 @@ namespace HockeyGame.Core.Tests
             CollectionAssert.AreEquivalent(new[] { AttackSide.Left, AttackSide.Middle, AttackSide.Right }, sides);
         }
 
+        [Test]
+        public void A_stride_plays_on_each_push_of_the_camera_stride_alternating_left_and_right_for_every_Attack_Side()
+        {
+            // The camera bob is sin(10 t): its low points (the push) fall at 0.471, 1.100, 1.728 and 2.356 s of the skate-in.
+            // The last one is inside the hockey stop (the last 0.6 s of the 2.5 s skate-in), so it has no stride.
+            // The roll sin(5 t) leans the camera left on the first push, then right, then left.
+            const double StrideFrame = 0.01;
+            var expectedTimes = new[] { 0.471, 1.100, 1.728 };
+            var expectedSides = new[] { SoundCue.StrideLeft, SoundCue.StrideRight, SoundCue.StrideLeft };
+
+            var round = new Round(ScriptedRandom.Picking(
+                GoaliePoses.PosesOf(AttackSide.Left)[0], GoaliePoses.PosesOf(AttackSide.Middle)[0],
+                GoaliePoses.PosesOf(AttackSide.Right)[0]), new RoundSettings(), 0);
+            round.StartRound();
+            var cues = new RoundSoundCues(new SaveData());
+            var sides = new HashSet<AttackSide>();
+            int skateIns = 0;
+
+            for (int shot = 0; shot < Round.ShotsPerRound; shot++)
+            {
+                Assert.AreEqual(RoundPhase.SkateIn, round.Phase);
+                sides.Add(round.AttackSide);
+                skateIns++;
+                var times = new List<double>();
+                var heard = new List<SoundCue>();
+                void Listen()
+                {
+                    foreach (SoundCue cue in cues.Update(round, false))
+                        if (cue == SoundCue.StrideLeft || cue == SoundCue.StrideRight) { times.Add(round.PhaseSecondsElapsed); heard.Add(cue); }
+                }
+                Listen(); // the skate-in's first frame
+                while (round.Phase == RoundPhase.SkateIn)
+                {
+                    round.Tick(StrideFrame);
+                    if (round.Phase == RoundPhase.SkateIn) Listen();
+                    else cues.Update(round, false);
+                }
+
+                CollectionAssert.AreEqual(expectedSides, heard, "Attack Side " + round.AttackSide);
+                for (int i = 0; i < expectedTimes.Length; i++)
+                {
+                    Assert.GreaterOrEqual(times[i], expectedTimes[i] - 0.001, "stride " + i);
+                    Assert.LessOrEqual(times[i], expectedTimes[i] + StrideFrame, "stride " + i); // on the first frame at or after the push
+                }
+
+                var rest = Run(round, cues, 3.0);         // slow-down and shooting window: no strides
+                Assert.IsFalse(rest.Contains(SoundCue.StrideLeft) || rest.Contains(SoundCue.StrideRight));
+                round.SubmitShot(150, 90, 100, false);
+                while (round.Phase != RoundPhase.SkateIn && round.Phase != RoundPhase.RoundOver)
+                {
+                    round.Tick(Frame);
+                    cues.Update(round, true);
+                }
+            }
+
+            Assert.AreEqual(Round.ShotsPerRound, skateIns);
+            CollectionAssert.AreEquivalent(new[] { AttackSide.Left, AttackSide.Middle, AttackSide.Right }, sides);
+        }
+
         [TestCase(5.4, 2.5, 0.0, 2.9, TestName = "Short skate-in: start late in the clip so both end together")]
         [TestCase(5.4, 2.5, 0.05, 2.95, TestName = "First frame already 0.05 s into the skate-in")]
         [TestCase(2.0, 3.0, 0.0, -1.0, TestName = "Skate-in longer than the clip: wait 1 s, then play it all")]

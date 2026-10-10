@@ -1,4 +1,5 @@
 using System;
+using HockeyGame.Core;
 using UnityEngine;
 
 namespace HockeyGame
@@ -25,7 +26,11 @@ namespace HockeyGame
         public static AudioClip BlockerHit() => Make("Blocker Hit", NoiseBurst(0.2f, 0.6f, 0.45f, 30f, 17));
         public static AudioClip Cheer() => Make("Cheer", Swell(Crowd(3f, 0.9f, 0.2f), 0.4f, 1.8f));
         public static AudioClip Groan() => Make("Groan", Swell(Crowd(1.8f, 0.7f, 0.65f), 0.25f, 1.0f));
-        public static AudioClip Skating() => Make("Skating", Strides(2.5f));
+        /// <summary>The hockey stop: a long bright scrape, as long as RoundSoundCues.HockeyStopSeconds.</summary>
+        public static AudioClip HockeyStop() => Make("Hockey Stop", Scrape((float)RoundSoundCues.HockeyStopSeconds, 0.5f, 31));
+        /// <summary>One blade push; each variation has its own noise and length.</summary>
+        public static AudioClip Stride(int variation) =>
+            Make("Stride " + (variation + 1), Scrape(0.28f + 0.03f * (variation % 4), 0.3f, 23 + variation));
         public static AudioClip NewBestCheer() => Make("New Best Cheer", Swell(Crowd(3.5f, 1f, 0.15f), 0.5f, 2.2f));
 
         static AudioClip Make(string name, float[] samples)
@@ -126,21 +131,22 @@ namespace HockeyGame
             return s;
         }
 
-        /// <summary>Skate strides: bright blade-scrape noise swelling once every half second.</summary>
-        static float[] Strides(float seconds)
+        /// <summary>One blade scrape: bright noise that swells quickly and dies away over its length.</summary>
+        static float[] Scrape(float seconds, float gain, int seed)
         {
             var s = Buffer(seconds);
-            var random = new System.Random(23);
+            var random = new System.Random(seed);
             float last = 0f;
             for (int i = 0; i < s.Length; i++)
             {
                 float n = (float)(random.NextDouble() * 2 - 1);
-                float stride = Mathf.Sin(Mathf.PI * ((i / (float)Rate) / 0.5f % 1f));
-                s[i] = (n - last) * stride * stride; // differenced noise: a hiss, like a blade on ice
+                float u = i / (float)s.Length;
+                float swell = Mathf.Min(1f, u / 0.15f) * (1f - u); // quick rise, slow fall
+                s[i] = (n - last) * swell; // differenced noise: a hiss, like a blade on ice
                 last = n;
             }
-            Normalise(s, 0.3f);
-            FadeEdges(s, 0.05f);
+            Normalise(s, gain);
+            FadeEdges(s, 0.01f);
             return s;
         }
 

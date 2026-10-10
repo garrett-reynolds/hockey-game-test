@@ -40,10 +40,48 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void The_picked_post_ping_cheer_and_skating_clips_are_in_Resources_Sounds()
+        public void The_picked_post_ping_cheer_and_hockey_stop_clips_are_in_Resources_Sounds()
         {
-            foreach (string name in new[] { SoundFiles.PostPing, SoundFiles.Cheer, SoundFiles.Skating })
+            foreach (string name in new[] { SoundFiles.PostPing, SoundFiles.Cheer, SoundFiles.HockeyStop })
                 Assert.IsNotNull(Resources.Load<AudioClip>(SoundFiles.Folder + "/" + name), name);
+        }
+
+        [Test]
+        public void At_least_three_stride_variations_are_in_Resources_Sounds_each_shorter_than_one_stride()
+        {
+            Assert.GreaterOrEqual(SoundFiles.Strides.Length, 3);
+            foreach (string name in SoundFiles.Strides)
+            {
+                var clip = Resources.Load<AudioClip>(SoundFiles.Folder + "/" + name);
+                Assert.IsNotNull(clip, name);
+                Assert.Less(clip.length, 0.6, name); // one bob cycle is 0.63 s: a stride never runs into the next
+            }
+        }
+
+        [Test]
+        public void The_hockey_stop_file_and_its_placeholder_last_as_long_as_the_hockey_stop_the_strides_leave_room_for()
+        {
+            var file = Resources.Load<AudioClip>(SoundFiles.Folder + "/" + SoundFiles.HockeyStop);
+            Assert.AreEqual(RoundSoundCues.HockeyStopSeconds, file.length, 0.02);
+            var placeholder = PlaceholderSounds.HockeyStop();
+            Assert.AreEqual(RoundSoundCues.HockeyStopSeconds, placeholder.length, 0.02);
+            Object.DestroyImmediate(placeholder);
+        }
+
+        [Test]
+        public void Each_stride_variation_has_its_own_placeholder()
+        {
+            var names = new System.Collections.Generic.HashSet<string>();
+            for (int i = 0; i < SoundFiles.Strides.Length; i++)
+            {
+                int variation = i;
+                var clip = SoundFiles.Load(SoundFiles.Strides[i], () => PlaceholderSounds.Stride(variation), name => null);
+                Assert.Greater(clip.samples, 0);
+                Assert.Less(clip.length, 0.6);
+                names.Add(clip.name);
+                Object.DestroyImmediate(clip);
+            }
+            Assert.AreEqual(SoundFiles.Strides.Length, names.Count);
         }
     }
 }

@@ -15,6 +15,7 @@ Install the packages once: `py -3 -m pip install -r Tools/requirements.txt` (Pil
 | `make_ice.py` | `ice.obj` (+ `.mtl`) | - |
 | `make_ice_texture.py` | `ice-markings.jpg` | Pillow, numpy |
 | `make_sounds.py` | the made-for-this-project sounds | numpy |
+| `cut_stride_sounds.py` | `stride-1.wav` .. `stride-4.wav`, `hockey-stop.wav` (cut from the #35 skating recording; see the script) | numpy |
 
 Example: `py -3 Tools/make_arena.py Assets/Resources/Models`
 

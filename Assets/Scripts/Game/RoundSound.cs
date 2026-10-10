@@ -8,19 +8,27 @@ namespace HockeyGame
     /// Plays sound for the Round (real files from SoundFiles where present, else placeholders): crowd loop, result sounds, window ticks, slow-down muffle and
     /// heartbeat. Watches the Round through RoundSoundCues; holds no rules of its own. Uses real time.
     /// The tick plays unfiltered so it stays clear during the slow-down.
-    /// The skating sound has its own source: it starts part-way into its clip so the clip's end (the hockey stop) lands
-    /// on the end of the skate-in, fading in briefly so a mid-clip start does not click, and fades out when the skate-in ends.
+    /// The skate-in sounds have their own sources and are never muffled or slowed: one stride sound on each push of the
+    /// camera's stride (a different variation each time, panned to the side the camera leans to), and the hockey stop,
+    /// placed so it ends with the skate-in, fading in briefly if it starts mid-clip and fading out when the skate-in ends.
     /// </summary>
     public sealed class RoundSound
     {
         const float CrowdFadePerSecond = 0.6f;
         const float SkatingFadeSeconds = 0.06f;
+        /// <summary>How far a stride sound is panned toward the side the camera leans to (-1..1 stereo pan).</summary>
+        const float StridePan = 0.3f;
+        /// <summary>Each stride plays this much higher or lower at random (pitch ratio), so repeats do not sound looped.</summary>
+        const float StridePitchSpread = 0.05f;
 
         readonly SaveData _save;
         readonly RoundSoundCues _cues;
-        readonly AudioSource _crowd, _heartbeat, _world, _tick, _skating;
+        readonly AudioSource _crowd, _heartbeat, _world, _tick, _skating, _strideLeft, _strideRight;
         readonly AudioLowPassFilter _crowdFilter, _heartbeatFilter, _worldFilter;
         readonly Dictionary<SoundCue, AudioClip[]> _clips = new Dictionary<SoundCue, AudioClip[]>();
+        readonly AudioClip[] _strides;
+        readonly System.Random _random = new System.Random();
+        int _lastStride = -1;
         float _skatingTarget;
 
         /// <summary>Tick on/off, master volume and mute are read from save every frame; the settings screen just changes them.</summary>
@@ -41,8 +49,18 @@ namespace HockeyGame
 
             _world = Source(listener, "Result Sounds", out _worldFilter);
             _tick = Source(listener, "Tick", out _);
-            _skating = Source(listener, "Skating", out _); // the skate-in is never slowed: no muffle or pitch
-            _skating.clip = SoundFiles.Load(SoundFiles.Skating, PlaceholderSounds.Skating);
+            _skating = Source(listener, "Hockey Stop", out _); // the skate-in is never slowed: no muffle or pitch
+            _skating.clip = SoundFiles.Load(SoundFiles.HockeyStop, PlaceholderSounds.HockeyStop);
+            _strideLeft = Source(listener, "Stride Left", out _);
+            _strideLeft.panStereo = -StridePan;
+            _strideRight = Source(listener, "Stride Right", out _);
+            _strideRight.panStereo = StridePan;
+            _strides = new AudioClip[SoundFiles.Strides.Length];
+            for (int i = 0; i < _strides.Length; i++)
+            {
+                int variation = i;
+                _strides[i] = SoundFiles.Load(SoundFiles.Strides[i], () => PlaceholderSounds.Stride(variation));
+            }
 
             _clips[SoundCue.Tick] = new[] { SoundFiles.Load(SoundFiles.Tick, PlaceholderSounds.Tick) };
             _clips[SoundCue.FastTick] = new[] { SoundFiles.Load(SoundFiles.FastTick, PlaceholderSounds.FastTick) };
@@ -78,6 +96,11 @@ namespace HockeyGame
             {
                 if (cue == SoundCue.Skating) { StartSkating(round); continue; }
                 if (cue == SoundCue.SkatingStop) { _skatingTarget = 0f; continue; }
+                if (cue == SoundCue.StrideLeft || cue == SoundCue.StrideRight)
+                {
+                    PlayStride(cue == SoundCue.StrideLeft ? _strideLeft : _strideRight);
+                    continue;
+                }
                 AudioSource source = cue == SoundCue.Tick || cue == SoundCue.FastTick ? _tick : _world;
                 foreach (AudioClip clip in _clips[cue])
                     source.PlayOneShot(clip);
@@ -98,7 +121,22 @@ namespace HockeyGame
             else if (!slow.Heartbeat && _heartbeat.isPlaying) _heartbeat.Stop();
         }
 
-        /// <summary>Plays the skating clip placed so it ends with the skate-in (RoundSoundCues.SkatingClipTime).</summary>
+        /// <summary>One stride variation, never the one played last, at a slightly random pitch, from this side's source.</summary>
+        void PlayStride(AudioSource side)
+        {
+            int pick;
+            if (_lastStride < 0) pick = _random.Next(_strides.Length);
+            else
+            {
+                pick = _random.Next(_strides.Length - 1);
+                if (pick >= _lastStride) pick++; // skip the last one
+            }
+            _lastStride = pick;
+            side.pitch = 1f + StridePitchSpread * (float)(_random.NextDouble() * 2 - 1);
+            side.PlayOneShot(_strides[pick]);
+        }
+
+        /// <summary>Plays the hockey stop placed so it ends with the skate-in (RoundSoundCues.SkatingClipTime).</summary>
         void StartSkating(Round round)
         {
             AudioClip clip = _skating.clip;
