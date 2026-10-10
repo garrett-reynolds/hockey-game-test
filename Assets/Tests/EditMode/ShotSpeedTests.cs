@@ -36,8 +36,11 @@ namespace HockeyGame.Core.Tests
             (-10, 50), (110, 50), (50, 110),
         };
 
-        [Test]
-        public void At_200_kmh_a_save_meets_the_gear_and_a_goal_or_miss_passes_clear_of_all_gear_from_every_Attack_Side()
+        // Both ways a Shot comes in. A Test Shot (a click) is taken after ShotEffects has run that frame, and RoundDriver then
+        // runs it again with no time. A USB Shot is taken before ShotEffects runs, which then runs with the frame's real time.
+        [TestCase(false, TestName = "At_200_kmh_a_Test_Shot_save_meets_the_gear_and_a_goal_or_miss_passes_clear_of_all_gear_from_every_Attack_Side")]
+        [TestCase(true, TestName = "At_200_kmh_a_USB_Shot_save_meets_the_gear_and_a_goal_or_miss_passes_clear_of_all_gear_from_every_Attack_Side")]
+        public void At_200_kmh_a_save_meets_the_gear_and_a_goal_or_miss_passes_clear_of_all_gear_from_every_Attack_Side(bool usb)
         {
             var failures = new List<string>();
             int saves = 0, clear = 0;
@@ -49,7 +52,7 @@ namespace HockeyGame.Core.Tests
                 TearDown();
                 SetUp();
                 string where = side + " " + eyeName + " " + pose + " (" + x + ", " + y + ") ";
-                string failure = Shoot(eye, pose, x, y, 200, ref saves, ref clear);
+                string failure = Shoot(eye, pose, x, y, 200, usb, ref saves, ref clear);
                 if (failure != null) failures.Add(where + failure);
             }
             Assert.IsEmpty(failures, failures.Count + " of " + (saves + clear + failures.Count) + ":\n" + string.Join("\n", failures));
@@ -58,7 +61,7 @@ namespace HockeyGame.Core.Tests
         }
 
         /// <summary>One Shot played through to the puck's arrival. Null when it meets the gear (a save) or passes clear of it.</summary>
-        string Shoot(Vector3 eye, GoaliePose pose, double x, double y, double kmh, ref int saves, ref int clear)
+        string Shoot(Vector3 eye, GoaliePose pose, double x, double y, double kmh, bool usb, ref int saves, ref int clear)
         {
             NetBuilder.Build(_rink.transform);
             _camera.transform.position = eye;
@@ -76,7 +79,9 @@ namespace HockeyGame.Core.Tests
             view.SetProgress(0f);
             round.SubmitShot(x, y, kmh, false);
             ShotResultKind kind = round.LastResult.Value.Kind;
-            effects.Update(round, 0f); // the Shot frame: the puck starts and the Round learns its flight
+            // The Shot frame (the Round has ticked already): the puck starts and the Round learns its flight.
+            effects.Update(round, usb ? Frame : 0f);
+            view.SetProgress((float)Breakaway.GoalieSet(round.Phase, round.PhaseSecondsElapsed, true, round.ResultDelaySeconds));
             Vector3 last = puck.position;
             float flown = 0f;
             for (int i = 0; i < 120; i++)
@@ -87,10 +92,12 @@ namespace HockeyGame.Core.Tests
                 flown += dt;
                 round.Tick(dt);
                 effects.Update(round, dt);
-                view.SetProgress((float)Breakaway.GoalieSet(round.Phase, round.PhaseSecondsElapsed, true, round.ResultDelaySeconds));
+                float set = (float)Breakaway.GoalieSet(round.Phase, round.PhaseSecondsElapsed, true, round.ResultDelaySeconds);
+                view.SetProgress(set);
                 Vector3 now = puck.position;
                 if (effects.PuckArrivedThisFrame)
                 {
+                    if (set < 0.999f) return kind + ": the goalie is only " + set.ToString("F2") + " into the reaction when the puck gets there";
                     if (kind != ShotResultKind.Save) return Clear(character, last, now, ref clear, "arriving");
                     // Touching the gear as shown when the puck gets there: not short of it, not where it is still going.
                     List<Triangle> near = GoalieTriangles.Near(GoalieTriangles.Of(character), new Bounds(now, Vector3.zero), 0.1f);

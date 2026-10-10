@@ -72,7 +72,7 @@ namespace HockeyGame.Core.Tests
                 // The frame the puck gets there ends just as it does, so Contact is where it met the gear, before any rebound.
                 float left = (float)round.ResultDelaySeconds - flown;
                 float dt = !arrived && i > 0 && left < Frame ? left + 1e-5f : Frame;
-                flown += dt;
+                if (i > 0) flown += dt; // the puck starts on the Shot frame without moving
                 effects.Update(round, dt);
                 round.Tick(dt);
                 if (round.Phase != RoundPhase.ResultHold) break;
