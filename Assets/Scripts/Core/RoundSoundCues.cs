@@ -153,20 +153,8 @@ namespace HockeyGame.Core
             _pendingContact = null;
         }
 
-        /// <summary>
-        /// What stopped a Save at this Net Face position. Bottom row: the leg pads. Top row: the catching glove on the
-        /// shooter's right (the goalie's left hand faces the shooter on that side), the blocker on the shooter's left.
-        /// Middle Zones pick the nearer one: the middle row is pad below half height, else a hand; the middle column is
-        /// the blocker left of half width, else the glove.
-        /// </summary>
-        public static SoundCue SaveContact(double x, double y)
-        {
-            int row = Zones.Row(y);
-            if (row == 0 || (row == 1 && y < 50.0)) return SoundCue.SaveImpact;
-            int column = Zones.Column(x);
-            bool gloveSide = column == 2 || (column == 1 && x >= 50.0);
-            return gloveSide ? SoundCue.GloveCatch : SoundCue.BlockerHit;
-        }
+        /// <summary>What stops a Save at this Net Face position: the gear of its Save Reaction (SaveReactions).</summary>
+        public static SoundCue SaveContact(double x, double y) => SaveReactions.Sound(SaveReactions.For(x, y));
 
         /// <summary>Whole-second ticks before the last second of the window (tick 0 when it opens).</summary>
         private static int SlowTickCount(double windowSeconds) => (int)Math.Ceiling(windowSeconds - 1.0 - 1e-9);

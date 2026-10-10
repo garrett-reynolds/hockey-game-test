@@ -41,16 +41,20 @@ The side the player approaches the net from on one Shot: left, middle, or right.
 _Avoid_: Angle, lane
 
 **Goalie Pose**:
-The way the goalie sets up for one Shot. Each Attack Side has its own Goalie Poses, and each pose fixes which Zones are Open, Covered, or Contested. Left and right are always from the shooter's view. The goalie only moves into it when the Shot is taken, so the player cannot read it before shooting (see docs/adr/0001).
+The Round's hidden setup for one Shot. Each Attack Side has its own Goalie Poses, and each pose fixes which Zones are Open, Covered, or Contested, so it decides whether the Shot is a Save, a Goal or a Miss. Left and right are always from the shooter's view. The goalie character never shows it: the player sees the Ready Stance and then the goalie's reaction to where the Shot goes (see docs/adr/0002). Only the developer block goalie (forceGoalieBlocks) draws it.
 _Avoid_: Stance (on its own it is ambiguous: say Goalie Pose or Ready Stance), position
 
 **Ready Stance**:
-The goalie's crouch before the Shot, the same for every Goalie Pose and Attack Side. The goalie holds it through the skate-in and slow-down, reacts out of it on the Shot, and keeps it when there is no Shot in time. In it the goalie turns on its spot to face the shooter (up to 30 degrees either way). On the Shot it keeps all of that turn: every Goalie Pose is shaped so that, squared up to the shooter, it still reads as its Zones from the shooter's eye.
+The goalie's crouch before the Shot, the same for every Goalie Pose and Attack Side. The goalie holds it through the skate-in and slow-down, reacts out of it on the Shot, and keeps it when there is no Shot in time. In it the goalie turns on its spot to face the shooter (up to 30 degrees either way), and it keeps that turn through its reaction.
 _Avoid_: Neutral pose, idle pose
+
+**Save Reaction**:
+What the goalie character does on a Save, chosen only from where the Shot meets the Net Face: a glove save (the catching glove, on the shooter's right, mid to high), a blocker save (the blocker, on the shooter's left, mid to high), a pad save (low: the pad on the puck's side, down in the butterfly or standing), a stick save (along the ice through the middle) or a body save (the middle). The chosen gear reaches the puck's line, the puck stops on it, and the save sound and the rebound are that gear's. The same point always gets the same reaction, whatever the Goalie Pose. On a Goal or a Miss the goalie only reaches toward the puck and never touches it.
+_Avoid_: Save pose, save animation
 
 **Miss**:
 A Shot that does not reach the Net Face, or no Shot in time. It uses one of the Round's 6 Shots.
 
 **Frame Hit**:
-A Miss whose position lands on a post or the crossbar: just outside the Net Face, within the frame's 0.08 m thickness. It pings and the puck deflects off the frame, but it is still a Miss. When the goalie's gear stands in front of the frame on the puck's line (a post-hugging pad, seen from close in), the puck knocks off that gear instead and the sound is that gear's, not the ping; it is still a Miss. Likewise a Save the puck meets on the stick or a skate sounds like the stick or skate, whatever gear its Zone names.
+A Miss whose position lands on a post or the crossbar: just outside the Net Face, within the frame's 0.08 m thickness. It pings and the puck deflects off the frame, but it is still a Miss. The goalie's reach on a Miss keeps off the puck, so a Frame Hit always rings off the frame. Should the stick, the blocker or a skate stand in front of a Save Reaction's gear on the puck's line, the puck stops on that and sounds like it.
 _Avoid_: Iron, post shot

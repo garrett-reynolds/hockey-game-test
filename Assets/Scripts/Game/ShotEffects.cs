@@ -75,7 +75,7 @@ namespace HockeyGame
         bool _onGoalie;          // the save stops on the goalie character's gear
         PuckObstacles _obstacles; // the frame (and posed goalie) a deflected puck can hit
         PuckMotion _motion;
-        static readonly string[] LineGear = { GearPiece.Stick, GearPiece.LeftSkate, GearPiece.RightSkate };
+        static readonly string[] LineGear = { GearPiece.Stick, GearPiece.Blocker, GearPiece.LeftSkate, GearPiece.RightSkate };
         static readonly string[] GoalieGear = { GearPiece.LeftPad, GearPiece.RightPad, GearPiece.Blocker, GearPiece.Catcher, GearPiece.Stick,
             GearPiece.LeftSkate, GearPiece.RightSkate, GearPiece.Mask, GearPiece.Visor, GearPiece.Body };
         bool _hasContact;         // a Save or a Frame Hit: the puck deflects off this surface (worked out in Play)
@@ -160,9 +160,9 @@ namespace HockeyGame
                 : NetFrame.At(result.X, result.Y) != FrameHit.None ? FrameFrontZ : 0f; // a Frame Hit stops on the frame's face
             _target = new Vector3((float)right, (float)up, z);
             _netPoint = new Vector3((float)right, (float)up, 0f);
-            bool onGoalie = false; // a save on the goalie character stops on its gear, with no save block
-            if (result.Kind == ShotResultKind.Save && _goalie != null
-                && _goalie.SaveStop(_start, _netPoint, RoundSoundCues.SaveContact(result.X, result.Y), PuckThickness, out Vector3 stop))
+            _goalie?.React(result, _start); // the goalie character's Save Reaction (or reach) to where this Shot goes
+            bool onGoalie = false; // a save on the goalie character stops on its reaction's gear, with no save block
+            if (result.Kind == ShotResultKind.Save && _goalie != null && _goalie.SaveStop(_start, _netPoint, PuckThickness, out Vector3 stop))
             {
                 _target = stop;
                 onGoalie = true;
@@ -171,7 +171,7 @@ namespace HockeyGame
             _obstacles = null;
             if (result.Kind == ShotResultKind.Save || NetFrame.At(result.X, result.Y) != FrameHit.None)
             {
-                // Measured now, on the goalie's full pose, so the rebound meets the gear where the save was made.
+                // Measured now, on the goalie's reaction as it ends, so the rebound meets the gear where the save was made.
                 _obstacles = new PuckObstacles();
                 NetBuilder.AddFrame(_obstacles);
                 _goalie?.AddObstacles(_obstacles);
@@ -181,11 +181,11 @@ namespace HockeyGame
             if (((onGoalie && RoundSoundCues.SaveContact(result.X, result.Y) != SoundCue.GloveCatch) || frameHit)
                 && _obstacles.Cast(_start, _target, PuckThickness / 2f, out Vector3 first, out _contactNormal, out _contactSurface, frameHit ? GoalieGear : LineGear))
             {
-                // A Frame Hit the goalie's gear is in front of (a post-hugging pad): it knocks off that gear, still a Miss.
+                // A Frame Hit the goalie's gear is in front of: it knocks off that gear, still a Miss. (A Miss reach keeps off
+                // the puck's line, #42, so this only guards against gear left on it.)
                 if (_contactSurface == PuckSurface.Catcher) _contactSurface = PuckSurface.Body; // no catch on a Miss
-                // The stick or a skate is on the puck line in front of the gear that makes the save: the puck stops there, not
-                // through it, and deflects off its real face. Only gear the save sound never names (the pads, blocker and catching
-                // glove keep their stop on SaveStop's line); the catching glove always catches.
+                // The stick or a skate is on the puck line in front of the Save Reaction's gear: the puck stops there, not
+                // through it, and deflects off its real face. The catching glove always catches.
                 _target = first;
                 onLine = true;
             }
@@ -310,7 +310,7 @@ namespace HockeyGame
             if (result.Kind == ShotResultKind.Save)
             {
                 SoundCue contact = RoundSoundCues.SaveContact(result.X, result.Y);
-                if (_onGoalie && _goalie.SaveSurface(_obstacles, _target, _netPoint, contact, out _contactNormal, out _contactSurface)) return;
+                if (_onGoalie && _goalie.SaveSurface(_obstacles, _target, out _contactNormal, out _contactSurface)) return;
                 // The save block: its face is square to the shooter; the gear it stands for decides the feel.
                 _contactNormal = Vector3.back;
                 _contactSurface = contact == SoundCue.GloveCatch ? PuckSurface.Catcher : contact == SoundCue.BlockerHit ? PuckSurface.Blocker : PuckSurface.Pad;

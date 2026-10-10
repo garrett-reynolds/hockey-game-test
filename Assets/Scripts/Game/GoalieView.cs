@@ -8,8 +8,9 @@ namespace HockeyGame
     /// The goalie: the rigged goalie character when there is one, otherwise the block goalie, plus the Easy mode glow.
     /// All six Goalie Poses are built once as blocks from the pose table (Covered Zone = block filling the Zone,
     /// Contested Zone = smaller block, Open Zone = nothing); showing a pose enables its group and disables the rest.
-    /// The blocks stay in the scene as the rules reference; with the character they are not drawn, and the character
-    /// takes the pose instead, set by the same blend. No colliders.
+    /// The blocks stay in the scene as the rules reference; with the character they are not drawn. The character never shows
+    /// the Goalie Pose: it holds the Ready Stance and on the Shot moves into a Save Reaction chosen from where the Shot goes
+    /// (React), set by the same blend (docs/adr/0002). No colliders.
     /// </summary>
     public sealed class GoalieView
     {
@@ -33,7 +34,7 @@ namespace HockeyGame
         bool _visible;
         readonly GoalieCharacter _character; // null or without a model: the blocks are drawn
 
-        /// <param name="character">The goalie character to pose; null (or no model) draws the blocks instead.</param>
+        /// <param name="character">The goalie character; null (or no model) draws the blocks instead.</param>
         public GoalieView(Transform parent, GoalieCharacter character = null)
         {
             _character = character != null && character.Present ? character : null;
@@ -110,7 +111,10 @@ namespace HockeyGame
             _glow.SetFloat("_ZTest", (float)(_set > 0f ? CompareFunction.LessEqual : CompareFunction.Always));
         }
 
-        /// <summary>How far the goalie has moved into the pose: 0 = Ready Stance / neutral shape, 1 = fully posed (the default).</summary>
+        /// <summary>
+        /// How far the goalie has moved out of the Ready Stance: 0 = Ready Stance / neutral block shapes, 1 = fully into the
+        /// reaction (the character) or the pose's blocks (the default).
+        /// </summary>
         public void SetProgress(float progress)
         {
             if (!Mathf.Approximately(progress, _set))
@@ -124,9 +128,9 @@ namespace HockeyGame
 
         /// <summary>
         /// Which way the goalie character faces (degrees about the vertical, + toward the shooter's left; see GoalieTurn):
-        /// `ready` is where it has turned so far in the Ready Stance; `target` squares up to the shooter. Reacting into the
-        /// pose, it finishes the turn to the target, so it stays squared up to the shooter (every pose is shaped to read as the
-        /// pose table turned, #40). The blocks never turn.
+        /// `ready` is where it has turned so far in the Ready Stance; `target` squares up to the shooter. Reacting, it
+        /// finishes the turn to the target, so it stays squared up to the shooter (#39); React builds the reaction there. The
+        /// blocks never turn.
         /// </summary>
         public void Face(float ready, float target)
         {
@@ -135,12 +139,12 @@ namespace HockeyGame
             PoseCharacter();
         }
 
-        /// <summary>The facing the pose ends at: the target, within the turn cap (GoalieTurn.MaxDegrees).</summary>
+        /// <summary>The facing the reaction ends at: the target, within the turn cap (GoalieTurn.MaxDegrees).</summary>
         float PosedFacing() => Mathf.Clamp(_target, -(float)GoalieTurn.MaxDegrees, (float)GoalieTurn.MaxDegrees);
 
         void PoseCharacter()
         {
-            if (_character != null && _visible) _character.Pose((GoaliePose)_shown, _set, Mathf.Lerp(_ready, PosedFacing(), _set));
+            if (_character != null && _visible) _character.Pose(_set, Mathf.Lerp(_ready, PosedFacing(), _set));
         }
 
         void PlaceSetBlocks(int pose)
@@ -183,77 +187,75 @@ namespace HockeyGame
             }
             if (_character == null) return;
             _character.Show(_visible);
-            if (_visible) _character.Prepare((GoaliePose)_shown); // measured now, at the Round start, not on the Shot
+            if (_visible) _character.Prepare(); // measured now, at the Round start, not on the Shot
             PoseCharacter();
         }
 
         /// <summary>
-        /// Where a saved puck flying from `from` to `netPoint` stops when the goalie character is shown: just in front of the
-        /// gear that made the save (the same pad, catcher or blocker the save sound picks), on the puck's line. The gear is
-        /// where the Goalie Pose and the turn to the shooter put it, even while the goalie is still in the Ready Stance or reacting.
-        /// False with no character shown (the save block is used instead).
+        /// On the Shot: the goalie character's reaction to this result, the puck flying from `from` (world space) to the
+        /// Shot's Net Face point. A Save gets the Save Reaction of its point (SaveReactions), its gear reaching the puck's
+        /// line; a Goal or a Miss gets a reach that stays off the puck (#43). Built at the facing the reaction ends at; shown
+        /// by SetProgress. Nothing for no Shot or no character shown.
         /// </summary>
-        public bool SaveStop(Vector3 from, Vector3 netPoint, SoundCue contact, float puckThickness, out Vector3 stop)
+        public void React(ShotResult result, Vector3 from)
+        {
+            _reacted = false;
+            if (_character == null || !_visible || !result.HasShot) return;
+            NetFaceMapping.ToMetres(result.X, result.Y, out double right, out double up);
+            var netPoint = new Vector3((float)right, (float)up, 0f);
+            _character.React(SaveReactions.For(result.X, result.Y), from, netPoint, PosedFacing(), result.Kind == ShotResultKind.Save);
+            _reacted = true;
+            _reaction = new PuckObstacles();
+            _character.AddReaction(_reaction);
+            PoseCharacter();
+        }
+
+        bool _reacted;
+        PuckObstacles _reaction; // the reaction's gear and body, from React
+
+        /// <summary>The piece of gear the Save Reaction put on the puck's line (GearPiece), or null.</summary>
+        public string ReactionPiece => _reacted ? _character.ReactionPiece : null;
+
+        /// <summary>
+        /// Where a saved puck flying from `from` to `netPoint` stops when the goalie character is shown: where it first meets
+        /// the Save Reaction's gear (React) on its line, as the goalie stands once the reaction ends (it is asked for on the
+        /// Shot, before the goalie has moved). False with no character shown or no Save Reaction (the save block is used instead).
+        /// </summary>
+        public bool SaveStop(Vector3 from, Vector3 netPoint, float puckThickness, out Vector3 stop)
         {
             stop = default;
-            if (_character == null || !_visible) return false;
-            // Measured on the full pose and turn: the save is asked for on the Shot, before the goalie has reacted.
-            if (!PosedGear(contact, netPoint, out Bounds gear)) return false;
+            string piece = ReactionPiece;
+            if (piece == null) return false;
+            if (_reaction.Cast(GoalieCharacter.NearGoalie(from, netPoint), netPoint, puckThickness / 2f, out stop, out _, out _, new[] { piece })) return true;
+            // The gear stops short of the line (out of reach): just in front of it, on the line.
+            if (piece == GearPiece.Body || !_character.ReactionGearBounds(piece, out Bounds gear)) return false;
             float z = gear.min.z - puckThickness / 2f;
             float t = Mathf.Approximately(netPoint.z, from.z) ? 1f : Mathf.Clamp01((z - from.z) / (netPoint.z - from.z));
             stop = Vector3.Lerp(from, netPoint, t);
             return true;
         }
 
-        bool PosedGear(SoundCue contact, Vector3 netPoint, out Bounds gear)
-        {
-            gear = default;
-            string piece = SavePiece(contact, netPoint);
-            return piece != null && PosedBounds(piece, out gear);
-        }
-
-        /// <summary>A gear piece's world bounds on the full pose and turn (as the goalie stands once the reaction ends).</summary>
-        bool PosedBounds(string piece, out Bounds bounds) => _character.PosedGearBounds((GoaliePose)_shown, PosedFacing(), piece, out bounds);
-
-        /// <summary>The gear piece that makes a save (the same one the save sound picks); null if it is missing.</summary>
-        string SavePiece(SoundCue contact, Vector3 netPoint)
-        {
-            if (contact == SoundCue.GloveCatch) return GearPiece.Catcher;
-            if (contact == SoundCue.BlockerHit) return GearPiece.Blocker;
-            // A pad save: the pad nearer the puck's spot.
-            if (!PosedBounds(GearPiece.LeftPad, out Bounds a) || !PosedBounds(GearPiece.RightPad, out Bounds b)) return null;
-            return Mathf.Abs(a.center.x - netPoint.x) < Mathf.Abs(b.center.x - netPoint.x) ? GearPiece.LeftPad : GearPiece.RightPad;
-        }
-
         /// <summary>
-        /// Adds the goalie character's gear and body to what the puck can hit, measured on the full pose (like SaveStop).
-        /// False (nothing added) with no character shown.
+        /// Adds the goalie character's gear and body to what the puck can hit, as the reaction ends (like SaveStop).
+        /// False (nothing added) with no character shown or no reaction yet.
         /// </summary>
         public bool AddObstacles(PuckObstacles obstacles)
         {
-            if (_character == null || !_visible) return false;
-            _character.AddPosed(obstacles, (GoaliePose)_shown, PosedFacing());
+            if (_character == null || !_visible || !_reacted) return false;
+            _character.AddReaction(obstacles);
             return true;
         }
 
         /// <summary>
         /// The surface a save at `stop` (from SaveStop) is made on, and its outward normal there: the nearest real surface
-        /// of the gear that made the save. A pad save is made on the stick instead when the stick is nearer the stop than
-        /// the pad (the blade lies across the pads near the ice). obstacles: from AddObstacles.
+        /// of the Save Reaction's gear. obstacles: from AddObstacles.
         /// </summary>
-        public bool SaveSurface(PuckObstacles obstacles, Vector3 stop, Vector3 netPoint, SoundCue contact, out Vector3 normal, out PuckSurface surface)
+        public bool SaveSurface(PuckObstacles obstacles, Vector3 stop, out Vector3 normal, out PuckSurface surface)
         {
             normal = Vector3.back;
             surface = PuckSurface.Pad;
-            if (_character == null || !_visible) return false;
-            string piece = SavePiece(contact, netPoint);
-            if (piece == null || !obstacles.Nearest(stop, piece, out normal, out surface, out float distance)) return false;
-            if (contact == SoundCue.SaveImpact && obstacles.Nearest(stop, GearPiece.Stick, out Vector3 blade, out PuckSurface stick, out float toStick) && toStick < distance)
-            {
-                normal = blade;
-                surface = stick;
-            }
-            return true;
+            string piece = ReactionPiece;
+            return piece != null && obstacles.Nearest(stop, piece, out normal, out surface);
         }
 
         static bool IsOpen(GoaliePose pose, int column, int row)

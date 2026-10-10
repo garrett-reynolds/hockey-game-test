@@ -95,7 +95,7 @@ namespace HockeyGame.Core.Tests
             var round = StartedRound();
             var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.8);
-            round.SubmitShot(50, 10, 100, false);        // Covered bottom row
+            round.SubmitShot(20, 10, 100, false);        // Covered bottom row: a pad save
             round.DelayResult(0.5);
             cues.Update(round, false);
             CollectionAssert.AreEquivalent(new[] { SoundCue.SaveImpact, SoundCue.Groan }, cues.Update(round, true));
@@ -209,17 +209,17 @@ namespace HockeyGame.Core.Tests
             CollectionAssert.AreEquivalent(new[] { SoundCue.BlockerHit, SoundCue.Groan }, heard);
         }
 
-        // Middle Zones pick the nearer of pad, glove and blocker: the middle row splits at half height (pad below),
-        // the middle column at half width (blocker left, glove right).
+        // The sound is the Save Reaction's gear (SaveReactions): pads low, the body in the middle, the stick along the ice
+        // through the middle, else the blocker on the shooter's left and the glove on the right.
         [TestCase(55, 85, SoundCue.GloveCatch, TestName = "Top centre, right of middle: glove")]
         [TestCase(45, 85, SoundCue.BlockerHit, TestName = "Top centre, left of middle: blocker")]
         [TestCase(85, 60, SoundCue.GloveCatch, TestName = "Middle right, upper half: glove")]
         [TestCase(15, 60, SoundCue.BlockerHit, TestName = "Middle left, upper half: blocker")]
-        [TestCase(40, 60, SoundCue.BlockerHit, TestName = "Centre, upper half, left: blocker")]
-        [TestCase(85, 40, SoundCue.SaveImpact, TestName = "Middle right, lower half: pad")]
-        [TestCase(15, 40, SoundCue.SaveImpact, TestName = "Middle left, lower half: pad")]
-        [TestCase(50, 40, SoundCue.SaveImpact, TestName = "Centre, lower half: pad")]
-        public void Save_in_a_middle_Zone_sounds_the_nearer_body_part(double x, double y, SoundCue expected)
+        [TestCase(40, 60, SoundCue.SaveImpact, TestName = "Centre, upper half, left: body")]
+        [TestCase(85, 35, SoundCue.SaveImpact, TestName = "Middle right, low: pad")]
+        [TestCase(15, 35, SoundCue.SaveImpact, TestName = "Middle left, low: pad")]
+        [TestCase(50, 45, SoundCue.SaveImpact, TestName = "Centre, lower half: body")]
+        public void Save_in_a_middle_Zone_sounds_the_save_reaction_s_gear(double x, double y, SoundCue expected)
         {
             var round = StandUpRound();
             var heard = ArrivalCues(round, x, y);
@@ -244,7 +244,7 @@ namespace HockeyGame.Core.Tests
             var round = StartedRound();
             var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.8);
-            round.SubmitShot(50, 10, 10, false);         // very slow: the puck flies 2.9 s
+            round.SubmitShot(20, 10, 10, false);         // very slow: the puck flies 2.9 s
             round.DelayResult(2.9);
             var inFlight = Run(round, cues, 2.8);
             Assert.IsFalse(inFlight.Contains(SoundCue.SaveImpact));

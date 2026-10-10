@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using HockeyGame;
 using NUnit.Framework;
 using UnityEngine;
+using Triangle = HockeyGame.Core.Tests.GoalieTriangles.Triangle;
 
 namespace HockeyGame.Core.Tests
 {
@@ -42,6 +43,7 @@ namespace HockeyGame.Core.Tests
             public readonly List<Quaternion> Turns = new List<Quaternion>();
             public bool Visible = true;     // shown through the whole hold
             public SoundCue? Sound;         // ShotEffects.ContactSound on the arrival frame
+            public PuckSurface? Surface;    // ShotEffects.ContactSurface on the arrival frame
             public Vector3 Leaving => Path[6] - Contact; // over the first 0.1 s
         }
 
@@ -67,7 +69,7 @@ namespace HockeyGame.Core.Tests
                 effects.Update(round, Frame);
                 round.Tick(Frame);
                 if (round.Phase != RoundPhase.ResultHold) break;
-                if (effects.PuckArrivedThisFrame) { arrived = true; run.Contact = puck.position; run.Sound = effects.ContactSound; continue; }
+                if (effects.PuckArrivedThisFrame) { arrived = true; run.Contact = puck.position; run.Sound = effects.ContactSound; run.Surface = effects.ContactSurface; continue; }
                 if (!arrived) continue;
                 run.Path.Add(puck.position);
                 run.Turns.Add(puck.rotation);
@@ -107,7 +109,7 @@ namespace HockeyGame.Core.Tests
         public void A_pad_save_leaves_the_way_the_pad_faces_where_the_puck_met_it()
         {
             var character = new GoalieCharacter(_rink.transform);
-            Run run = Shoot(GoaliePose.MiddleButterfly, 10, 15, character: character);
+            Run run = Shoot(GoaliePose.MiddleButterfly, 10, 30, character: character); // a standing pad save, the pad upright
             Assert.AreEqual(ShotResultKind.Save, run.Kind);
             Vector3 facing = GearFacing(character, GearPiece.RightPad, run.Contact); // the goalie's right pad is on the shooter's left
             Assert.Greater(Vector3.Dot(run.Leaving.normalized, facing), 0.3f, "away from the pad face");
@@ -143,20 +145,56 @@ namespace HockeyGame.Core.Tests
             var character = new GoalieCharacter(_rink.transform);
             Run run = Shoot(StickPose, StickX, StickY, character: character);
             Assert.AreEqual(ShotResultKind.Save, run.Kind);
-
-            var probe = new GoalieView(_rink.transform, character);
-            probe.Show(true, StickPose, false);
-            var obstacles = new PuckObstacles();
-            probe.AddObstacles(obstacles);
-            NetFaceMapping.ToMetres(StickX, StickY, out double right, out double up);
-            Assert.IsTrue(probe.SaveSurface(obstacles, run.Contact, new Vector3((float)right, (float)up, 0f), SoundCue.SaveImpact, out _, out PuckSurface surface));
-            Assert.AreEqual(PuckSurface.Stick, surface, "made on the stick");
-            Assert.AreEqual(SoundCue.BlockerHit, run.Sound, "sounds like the stick (wood), not the pad the Zone names");
+            Assert.AreEqual(PuckSurface.Stick, run.Surface, "made on the stick");
+            Assert.AreEqual(SoundCue.BlockerHit, run.Sound, "sounds like the stick (wood)");
             Assert.Greater(Vector3.Dot(run.Leaving.normalized, GearFacing(character, GearPiece.Stick, run.Contact)), 0.2f, "away from the blade");
 
             float highest = float.NegativeInfinity;
             foreach (Vector3 p in run.Path) highest = Mathf.Max(highest, p.y);
             Assert.Less(highest, run.Contact.y + 0.03f, "never rises off the blade");
+        }
+
+        // One Save for each Save Reaction, each in a Zone its pose covers, and the surface the puck must meet (the test's own table).
+        static readonly (GoaliePose pose, double x, double y, PuckSurface surface)[] ReactionSaves =
+        {
+            (GoaliePose.MiddleStandUp, 88, 82, PuckSurface.Catcher),
+            (GoaliePose.MiddleStandUp, 12, 82, PuckSurface.Blocker),
+            (GoaliePose.MiddleButterfly, 15, 15, PuckSurface.Pad),
+            (GoaliePose.MiddleButterfly, 85, 25, PuckSurface.Pad),
+            (GoaliePose.MiddleButterfly, 50, 5, PuckSurface.Stick),
+            (GoaliePose.MiddleStandUp, 50, 55, PuckSurface.Body),
+        };
+
+        [Test]
+        public void The_puck_meets_the_save_reaction_s_gear_and_sounds_and_deflects_like_it()
+        {
+            foreach (var (pose, x, y, surface) in ReactionSaves)
+            {
+                TearDown();
+                SetUp();
+                var character = new GoalieCharacter(_rink.transform);
+                Run run = Shoot(pose, x, y, character: character);
+                string where = "(" + x + ", " + y + ")";
+                Assert.AreEqual(ShotResultKind.Save, run.Kind, where);
+                Assert.AreEqual(surface, run.Surface, where + ": the puck meets the reaction's gear");
+                Assert.AreEqual(Expected(surface), run.Sound, where + ": and sounds like it");
+                Assert.AreEqual(RoundSoundCues.SaveContact(x, y), run.Sound, where + ": the save sound is the reaction's");
+                // Touching the gear where the reaction put it: not short of it.
+                List<Triangle> goalie = GoalieTriangles(character);
+                float nearest = float.MaxValue;
+                foreach (Triangle t in Core.Tests.GoalieTriangles.Near(goalie, new Bounds(run.Contact, Vector3.zero), 0.1f))
+                    nearest = Mathf.Min(nearest, Vector3.Distance(run.Contact, ClosestPoint(t, run.Contact)));
+                Assert.Less(nearest, 0.06f, where + ": touching the gear (nearest goalie point " + nearest.ToString("F3") + " m)");
+            }
+        }
+
+        /// <summary>The nearest of a triangle's corners, edge middles and centre to p (close enough for a "touching" check).</summary>
+        static Vector3 ClosestPoint(Triangle t, Vector3 p)
+        {
+            Vector3 best = t.A;
+            foreach (Vector3 q in new[] { t.B, t.C, (t.A + t.B) / 2f, (t.B + t.C) / 2f, (t.C + t.A) / 2f, (t.A + t.B + t.C) / 3f })
+                if ((q - p).sqrMagnitude < (best - p).sqrMagnitude) best = q;
+            return best;
         }
 
         /// <summary>The result sound a test expects for each surface (its own table, not ShotEffects.SoundOf).</summary>
@@ -167,50 +205,50 @@ namespace HockeyGame.Core.Tests
             : SoundCue.SaveImpact;
 
         [Test]
-        public void A_Frame_Hit_the_goalie_s_gear_is_in_front_of_sounds_like_that_gear_not_the_post_and_is_still_a_Miss()
+        public void A_Frame_Hit_rings_off_the_frame_as_the_goalie_s_reach_keeps_off_the_puck_and_it_is_still_a_Miss()
         {
-            int blocked = 0, frameHits = 0;
+            int frameHits = 0;
             foreach (TestCaseData c in AllSaves())
             {
                 var pose = (GoaliePose)c.Arguments[0];
                 double x = (double)c.Arguments[1], y = (double)c.Arguments[2];
                 if (NetFrame.At(x, y) == FrameHit.None) continue;
-                TearDown();
-                SetUp();
-                PlaceShooter(pose, true); // 3 m out: post-hugging gear covers the post from here (#38)
-                NetBuilder.Build(_rink.transform);
-                var view = new GoalieView(_rink.transform, new GoalieCharacter(_rink.transform));
-                var effects = new ShotEffects(_rink.transform, _camera.GetComponent<Camera>(), null, view);
-                var round = new Round(ScriptedRandom.Forcing(pose), new RoundSettings(), 0);
-                round.StartRound();
-                round.Tick(3.7);
-                view.Show(true, round.GoaliePose, false);
-                float facing = GoalieCharacter.FacingToward(_camera.transform.position);
-                view.Face(facing, facing);
-                round.SubmitShot(x, y, 100, false);
-                effects.Update(round, Frame); // the Shot frame: the contact is known from here
-                string where = pose + " (" + x.ToString("F1") + ", " + y.ToString("F1") + ")";
-                Assert.AreEqual(ShotResultKind.Miss, round.LastResult.Value.Kind, where);
-                Assert.IsTrue(effects.ContactSurface.HasValue, where);
-                PuckSurface surface = effects.ContactSurface.Value;
-                Assert.AreEqual(Expected(surface), effects.ContactSound, where + " off " + surface);
-                frameHits++;
-                if (surface != PuckSurface.Frame) blocked++;
+                foreach (bool close in new[] { false, true })
+                {
+                    TearDown();
+                    SetUp();
+                    PlaceShooter(pose, close); // from 3 m, post-hugging gear used to cover the post (#38)
+                    NetBuilder.Build(_rink.transform);
+                    var view = new GoalieView(_rink.transform, new GoalieCharacter(_rink.transform));
+                    var effects = new ShotEffects(_rink.transform, _camera.GetComponent<Camera>(), null, view);
+                    var round = new Round(ScriptedRandom.Forcing(pose), new RoundSettings(), 0);
+                    round.StartRound();
+                    round.Tick(3.7);
+                    view.Show(true, round.GoaliePose, false);
+                    float facing = GoalieCharacter.FacingToward(_camera.transform.position);
+                    view.Face(facing, facing);
+                    round.SubmitShot(x, y, 100, false);
+                    effects.Update(round, Frame); // the Shot frame: the contact is known from here
+                    string where = pose + " (" + x.ToString("F1") + ", " + y.ToString("F1") + ")" + (close ? " from 3 m" : "");
+                    Assert.AreEqual(ShotResultKind.Miss, round.LastResult.Value.Kind, where);
+                    Assert.AreEqual(PuckSurface.Frame, effects.ContactSurface, where);
+                    Assert.AreEqual(SoundCue.PostPing, effects.ContactSound, where);
+                    frameHits++;
+                }
             }
-            Assert.Greater(blocked, 0, "some Frame Hits are blocked by gear from 3 m");
-            Assert.Greater(frameHits - blocked, 0, "most still ring off the frame");
+            Assert.Greater(frameHits, 0);
         }
 
-        // A low Shot the stick blade is nearer than the pads (found with the posed gear).
+        // A Shot along the ice through the middle: a stick save (SaveReactions), in a Zone MiddleButterfly covers.
         const GoaliePose StickPose = GoaliePose.MiddleButterfly;
-        const double StickX = 70, StickY = 5;
+        const double StickX = 50, StickY = 5;
 
         [Test]
         public void Pad_blocker_stick_and_post_send_the_puck_off_in_different_directions()
         {
             var shots = new[]
             {
-                (GoaliePose.MiddleButterfly, 50.0, 15.0),                                  // pad (where the pads meet)
+                (GoaliePose.MiddleButterfly, 85.0, 30.0),                                  // pad (the goalie's left, standing)
                 (GoaliePose.MiddleStandUp, 10.0, 80.0),                                    // blocker
                 (StickPose, StickX, StickY),                                               // stick
                 (GoaliePose.MiddleStandUp, 100.0 + NetFrame.PostWidth * 0.75, 40.0),       // post
@@ -334,15 +372,7 @@ namespace HockeyGame.Core.Tests
         {
             var box = new Bounds(contact, Vector3.zero);
             foreach (Vector3 p in path) box.Encapsulate(p);
-            box.Expand(0.002f);
-            var near = new List<Triangle>();
-            foreach (Triangle t in triangles)
-            {
-                Vector3 min = Vector3.Min(t.A, Vector3.Min(t.B, t.C)), max = Vector3.Max(t.A, Vector3.Max(t.B, t.C));
-                if (min.x <= box.max.x && max.x >= box.min.x && min.y <= box.max.y && max.y >= box.min.y && min.z <= box.max.z && max.z >= box.min.z)
-                    near.Add(t);
-            }
-            return near;
+            return Core.Tests.GoalieTriangles.Near(triangles, box, 0.001f);
         }
 
         /// <summary>Within 5 cm of a goalie triangle corner or edge midpoint: resting in a crease of the gear.</summary>
@@ -362,58 +392,8 @@ namespace HockeyGame.Core.Tests
             return byPost || byBar;
         }
 
-        readonly struct Triangle
-        {
-            public readonly Vector3 A, B, C;
-            public Triangle(Vector3 a, Vector3 b, Vector3 c) { A = a; B = b; C = c; }
-        }
+        static List<Triangle> GoalieTriangles(GoalieCharacter character) => Core.Tests.GoalieTriangles.Of(character);
 
-        /// <summary>The posed gear and body (as the goalie stands now, fully set) in world space.</summary>
-        static List<Triangle> GoalieTriangles(GoalieCharacter character)
-        {
-            var list = new List<Triangle>();
-            foreach (MeshFilter f in character.Root.GetComponentsInChildren<MeshFilter>(true))
-            {
-                Vector3[] v = f.sharedMesh.vertices;
-                int[] t = f.sharedMesh.triangles;
-                for (int i = 0; i < t.Length; i += 3)
-                    list.Add(new Triangle(f.transform.TransformPoint(v[t[i]]), f.transform.TransformPoint(v[t[i + 1]]), f.transform.TransformPoint(v[t[i + 2]])));
-            }
-            var mesh = new Mesh();
-            foreach (SkinnedMeshRenderer body in character.Root.GetComponentsInChildren<SkinnedMeshRenderer>(true))
-            {
-                body.BakeMesh(mesh, true);
-                Matrix4x4 m = Matrix4x4.TRS(body.transform.position, body.transform.rotation, Vector3.one);
-                Vector3[] v = mesh.vertices;
-                int[] t = mesh.triangles;
-                for (int i = 0; i < t.Length; i += 3)
-                    list.Add(new Triangle(m.MultiplyPoint3x4(v[t[i]]), m.MultiplyPoint3x4(v[t[i + 1]]), m.MultiplyPoint3x4(v[t[i + 2]])));
-            }
-            Object.DestroyImmediate(mesh);
-            return list;
-        }
-
-        /// <summary>True when the straight move from a to b passes through a triangle.</summary>
-        static bool Crosses(List<Triangle> triangles, Vector3 a, Vector3 b)
-        {
-            Vector3 dir = b - a;
-            if (dir.sqrMagnitude < 1e-12f) return false;
-            foreach (Triangle tri in triangles)
-            {
-                Vector3 e1 = tri.B - tri.A, e2 = tri.C - tri.A, p = Vector3.Cross(dir, e2);
-                float det = Vector3.Dot(e1, p);
-                if (Mathf.Abs(det) < 1e-12f) continue;
-                float inv = 1f / det;
-                Vector3 s = a - tri.A;
-                float u = Vector3.Dot(s, p) * inv;
-                if (u < 0f || u > 1f) continue;
-                Vector3 q = Vector3.Cross(s, e1);
-                float v = Vector3.Dot(dir, q) * inv;
-                if (v < 0f || u + v > 1f) continue;
-                float t = Vector3.Dot(e2, q) * inv;
-                if (t >= 0f && t <= 1f) return true;
-            }
-            return false;
-        }
+        static bool Crosses(List<Triangle> triangles, Vector3 a, Vector3 b) => Core.Tests.GoalieTriangles.Crosses(triangles, a, b);
     }
 }

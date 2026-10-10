@@ -71,7 +71,7 @@ namespace HockeyGame.Core.Tests
             var problems = new List<string>();
             foreach (GoaliePose pose in System.Enum.GetValues(typeof(GoaliePose)))
             {
-                Vector3 eye = GoalieCoverageTests.Eyes(GoaliePoses.SideOf(pose)).First().Item2; // the window opens
+                Vector3 eye = ShooterEyes.Of(GoaliePoses.SideOf(pose)).First().Item2; // the window opens
                 float facing = GoalieCharacter.FacingToward(eye);
                 view.Show(true, pose, true);
                 view.Face(facing, facing);

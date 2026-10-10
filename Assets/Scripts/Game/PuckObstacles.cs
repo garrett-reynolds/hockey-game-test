@@ -30,6 +30,10 @@ namespace HockeyGame
         }
 
         readonly List<Vector3> _corners = new List<Vector3>();
+        readonly List<Vector3> _normals = new List<Vector3>(); // one per triangle (zero for a degenerate one), worked out once
+        Bounds _box;                                     // around every chunk (meshes only), when _meshes
+        bool _meshes;
+        readonly List<string> _pieces = new List<string>(); // the pieces its meshes are named
         readonly List<Chunk> _chunks = new List<Chunk>();
         readonly List<Tube> _tubes = new List<Tube>();
         readonly List<(PuckObstacles shape, Matrix4x4 toWorld, Matrix4x4 toLocal)> _placed = new List<(PuckObstacles, Matrix4x4, Matrix4x4)>();
@@ -37,7 +41,7 @@ namespace HockeyGame
         /// <summary>
         /// Adds another set of meshes (no tubes), built in its own space, placed by toWorld: a rigid move (turn and shift, no
         /// scale), so distances are the same in both spaces. Queries move into its space instead of every triangle moving out,
-        /// so a shape measured once (GoalieCharacter.AddPosed) costs nothing to place again.
+        /// so a shape measured once (GoalieCharacter.AddReaction) costs nothing to place again.
         /// </summary>
         public void AddPlaced(PuckObstacles shape, Matrix4x4 toWorld)
         {
@@ -58,8 +62,48 @@ namespace HockeyGame
                     _corners.Add(vertices[triangles[i]]);
                     chunk.Box.Encapsulate(vertices[triangles[i]]);
                 }
+                for (int i = t * 3; i < end * 3; i += 3)
+                {
+                    Vector3 a = vertices[triangles[i]];
+                    Vector3 n = Vector3.Cross(vertices[triangles[i + 1]] - a, vertices[triangles[i + 2]] - a);
+                    _normals.Add(n.sqrMagnitude < 1e-14f ? Vector3.zero : n.normalized);
+                }
                 _chunks.Add(chunk);
+                if (_meshes) _box.Encapsulate(chunk.Box);
+                else { _box = chunk.Box; _meshes = true; }
             }
+            if (!_pieces.Contains(piece)) _pieces.Add(piece);
+        }
+
+        /// <summary>
+        /// True when the puck's centre, moving from `from` to `to`, comes within `radius` of the bounding box of any mesh chunk
+        /// (tubes are not counted): a quick, cautious "may touch". False means it surely meets no mesh.
+        /// </summary>
+        public bool NearAnyMesh(Vector3 from, Vector3 to, float radius)
+        {
+            Vector3 move = to - from;
+            float length = move.magnitude;
+            if (length < 1e-7f) return false;
+            if (ChunksNear(from, move / length, length, radius)) return true;
+            foreach (var (shape, _, toLocal) in _placed)
+                if (shape._meshes && shape.ChunksNear(toLocal.MultiplyPoint3x4(from), toLocal.MultiplyVector(move / length), length, radius)) return true;
+            return false;
+        }
+
+        bool ChunksNear(Vector3 from, Vector3 dir, float length, float radius)
+        {
+            if (!_meshes) return false;
+            var ray = new Ray(from, dir);
+            Bounds all = _box;
+            all.Expand(2f * radius);
+            if (!all.IntersectRay(ray, out float enter) || enter > length) return false;
+            foreach (Chunk chunk in _chunks)
+            {
+                Bounds reach = chunk.Box;
+                reach.Expand(2f * radius);
+                if (reach.IntersectRay(ray, out enter) && enter <= length) return true;
+            }
+            return false;
         }
 
         /// <summary>Adds a round tube (a post or the crossbar) from a to b.</summary>
@@ -85,9 +129,15 @@ namespace HockeyGame
             CastChunks(from, to, dir, length, radius, pieces, ref best, ref normal, ref surface);
             foreach (var (shape, toWorld, toLocal) in _placed)
             {
+                if (!shape._meshes || (pieces != null && !shape.HasAny(pieces))) continue;
+                // Skip a placed set the line passes nowhere near (or only beyond the nearest hit so far).
+                Vector3 localFrom = toLocal.MultiplyPoint3x4(from), localDir = toLocal.MultiplyVector(dir);
+                Bounds reach = shape._box;
+                reach.Expand(2f * radius);
+                if ((!reach.IntersectRay(new Ray(localFrom, localDir), out float enter) || enter > length || enter >= best)) continue;
                 float before = best;
                 Vector3 n = default;
-                shape.CastChunks(toLocal.MultiplyPoint3x4(from), toLocal.MultiplyPoint3x4(to), toLocal.MultiplyVector(dir), length, radius, pieces, ref best, ref n, ref surface);
+                shape.CastChunks(localFrom, toLocal.MultiplyPoint3x4(to), localDir, length, radius, pieces, ref best, ref n, ref surface);
                 if (best < before) normal = toWorld.MultiplyVector(n);
             }
             foreach (Tube tube in _tubes)
@@ -103,24 +153,44 @@ namespace HockeyGame
             return true;
         }
 
+        bool HasAny(string[] pieces)
+        {
+            foreach (string piece in pieces)
+                if (_pieces.Contains(piece)) return true;
+            return false;
+        }
+
+        static readonly List<(float enter, int chunk)> NearChunks = new List<(float, int)>(); // CastChunks' scratch list
+
         /// <summary>Cast's test against this set's own triangles: improves best (distance along dir) and its normal and surface.</summary>
         void CastChunks(Vector3 from, Vector3 to, Vector3 dir, float length, float radius, string[] pieces, ref float best, ref Vector3 normal, ref PuckSurface surface)
         {
             Vector3 move = to - from;
             var sweep = new Bounds((from + to) / 2f, new Vector3(Mathf.Abs(move.x), Mathf.Abs(move.y), Mathf.Abs(move.z)) + Vector3.one * (2f * radius));
-            foreach (Chunk chunk in _chunks)
+            // Chunks the move's line passes within the radius of (a long move's sweep box holds most of the goalie), nearest
+            // first: where the line enters a chunk's box grown by the puck's size comes before any hit in it, so once a hit is
+            // nearer than the next chunk's entry, the rest cannot be nearer.
+            List<(float enter, int chunk)> near = NearChunks;
+            near.Clear();
+            for (int i = 0; i < _chunks.Count; i++)
             {
+                Chunk chunk = _chunks[i];
                 if (!chunk.Box.Intersects(sweep) || (pieces != null && System.Array.IndexOf(pieces, chunk.Piece) < 0)) continue;
-                // The move's line must pass within the radius of the box (a long move's sweep box holds most of the goalie).
                 Bounds reach = chunk.Box;
                 reach.Expand(2f * radius);
                 if (!reach.IntersectRay(new Ray(from, dir), out float enter) || enter > length) continue;
+                near.Add((Mathf.Max(0f, enter), i));
+            }
+            near.Sort((x, y) => x.enter.CompareTo(y.enter));
+            foreach (var (enter, index) in near)
+            {
+                if (enter >= best) break;
+                Chunk chunk = _chunks[index];
                 for (int t = chunk.First; t < chunk.First + chunk.Count; t++)
                 {
-                    Vector3 a = _corners[t * 3], b = _corners[t * 3 + 1], c = _corners[t * 3 + 2];
-                    Vector3 n = Vector3.Cross(b - a, c - a);
-                    if (n.sqrMagnitude < 1e-14f) continue;
-                    n.Normalize();
+                    Vector3 n = _normals[t];
+                    if (n.x == 0f && n.y == 0f && n.z == 0f) continue;
+                    Vector3 a = _corners[t * 3];
                     float height = Vector3.Dot(from - a, n);
                     if (height < 0f) { n = -n; height = -height; }
                     float closing = -Vector3.Dot(dir, n);
@@ -128,6 +198,7 @@ namespace HockeyGame
                     float d = Mathf.Max(0f, (height - radius) / closing);
                     if (d > length || d >= best) continue;
                     Vector3 onPlane = from + dir * d - n * Mathf.Min(height, radius);
+                    Vector3 b = _corners[t * 3 + 1], c = _corners[t * 3 + 2];
                     if (!Inside(onPlane, a, b, c, n))
                     {
                         // Not met face-on within the radius; the centre itself may still cross the triangle (it starts close
@@ -194,9 +265,12 @@ namespace HockeyGame
             NearestChunks(point, piece, ref best, ref normal, ref surface);
             foreach (var (shape, toWorld, toLocal) in _placed)
             {
+                if (!shape._meshes || (piece != null && !shape._pieces.Contains(piece))) continue;
+                Vector3 local = toLocal.MultiplyPoint3x4(point);
+                if (shape._box.SqrDistance(local) >= best) continue;
                 float before = best;
                 Vector3 n = default;
-                shape.NearestChunks(toLocal.MultiplyPoint3x4(point), piece, ref best, ref n, ref surface);
+                shape.NearestChunks(local, piece, ref best, ref n, ref surface);
                 if (best < before) normal = toWorld.MultiplyVector(n);
             }
             foreach (Tube tube in _tubes)

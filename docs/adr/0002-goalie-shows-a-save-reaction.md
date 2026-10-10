@@ -1,0 +1,14 @@
+# The goalie character shows a Save Reaction, not the Goalie Pose
+
+ADR 0001 kept the Round's Goalie Pose as what the goalie character moves into on the Shot. Garrett played the game on 2026-10-10 and found that this looks random: the goalie dives into a pose picked before the Shot, whatever the Shot does. Since #42 the character never shows the Goalie Pose. On the Shot it reacts to where the puck actually goes (a Save Reaction: glove, blocker, pads, stick or body, chosen only from the Shot's Net Face point), and on a Goal or a Miss it reaches toward the puck without touching it.
+
+The Goalie Pose still decides every Shot exactly as before (Round, Zones and the hidden blocks are unchanged), and it is still never shown before the Shot, so ADR 0001's reason stands: the player gets no hint. Only what the character shows after the Shot changed.
+
+## Consequences
+
+- The reaction keeps ADR 0001's timing: the Ready Stance until the Shot, then 0.2 s eased into the reaction, finished before the fastest puck arrives. TOO LATE keeps the Ready Stance. The Easy glow logic (drawn over the Ready Stance until the reaction starts) is unchanged.
+- The reaction is built on the Shot frame, from the puck's line, at the facing it ends at (squared up to the shooter, #39): two-bone IK reaches the catcher or blocker, the stick moves along the ice, a pad drops into the butterfly or is pushed across standing, the body is pushed across. The goalie may push up to 0.6 m across the crease.
+- The save stops where the puck's line first meets the reaction's gear, and the save sound (RoundSoundCues.SaveContact), the contact surface and the #38 rebound all use that gear. The gear can no longer be "the one the Zone names": a Save in a Covered Zone is made with whatever gear its point calls for.
+- To keep the Shot frame cheap, the gear and the body are measured once (the body baked in the Ready Stance and in the butterfly, split by the bone that carries each triangle) and only placed on the Shot. A reaching arm's sleeve is therefore a few centimetres off where it bends at the elbow or shoulder.
+- A Miss reach keeps off the puck's line, so a Frame Hit now always rings off the frame (#38's "gear in front of the post" case no longer happens). GOAL! and MISS reactions are placeholders until #43.
+- The per-pose character shapes (GoaliePoseLimbs) and the tests that checked the posed character against the pose table are gone. The #33 MiddleButterfly leg and arm directions remain as the butterfly the pad save drops into.

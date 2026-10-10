@@ -9,14 +9,17 @@ namespace HockeyGame
     /// The rigged goalie character: a life-size Humanoid model (Assets/Resources/Models/goalie-dressing.fbx, built by
     /// Tools/make_lifelike_goalie.py) wearing jersey, pants and socks that bend with its skin, and gear (pads, blocker,
     /// catcher, stick, mask, skates) parented to its bones in the file, so the gear follows every joint.
-    /// It stands at the net in a neutral Ready Stance and is hidden until shown. It decides nothing: the GoalieView blocks
-    /// stay the gameplay look. To pose it, use Animator (Humanoid, no controller, so nothing overwrites the bones) or Bone(...).
-    /// With no model file, Present is false and the character draws nothing.
+    /// It stands at the net in a neutral Ready Stance and is hidden until shown. It decides nothing: the Round's hidden
+    /// Goalie Pose decides every Shot. On the Shot it moves into a Save Reaction chosen from where the Shot goes (React),
+    /// with the reaction's gear reaching the puck's line (see docs/adr/0002). With no model file, Present is false and the
+    /// character draws nothing.
     /// </summary>
     public sealed class GoalieCharacter
     {
         /// <summary>Where the goalie stands: centred on the net, this far in front of the Net Face (metres, -z is toward the shooter).</summary>
         public const float StandZ = -0.4f;
+        /// <summary>The furthest the goalie pushes across the crease to reach a Shot (metres, either way).</summary>
+        public const float MaxSlide = 0.6f;
 
         SkinnedMeshRenderer[] _body = new SkinnedMeshRenderer[0];
         Renderer[] _skates = new Renderer[0];
@@ -24,9 +27,8 @@ namespace HockeyGame
         Vector3 _leftFingers = Vector3.forward, _leftThumb = Vector3.up, _rightFingers = Vector3.forward, _rightThumb = Vector3.up; // hand-local
         Transform _model;
         Transform[] _bones = new Transform[0];   // every mapped humanoid bone
-        Snapshot _rest, _ready;                  // T-pose as imported; the Ready Stance
-        readonly Snapshot[] _poses = new Snapshot[6]; // one per Goalie Pose, fully set
-        readonly Shape[] _shapes = new Shape[6];       // one per Goalie Pose, measured on first use (ShapeOf)
+        Snapshot _rest, _ready, _butterfly;      // T-pose as imported; the Ready Stance; the butterfly the Pads reaction drops into
+        Snapshot _reaction;                      // what Pose(1, facing) shows: the last React, or the Ready Stance before any
         MeshRenderer[] _gear = new MeshRenderer[0];    // every gear piece, in model order
 
         /// <summary>The object that holds the character; the parent of the model. Inactive while hidden.</summary>
@@ -69,26 +71,30 @@ namespace HockeyGame
             ReadyStance();
             StandOnIce(model.transform);
             _ready = Take();
-            foreach (GoaliePose pose in Enum.GetValues(typeof(GoaliePose)))
-                _poses[(int)pose] = MakePose(pose);
+            _butterfly = MakeButterfly();
+            _reaction = _ready;
             Put(_ready);
         }
 
         /// <summary>
-        /// Moves the character from the Ready Stance (set 0) into the Goalie Pose (set 1). The same pose and set always give
-        /// the same look, whatever was shown before. facing: a body turn (degrees about the vertical, + toward the shooter's
-        /// left; see GoalieTurn) about the goalie's own spot, the vertical through its hips. Does nothing without a model.
+        /// Moves the character from the Ready Stance (set 0) into the reaction React built (set 1; the Ready Stance before any
+        /// React). The same reaction and set always give the same look, whatever was shown before. facing: a body turn (degrees
+        /// about the vertical, + toward the shooter's left; see GoalieTurn) about the goalie's own spot, the vertical through its
+        /// hips. Does nothing without a model.
         /// </summary>
-        public void Pose(GoaliePose pose, float set, float facing = 0f)
+        public void Pose(float set, float facing = 0f)
         {
             if (!Present) return;
-            Snapshot target = _poses[(int)pose];
             set = Mathf.Clamp01(set);
             for (int i = 0; i < _bones.Length; i++)
-                _bones[i].localRotation = Quaternion.Slerp(_ready.Rotations[i], target.Rotations[i], set);
-            _model.localPosition = Vector3.Lerp(_ready.ModelPosition, target.ModelPosition, set);
+                _bones[i].localRotation = Quaternion.Slerp(_ready.Rotations[i], _reaction.Rotations[i], set);
+            _model.localPosition = Vector3.Lerp(_ready.ModelPosition, _reaction.ModelPosition, set);
+            PlaceRoot(facing);
+        }
 
-            // Turn the Root about the hips' vertical: the hips stay on their spot in the crease.
+        /// <summary>Turns the Root about the hips' vertical: the hips stay on their spot in the crease.</summary>
+        void PlaceRoot(float facing)
+        {
             Transform root = Root.transform;
             Vector3 hips = root.InverseTransformPoint(Bone(HumanBodyBones.Hips).position);
             hips.y = 0f;
@@ -122,15 +128,16 @@ namespace HockeyGame
             _model.localPosition = snap.ModelPosition;
         }
 
-        /// <summary>Builds a pose from the T-pose: Ready Stance first, then the pose's own limbs, then back on the ice.</summary>
-        Snapshot MakePose(GoaliePose pose)
+        /// <summary>Builds the butterfly from the T-pose: Ready Stance first, then the butterfly's limbs, then back on the ice.</summary>
+        Snapshot MakeButterfly()
         {
             Put(_rest);
             ReadyStance();
-            Vector3 shift = GoaliePoseLimbs.Apply(this, pose);
+            Vector3 shift = GoalieButterfly.Apply(this);
             Ground(shift);
             return Take();
         }
+
 
         /// <summary>Puts the lowest pad or skate point on the ice and the hips over the stand point plus shift (Root frame).</summary>
         void Ground(Vector3 shift)
@@ -231,85 +238,520 @@ namespace HockeyGame
             return false;
         }
 
-        /// <summary>
-        /// The gear and body of one Goalie Pose fully set, in the Root's own space: the turn to the shooter moves the Root,
-        /// not the bones, so one measurement serves every facing.
-        /// </summary>
-        sealed class Shape
+        // ---- Save Reaction ------------------------------------------------------------------------------------------------
+
+        /// <summary>A piece of gear measured once in its own rigid frame (position and turn, with its scale baked in).</summary>
+        sealed class GearShape
         {
-            public Vector3 Hips; // in the Root's space, on the ice plane (y 0): the turn is about the vertical through it
-            public readonly PuckObstacles Local = new PuckObstacles(); // the gear and body as AddTo adds them, in the Root's space
-            public readonly Dictionary<string, (Matrix4x4 toRoot, Bounds mesh)> Gear = new Dictionary<string, (Matrix4x4, Bounds)>();
+            public Transform Transform;
+            public readonly PuckObstacles Shape = new PuckObstacles();
+            public Bounds Local;
+            public Vector3 Point; // where the piece reaches for the puck: its centre (the stick: the middle of its blade)
+        }
+
+        Dictionary<string, GearShape> _gearShapes;          // measured by Prepare
+        List<(Transform bone, PuckObstacles shape)> _readyBody, _butterflyBody; // the body and clothes in each base, in pieces carried by their bones
+        readonly List<(PuckObstacles shape, Matrix4x4 toWorld)> _placed = new List<(PuckObstacles, Matrix4x4)>(); // where React left them
+        readonly Dictionary<string, Matrix4x4> _placedGear = new Dictionary<string, Matrix4x4>();
+
+        /// <summary>
+        /// The piece of gear (GearPiece) the last React put on the puck's line: Catcher, Blocker, a pad, Stick or Body. Null
+        /// before any React and after a reach that keeps off the puck (a Goal or a Miss).
+        /// </summary>
+        public string ReactionPiece { get; private set; }
+
+        static Matrix4x4 Rigid(Transform t) => Matrix4x4.TRS(t.position, t.rotation, Vector3.one);
+
+        /// <summary>
+        /// Measures the gear and the body once (the Shot then costs no baking or mesh copying, only placing). Call while the
+        /// character is shown, for example at the Round start; React does it itself if it has not been done.
+        /// </summary>
+        public void Prepare()
+        {
+            if (!Present || _gearShapes != null) return;
+            Snapshot shown = Take();
+            Put(_ready);
+            _gearShapes = new Dictionary<string, GearShape>();
+            foreach (MeshRenderer r in _gear)
+            {
+                string piece = GearPiece.PieceOf(r.name);
+                Mesh mesh = r.GetComponent<MeshFilter>().sharedMesh;
+                Matrix4x4 toRigid = Rigid(r.transform).inverse * r.transform.localToWorldMatrix;
+                Vector3[] local = ToWorld(mesh.vertices, toRigid);
+                var gear = new GearShape { Transform = r.transform, Local = BoundsOf(local) };
+                gear.Shape.AddMesh(local, mesh.triangles, PuckMotion.SurfaceOf(piece), piece);
+                gear.Point = piece == GearPiece.Stick ? Blade(local, Rigid(r.transform)) : gear.Local.center;
+                _gearShapes[piece] = gear;
+            }
+            _readyBody = BakeBody(_ready);
+            _butterflyBody = BakeBody(_butterfly);
+            Put(shown);
+        }
+
+        /// <summary>The middle of the stick blade (stick-local): the stick's lowest few centimetres in the Ready Stance.</summary>
+        static Vector3 Blade(Vector3[] local, Matrix4x4 toWorld)
+        {
+            float lowest = float.MaxValue;
+            foreach (Vector3 v in local) lowest = Mathf.Min(lowest, toWorld.MultiplyPoint3x4(v).y);
+            Vector3 sum = Vector3.zero;
+            int n = 0;
+            foreach (Vector3 v in local)
+                if (toWorld.MultiplyPoint3x4(v).y < lowest + 0.04f) { sum += v; n++; }
+            return sum / n;
+        }
+
+        static Bounds BoundsOf(Vector3[] points)
+        {
+            var b = new Bounds(points[0], Vector3.zero);
+            foreach (Vector3 p in points) b.Encapsulate(p);
+            return b;
         }
 
         /// <summary>
-        /// Measures the pose now if it has not been yet (the Shot then costs no posing or mesh copying). Call while the
-        /// character is shown, for example when the Round picks the pose.
+        /// The body and clothes baked in a base pose, split by the bone that moves each triangle most (its first corner's
+        /// heaviest skin weight) and kept in that bone's rigid frame. Placed by the bones as a reaction leaves them, an arm
+        /// reaching for the puck takes its sleeve along (rigid per bone: only the bend at each joint is approximate).
         /// </summary>
-        public void Prepare(GoaliePose pose)
+        List<(Transform bone, PuckObstacles shape)> BakeBody(Snapshot pose)
         {
-            if (Present) ShapeOf(pose);
+            Put(pose);
+            var groups = new Dictionary<Transform, (Matrix4x4 toBone, List<Vector3> corners)>();
+            var baked = new Mesh();
+            foreach (SkinnedMeshRenderer body in _body)
+            {
+                body.BakeMesh(baked, true);
+                Vector3[] vertices = baked.vertices;
+                int[] triangles = baked.triangles;
+                BoneWeight[] weights = body.sharedMesh.boneWeights;
+                Transform[] bones = body.bones;
+                Matrix4x4 toWorld = Rigid(body.transform);
+                bool skin = body.name == BareSkin;
+                for (int i = 0; i < triangles.Length; i += 3)
+                {
+                    Transform bone = weights.Length == vertices.Length ? bones[weights[triangles[i]].boneIndex0] : null;
+                    if (bone == null) bone = _model;
+                    if (skin && InHand(bone)) continue; // the bare hands are inside the catcher and blocker
+                    if (!groups.TryGetValue(bone, out var group))
+                    {
+                        group = (Rigid(bone).inverse * toWorld, new List<Vector3>());
+                        groups[bone] = group;
+                    }
+                    for (int k = 0; k < 3; k++) group.corners.Add(group.toBone.MultiplyPoint3x4(vertices[triangles[i + k]]));
+                }
+            }
+            SceneObjects.DestroySafely(baked);
+            var parts = new List<(Transform, PuckObstacles)>();
+            foreach (var kv in groups)
+            {
+                var shape = new PuckObstacles();
+                var order = new int[kv.Value.corners.Count];
+                for (int i = 0; i < order.Length; i++) order[i] = i;
+                shape.AddMesh(kv.Value.corners.ToArray(), order, PuckSurface.Body, GearPiece.Body);
+                parts.Add((kv.Key, shape));
+            }
+            return parts;
         }
 
-        Shape ShapeOf(GoaliePose pose)
+        /// <summary>The skinned mesh of the bare skin (Tools/make_lifelike_goalie.py), whose hands sit inside the gloves.</summary>
+        const string BareSkin = "Skin";
+
+        bool InHand(Transform bone)
         {
-            Shape shape = _shapes[(int)pose];
-            if (shape != null) return shape;
+            Transform left = Bone(HumanBodyBones.LeftHand), right = Bone(HumanBodyBones.RightHand);
+            return bone.IsChildOf(left) || bone.IsChildOf(right);
+        }
+
+        /// <summary>
+        /// Builds what the goalie moves into from the Ready Stance on the Shot (shown by Pose(set, facing)), at the facing it
+        /// ends at. The puck flies from `from` to `to` (world space). touch (a Save): the reaction's gear (ReactionPiece) reaches
+        /// the puck's line: the catcher or blocker by arm (two-bone IK), the stick blade along the ice, a pad dropped into the
+        /// butterfly (standing for a puck a little higher), or the body pushed across in front of it; pushing across the crease (up to
+        /// MaxSlide) when the arm alone cannot reach. Not touch (a Goal or a Miss, #43): a hand reach that stops short and
+        /// keeps the whole goalie off the puck's line. The same arguments always give the same reaction.
+        /// </summary>
+        public void React(SaveReaction reaction, Vector3 from, Vector3 to, float facing, bool touch)
+        {
+            if (!Present) return;
+            Prepare();
             Snapshot shown = Take();
             Transform root = Root.transform;
             Vector3 rootPosition = root.localPosition;
             Quaternion rootRotation = root.localRotation;
 
-            Pose(pose, 1f, 0f);
-            shape = new Shape();
-            Vector3 hips = root.InverseTransformPoint(Bone(HumanBodyBones.Hips).position);
-            shape.Hips = new Vector3(hips.x, 0f, hips.z);
-            Matrix4x4 toRoot = root.worldToLocalMatrix;
-            foreach (MeshRenderer r in _gear)
-            {
-                string piece = GearPiece.PieceOf(r.name);
-                Mesh mesh = r.GetComponent<MeshFilter>().sharedMesh;
-                Matrix4x4 local = toRoot * r.transform.localToWorldMatrix;
-                shape.Gear[piece] = (local, mesh.bounds);
-                shape.Local.AddMesh(ToWorld(mesh.vertices, local), mesh.triangles, PuckMotion.SurfaceOf(piece), piece);
-            }
-            var baked = new Mesh();
-            foreach (SkinnedMeshRenderer body in _body)
-            {
-                body.BakeMesh(baked, true);
-                Matrix4x4 local = toRoot * Matrix4x4.TRS(body.transform.position, body.transform.rotation, Vector3.one);
-                shape.Local.AddMesh(ToWorld(baked.vertices, local), baked.triangles, PuckSurface.Body, GearPiece.Body);
-            }
-            SceneObjects.DestroySafely(baked);
+            if (touch) Reach(reaction, from, to, facing);
+            else Beaten(reaction, from, to, facing);
 
             Put(shown);
             root.localPosition = rootPosition;
             root.localRotation = rootRotation;
-            _shapes[(int)pose] = shape;
-            return shape;
         }
 
-        /// <summary>The Root's local-to-world matrix as Pose(pose, 1, facing) leaves it.</summary>
-        Matrix4x4 RootToWorld(Shape shape, float facing)
+        void Reach(SaveReaction reaction, Vector3 from, Vector3 to, float facing)
         {
-            Quaternion turn = Quaternion.AngleAxis(facing, Vector3.up);
-            Vector3 position = new Vector3(0f, 0f, StandZ) + shape.Hips - turn * shape.Hips;
-            Matrix4x4 local = Matrix4x4.TRS(position, turn, Root.transform.localScale);
-            Transform parent = Root.transform.parent;
-            return parent != null ? parent.localToWorldMatrix * local : local;
+            bool butterfly = reaction == SaveReaction.Pads && LineAt(from, to, StandZ - 0.25f).y < ButterflyBelow; // at the pads' depth
+            Put(butterfly ? _butterfly : _ready);
+            PlaceRoot(facing);
+            string piece;
+            switch (reaction)
+            {
+                case SaveReaction.Glove: piece = GearPiece.Catcher; ReachHand(true, piece, OnLine(from, to, piece), facing, true); break;
+                case SaveReaction.Blocker: piece = GearPiece.Blocker; ReachHand(false, piece, OnLine(from, to, piece), facing, true); break;
+                case SaveReaction.Stick: piece = GearPiece.Stick; ReachStick(from, to, facing); break;
+                case SaveReaction.Pads: piece = ReachPad(from, to, facing, butterfly); break;
+                default: piece = GearPiece.Body; ReachBody(from, to, facing); break;
+            }
+            var body = butterfly ? _butterflyBody : _readyBody;
+            Look(piece == GearPiece.Body ? LineAt(from, to, Bone(HumanBodyBones.Chest).position.z) : OnLine(from, to, piece));
+            Finish(piece, body);
+            if (reaction == SaveReaction.Glove || reaction == SaveReaction.Blocker) ReachPastPads(reaction == SaveReaction.Glove, piece, from, to, facing, body);
+            if (reaction != SaveReaction.Pads) return;
+            // A pad save with the stick or blocker in front of the pad on the puck's line: the blade goes further to the far
+            // side, then the blocker comes up and out of the way (the pad stays put, so where the puck meets it is found once).
+            var obstacles = new PuckObstacles();
+            AddReaction(obstacles);
+            Vector3 near = NearGoalie(from, to);
+            if (!obstacles.Cast(near, to, PuckMotion.Thickness / 2f, out Vector3 onPad, out _, out _, new[] { piece })) return;
+            bool left = piece == GearPiece.LeftPad;
+            for (int i = 1; i < FiveHoleBlades.Length + BlockerOut.Length && InFront(near, onPad); i++)
+            {
+                PlaceBlade(left, FiveHoleBlades[Mathf.Min(i, FiveHoleBlades.Length - 1)]);
+                if (i >= FiveHoleBlades.Length)
+                    ReachHand(false, GearPiece.Blocker, Bone(HumanBodyBones.RightUpperArm).position + BlockerOut[i - FiveHoleBlades.Length], facing, false);
+                Finish(piece, body);
+            }
+        }
+
+        /// <summary>How much further toward the shooter a hand reaches, along the puck's line, when a pad is in front of it (metres).</summary>
+        static readonly float[] ReachForward = { 0.08f, 0.16f, 0.24f };
+
+        /// <summary>Higher than the pads' tops in the Ready Stance (metres), with room to spare.</summary>
+        const float PadTop = 1.0f;
+
+        /// <summary>The gear that can stand in front of a hand on the puck's line: the tall pads of the stance, and the stick.</summary>
+        static readonly string[] HandRivals = { GearPiece.LeftPad, GearPiece.RightPad, GearPiece.Stick };
+
+        /// <summary>
+        /// A glove or blocker save low enough that a pad of the stance stands in front of the hand on the puck's line: the
+        /// hand reaches further out along the line, toward the shooter, until it is first.
+        /// </summary>
+        void ReachPastPads(bool goalieLeft, string piece, Vector3 from, Vector3 to, float facing, List<(Transform bone, PuckObstacles shape)> body)
+        {
+            Vector3 near = NearGoalie(from, to);
+            float depth = GearPoint(piece).z;
+            if (LineAt(from, to, depth).y > PadTop) return; // above every pad of the stance
+            for (int i = 0; i < ReachForward.Length; i++)
+            {
+                var obstacles = new PuckObstacles();
+                AddReaction(obstacles);
+                if (!obstacles.Cast(near, to, PuckMotion.Thickness / 2f, out Vector3 onHand, out _, out _, new[] { piece })) return;
+                if (!InFront(near, onHand, HandRivals)) return;
+                ReachHand(goalieLeft, piece, LineAt(from, to, depth - ReachForward[i]), facing, true);
+                Finish(piece, body);
+            }
+        }
+
+        /// <summary>Where the blocker hand goes, from its shoulder, to take the stick out of a pad save's way (first try first).</summary>
+        static readonly Vector3[] BlockerOut = { new Vector3(-0.25f, -0.1f, -0.3f), new Vector3(-0.3f, 0.1f, 0.05f), new Vector3(-0.05f, -0.25f, 0.1f) };
+
+        /// <summary>True when one of the rivals (by default the stick, blocker or a skate) is on the puck's line before `onGear`.</summary>
+        bool InFront(Vector3 near, Vector3 onGear, string[] rivals = null)
+        {
+            var obstacles = new PuckObstacles();
+            AddReaction(obstacles);
+            return obstacles.Cast(near, onGear - (onGear - near).normalized * 0.002f, PuckMotion.Thickness / 2f, out _, out _, out _, rivals ?? PadRivals);
+        }
+
+        /// <summary>The gear that can stand in front of a pad on the puck's line in a pad save.</summary>
+        static readonly string[] PadRivals = { GearPiece.Stick, GearPiece.Blocker, GearPiece.LeftSkate, GearPiece.RightSkate };
+
+        /// <summary>How far a beaten hand gets from where it stood toward the puck's line (0: no reach), and how far the goalie may push away from it.</summary>
+        static readonly float[] BeatenReach = { 0.5f, 0.25f, 0f };
+        static readonly float[] BeatenSlides = { 0f, 0.2f, 0.4f, MaxSlide, BeatenMaxSlide };
+
+        /// <summary>A beaten goalie may push this far out of the puck's way (metres; a save reaches at most MaxSlide).</summary>
+        const float BeatenMaxSlide = 0.8f;
+        static readonly float[] NoGaps = { 0f };
+
+        void Beaten(SaveReaction reaction, Vector3 from, Vector3 to, float facing)
+        {
+            // First the first reach whose gear and body boxes the puck passes clear of (quick); failing that, the first that
+            // truly misses the puck (exact, slower); failing both, the last one tried (#43 reworks these reactions).
+            if (BeatenPass(reaction, from, to, facing, true)) return;
+            BeatenPass(reaction, from, to, facing, false);
+        }
+
+        bool BeatenPass(SaveReaction reaction, Vector3 from, Vector3 to, float facing, bool quick)
+        {
+            bool hand = reaction == SaveReaction.Glove || reaction == SaveReaction.Blocker;
+            string piece = reaction == SaveReaction.Glove ? GearPiece.Catcher : GearPiece.Blocker;
+            Put(_ready);
+            PlaceRoot(facing);
+            float away = Bone(HumanBodyBones.Hips).position.x >= to.x ? 1f : -1f; // push away from the puck's side
+            foreach (float slide in BeatenSlides)
+            foreach (float sign in slide == 0f ? new[] { 1f } : new[] { away, -away })
+            foreach (float share in hand ? BeatenReach : NoGaps)
+            {
+                Put(_ready);
+                PlaceRoot(facing);
+                Slide(sign * slide, facing, BeatenMaxSlide);
+                Vector3 target = OnLine(from, to, piece), stood = GearPoint(piece);
+                if (share > 0f) ReachHand(reaction == SaveReaction.Glove, piece, Vector3.Lerp(stood, target, share), facing, false);
+                Look(target);
+                Finish(null, _readyBody);
+                if (quick ? !MayTouch(from, to) : !Touches(from, to)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>Cautious and quick: false only when the puck surely passes clear of every gear and body box of the reaction.</summary>
+        bool MayTouch(Vector3 from, Vector3 to)
+        {
+            var obstacles = new PuckObstacles();
+            AddReaction(obstacles);
+            return obstacles.NearAnyMesh(NearGoalie(from, to), to, PuckMotion.Diameter / 2f);
         }
 
         /// <summary>
-        /// GearBounds as Pose(pose, 1, facing) would give it, without moving the character (measured once per pose).
+        /// Where the puck's line comes within reach of the goalie (1.3 m in front of where it stands): the rest of the line
+        /// cannot meet it, so a cast from here costs a fraction of one from the shooter.
         /// </summary>
-        public bool PosedGearBounds(GoaliePose pose, float facing, string piece, out Bounds bounds)
+        internal static Vector3 NearGoalie(Vector3 from, Vector3 to) => from.z < StandZ - 1.3f ? LineAt(from, to, StandZ - 1.3f) : from;
+
+        /// <summary>
+        /// True when the puck, flying from `from` to `to`, would meet any of the last reaction's gear or body: its middle or
+        /// any edge (it flies face on, PuckMotion.Diameter across).
+        /// </summary>
+        public bool Touches(Vector3 from, Vector3 to)
+        {
+            var obstacles = new PuckObstacles();
+            AddReaction(obstacles);
+            from = NearGoalie(from, to);
+            float r = PuckMotion.Diameter / 2f;
+            foreach (Vector3 edge in new[] { Vector3.zero, Vector3.left * r, Vector3.right * r, Vector3.up * r, Vector3.down * r })
+                if (obstacles.Cast(from + edge, to + edge, PuckMotion.Thickness / 2f, out _, out _, out _)) return true;
+            return false;
+        }
+
+        void Finish(string piece, List<(Transform bone, PuckObstacles shape)> body)
+        {
+            _reaction = Take();
+            ReactionPiece = piece;
+            _placed.Clear();
+            _placedGear.Clear();
+            foreach (var kv in _gearShapes)
+            {
+                Matrix4x4 m = Rigid(kv.Value.Transform);
+                _placed.Add((kv.Value.Shape, m));
+                _placedGear[kv.Key] = m;
+            }
+            foreach (var (bone, shape) in body) _placed.Add((shape, Rigid(bone)));
+        }
+
+        /// <summary>The point on the puck's line at the depth of a piece's reach point as it stands now.</summary>
+        Vector3 OnLine(Vector3 from, Vector3 to, string piece) => LineAt(from, to, GearPoint(piece).z);
+
+        Vector3 GearPoint(string piece)
+        {
+            GearShape gear = _gearShapes[piece];
+            return Rigid(gear.Transform).MultiplyPoint3x4(gear.Point);
+        }
+
+        static Vector3 LineAt(Vector3 from, Vector3 to, float z)
+        {
+            float t = Mathf.Approximately(to.z, from.z) ? 1f : Mathf.Clamp01((z - from.z) / (to.z - from.z));
+            return Vector3.Lerp(from, to, t);
+        }
+
+        /// <summary>Pushes the whole goalie dx metres along x (across the crease), keeping its facing about its new spot.</summary>
+        void Slide(float dx, float facing, float most = MaxSlide)
+        {
+            _model.localPosition += new Vector3(Mathf.Clamp(dx, -most, most), 0f, 0f);
+            PlaceRoot(facing);
+        }
+
+        /// <summary>How far out from its shoulder a reaching hand stays, on its own side (metres).</summary>
+        const float MinOutward = 0.05f;
+
+        /// <summary>
+        /// Reaches a hand's gear point to target with two-bone IK on the arm. The wrist keeps its bend from the stance (the
+        /// hand's skin and its glove stay together) and the forearm turns about its own length so the gear keeps facing the
+        /// shooter as it did in the stance (the catcher pocket and the blocker board open to the shooter). slide: push across
+        /// the crease when the arm alone cannot reach, or to keep the hand out on its own side rather than across the face.
+        /// </summary>
+        void ReachHand(bool goalieLeft, string piece, Vector3 target, float facing, bool slide)
+        {
+            if (piece == GearPiece.Stick) { ReachStickHand(target, facing, slide); return; }
+            Transform shoulder = Bone(goalieLeft ? HumanBodyBones.LeftUpperArm : HumanBodyBones.RightUpperArm);
+            Transform elbow = Bone(goalieLeft ? HumanBodyBones.LeftLowerArm : HumanBodyBones.RightLowerArm);
+            Transform hand = Bone(goalieLeft ? HumanBodyBones.LeftHand : HumanBodyBones.RightHand);
+            Vector3 forward = Root.transform.rotation * Vector3.back;
+            Vector3 point = elbow.InverseTransformPoint(GearPoint(piece)); // carried by the forearm: the wrist does not bend
+            Vector3 face = elbow.InverseTransformDirection(forward);       // the way the gear faces now, in the forearm's frame
+            float reach = 0.98f * (Vector3.Distance(shoulder.position, elbow.position) + Vector3.Distance(elbow.position, elbow.TransformPoint(point)));
+            if (slide)
+            {
+                float side = goalieLeft ? 1f : -1f; // the goalie's left is +x, toward the shooter's right
+                float outward = (target.x - shoulder.position.x) * side;
+                if (outward < MinOutward) Slide(-(MinOutward - outward) * side, facing);
+                Vector3 d = target - shoulder.position;
+                if (d.magnitude > reach)
+                {
+                    float keep = Mathf.Sqrt(Mathf.Max(0f, reach * reach - d.y * d.y - d.z * d.z));
+                    Slide(d.x - Mathf.Sign(d.x) * keep, facing);
+                }
+            }
+            // The elbow bends down, out and a little back toward the net, never toward the shooter in front of the glove.
+            Vector3 pole = shoulder.position + Vector3.down * 0.4f - forward * 0.2f + Vector3.right * ((goalieLeft ? 1f : -1f) * 0.15f);
+            for (int i = 0; i < 3; i++)
+            {
+                TwoBone(shoulder, elbow, point, target, pole);
+                Twist(elbow, hand, face, forward);
+            }
+            TwoBone(shoulder, elbow, point, target, pole);
+        }
+
+
+        /// <summary>
+        /// Moves the stick, blade first, by reaching the blocker hand: the hand keeps its turn (not its wrist bend), so the
+        /// stick keeps its angle and its blade stays flat. Behind the pads the bent wrist does not show.
+        /// </summary>
+        void ReachStickHand(Vector3 target, float facing, bool slide)
+        {
+            Transform shoulder = Bone(HumanBodyBones.RightUpperArm), elbow = Bone(HumanBodyBones.RightLowerArm), hand = Bone(HumanBodyBones.RightHand);
+            Quaternion turn = hand.rotation;
+            Vector3 wrist = target - (GearPoint(GearPiece.Stick) - hand.position);
+            float reach = 0.98f * (Vector3.Distance(shoulder.position, elbow.position) + Vector3.Distance(elbow.position, hand.position));
+            Vector3 d = wrist - shoulder.position;
+            if (slide && d.magnitude > reach)
+            {
+                float keep = Mathf.Sqrt(Mathf.Max(0f, reach * reach - d.y * d.y - d.z * d.z));
+                Slide(d.x - Mathf.Sign(d.x) * keep, facing);
+            }
+            Vector3 forward = Root.transform.rotation * Vector3.back;
+            Vector3 pole = shoulder.position + Vector3.down * 0.4f - forward * 0.2f - Vector3.right * 0.15f;
+            TwoBone(shoulder, elbow, elbow.InverseTransformPoint(hand.position), wrist, pole);
+            hand.rotation = turn;
+        }
+
+        /// <summary>
+        /// Two-bone IK: turns upper and lower so `end` (a point carried by lower, in its own frame) lands on target, or as
+        /// near as the limb reaches, the middle joint bending toward pole.
+        /// </summary>
+        static void TwoBone(Transform upper, Transform lower, Vector3 end, Vector3 target, Vector3 pole)
+        {
+            Vector3 a = upper.position;
+            float la = Vector3.Distance(a, lower.position), lb = Vector3.Distance(lower.position, lower.TransformPoint(end));
+            Vector3 toTarget = target - a;
+            if (toTarget.sqrMagnitude < 1e-8f) return;
+            float d = Mathf.Clamp(toTarget.magnitude, Mathf.Abs(la - lb) + 1e-3f, la + lb - 1e-4f);
+            Vector3 dir = toTarget.normalized;
+            Vector3 bend = Vector3.ProjectOnPlane(pole - a, dir);
+            if (bend.sqrMagnitude < 1e-8f) bend = Vector3.ProjectOnPlane(Vector3.down, dir);
+            bend.Normalize();
+            float cos = Mathf.Clamp((la * la + d * d - lb * lb) / (2f * la * d), -1f, 1f);
+            Vector3 middle = a + la * (cos * dir + Mathf.Sqrt(1f - cos * cos) * bend);
+            upper.rotation = Quaternion.FromToRotation(lower.position - a, middle - a) * upper.rotation;
+            lower.rotation = Quaternion.FromToRotation(lower.TransformPoint(end) - lower.position, a + dir * d - lower.position) * lower.rotation;
+        }
+
+        /// <summary>Turns the forearm about its own length (elbow to wrist) so a direction it carries points as near `want` as it can.</summary>
+        static void Twist(Transform forearm, Transform hand, Vector3 carried, Vector3 want)
+        {
+            Vector3 axis = (hand.position - forearm.position).normalized;
+            Vector3 now = Vector3.ProjectOnPlane(forearm.TransformDirection(carried), axis), goal = Vector3.ProjectOnPlane(want, axis);
+            if (now.sqrMagnitude < 1e-6f || goal.sqrMagnitude < 1e-6f) return;
+            forearm.rotation = Quaternion.AngleAxis(Vector3.SignedAngle(now, goal, axis), axis) * forearm.rotation;
+        }
+
+        /// <summary>The stick save: the blade slides along the ice to the puck (the blocker hand keeps its grip and turn).</summary>
+        void ReachStick(Vector3 from, Vector3 to, float facing)
+        {
+            // The puck comes down from the shooter's eye, so where it passes the stick it is still above the blade: the
+            // stick moves (blade on the ice, same angle) until the lower shaft is on the puck's line at that height.
+            Vector3 blade = GearPoint(GearPiece.Stick);
+            Vector3 shaft = (Bone(HumanBodyBones.RightHand).position - blade).normalized; // up the shaft to the grip
+            Vector3 target = blade;
+            for (int i = 0; i < 3; i++)
+            {
+                Vector3 onShaft = LineAt(from, to, target.z + ShaftOffset(shaft, LineAt(from, to, target.z).y - blade.y).z);
+                target = onShaft - ShaftOffset(shaft, onShaft.y - blade.y);
+            }
+            ReachHand(false, GearPiece.Stick, target, facing, true);
+        }
+
+        /// <summary>From the blade's middle up the shaft to where it is this much higher (none if the shaft is flat).</summary>
+        static Vector3 ShaftOffset(Vector3 shaft, float rise) => shaft.y > 0.1f ? shaft * (Mathf.Max(0f, rise) / shaft.y) : Vector3.zero;
+
+        /// <summary>Below this height (metres, on the puck's line at the pads) a pad save is made down in the butterfly, pads flat on the ice; above it standing.</summary>
+        public const float ButterflyBelow = 0.28f;
+
+        /// <summary>
+        /// The pad save: the pad nearer the puck goes to it. Low (below ButterflyBelow) the goalie drops into the butterfly,
+        /// pushed across only as far as it takes to lay that pad under the puck; higher, it stands and pushes across until the
+        /// pad's middle is in front of the puck. The stick blade covers the five-hole, a little to the far side, so it is not
+        /// in front of the pad. Returns the pad.
+        /// </summary>
+        string ReachPad(Vector3 from, Vector3 to, float facing, bool butterfly)
+        {
+            bool goalieLeft = to.x > Bone(HumanBodyBones.Hips).position.x; // the goalie's left is on the shooter's right
+            string piece = goalieLeft ? GearPiece.LeftPad : GearPiece.RightPad;
+            Vector3 centre = GearPoint(piece);
+            Vector3 target = OnLine(from, to, piece);
+            if (butterfly)
+            {
+                // Along the pad, knee to middle is its inner half: a puck there needs no push; past the middle, push to it.
+                float knee = Bone(goalieLeft ? HumanBodyBones.LeftLowerLeg : HumanBodyBones.RightLowerLeg).position.x;
+                float lo = Mathf.Min(knee, centre.x), hi = Mathf.Max(knee, centre.x);
+                if (target.x < lo || target.x > hi) Slide(target.x - (target.x < lo ? lo : hi), facing);
+            }
+            else Slide(target.x - centre.x, facing);
+
+            PlaceBlade(goalieLeft, FiveHoleBlades[0]);
+            return piece;
+        }
+
+        /// <summary>Puts the stick blade's middle this far from the hips, away from the puck's side (the goalie's left or right).</summary>
+        void PlaceBlade(bool puckOnGoalieLeft, float offset)
+        {
+            Vector3 blade = GearPoint(GearPiece.Stick), hips = Bone(HumanBodyBones.Hips).position;
+            ReachHand(false, GearPiece.Stick, new Vector3(hips.x - (puckOnGoalieLeft ? 1f : -1f) * offset, blade.y, blade.z), 0f, false);
+        }
+
+        /// <summary>How far the stick blade's middle sits from the hips, away from the puck, in a pad save (metres): first try first.</summary>
+        static readonly float[] FiveHoleBlades = { 0.1f, 0.25f, 0.4f };
+
+        /// <summary>The body save: pushed across so the chest is in front of the puck.</summary>
+        void ReachBody(Vector3 from, Vector3 to, float facing)
+        {
+            Vector3 target = LineAt(from, to, Bone(HumanBodyBones.Chest).position.z);
+            Slide(target.x - Bone(HumanBodyBones.Chest).position.x, facing);
+        }
+
+        /// <summary>Turns the neck (head and mask with it) toward a point, at most LookDegrees, so the goalie watches the puck onto its gear.</summary>
+        void Look(Vector3 point)
+        {
+            Transform neck = Bone(HumanBodyBones.Neck), head = Bone(HumanBodyBones.Head);
+            if (neck == null || head == null) return;
+            Vector3 face = Root.transform.rotation * Vector3.back, toward = point - head.position;
+            if (toward.sqrMagnitude < 1e-6f) return;
+            neck.rotation = Quaternion.FromToRotation(face, Vector3.RotateTowards(face, toward, LookDegrees * Mathf.Deg2Rad, 0f)) * neck.rotation;
+        }
+
+        const float LookDegrees = 20f;
+
+        /// <summary>Adds the reaction's gear and body, as the last React left them, to what a puck can hit (only placing).</summary>
+        public void AddReaction(PuckObstacles obstacles)
+        {
+            if (!Present || _placed.Count == 0) return;
+            foreach (var (shape, toWorld) in _placed) obstacles.AddPlaced(shape, toWorld);
+        }
+
+        /// <summary>World bounds of a piece of gear as the last React left it, or false without one.</summary>
+        public bool ReactionGearBounds(string piece, out Bounds bounds)
         {
             bounds = default;
-            if (!Present) return false;
-            Shape shape = ShapeOf(pose);
-            if (!shape.Gear.TryGetValue(piece, out var gear)) return false;
-            Matrix4x4 toWorld = RootToWorld(shape, facing) * gear.toRoot;
-            Bounds b = gear.mesh;
+            if (!Present || !_placedGear.TryGetValue(piece, out Matrix4x4 toWorld)) return false;
+            Bounds b = _gearShapes[piece].Local;
             for (int i = 0; i < 8; i++)
             {
                 Vector3 p = toWorld.MultiplyPoint3x4(new Vector3(
@@ -318,17 +760,6 @@ namespace HockeyGame
                 else bounds.Encapsulate(p);
             }
             return true;
-        }
-
-        /// <summary>
-        /// AddTo as Pose(pose, 1, facing) would give it, without moving the character: the pose is measured once (Prepare)
-        /// and only placed at the facing here, so a Shot costs no posing, baking or mesh copying.
-        /// </summary>
-        public void AddPosed(PuckObstacles obstacles, GoaliePose pose, float facing)
-        {
-            if (!Present) return;
-            Shape shape = ShapeOf(pose);
-            obstacles.AddPlaced(shape.Local, RootToWorld(shape, facing));
         }
 
         /// <summary>
@@ -349,9 +780,24 @@ namespace HockeyGame
             {
                 body.BakeMesh(mesh, true);
                 Matrix4x4 toWorld = Matrix4x4.TRS(body.transform.position, body.transform.rotation, Vector3.one);
-                obstacles.AddMesh(ToWorld(mesh.vertices, toWorld), mesh.triangles, PuckSurface.Body, GearPiece.Body);
+                obstacles.AddMesh(ToWorld(mesh.vertices, toWorld), WithoutBareHands(body, mesh.triangles), PuckSurface.Body, GearPiece.Body);
             }
             SceneObjects.DestroySafely(mesh);
+        }
+
+        /// <summary>The triangles, less the bare hands' (inside the catcher and blocker) when this is the bare skin.</summary>
+        int[] WithoutBareHands(SkinnedMeshRenderer body, int[] triangles)
+        {
+            BoneWeight[] weights = body.sharedMesh.boneWeights;
+            if (body.name != BareSkin || weights.Length == 0) return triangles;
+            var kept = new List<int>(triangles.Length);
+            for (int i = 0; i < triangles.Length; i += 3)
+            {
+                Transform bone = body.bones[weights[triangles[i]].boneIndex0];
+                if (bone != null && InHand(bone)) continue;
+                kept.Add(triangles[i]); kept.Add(triangles[i + 1]); kept.Add(triangles[i + 2]);
+            }
+            return kept.ToArray();
         }
 
         static Vector3[] ToWorld(Vector3[] vertices, Matrix4x4 toWorld)
