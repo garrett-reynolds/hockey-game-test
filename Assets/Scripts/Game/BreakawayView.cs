@@ -25,7 +25,7 @@ namespace HockeyGame
         Volume _look;
         RoundPhase _lastPhase = RoundPhase.Idle;
         float _drift;      // metres drifted toward the net since the skate-in ended (scaled time)
-        float _gameTime;   // scaled seconds since the skate-in began (stride bob and roll)
+        float _gameTime;   // game seconds since the skate-in began (stride bob and roll; the stride sounds use the same clock)
         readonly GoalieTurn _turn = new GoalieTurn(0.0); // the goalie squaring up to the shooter
         bool _newSkate;    // face the shooter at once on the first skate-in frame
 
@@ -65,7 +65,10 @@ namespace HockeyGame
             }
 
             float dt = Time.deltaTime; // scaled
-            _gameTime += dt;
+            // In the skate-in game time is real time: follow the Round's clock exactly, so each stride sound
+            // (RoundSoundCues, from the same phase seconds) lands on the bob's low point. Afterwards it runs on scaled.
+            if (phase == RoundPhase.SkateIn) _gameTime = (float)phaseSeconds;
+            else _gameTime += dt;
             AttackSide side = _round.AttackSide;
             if (phase == RoundPhase.SlowDown || phase == RoundPhase.ShootingWindow)
                 _drift += dt * (float)Breakaway.SkateSpeed(side, _round.Settings);
@@ -93,11 +96,11 @@ namespace HockeyGame
             float along = (float)Breakaway.CappedDrift(_drift, toNet.magnitude);
             ground += toNet.normalized * along;
 
-            float bob = (float)Breakaway.StrideBob * Mathf.Sin(_gameTime * 10f);
+            float bob = (float)Breakaway.Bob(_gameTime);
             var t = _camera.transform;
             t.position = new Vector3(ground.x, (float)Breakaway.EyeHeight + bob, ground.z);
             t.LookAt(NetCentre);
-            float rollDegrees = (float)Breakaway.RollRadians * Mathf.Sin(_gameTime * 5f) * Mathf.Rad2Deg;
+            float rollDegrees = (float)Breakaway.Roll(_gameTime) * Mathf.Rad2Deg;
             t.Rotate(0f, 0f, rollDegrees, Space.Self);
             return ground;
         }

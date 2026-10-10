@@ -16,7 +16,7 @@ namespace HockeyGame.Core.Tests
                 PlaceholderSounds.Horn(), PlaceholderSounds.PadThud(), PlaceholderSounds.BoardsClang(),
                 PlaceholderSounds.Cheer(), PlaceholderSounds.Groan(), PlaceholderSounds.NewBestCheer(),
                 PlaceholderSounds.PostPing(), PlaceholderSounds.GloveCatch(), PlaceholderSounds.BlockerHit(),
-                PlaceholderSounds.Skating()
+                PlaceholderSounds.HockeyStop(), PlaceholderSounds.Stride(0)
             };
             foreach (var clip in clips)
             {

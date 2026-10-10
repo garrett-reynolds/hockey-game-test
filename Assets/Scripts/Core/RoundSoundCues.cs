@@ -18,8 +18,10 @@ namespace HockeyGame.Core
         PostPing,     // a Miss rings off a post or the crossbar
         GloveCatch,   // a Save in the catching glove
         BlockerHit,   // a Save off the blocker (or the stick or a skate)
-        Skating,      // the skate-in begins: start the skating sound
-        SkatingStop   // the skate-in ends: stop the skating sound
+        Skating,      // the skate-in begins: start the hockey stop, placed so it ends with the skate-in
+        SkatingStop,  // the skate-in ends: stop the hockey stop
+        StrideLeft,   // a push of the camera's stride while it leans left: one stride sound, panned left
+        StrideRight   // a push of the camera's stride while it leans right: one stride sound, panned right
     }
 
     /// <summary>Slow-down audio for one frame: low-pass cutoff, pitch, heartbeat on/off.</summary>
@@ -50,11 +52,17 @@ namespace HockeyGame.Core
         public const double SlowPitch = 0.8;
         /// <summary>Spacing of the ticks in the last second of the shooting window.</summary>
         public const double FastTickSeconds = 0.25;
+        /// <summary>
+        /// Length of the hockey stop that ends the skate-in (seconds; the hockey-stop sound file is cut to it).
+        /// No stride plays once it has begun.
+        /// </summary>
+        public const double HockeyStopSeconds = 0.6;
 
         private readonly SaveData _save;
         private readonly List<SoundCue> _cues = new List<SoundCue>();
         private RoundPhase _lastPhase = RoundPhase.Idle;
         private int _ticksPlayed;
+        private int _stridesPlayed;
         private readonly ShotResultWatch _newResult = new ShotResultWatch();
         private ShotResult? _pendingImpact;
         private SoundCue? _pendingContact;
@@ -92,6 +100,7 @@ namespace HockeyGame.Core
                 if (phase == RoundPhase.SkateIn) _cues.Add(SoundCue.Skating);
                 if (phase == RoundPhase.RoundOver && round.IsNewBest) _cues.Add(SoundCue.NewBestCheer);
                 _ticksPlayed = 0;
+                _stridesPlayed = 0;
                 _lastPhase = phase;
             }
 
@@ -114,6 +123,16 @@ namespace HockeyGame.Core
             // The result shows when the puck lands (Round.DelayResult), so a missed arrival frame still plays it then.
             if (_pendingImpact.HasValue && (puckArrived || (phase == RoundPhase.ResultHold && round.ResultShowing)))
                 PlayPendingImpact();
+
+            if (phase == RoundPhase.SkateIn)
+            {
+                int due = StridesDue(round.PhaseSecondsElapsed, round.Settings.SkateInSeconds);
+                if (due > _stridesPlayed)
+                {
+                    _cues.Add(StrideCue(due - 1));
+                    _stridesPlayed = due; // at most one stride per frame
+                }
+            }
 
             if (phase == RoundPhase.ShootingWindow)
             {
@@ -177,6 +196,23 @@ namespace HockeyGame.Core
         /// </summary>
         public static double SkatingClipTime(double clipSeconds, double skateInSeconds, double skateSeconds) =>
             clipSeconds - skateInSeconds + skateSeconds;
+
+        /// <summary>
+        /// Pushes of the camera's stride (Breakaway.StridePushSeconds) due by skateSeconds into the skate-in (game time
+        /// is real time in the skate-in), leaving out those inside the hockey stop.
+        /// </summary>
+        private static int StridesDue(double skateSeconds, double skateInSeconds)
+        {
+            int due = 0;
+            while (Breakaway.StridePushSeconds(due) <= skateSeconds + 1e-9
+                   && Breakaway.StridePushSeconds(due) < skateInSeconds - HockeyStopSeconds)
+                due++;
+            return due;
+        }
+
+        /// <summary>The k-th stride sounds on the side the camera leans to at that push (Breakaway.Roll: positive leans left).</summary>
+        private static SoundCue StrideCue(int k) =>
+            Breakaway.Roll(Breakaway.StridePushSeconds(k)) > 0 ? SoundCue.StrideLeft : SoundCue.StrideRight;
 
         private static bool IsFastTick(int index, double windowSeconds) => index >= SlowTickCount(windowSeconds);
 
