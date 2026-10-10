@@ -83,15 +83,41 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(0, looking.Gesture);
             Assert.AreEqual(1, AfterShot.At(g, 0.9, 0.6).Relax, 1e-9, "the arm has dropped");
             Assert.Greater(AfterShot.At(g, 1.3, 1.0).Gesture, 0.0, "the gesture under way");
-            Assert.Greater(AfterShot.At(g, 1.3, 1.0).Return, 0.0, "gliding back to his spot while he gestures");
+            Assert.AreEqual(1, AfterShot.At(g, 1.3, 1.0).Return, 1e-9, "back on his spot before the gesture, not gliding through it");
             AfterShotMoment end = AfterShot.At(g, 1.7, 1.4);
             Assert.AreEqual(1, end.Gesture, 1e-9, "the end pose");
             Assert.AreEqual(0, end.Watch, 1e-9, "head forward again for the end pose");
             Assert.AreEqual(0, end.Recover, 1e-9, "the end pose shows before he recovers");
-            Assert.Greater(AfterShot.At(g, 1.9, 1.6).Recover, 0.2, "recovering");
+            Assert.Greater(AfterShot.At(g, 2.05, 1.75).Recover, 0.2, "recovering");
             Assert.AreEqual(1, AfterShot.At(g, 2.3, 2.0).Recover, 1e-9, "back in the Ready Stance");
             Assert.AreEqual(1, AfterShot.At(g, 2.3, 2.0).Return, 1e-9, "back on his spot");
             Assert.AreEqual(1, AfterShot.At(g, 30, 29.7).Recover, 1e-9, "stays recovered");
+        }
+
+        [TestCase(AfterShotGesture.Slump, 0.3)]
+        [TestCase(AfterShotGesture.StickSlap, 0.3)]
+        [TestCase(AfterShotGesture.Slump, -1.0)]
+        [TestCase(AfterShotGesture.StickSlap, -1.0)]
+        public void A_goal_s_annoyed_gesture_holds_its_end_pose_a_moment_before_he_recovers(AfterShotGesture g, double netting)
+        {
+            // The glide back is over before the gesture starts, so the gesture reads on its own; then its end pose holds still
+            // for a quarter second at least before the Recovery.
+            double nettedAt = netting < 0 ? AfterShot.LatestNetting : netting;
+            AfterShotMoment glided = AfterShot.At(g, nettedAt + 0.6, netting < 0 ? -1 : 0.6);
+            Assert.AreEqual(0, glided.Gesture, 1e-9, "the gesture has not started");
+            Assert.AreEqual(1, glided.Return, 1e-9, "back on his spot already");
+            AfterShotMoment first = AfterShot.At(g, nettedAt + 1.25, netting < 0 ? -1 : 1.25);
+            AfterShotMoment last = AfterShot.At(g, nettedAt + 1.5, netting < 0 ? -1 : 1.5);
+            foreach (AfterShotMoment m in new[] { first, last })
+            {
+                Assert.AreEqual(1, m.Gesture, 1e-9, "in the end pose");
+                Assert.AreEqual(0, m.Recover, 1e-9, "not recovering yet");
+                Assert.AreEqual(1, m.Return, 1e-9, "on his spot");
+                Assert.AreEqual(1, m.LateReach, 1e-9);
+                Assert.AreEqual(1, m.Relax, 1e-9);
+                Assert.AreEqual(0, m.Watch, 1e-9, "head forward");
+            }
+            Assert.AreEqual(1, AfterShot.At(g, 2.4, netting < 0 ? -1 : 2.4 - nettedAt).Recover, 1e-9, "still back in the Ready Stance by 2.4 s");
         }
 
         [TestCase(AfterShotGesture.Slump, 0.5)]

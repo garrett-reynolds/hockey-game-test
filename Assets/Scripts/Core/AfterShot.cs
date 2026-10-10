@@ -58,10 +58,14 @@ namespace HockeyGame.Core
         public const double LatestNetting = 0.5;
         /// <summary>A GOAL!, after the netting: the look back turns in over (0.05..0.45 s), the arm drops (0.1..0.6 s).</summary>
         public const double LookBackFrom = 0.05, LookBackTo = 0.45, RelaxFrom = 0.1, RelaxTo = 0.6;
-        /// <summary>A GOAL!, after the netting: the annoyed gesture (0.6..1.4 s); the head comes forward (0.6..0.9 s).</summary>
-        public const double AnnoyedFrom = 0.6, AnnoyedTo = 1.4, LookForwardTo = 0.9;
-        /// <summary>A GOAL!, after the netting: glides back to his spot (0.5..1.5 s), then recovers (1.4..1.9 s).</summary>
-        public const double GoalReturnFrom = 0.5, GoalReturnTo = 1.5, GoalRecoverFrom = 1.4, GoalRecoverTo = 1.9;
+        /// <summary>A GOAL!, after the netting: glides back to his spot while he looks back and his arm drops (0.1..0.6 s), so the gesture reads on its own.</summary>
+        public const double GoalReturnFrom = 0.1, GoalReturnTo = 0.6;
+        /// <summary>A GOAL!, after the netting: the annoyed gesture (0.6..1.25 s); the head comes forward (0.6..0.9 s).</summary>
+        public const double AnnoyedFrom = 0.6, AnnoyedTo = 1.25, LookForwardTo = 0.9;
+        /// <summary>A GOAL!: the gesture's end pose holds still this long (s) before he recovers (GLOSSARY: Annoyed Gesture).</summary>
+        public const double EndPoseHold = 0.3;
+        /// <summary>A GOAL!, after the netting: recovers once the end pose has held (1.55..1.9 s).</summary>
+        public const double GoalRecoverFrom = AnnoyedTo + EndPoseHold, GoalRecoverTo = 1.9;
         /// <summary>Miss or Save: the head turns to the puck over this long after it gets there.</summary>
         public const double FollowSeconds = 0.15;
         /// <summary>A Miss: the relief beat (0.8..1.7 s after the puck gets there); the eyes go to the post over 0.8..1.2 s.</summary>

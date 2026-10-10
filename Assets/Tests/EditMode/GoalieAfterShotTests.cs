@@ -131,7 +131,7 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(AfterShotGesture.StickSlap, view.Gesture);
             At(view, net, -1f);
             float onIce = StickBottom(character);
-            At(view, inNet, 1.25f, 0.95f);
+            At(view, inNet, 1.2f, 0.9f); // the stick held up, just before the slam
             Assert.Greater(StickBottom(character), onIce + 0.25f, "the stick is lifted");
             At(view, inNet, 1.7f, 1.4f);
             Assert.AreEqual(onIce, StickBottom(character), 0.03f, "slapped back down on the ice");
