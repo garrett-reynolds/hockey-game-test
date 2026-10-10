@@ -33,6 +33,19 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void A_puck_knocked_into_the_side_of_the_blocker_bounces_off_it_instead_of_hanging_on_it()
+        {
+            // The blocker kicks the Shot's own rebound toward the shooter's left; a later knock into a blocker face that
+            // looks the other way (+x, as on a turned RightPostHug, #40) must still come off that face.
+            var obstacles = new PuckObstacles();
+            Vector3 face = new Vector3(0.93f, -0.16f, -0.32f).normalized;
+            AddSquare(obstacles, new Vector3(0f, 1f, 0f), face, PuckSurface.Blocker, "Blocker");
+            var motion = new PuckMotion(new Vector3(0f, 1f, 0f) + face * 0.2f, Quaternion.identity, new Vector3(-3.09f, 0f, -1.41f), 0f, obstacles);
+            for (int i = 0; i < 15; i++) motion.Advance(1f / 60f);
+            Assert.Greater(Vector3.Dot(motion.Velocity, face), 0f, "moving away from the face");
+        }
+
+        [Test]
         public void The_surface_normal_near_a_point_follows_the_real_surface()
         {
             var obstacles = new PuckObstacles();

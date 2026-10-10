@@ -29,7 +29,7 @@ namespace HockeyGame
         /// <summary>
         /// How a surface sends the puck back. Bounce: share of the speed into the surface it keeps out of it.
         /// Grip: share of the speed along the surface it keeps. Speeds clamp to Min..Max m/s so a rebound reads on screen.
-        /// Steer: the surface is angled this much to the shooter's left (the blocker turns pucks to the corner).
+        /// Steer: the Shot's own rebound leaves as if the surface were angled this much to the shooter's left (the blocker turns pucks to the corner).
         /// MaxUp: the most upward speed it can leave with (the stick keeps it low).
         /// </summary>
         public readonly struct Feel
@@ -94,7 +94,9 @@ namespace HockeyGame
                 return;
             }
             Vector3 v = Velocity;
-            Vector3 n = feel.Steer > 0f ? (normal + Vector3.left * feel.Steer).normalized : normal;
+            // Only the Shot's own rebound is steered: a later knock comes off the real face (Fly tested it against that face,
+            // and a steered normal can call a puck still pushing into the face "already leaving", so it would hang there).
+            Vector3 n = first && feel.Steer > 0f ? (normal + Vector3.left * feel.Steer).normalized : normal;
             float into = Vector3.Dot(v, n);
             if (into >= 0f) return; // already leaving
             Vector3 along = v - into * n;
