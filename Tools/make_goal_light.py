@@ -3,14 +3,10 @@
 # Grey housing with a red dome, 0.26 m square, 0.31 m high, base at y = 0.
 # (The net is the model Garrett supplied, converted by Tools/make_supplied_net.py.)
 import math, os, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # finds vector3.py even when run with -I
+from vector3 import add, cross, dot, mul, norm, sub
 
 
-def sub(a, b): return (a[0] - b[0], a[1] - b[1], a[2] - b[2])
-def add(a, b): return (a[0] + b[0], a[1] + b[1], a[2] + b[2])
-def mul(a, s): return (a[0] * s, a[1] * s, a[2] * s)
-def dot(a, b): return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-def cross(a, b): return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
-def norm(a): return mul(a, 1.0 / math.sqrt(dot(a, a)))
 
 
 class Obj:

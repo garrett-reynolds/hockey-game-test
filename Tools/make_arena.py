@@ -13,6 +13,8 @@
 #   the outline + 31.2 m all round, y 0 to 24.
 # Everything here is made from scratch for Hockey Game Test (no outside source). CC0.
 import math, os, random, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # finds vector3.py even when run with -I
+from vector3 import cross, dot, sub
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
@@ -86,9 +88,6 @@ def tall_glass(x, z):
 
 
 # ---------- OBJ writer ----------
-def sub(a, b): return (a[0] - b[0], a[1] - b[1], a[2] - b[2])
-def cross(a, b): return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
-def dot(a, b): return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 
 
 class Obj:

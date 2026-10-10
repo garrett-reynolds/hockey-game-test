@@ -5,6 +5,8 @@
 # The game scales each piece to its slot (ModelFiles.FitTo), so sizes here only set the proportions.
 # Each part is convex; faces are wound counter-clockwise seen from outside (checked against the part centre).
 import math, os, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # finds vector3.py even when run with -I
+from vector3 import cross, dot, sub
 
 WHITE = "GearWhite"
 BLUE = "GearBlue"
@@ -85,9 +87,6 @@ class Obj:
         print(file_name, len(self.v), "verts", tris, "tris")
 
 
-def sub(a, b): return (a[0] - b[0], a[1] - b[1], a[2] - b[2])
-def dot(a, b): return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-def cross(a, b): return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
 
 
 def catcher():
