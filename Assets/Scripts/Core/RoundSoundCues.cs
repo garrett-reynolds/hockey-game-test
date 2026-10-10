@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace HockeyGame.Core
 {
-    /// <summary>One sound to start (or, for SkatingStop, to stop) this frame. Loops (crowd, heartbeat) are levels, not cues.</summary>
+    /// <summary>One sound to start (or, for HockeyStopEnd, to stop) this frame. Loops (crowd, heartbeat) are levels, not cues.</summary>
     public enum SoundCue
     {
         Tick,
@@ -18,8 +18,8 @@ namespace HockeyGame.Core
         PostPing,     // a Miss rings off a post or the crossbar
         GloveCatch,   // a Save in the catching glove
         BlockerHit,   // a Save off the blocker (or the stick or a skate)
-        Skating,      // the skate-in begins: start the hockey stop, placed so it ends with the skate-in
-        SkatingStop,  // the skate-in ends: stop the hockey stop
+        HockeyStop,   // the skate-in begins: start the hockey stop, placed so it ends with the skate-in
+        HockeyStopEnd, // the skate-in ends: stop the hockey stop
         StrideLeft,   // a push of the camera's stride while it leans left: one stride sound, panned left
         StrideRight   // a push of the camera's stride while it leans right: one stride sound, panned right
     }
@@ -96,8 +96,8 @@ namespace HockeyGame.Core
             if (phase != _lastPhase)
             {
                 if (_lastPhase == RoundPhase.ResultHold) PlayPendingImpact();
-                if (_lastPhase == RoundPhase.SkateIn) _cues.Add(SoundCue.SkatingStop);
-                if (phase == RoundPhase.SkateIn) _cues.Add(SoundCue.Skating);
+                if (_lastPhase == RoundPhase.SkateIn) _cues.Add(SoundCue.HockeyStopEnd);
+                if (phase == RoundPhase.SkateIn) _cues.Add(SoundCue.HockeyStop);
                 if (phase == RoundPhase.RoundOver && round.IsNewBest) _cues.Add(SoundCue.NewBestCheer);
                 _ticksPlayed = 0;
                 _stridesPlayed = 0;
@@ -191,10 +191,10 @@ namespace HockeyGame.Core
         }
 
         /// <summary>
-        /// Where the skating clip should be now (seconds into the clip), so its end (the hockey stop) lands on the end
+        /// Where the hockey stop clip should be now (seconds into the clip), so its end (the stop itself) lands on the end
         /// of the skate-in. skateSeconds: how far into the skate-in we are. Negative: wait that long before playing it all.
         /// </summary>
-        public static double SkatingClipTime(double clipSeconds, double skateInSeconds, double skateSeconds) =>
+        public static double HockeyStopClipTime(double clipSeconds, double skateInSeconds, double skateSeconds) =>
             clipSeconds - skateInSeconds + skateSeconds;
 
         /// <summary>

@@ -15,7 +15,7 @@ namespace HockeyGame
     public sealed class RoundSound
     {
         const float CrowdFadePerSecond = 0.6f;
-        const float SkatingFadeSeconds = 0.06f;
+        const float HockeyStopFadeSeconds = 0.06f;
         /// <summary>How far a stride sound is panned toward the side the camera leans to (-1..1 stereo pan).</summary>
         const float StridePan = 0.3f;
         /// <summary>Each stride plays this much higher or lower at random (pitch ratio), so repeats do not sound looped.</summary>
@@ -23,13 +23,13 @@ namespace HockeyGame
 
         readonly SaveData _save;
         readonly RoundSoundCues _cues;
-        readonly AudioSource _crowd, _heartbeat, _world, _tick, _skating, _strideLeft, _strideRight;
+        readonly AudioSource _crowd, _heartbeat, _world, _tick, _hockeyStop, _strideLeft, _strideRight;
         readonly AudioLowPassFilter _crowdFilter, _heartbeatFilter, _worldFilter;
         readonly Dictionary<SoundCue, AudioClip[]> _clips = new Dictionary<SoundCue, AudioClip[]>();
         readonly AudioClip[] _strides;
         readonly System.Random _random = new System.Random();
         int _lastStride = -1;
-        float _skatingTarget;
+        float _hockeyStopTarget;
 
         /// <summary>Tick on/off, master volume and mute are read from save every frame; the settings screen just changes them.</summary>
         public RoundSound(GameObject listener, SaveData save, RoundSettings settings)
@@ -49,8 +49,8 @@ namespace HockeyGame
 
             _world = Source(listener, "Result Sounds", out _worldFilter);
             _tick = Source(listener, "Tick", out _);
-            _skating = Source(listener, "Hockey Stop", out _); // the skate-in is never slowed: no muffle or pitch
-            _skating.clip = SoundFiles.Load(SoundFiles.HockeyStop, PlaceholderSounds.HockeyStop);
+            _hockeyStop = Source(listener, "Hockey Stop", out _); // the skate-in is never slowed: no muffle or pitch
+            _hockeyStop.clip = SoundFiles.Load(SoundFiles.HockeyStop, PlaceholderSounds.HockeyStop);
             _strideLeft = Source(listener, "Stride Left", out _);
             _strideLeft.panStereo = -StridePan;
             _strideRight = Source(listener, "Stride Right", out _);
@@ -94,8 +94,8 @@ namespace HockeyGame
 
             foreach (SoundCue cue in _cues.Update(round, puckArrived, contact))
             {
-                if (cue == SoundCue.Skating) { StartSkating(round); continue; }
-                if (cue == SoundCue.SkatingStop) { _skatingTarget = 0f; continue; }
+                if (cue == SoundCue.HockeyStop) { StartHockeyStop(round); continue; }
+                if (cue == SoundCue.HockeyStopEnd) { _hockeyStopTarget = 0f; continue; }
                 if (cue == SoundCue.StrideLeft || cue == SoundCue.StrideRight)
                 {
                     PlayStride(cue == SoundCue.StrideLeft ? _strideLeft : _strideRight);
@@ -106,8 +106,8 @@ namespace HockeyGame
                     source.PlayOneShot(clip);
             }
 
-            _skating.volume = Mathf.MoveTowards(_skating.volume, _skatingTarget, realSeconds / SkatingFadeSeconds);
-            if (_skatingTarget == 0f && _skating.volume == 0f && _skating.isPlaying) _skating.Stop();
+            _hockeyStop.volume = Mathf.MoveTowards(_hockeyStop.volume, _hockeyStopTarget, realSeconds / HockeyStopFadeSeconds);
+            if (_hockeyStopTarget == 0f && _hockeyStop.volume == 0f && _hockeyStop.isPlaying) _hockeyStop.Stop();
 
             float target = (float)RoundSoundCues.CrowdLevel(phase, phaseSeconds, round.Settings);
             _crowd.volume = Mathf.MoveTowards(_crowd.volume, target, CrowdFadePerSecond * realSeconds);
@@ -136,23 +136,23 @@ namespace HockeyGame
             side.PlayOneShot(_strides[pick]);
         }
 
-        /// <summary>Plays the hockey stop placed so it ends with the skate-in (RoundSoundCues.SkatingClipTime).</summary>
-        void StartSkating(Round round)
+        /// <summary>Plays the hockey stop placed so it ends with the skate-in (RoundSoundCues.HockeyStopClipTime).</summary>
+        void StartHockeyStop(Round round)
         {
-            AudioClip clip = _skating.clip;
-            double at = RoundSoundCues.SkatingClipTime(clip.length, round.Settings.SkateInSeconds, round.PhaseSecondsElapsed);
-            _skating.Stop();
-            _skatingTarget = 1f;
+            AudioClip clip = _hockeyStop.clip;
+            double at = RoundSoundCues.HockeyStopClipTime(clip.length, round.Settings.SkateInSeconds, round.PhaseSecondsElapsed);
+            _hockeyStop.Stop();
+            _hockeyStopTarget = 1f;
             if (at < 0)
             {
-                _skating.volume = 1f; // the clip's own fade-in plays
-                _skating.PlayDelayed((float)-at);
+                _hockeyStop.volume = 1f; // the clip's own fade-in plays
+                _hockeyStop.PlayDelayed((float)-at);
             }
             else if (at < clip.length)
             {
-                _skating.volume = at > 0 ? 0f : 1f; // starting mid-clip: fade in so it does not click
-                _skating.Play();
-                _skating.time = (float)at;
+                _hockeyStop.volume = at > 0 ? 0f : 1f; // starting mid-clip: fade in so it does not click
+                _hockeyStop.Play();
+                _hockeyStop.time = (float)at;
             }
         }
 
