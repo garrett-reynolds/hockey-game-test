@@ -168,12 +168,53 @@ namespace HockeyGame
 
         bool PosedGear(SoundCue contact, Vector3 netPoint, out Bounds gear)
         {
-            if (contact == SoundCue.GloveCatch) return _character.GearBounds("Catcher", out gear);
-            if (contact == SoundCue.BlockerHit) return _character.GearBounds("Blocker", out gear);
-            // A pad save: the pad nearer the puck's spot.
             gear = default;
-            if (!_character.GearBounds("Left Pad", out Bounds a) || !_character.GearBounds("Right Pad", out Bounds b)) return false;
-            gear = Mathf.Abs(a.center.x - netPoint.x) < Mathf.Abs(b.center.x - netPoint.x) ? a : b;
+            string piece = SavePiece(contact, netPoint);
+            return piece != null && _character.GearBounds(piece, out gear);
+        }
+
+        /// <summary>The gear piece that makes a save (the same one the save sound picks); null if it is missing.</summary>
+        string SavePiece(SoundCue contact, Vector3 netPoint)
+        {
+            if (contact == SoundCue.GloveCatch) return "Catcher";
+            if (contact == SoundCue.BlockerHit) return "Blocker";
+            // A pad save: the pad nearer the puck's spot.
+            if (!_character.GearBounds("Left Pad", out Bounds a) || !_character.GearBounds("Right Pad", out Bounds b)) return null;
+            return Mathf.Abs(a.center.x - netPoint.x) < Mathf.Abs(b.center.x - netPoint.x) ? "Left Pad" : "Right Pad";
+        }
+
+        /// <summary>
+        /// Adds the goalie character's gear and body to what the puck can hit, measured on the full pose (like SaveStop).
+        /// False (nothing added) with no character shown.
+        /// </summary>
+        public bool AddObstacles(PuckObstacles obstacles)
+        {
+            if (_character == null || !_visible) return false;
+            _character.Pose((GoaliePose)_shown, 1f);
+            _character.AddTo(obstacles);
+            PoseCharacter();
+            return true;
+        }
+
+        /// <summary>
+        /// The surface a save at `stop` (from SaveStop) is made on, and its outward normal there: the nearest real surface
+        /// of the gear that made the save. A pad save is made on the stick instead when the stick is nearer the stop than
+        /// the pad (the blade lies across the pads near the ice). obstacles: from AddObstacles.
+        /// </summary>
+        public bool SaveSurface(PuckObstacles obstacles, Vector3 stop, Vector3 netPoint, SoundCue contact, out Vector3 normal, out PuckSurface surface)
+        {
+            normal = Vector3.back;
+            surface = PuckSurface.Pad;
+            if (_character == null || !_visible) return false;
+            _character.Pose((GoaliePose)_shown, 1f);
+            string piece = SavePiece(contact, netPoint);
+            PoseCharacter();
+            if (piece == null || !obstacles.Nearest(stop, piece, out normal, out surface, out float distance)) return false;
+            if (contact == SoundCue.SaveImpact && obstacles.Nearest(stop, "Stick", out Vector3 blade, out PuckSurface stick, out float toStick) && toStick < distance)
+            {
+                normal = blade;
+                surface = stick;
+            }
             return true;
         }
 

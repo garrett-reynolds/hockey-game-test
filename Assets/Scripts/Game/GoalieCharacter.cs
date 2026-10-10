@@ -212,6 +212,51 @@ namespace HockeyGame
             return false;
         }
 
+        /// <summary>
+        /// Adds the gear and body as posed now, in world space, to what a puck can hit. Each gear piece is named as in
+        /// GearBounds ("Left Pad", "Stick", ...); the body and clothes are "Body". Does nothing without a model.
+        /// </summary>
+        public void AddTo(PuckObstacles obstacles)
+        {
+            if (!Present) return;
+            foreach (MeshRenderer r in _model.GetComponentsInChildren<MeshRenderer>(true))
+            {
+                if (!r.name.StartsWith("Gear ")) continue;
+                Mesh shared = r.GetComponent<MeshFilter>().sharedMesh;
+                string piece = r.name.Substring("Gear ".Length);
+                obstacles.AddMesh(ToWorld(shared.vertices, r.transform.localToWorldMatrix), shared.triangles, SurfaceOf(piece), piece);
+            }
+            var mesh = new Mesh();
+            foreach (SkinnedMeshRenderer body in _body)
+            {
+                body.BakeMesh(mesh, true);
+                Matrix4x4 toWorld = Matrix4x4.TRS(body.transform.position, body.transform.rotation, Vector3.one);
+                obstacles.AddMesh(ToWorld(mesh.vertices, toWorld), mesh.triangles, PuckSurface.Body, "Body");
+            }
+            Destroy(mesh);
+        }
+
+        static Vector3[] ToWorld(Vector3[] vertices, Matrix4x4 toWorld)
+        {
+            var world = new Vector3[vertices.Length];
+            for (int i = 0; i < vertices.Length; i++) world[i] = toWorld.MultiplyPoint3x4(vertices[i]);
+            return world;
+        }
+
+        /// <summary>How a gear piece feels to the puck.</summary>
+        public static PuckSurface SurfaceOf(string piece)
+        {
+            switch (piece)
+            {
+                case "Left Pad": case "Right Pad": return PuckSurface.Pad;
+                case "Blocker": return PuckSurface.Blocker;
+                case "Catcher": return PuckSurface.Catcher;
+                case "Stick": return PuckSurface.Stick;
+                case "Left Skate": case "Right Skate": return PuckSurface.Skate;
+                default: return PuckSurface.Body; // mask, visor
+            }
+        }
+
         /// <summary>The bone for a humanoid body part, or null when there is no model.</summary>
         public Transform Bone(HumanBodyBones bone) => Animator != null ? Animator.GetBoneTransform(bone) : null;
 
