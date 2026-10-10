@@ -32,26 +32,30 @@ namespace HockeyGame
         /// are written in a mirrored frame (as the Left ones), but kept separate: the post-side hand is the blocker on the left and
         /// the catcher on the right, so each side is posed on its own. Blocker fingers point down (rolled in or out a little), so
         /// the stick, held across the palm, reaches the ice; the arms are only ~0.49 m long, so the hands stay near the body.
+        /// The side shapes are tuned for the goalie squared up to the shooter (~18 degrees turned, #40): turning swings the far
+        /// pad out toward the shooter and off the far low corner, so the post-hugs stand a little out of the crease (hips 4-9 cm
+        /// toward the shooter); the butterflies angle the far pad back toward the net with its toe a little up, and LeftButterfly
+        /// slides its hips 10 cm toward the far post.
         /// </summary>
         internal static readonly Shape[] Shapes =
         {
             new Shape // LeftPostHug: crouched against the left post, post pad upright on the post, blocker low in front with the stick on the ice, catcher out in front
             {
                 Spine = V(-0.25f, 0.7f, 0.7f), Neck = V(0.15f, 1f, 0.15f),
-                LeftThigh = V(-0.7f, -0.15f, 0.7f), LeftShin = V(-0.2f, -0.85f, -0.45f),
+                LeftThigh = V(-0.7f, -0.114f, 0.7f), LeftShin = V(-0.2f, -0.85f, -0.45f),
                 RightThigh = V(0.75f, -0.15f, 0.45f), RightShin = V(0.3f, -0.85f, -0.3f),
                 LeftUpperArm = V(0.059f, -0.238f, 0.049f), LeftForearm = V(0.166f, -0.158f, 0.071f), LeftFingers = V(0.342f, -0.94f, 0f),
                 RightUpperArm = V(0.219f, -0.116f, 0.031f), RightForearm = V(-0.034f, -0.2f, 0.129f), RightFingers = V(0.1f, 0.9f, 0.2f),
-                Hips = V(-0.38f, 0f, 0f),
+                Hips = V(-0.34f, 0f, 0.094f),
             },
             new Shape // LeftButterfly: knees down leaning into the left post, pads flat across the ice, blocker and stick at the post, catcher low and out
             {
-                Spine = V(-0.55f, 0.8f, 0.5f), Neck = V(0.3f, 1f, 0.05f),
-                LeftThigh = V(-0.38f, -0.76f, 0.4f), LeftShin = V(-1f, -0.05f, -0.4f),
-                RightThigh = V(0.8f, -0.6f, 0.25f), RightShin = V(1f, -0.05f, -0.5f),
-                LeftUpperArm = V(-0.174f, -0.17f, 0.06f), LeftForearm = V(0.074f, -0.18f, 0.14f), LeftFingers = V(0.492f, -0.853f, -0.174f),
-                RightUpperArm = V(0.192f, -0.149f, 0.058f), RightForearm = V(0.164f, -0.161f, 0.071f), RightFingers = V(0.85f, 0.45f, 0.2f),
-                Hips = V(-0.56f, 0f, -0.08f),
+                Spine = V(-0.521f, 0.785f, 0.585f), Neck = V(0.3f, 1f, 0.05f),
+                LeftThigh = V(-0.371f, -0.76f, 0.467f), LeftShin = V(-0.961f, -0.05f, -0.303f),
+                RightThigh = V(0.841f, -0.623f, 0.25f), RightShin = V(0.926f, 0.067f, -0.524f),
+                LeftUpperArm = V(-0.201f, -0.173f, 0.092f), LeftForearm = V(0.074f, -0.166f, 0.14f), LeftFingers = V(0.492f, -0.853f, -0.174f),
+                RightUpperArm = V(0.192f, -0.155f, 0.044f), RightForearm = V(0.216f, -0.101f, 0.087f), RightFingers = V(0.85f, 0.45f, 0.2f),
+                Hips = V(-0.462f, 0f, -0.087f),
             },
             new Shape // MiddleButterfly: knees down, pads flared flat on the ice, chest up, hands low and out, stick paddle across the five-hole
             {
@@ -74,20 +78,20 @@ namespace HockeyGame
             new Shape // RightPostHug: LeftPostHug in the mirrored frame; catcher up on the post, blocker and stick in front of the five-hole
             {
                 Spine = V(-0.25f, 0.7f, 0.7f), Neck = V(0.15f, 1f, 0.15f),
-                LeftThigh = V(-0.7f, -0.15f, 0.7f), LeftShin = V(-0.2f, -0.85f, -0.45f),
-                RightThigh = V(0.7f, -0.15f, 0.45f), RightShin = V(0.25f, -0.85f, -0.3f),
-                LeftUpperArm = V(0.238f, -0.072f, 0.024f), LeftForearm = V(-0.158f, 0.042f, 0.176f), LeftFingers = V(-0.1f, 0.9f, 0.2f),
-                RightUpperArm = V(-0.065f, -0.23f, 0.072f), RightForearm = V(0.195f, -0.1f, 0.098f), RightFingers = V(0.087f, -0.996f, 0f),
-                Hips = V(-0.38f, 0f, 0f),
+                LeftThigh = V(-0.624f, -0.144f, 0.649f), LeftShin = V(-0.096f, -0.942f, -0.52f),
+                RightThigh = V(0.687f, -0.121f, 0.359f), RightShin = V(0.318f, -0.784f, -0.193f),
+                LeftUpperArm = V(0.296f, -0.095f, 0.026f), LeftForearm = V(-0.212f, 0.06f, 0.241f), LeftFingers = V(-0.1f, 0.9f, 0.2f),
+                RightUpperArm = V(0.003f, -0.23f, 0.072f), RightForearm = V(0.195f, -0.1f, 0.098f), RightFingers = V(0.087f, -0.996f, 0f),
+                Hips = V(-0.38f, 0f, 0.041f),
             },
             new Shape // RightButterfly: LeftButterfly in the mirrored frame; catcher high on the post, blocker low on the far side, stick on the ice
             {
-                Spine = V(-0.5f, 0.72f, 0.6f), Neck = V(0.3f, 1f, 0.05f),
-                LeftThigh = V(-0.42f, -0.73f, 0.4f), LeftShin = V(-1f, -0.05f, -0.4f),
-                RightThigh = V(0.8f, -0.6f, 0.25f), RightShin = V(1f, -0.05f, -0.5f),
-                LeftUpperArm = V(0.172f, 0.063f, 0.17f), LeftForearm = V(-0.222f, 0.087f, 0.03f), LeftFingers = V(-0.05f, 0.95f, 0.2f),
-                RightUpperArm = V(0.077f, -0.232f, 0.051f), RightForearm = V(0.101f, -0.211f, 0.055f), RightFingers = V(-0.557f, -0.663f, -0.5f),
-                Hips = V(-0.52f, 0f, -0.08f),
+                Spine = V(-0.421f, 0.706f, 0.596f), Neck = V(0.3f, 1f, 0.05f),
+                LeftThigh = V(-0.388f, -0.619f, 0.4f), LeftShin = V(-1.101f, -0.044f, -0.353f),
+                RightThigh = V(0.8f, -0.496f, 0.243f), RightShin = V(0.968f, 0.143f, -0.543f),
+                LeftUpperArm = V(0.176f, 0.063f, 0.166f), LeftForearm = V(-0.222f, 0.087f, 0.03f), LeftFingers = V(-0.05f, 0.95f, 0.2f),
+                RightUpperArm = V(0.117f, -0.371f, 0.077f), RightForearm = V(0.101f, -0.211f, 0.055f), RightFingers = V(-0.557f, -0.663f, -0.5f),
+                Hips = V(-0.52f, 0f, -0.074f),
             },
         };
 

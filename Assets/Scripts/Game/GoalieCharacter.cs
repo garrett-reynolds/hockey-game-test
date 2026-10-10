@@ -96,28 +96,6 @@ namespace HockeyGame
         }
 
         /// <summary>
-        /// The widest turn each Goalie Pose keeps (degrees either way) so that, seen from the shooter, it still reads as the
-        /// pose table (GoalieCoverageTests). A side shooter is 17.7-19.2 degrees off at the Shot, but turning a side pose
-        /// swings its far pad back toward the net and uncovers the far low corner (#39 probe, 1-degree steps): the butterflies
-        /// pass up to 2 degrees, LeftPostHug to 7 (RightPostHug 10), so the post-hugs keep 6. The Middle poses keep the whole
-        /// turn (their shooter is straight out at the Shot anyway).
-        /// </summary>
-        public static float MaxTurn(GoaliePose pose)
-        {
-            switch (pose)
-            {
-                case GoaliePose.LeftButterfly:
-                case GoaliePose.RightButterfly:
-                    return 2f;
-                case GoaliePose.LeftPostHug:
-                case GoaliePose.RightPostHug:
-                    return 6f;
-                default:
-                    return (float)GoalieTurn.MaxDegrees;
-            }
-        }
-
-        /// <summary>
         /// The facing (GoalieTurn) that squares the goalie up to a shooter at this point (rink space: Net Face at z = 0,
         /// the shooter at -z), seen from where the goalie stands: centred on the net, StandZ out.
         /// </summary>

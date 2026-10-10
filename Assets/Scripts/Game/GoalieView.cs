@@ -101,7 +101,8 @@ namespace HockeyGame
         /// <summary>
         /// Which way the goalie character faces (degrees about the vertical, + toward the shooter's left; see GoalieTurn):
         /// `ready` is where it has turned so far in the ready stance; `target` squares up to the shooter. Reacting into the
-        /// pose, it finishes the turn to the target (or the pose's own limit, GoalieCharacter.MaxTurn). The blocks never turn.
+        /// pose, it finishes the turn to the target, so it stays squared up to the shooter (every pose is shaped to read as the
+        /// pose table turned, #40). The blocks never turn.
         /// </summary>
         public void Face(float ready, float target)
         {
@@ -110,12 +111,8 @@ namespace HockeyGame
             PoseCharacter();
         }
 
-        /// <summary>The facing the pose ends at: the target, within the pose's limit.</summary>
-        float PosedFacing()
-        {
-            float limit = GoalieCharacter.MaxTurn((GoaliePose)_shown);
-            return Mathf.Clamp(_target, -limit, limit);
-        }
+        /// <summary>The facing the pose ends at: the target, within the turn cap (GoalieTurn.MaxDegrees).</summary>
+        float PosedFacing() => Mathf.Clamp(_target, -(float)GoalieTurn.MaxDegrees, (float)GoalieTurn.MaxDegrees);
 
         /// <summary>The character fully posed and turned, as it stands once the reaction ends (saves are measured on this).</summary>
         void PoseFull() => _character.Pose((GoaliePose)_shown, 1f, PosedFacing());

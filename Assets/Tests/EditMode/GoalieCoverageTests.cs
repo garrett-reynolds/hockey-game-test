@@ -58,12 +58,12 @@ namespace HockeyGame.Core.Tests
             bool ok = true;
             foreach (var (view, eye) in Eyes(GoaliePoses.SideOf(pose)))
             {
-                // Squared up to the shooter at this eye, fully set (the pose's own turn limit applies).
+                // Squared up to the shooter at this eye, fully set: every pose keeps the whole turn (#40).
                 float facing = GoalieCharacter.FacingToward(eye);
                 goalie.Face(facing, facing);
                 goalie.SetProgress(1f);
                 var colliders = AddColliders(character);
-                report.AppendLine($"  {view}: facing {facing:F1} degrees, posed at {Mathf.Clamp(facing, -GoalieCharacter.MaxTurn(pose), GoalieCharacter.MaxTurn(pose)):F1}");
+                report.AppendLine($"  {view}: facing {facing:F1} degrees");
                 var hits = new bool[3, 3][,];
                 for (int column = 0; column < 3; column++)
                 for (int row = 0; row < 3; row++)

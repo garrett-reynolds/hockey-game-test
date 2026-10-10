@@ -252,7 +252,7 @@ namespace HockeyGame.Core.Tests
                 SetUp();
                 PlaceShooter(pose, close);
                 var character = new GoalieCharacter(_rink.transform);
-                // Squared up to the shooter (#39): the pose's own turn limit applies.
+                // Squared up to the shooter (#39), and kept through the pose (#40).
                 Run run = Shoot(pose, x, y, character: character, facing: GoalieCharacter.FacingToward(_camera.transform.position));
                 List<Triangle> goalie = GoalieTriangles(character);
                 List<Triangle> near = Near(goalie, run.Contact, run.Path);
