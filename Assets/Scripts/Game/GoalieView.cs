@@ -1,5 +1,6 @@
 using HockeyGame.Core;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace HockeyGame
 {
@@ -16,11 +17,14 @@ namespace HockeyGame
         internal const float BlockDepth = 0.1f;
         internal const float BlockZ = -0.08f;   // centre; block spans z -0.13..-0.03, in front of the Net Face
         const float GlowZ = 0.06f;     // just behind the Net Face
+        /// <summary>The glow's shader: unlit, with its depth test set per material (see SetProgress).</summary>
+        public const string EasyGlowShader = "Hockey Game/Easy Glow";
         static readonly Color GoalieColour = new Color(0.15f, 0.25f, 0.6f);
         static readonly Color GlowColour = new Color(0.3f, 1f, 0.3f);
 
         readonly GameObject[] _blocks = new GameObject[6];
         readonly GameObject[] _glows = new GameObject[6];
+        readonly Material _glow; // shared by every glow cube
         readonly System.Collections.Generic.List<SetBlock>[] _setBlocks = new System.Collections.Generic.List<SetBlock>[6];
         float _set = 1f;
         float _ready, _target; // facing (degrees): turned so far in the Ready Stance; squared up to the shooter
@@ -33,7 +37,7 @@ namespace HockeyGame
         public GoalieView(Transform parent, GoalieCharacter character = null)
         {
             _character = character != null && character.Present ? character : null;
-            Shader unlit = Shader.Find("Universal Render Pipeline/Unlit");
+            _glow = GlowMaterial();
             foreach (GoaliePose pose in System.Enum.GetValues(typeof(GoaliePose)))
             {
                 int i = (int)pose;
@@ -73,7 +77,7 @@ namespace HockeyGame
                                 settle.name += " (setting)";
                                 _setBlocks[i].Add(new SetBlock(settle, n, GoaliePoseBlend.OpenTarget(column, row)));
                                 NetFaceMapping.ZoneRectangle(column, row, 0.96f, out float a, out float b, out float c, out float d);
-                                Block(_glows[i].transform, column, row, a, b, c, d, 0.02f, GlowZ, GlowColour, unlit);
+                                Block(_glows[i].transform, column, row, a, b, c, d, 0.02f, GlowZ, GlowColour, _glow);
                             }
                             break;
                     }
@@ -85,6 +89,25 @@ namespace HockeyGame
                         r.enabled = false;
             Apply();
             for (int i = 0; i < _setBlocks.Length; i++) PlaceSetBlocks(i);
+            SetGlowDepth();
+        }
+
+        /// <summary>A copy of the Resources twin (so a build keeps the shader), or URP Unlit if it is missing.</summary>
+        static Material GlowMaterial()
+        {
+            var template = Resources.Load<Material>(ArenaLighting.AssetFolder + "/" + ArenaLighting.EasyGlowMaterial);
+            var material = template != null ? new Material(template) : new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+            material.color = GlowColour;
+            return material;
+        }
+
+        /// <summary>
+        /// Before the Shot the goalie's Ready Stance (or the neutral blocks) stands in front of the Open Zones, so the glow
+        /// draws over it (no depth test); once the goalie reacts it is depth-tested again, so the flying puck stays in front.
+        /// </summary>
+        void SetGlowDepth()
+        {
+            _glow.SetFloat("_ZTest", (float)(_set > 0f ? CompareFunction.LessEqual : CompareFunction.Always));
         }
 
         /// <summary>How far the goalie has moved into the pose: 0 = Ready Stance / neutral shape, 1 = fully posed (the default).</summary>
@@ -94,6 +117,7 @@ namespace HockeyGame
             {
                 _set = Mathf.Clamp01(progress);
                 for (int i = 0; i < _setBlocks.Length; i++) PlaceSetBlocks(i);
+                SetGlowDepth();
             }
             PoseCharacter(); // every call, so nothing else left on the bones wins
         }
@@ -243,17 +267,12 @@ namespace HockeyGame
             return column >= 0 && column < 3 && row >= 0 && row < 3 && GoaliePoses.CoverAt(pose, column, row) == ZoneCover.Open;
         }
 
-        static GameObject Block(Transform parent, int column, int row, float minX, float minY, float maxX, float maxY, float depth, float z, Color colour, Shader unlit)
+        static GameObject Block(Transform parent, int column, int row, float minX, float minY, float maxX, float maxY, float depth, float z, Color colour, Material material)
         {
             var cube = RinkBuilder.Cube(parent, "Zone " + column + "," + row,
                 new Vector3((minX + maxX) / 2f, (minY + maxY) / 2f, z),
                 new Vector3(maxX - minX, maxY - minY, depth), colour);
-            if (unlit != null)
-            {
-                var material = new Material(unlit);
-                material.color = colour;
-                cube.GetComponent<Renderer>().sharedMaterial = material;
-            }
+            if (material != null) cube.GetComponent<Renderer>().sharedMaterial = material;
             return cube;
         }
     }

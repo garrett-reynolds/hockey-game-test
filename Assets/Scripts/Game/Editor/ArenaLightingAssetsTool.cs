@@ -23,6 +23,15 @@ namespace HockeyGame.Editor
             Save(GlassTemplate(), ArenaLighting.GlassMaterial);
             Save(GlowTemplate(), ArenaLighting.GlowMaterial);
             Save(new Material(Shader.Find("Universal Render Pipeline/Unlit")), ArenaLighting.UnlitMaterial);
+            BuildEasyGlow();
+            AssetDatabase.SaveAssets();
+        }
+
+        /// <summary>Recreates only the Easy mode glow template (Assets/Shaders/EasyGlow.shader).</summary>
+        public static void BuildEasyGlow()
+        {
+            Directory.CreateDirectory(Folder);
+            Save(new Material(Shader.Find(GoalieView.EasyGlowShader)), ArenaLighting.EasyGlowMaterial);
             AssetDatabase.SaveAssets();
         }
 
