@@ -10,7 +10,8 @@ namespace HockeyGame
     /// Contested Zone = smaller block, Open Zone = nothing); showing a pose enables its group and disables the rest.
     /// The blocks stay in the scene as the rules reference; with the character they are not drawn. The character never shows
     /// the Goalie Pose: it holds the Ready Stance and on the Shot moves into a Save Reaction chosen from where the Shot goes
-    /// (React), set by the same blend (docs/adr/0002). No colliders.
+    /// (React), set by the same blend (docs/adr/0002); after it he recovers into the Ready Stance before the result hold ends,
+    /// and in the Ready Stance he shows Stance Life (Live, #44). No colliders.
     /// </summary>
     public sealed class GoalieView
     {
@@ -146,9 +147,56 @@ namespace HockeyGame
         {
             if (_character == null || !_visible) return;
             float facing = Mathf.Lerp(_ready, PosedFacing(), _set);
-            if (!_reacted) { _character.Pose(_set, facing); return; }
-            AfterShotMoment moment = AfterShot.At(_gesture, _sinceArrival, _sinceNetting);
-            _character.Pose(_set, facing, _gesture, moment, Vector3.Lerp(_puck, _post, (float)moment.Glance));
+            ShownFacing = facing;
+            float recovered = 0f;
+            if (!_reacted) _character.Pose(_set, facing);
+            else
+            {
+                AfterShotMoment moment = AfterShot.At(_gesture, _sinceArrival, _sinceNetting);
+                _character.Pose(_set, facing, _gesture, moment, Vector3.Lerp(_puck, _post, (float)moment.Glance));
+                recovered = (float)moment.Recover;
+            }
+            // Stance Life fades out as the reaction comes in (none at all fully reacted: what the Shot measured is what shows)
+            // and back in as he recovers into the Ready Stance.
+            _character.Live(StanceLife.At(_life), 1f - _set * (1f - recovered));
+            if (_carried != null)
+            {
+                _carried.position = _carrier.TransformPoint(_carriedAt);
+                _carried.rotation = _carrier.rotation * _carriedTurn;
+            }
+        }
+
+        float _life; // Stance Life clock (Live)
+
+        /// <summary>
+        /// The Stance Life clock (seconds; BreakawayView runs it on game time, so it slows down with the world): the goalie's
+        /// breathing, weight shifts and stick taps in the Ready Stance (StanceLife). Shown by the next SetProgress.
+        /// </summary>
+        public void Live(float seconds) => _life = seconds;
+
+        /// <summary>The facing (degrees, see Face) the goalie character was last shown at.</summary>
+        public float ShownFacing { get; private set; }
+
+        /// <summary>True when the rigged goalie character is drawn (not the blocks).</summary>
+        public bool HasCharacter => _character != null;
+
+        Transform _carried, _carrier;
+        Vector3 _carriedAt;
+        Quaternion _carriedTurn;
+
+        /// <summary>
+        /// A puck that has come to rest on the goalie (held in the catching glove, or lying on his gear) moves with what it
+        /// rests on as he follows through and recovers: placed by each SetProgress. Null lets go. Nothing without the character.
+        /// </summary>
+        public void Carry(Transform puck)
+        {
+            _carried = null;
+            if (puck == null || _character == null || !_visible) return;
+            _carrier = _character.Carrier(puck.position);
+            if (_carrier == null) return;
+            _carried = puck;
+            _carriedAt = _carrier.InverseTransformPoint(puck.position);
+            _carriedTurn = Quaternion.Inverse(_carrier.rotation) * puck.rotation;
         }
 
         void PlaceSetBlocks(int pose)
@@ -204,6 +252,7 @@ namespace HockeyGame
         public void React(ShotResult result, Vector3 from)
         {
             _reacted = false;
+            _carried = null;
             if (_character == null || !_visible || !result.HasShot) return;
             NetFaceMapping.ToMetres(result.X, result.Y, out double right, out double up);
             var netPoint = new Vector3((float)right, (float)up, 0f);

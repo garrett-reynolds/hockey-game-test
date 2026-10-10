@@ -108,7 +108,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void A_goal_s_two_annoyed_gestures_read_differently_and_each_ends_in_a_held_pose()
+        public void A_goal_s_two_annoyed_gestures_read_differently_and_each_ends_in_its_own_pose_before_he_recovers()
         {
             // Slump (15, 85): the head goes well down and stays there.
             GoalieView view = Make(out GoalieCharacter character);
@@ -117,13 +117,10 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(AfterShotGesture.Slump, view.Gesture);
             At(view, net, -1f);
             float reachHead = MaskHeight(character), reachStick = StickBottom(character);
-            At(view, inNet, 2.3f, 1.9f);
+            At(view, inNet, 1.7f, 1.4f); // the gesture's end, just before he recovers (#44)
             Assert.Less(MaskHeight(character), reachHead - 0.08f, "slumped: the head dropped");
             float slumpStick = StickBottom(character);
             Assert.Less(slumpStick, reachStick + 0.1f, "the stick stays down");
-            Vector3 endFace = Face(character);
-            At(view, inNet, 2.5f, 2.1f);
-            Assert.AreEqual(0f, Vector3.Distance(endFace, Face(character)), 1e-4f, "the end pose is held");
             Object.DestroyImmediate(character.Root);
 
             // Stick slap (50, 90): the stick comes well up off the ice, then down onto it.
@@ -134,13 +131,10 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(AfterShotGesture.StickSlap, view.Gesture);
             At(view, net, -1f);
             float onIce = StickBottom(character);
-            At(view, inNet, 1.55f, 1.25f);
+            At(view, inNet, 1.25f, 0.95f);
             Assert.Greater(StickBottom(character), onIce + 0.25f, "the stick is lifted");
-            At(view, inNet, 2.3f, 1.9f);
+            At(view, inNet, 1.7f, 1.4f);
             Assert.AreEqual(onIce, StickBottom(character), 0.03f, "slapped back down on the ice");
-            float slapHead = MaskHeight(character);
-            At(view, inNet, 2.5f, 2.1f);
-            Assert.AreEqual(slapHead, MaskHeight(character), 1e-4f, "the end pose is held");
         }
 
         /// <summary>Where a goal at this point meets the netting: kept inside the side panels and roof, at the deepest netting.</summary>
@@ -233,9 +227,9 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void Played_through_a_goal_the_goalie_looks_back_after_the_netting_ends_in_the_gesture_s_pose_and_never_touches_the_puck()
+        public void Played_through_a_goal_the_goalie_looks_back_after_the_netting_gestures_and_never_touches_the_puck()
         {
-            float reachHead = 0f, lastHead = 0f, lastStick = 0f, mostYaw = 0f, yawBefore = 0f;
+            float reachHead = 0f, lowestHead = float.MaxValue, lastStick = 0f, mostYaw = 0f, yawBefore = 0f;
             int frames = 0;
             Vector3 last = Vector3.zero;
             var touches = new List<string>();
@@ -244,7 +238,7 @@ namespace HockeyGame.Core.Tests
                 float yaw = Mathf.Abs(Yaw(character));
                 if (!arrived) { yawBefore = Mathf.Max(yawBefore, yaw); reachHead = MaskHeight(character); }
                 else mostYaw = Mathf.Max(mostYaw, yaw);
-                lastHead = MaskHeight(character);
+                if (arrived) lowestHead = Mathf.Min(lowestHead, MaskHeight(character));
                 lastStick = StickBottom(character);
                 // The puck's move over the last few frames against the goalie as it stands now.
                 if (frames++ % 3 == 0 && t > 0.2f)
@@ -256,7 +250,7 @@ namespace HockeyGame.Core.Tests
             });
             Assert.Less(yawBefore, 25f, "no look back while the puck flies");
             Assert.Greater(mostYaw, 70f, "looked back into the net");
-            Assert.Less(lastHead, reachHead - 0.05f, "the result hold ends in the gesture's end pose (head down)");
+            Assert.Less(lowestHead, reachHead - 0.05f, "the gesture drops his head");
             Assert.Less(lastStick, 0.03f, "the stick back on the ice");
             Assert.IsEmpty(touches, string.Join("; ", touches));
         }
@@ -264,12 +258,14 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void Played_through_a_pad_save_the_head_follows_the_rebound()
         {
-            float worst = 0f;
+            float worst = 0f, since = 0f;
             int watched = 0;
             Play(GoaliePose.MiddleButterfly, 15, 12, (character, t, arrived, puck) =>
             {
                 if (!arrived || !puck.gameObject.activeInHierarchy) return;
-                if (t < ShotFlight.MinSeconds + 0.3f) return; // turned in by then
+                since += 1f / 60f;
+                if (since < 0.3f) return; // turned in by then
+                if (since > (float)AfterShot.SaveRecoverFrom) return; // then he recovers into the Ready Stance (#44)
                 watched++;
                 worst = Mathf.Max(worst, OffPuck(character, puck.position));
             });
@@ -319,7 +315,7 @@ namespace HockeyGame.Core.Tests
 
         [TestCase(112.0, 50.0, TestName = "Wide right: the head follows the puck by, then relief toward the right post")]
         [TestCase(-3.0, 60.0, TestName = "Off the left post (a Frame Hit): the head follows it, then relief toward that post")]
-        public void On_a_miss_the_head_follows_the_puck_going_by_then_shows_relief_and_holds(double x, double y)
+        public void On_a_miss_the_head_follows_the_puck_going_by_then_shows_relief(double x, double y)
         {
             GoalieView view = Make(out GoalieCharacter character);
             view.React(Result(ShotResultKind.Miss, x, y), From);
@@ -332,15 +328,13 @@ namespace HockeyGame.Core.Tests
             Assert.Greater(Yaw(character) * side, 35f, "the head has followed the puck going by");
             Assert.Greater(Yaw(character) * side, before * side + 20f);
             AssertGearStill(gear, character, "following");
-            At(view, NetPoint(x, y) + new Vector3(side * 0.8f, 0f, 3f), 1.05f);
+            At(view, NetPoint(x, y) + new Vector3(side * 0.8f, 0f, 3f), 0.85f);
+            AssertGearStill(gear, character, "until a deflection is clear of him");
+            At(view, NetPoint(x, y) + new Vector3(side * 0.8f, 0f, 3f), 1.1f);
             float breathIn = MaskHeight(character);
-            At(view, NetPoint(x, y) + new Vector3(side * 0.8f, 0f, 3f), 2.3f);
+            At(view, NetPoint(x, y) + new Vector3(side * 0.8f, 0f, 3f), 1.65f);
             Assert.Greater(Yaw(character) * side, 20f, "glancing back at the post on that side");
             Assert.Less(MaskHeight(character), breathIn - 0.005f, "breathed out");
-            AssertGearStill(gear, character, "relief");
-            Vector3 end = Face(character);
-            At(view, NetPoint(x, y) + new Vector3(side * 0.8f, 0f, 3f), 2.5f);
-            Assert.AreEqual(0f, Vector3.Distance(end, Face(character)), 1e-4f, "the end pose is held");
         }
     }
 }

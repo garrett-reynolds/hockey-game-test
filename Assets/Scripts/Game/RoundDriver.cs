@@ -64,10 +64,12 @@ namespace HockeyGame
             var keyboard = Keyboard.current;
             var mouse = Mouse.current;
 
-            // Goalie shows for the whole Shot (SkateIn to ResultHold); hidden in Idle and RoundOver.
+            // The goalie character stands in the net on the start and end screens too, alive in the Ready Stance (#44); the block
+            // goalie shows only for the Shot (SkateIn to ResultHold). The Easy glow shows only for the Shot: it would give away
+            // the next Goalie Pose.
             var phaseNow = _round.Phase;
-            bool goalieShown = phaseNow != RoundPhase.Idle && phaseNow != RoundPhase.RoundOver;
-            _goalie.Show(goalieShown, _round.GoaliePose, _save.EasyMode);
+            bool inShot = phaseNow != RoundPhase.Idle && phaseNow != RoundPhase.RoundOver;
+            _goalie.Show(inShot || _goalie.HasCharacter, _round.GoaliePose, _save.EasyMode && inShot);
             _effects.Update(_round, Time.unscaledDeltaTime);
             _sound.Update(_round, _effects.PuckArrivedThisFrame, Time.unscaledDeltaTime, _effects.ContactSound);
 

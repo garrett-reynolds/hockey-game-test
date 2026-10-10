@@ -779,6 +779,14 @@ namespace HockeyGame
         {
             Pose(set, facing);
             if (!Present || set <= 0f) return;
+            if (moment.Return > 0)
+            {
+                // Glides back across the crease to his spot (keeping how low he is: a butterfly comes up in the recovery).
+                Vector3 at = _model.localPosition, spot = _ready.ModelPosition;
+                float r = (float)moment.Return;
+                _model.localPosition = new Vector3(Mathf.Lerp(at.x, spot.x, r), at.y, Mathf.Lerp(at.z, spot.z, r));
+                PlaceRoot(facing);
+            }
             bool goal = gesture == AfterShotGesture.Slump || gesture == AfterShotGesture.StickSlap;
             if (goal && (moment.LateReach > 0 || moment.Relax > 0))
             {
@@ -791,6 +799,104 @@ namespace HockeyGame
             if (moment.Watch > 0) Watch(watch, (float)moment.Watch, goal ? LookBackDegrees : WatchDegrees, goal ? LookBackSpine : 0f);
             if (moment.Gesture > 0) Gesture(gesture, (float)moment.Gesture);
             if (goal) KeepBladeUp();
+            if (gesture == AfterShotGesture.None && moment.FollowThrough > 0) FollowThrough((float)moment.FollowThrough, facing);
+            if (moment.Recover > 0)
+            {
+                // Back up into the Ready Stance: at 1 exactly the Ready Stance on his spot, as Pose(0, facing) shows it.
+                float r = (float)moment.Recover;
+                for (int i = 0; i < _bones.Length; i++)
+                    _bones[i].localRotation = Quaternion.Slerp(_bones[i].localRotation, _ready.Rotations[i], r);
+                _model.localPosition = Vector3.Lerp(_model.localPosition, _ready.ModelPosition, r);
+                PlaceRoot(facing);
+            }
+        }
+
+        /// <summary>How far a glove save's glove comes up to show the puck, and a blocker save's blocker follows through out (metres).</summary>
+        public const float GloveHoldUp = 0.1f, BlockerFollowThrough = 0.08f;
+
+        /// <summary>
+        /// A Save, once the puck is off the gear: the catching glove comes up with the puck in it (GoalieView carries it), the
+        /// blocker carries on out toward the corner. Other saves keep their gear still (the rebound was measured on it).
+        /// </summary>
+        void FollowThrough(float p, float facing)
+        {
+            if (ReactionPiece == GearPiece.Catcher)
+                ReachHand(true, GearPiece.Catcher, GearPoint(GearPiece.Catcher) + Vector3.up * (GloveHoldUp * p), facing, false);
+            else if (ReactionPiece == GearPiece.Blocker)
+            {
+                Vector3 goalieRight = Root.transform.rotation * Vector3.left, forward = Root.transform.rotation * Vector3.back;
+                ReachHand(false, GearPiece.Blocker, GearPoint(GearPiece.Blocker) + (goalieRight * 0.85f + Vector3.up * 0.3f + forward * 0.3f).normalized * (BlockerFollowThrough * p), facing, false);
+            }
+        }
+
+        // ---- Stance Life (#44) -------------------------------------------------------------------------------------------
+
+        /// <summary>Stance Life at full size: the chest rises this far on a breath in (degrees); the hips move this far over a
+        /// skate (metres); a stick tap turns the stick arm up this far (degrees).</summary>
+        public const float BreathDegrees = 1.6f, ShiftMetres = 0.018f, TapDegrees = 3.5f;
+
+        /// <summary>
+        /// Adds Stance Life (StanceLife) to the pose shown, `weight` of it (0 none, 1 full): the chest rises with a breath, the
+        /// hips move over one skate with the skates kept where they are, and the stick arm lifts the blade for a tap. Only up
+        /// and across, never down: the blade never goes into the ice. Leaves the Root (facing, spot) alone.
+        /// </summary>
+        public void Live(StanceLifeMoment life, float weight)
+        {
+            if (!Present || weight <= 0f) return;
+            weight = Mathf.Min(weight, 1f);
+            Vector3 forward = Root.transform.rotation * Vector3.back, left = Root.transform.rotation * Vector3.right;
+            float shift = (float)life.Shift * ShiftMetres * weight;
+            if (Mathf.Abs(shift) > 1e-5f)
+            {
+                Transform lf = Bone(HumanBodyBones.LeftFoot), rf = Bone(HumanBodyBones.RightFoot);
+                Vector3 lp = lf.position, rp = rf.position, lk = Bone(HumanBodyBones.LeftLowerLeg).position, rk = Bone(HumanBodyBones.RightLowerLeg).position;
+                Quaternion lr = lf.rotation, rr = rf.rotation;
+                _model.position += left * shift;
+                Plant(HumanBodyBones.LeftUpperLeg, HumanBodyBones.LeftLowerLeg, lf, lp, lr, lk + left * shift + forward * 0.3f);
+                Plant(HumanBodyBones.RightUpperLeg, HumanBodyBones.RightLowerLeg, rf, rp, rr, rk + left * shift + forward * 0.3f);
+            }
+            Transform chest = Bone(HumanBodyBones.Chest) ?? Bone(HumanBodyBones.Spine);
+            if (chest != null) Bend(chest == Bone(HumanBodyBones.Chest) ? HumanBodyBones.Chest : HumanBodyBones.Spine, -forward, BreathDegrees * (float)life.Breath * weight);
+            float tap = TapDegrees * (float)life.Tap * weight;
+            Transform shoulder = Bone(HumanBodyBones.RightUpperArm), hand = Bone(HumanBodyBones.RightHand);
+            if (tap > 1e-4f && shoulder != null && hand != null)
+            {
+                Vector3 axis = Vector3.Cross(hand.position - shoulder.position, Vector3.up);
+                if (axis.sqrMagnitude > 1e-8f) shoulder.rotation = Quaternion.AngleAxis(tap, axis.normalized) * shoulder.rotation;
+            }
+        }
+
+        /// <summary>Keeps a foot (and its skate) where it was: two-bone IK on the leg, the knee toward `knee`.</summary>
+        void Plant(HumanBodyBones upper, HumanBodyBones lower, Transform foot, Vector3 at, Quaternion turn, Vector3 knee)
+        {
+            Transform u = Bone(upper), l = Bone(lower);
+            if (u == null || l == null) return;
+            TwoBone(u, l, l.InverseTransformPoint(foot.position), at, knee);
+            foot.rotation = turn;
+        }
+
+        /// <summary>
+        /// What a puck resting at `point` on the goalie moves with as he moves on: the gear piece it lies in or on (the catching
+        /// glove holding it), or else the nearest bone. Null without a model, or with the point off the goalie.
+        /// </summary>
+        public Transform Carrier(Vector3 point)
+        {
+            if (!Present) return null;
+            Transform best = null;
+            float nearest = 0.15f * 0.15f;
+            foreach (MeshRenderer r in _gear)
+            {
+                float d = r.bounds.SqrDistance(point);
+                if (d < nearest) { nearest = d; best = r.transform; }
+            }
+            if (best != null) return best;
+            nearest = 0.3f * 0.3f; // not on the goalie (on the frame, say): nothing
+            foreach (Transform b in _bones)
+            {
+                float d = (b.position - point).sqrMagnitude;
+                if (d < nearest) { nearest = d; best = b; }
+            }
+            return best;
         }
 
         float _bladeY; // the stick's lowest point in the Ready Stance (Prepare)

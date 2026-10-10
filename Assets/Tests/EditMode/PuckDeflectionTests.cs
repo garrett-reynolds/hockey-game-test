@@ -47,7 +47,9 @@ namespace HockeyGame.Core.Tests
             public Vector3 Leaving => Path[6] - Contact; // over the first 0.1 s
         }
 
-        Run Shoot(GoaliePose pose, double x, double y, double kmh = 100, GoalieCharacter character = null, float facing = 0f)
+        /// <param name="onArrive">Called on the frame the puck gets there, with the goalie fully reacted: as the rebound was
+        /// measured (after it he follows through and recovers, #44), and where the puck is.</param>
+        Run Shoot(GoaliePose pose, double x, double y, double kmh = 100, GoalieCharacter character = null, float facing = 0f, System.Action<Vector3> onArrive = null)
         {
             NetBuilder.Build(_rink.transform);
             character = character ?? new GoalieCharacter(_rink.transform);
@@ -69,7 +71,7 @@ namespace HockeyGame.Core.Tests
                 effects.Update(round, Frame);
                 round.Tick(Frame);
                 if (round.Phase != RoundPhase.ResultHold) break;
-                if (effects.PuckArrivedThisFrame) { arrived = true; run.Contact = puck.position; run.Sound = effects.ContactSound; run.Surface = effects.ContactSurface; continue; }
+                if (effects.PuckArrivedThisFrame) { arrived = true; run.Contact = puck.position; run.Sound = effects.ContactSound; run.Surface = effects.ContactSurface; onArrive?.Invoke(run.Contact); continue; }
                 if (!arrived) continue;
                 run.Path.Add(puck.position);
                 run.Turns.Add(puck.rotation);
@@ -143,11 +145,12 @@ namespace HockeyGame.Core.Tests
         public void A_stick_save_is_made_on_the_blade_and_deflected_low_the_way_the_blade_faces()
         {
             var character = new GoalieCharacter(_rink.transform);
-            Run run = Shoot(StickPose, StickX, StickY, character: character);
+            Vector3 blade = Vector3.zero;
+            Run run = Shoot(StickPose, StickX, StickY, character: character, onArrive: contact => blade = GearFacing(character, GearPiece.Stick, contact));
             Assert.AreEqual(ShotResultKind.Save, run.Kind);
             Assert.AreEqual(PuckSurface.Stick, run.Surface, "made on the stick");
             Assert.AreEqual(SoundCue.BlockerHit, run.Sound, "sounds like the stick (wood)");
-            Assert.Greater(Vector3.Dot(run.Leaving.normalized, GearFacing(character, GearPiece.Stick, run.Contact)), 0.2f, "away from the blade");
+            Assert.Greater(Vector3.Dot(run.Leaving.normalized, blade), 0.2f, "away from the blade");
 
             float highest = float.NegativeInfinity;
             foreach (Vector3 p in run.Path) highest = Mathf.Max(highest, p.y);
@@ -173,14 +176,14 @@ namespace HockeyGame.Core.Tests
                 TearDown();
                 SetUp();
                 var character = new GoalieCharacter(_rink.transform);
-                Run run = Shoot(pose, x, y, character: character);
+                List<Triangle> goalie = null;
+                Run run = Shoot(pose, x, y, character: character, onArrive: _ => goalie = GoalieTriangles(character));
                 string where = "(" + x + ", " + y + ")";
                 Assert.AreEqual(ShotResultKind.Save, run.Kind, where);
                 Assert.AreEqual(surface, run.Surface, where + ": the puck meets the reaction's gear");
                 Assert.AreEqual(Expected(surface), run.Sound, where + ": and sounds like it");
                 Assert.AreEqual(RoundSoundCues.SaveContact(x, y), run.Sound, where + ": the save sound is the reaction's");
                 // Touching the gear where the reaction put it: not short of it.
-                List<Triangle> goalie = GoalieTriangles(character);
                 float nearest = float.MaxValue;
                 foreach (Triangle t in Core.Tests.GoalieTriangles.Near(goalie, new Bounds(run.Contact, Vector3.zero), 0.1f))
                     nearest = Mathf.Min(nearest, Vector3.Distance(run.Contact, ClosestPoint(t, run.Contact)));
@@ -268,10 +271,20 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void The_catching_glove_holds_the_puck_through_the_hold()
         {
-            Run run = Shoot(GoaliePose.MiddleStandUp, 90, 80);
+            var character = new GoalieCharacter(_rink.transform);
+            Vector3 inGlove = Vector3.zero;
+            Run run = Shoot(GoaliePose.MiddleStandUp, 90, 80, character: character, onArrive: contact => inGlove = contact - Catcher(character));
             Assert.AreEqual(ShotResultKind.Save, run.Kind);
             Assert.IsTrue(run.Visible, "shown in the glove");
-            foreach (Vector3 p in run.Path) Assert.AreEqual(0f, Vector3.Distance(run.Contact, p), 1e-4f);
+            // The glove comes up and back into the Ready Stance (#44): the puck goes with it.
+            Assert.Greater(Vector3.Distance(run.Contact, run.Path[run.Path.Count - 1]), 0.05f, "the glove moved on");
+            Assert.AreEqual(0f, Vector3.Distance(run.Path[run.Path.Count - 1] - Catcher(character), inGlove), 0.03f, "still in the glove");
+        }
+
+        static Vector3 Catcher(GoalieCharacter character)
+        {
+            Assert.IsTrue(character.GearBounds(GearPiece.Catcher, out Bounds b));
+            return b.center;
         }
 
         [Test]
@@ -334,26 +347,34 @@ namespace HockeyGame.Core.Tests
                 SetUp();
                 PlaceShooter(pose, close);
                 var character = new GoalieCharacter(_rink.transform);
-                // Squared up to the shooter (#39), and kept through the pose (#40).
-                Run run = Shoot(pose, x, y, character: character, facing: GoalieCharacter.FacingToward(_camera.transform.position));
-                List<Triangle> goalie = GoalieTriangles(character);
+                // Squared up to the shooter (#39), and kept through the pose (#40). The puck moves among the gear as the
+                // reaction left it (it was measured there); after it the goalie follows through and recovers (#44).
+                List<Triangle> goalie = null;
+                Run run = Shoot(pose, x, y, character: character, facing: GoalieCharacter.FacingToward(_camera.transform.position),
+                    onArrive: _ => goalie = GoalieTriangles(character));
                 List<Triangle> near = Near(goalie, run.Contact, run.Path);
                 string where = pose + " (" + x.ToString("F1") + ", " + y.ToString("F1") + ") ";
                 Vector3 last = run.Contact;
+                bool rested = false; // held or settled: no more physics, and from then on it may ride on the recovering goalie (#44)
                 for (int i = 0; i < run.Path.Count; i++)
                 {
                     Vector3 p = run.Path[i];
+                    rested |= p == last;
                     Vector3 axis = run.Turns[i] * Vector3.up;
                     float lowest = p.y - 0.075f * Mathf.Sqrt(Mathf.Max(0f, 1f - axis.y * axis.y)) - 0.025f * Mathf.Abs(axis.y);
                     if (lowest < -0.002f) { failures.Add(where + "into the ice at frame " + i); break; }
-                    if (Crosses(near, last, p)) { failures.Add(where + "through the goalie at frame " + i); break; }
+                    if (!rested && Crosses(near, last, p)) { failures.Add(where + "through the goalie at frame " + i); break; }
                     if (InFrame(p)) { failures.Add(where + "in the frame at frame " + i); break; }
                     last = p;
                 }
                 if (failures.Count > 0 && failures[failures.Count - 1].StartsWith(where)) continue;
-                bool held = run.Path.TrueForAll(p => p == run.Contact);
-                if (held) continue; // the catching glove
                 Vector3 end = run.Path[run.Path.Count - 1];
+                if (end.y > 0.04f)
+                {
+                    // Off the ice: held in the catching glove or lying on the gear, carried there as he recovers.
+                    if (!AgainstGear(GoalieTriangles(character), end)) failures.Add(where + "off the ice but not on the goalie at the end: " + end.ToString("F3"));
+                    continue;
+                }
                 Vector3 endAxis = run.Turns[run.Turns.Count - 1] * Vector3.up;
                 bool still = run.Path[run.Path.Count - 2] == end;
                 bool flatOnIce = Mathf.Abs(endAxis.y) > 0.999f && Mathf.Abs(end.y - 0.025f) < 0.002f;

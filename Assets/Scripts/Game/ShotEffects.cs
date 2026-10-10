@@ -27,7 +27,7 @@ namespace HockeyGame
         const float BaseRailMetres = 0.07f;          // the net's back base tube and skirt on the ice: copied by hand from Tools/make_supplied_net.py's output, change both together
         static readonly Color SaveBlockColour = new Color(0.45f, 0.6f, 1f); // lighter than the GoalieView blocks so the slide shows on a Covered Zone
 
-        enum Stage { None, Flying, IntoNet, InNet, Deflecting, Carrying }
+        enum Stage { None, Flying, IntoNet, InNet, Deflecting, Carrying, OnGoalie } // OnGoalie: at rest on him, moved by GoalieView.Carry
 
         readonly Camera _camera;
         readonly GameObject _puck;
@@ -351,6 +351,13 @@ namespace HockeyGame
             _motion.Advance(dt);
             _puck.transform.position = _motion.Position;
             _puck.transform.rotation = _motion.Rotation;
+            // At rest on the goalie (held in the catching glove, or lying on his gear off the ice): from now on it moves with
+            // him as he follows through and recovers (#44).
+            if (_goalie != null && _goalie.HasCharacter && (_motion.Held || (_motion.Settled && _motion.Position.y > PuckThickness + 0.01f)))
+            {
+                _goalie.Carry(_puck.transform);
+                _stage = Stage.OnGoalie;
+            }
         }
 
         void SetGoalLight(bool on) => _goalLight.SetOn(on);
@@ -360,6 +367,7 @@ namespace HockeyGame
             _stage = Stage.None;
             _hasContact = false;
             _puck.SetActive(false);
+            _goalie?.Carry(null);
             _glove.SetActive(false);
             SetGoalLight(false);
             _net.Reset();

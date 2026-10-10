@@ -10,7 +10,7 @@ namespace HockeyGame
     /// the world slows down with a grey, high-contrast, vignetted look while the goalie waits in its Ready Stance, and a
     /// red ring around the net drains over the shooting window. The goalie turns to face the shooter as they come in. A Shot
     /// snaps time and look back to normal, and the goalie reacts to the Shot (its Save Reaction) at the shooter's angle.
-    /// Sets Time.timeScale; the Round core keeps ticking on unscaled real time.
+    /// The goalie's Stance Life runs on game time throughout. Sets Time.timeScale; the Round core keeps ticking on unscaled real time.
     /// </summary>
     public sealed class BreakawayView : MonoBehaviour
     {
@@ -27,7 +27,7 @@ namespace HockeyGame
         float _drift;      // metres drifted toward the net since the skate-in ended (scaled time)
         float _gameTime;   // game seconds since the skate-in began (stride bob and roll; the stride sounds use the same clock)
         readonly GoalieTurn _turn = new GoalieTurn(0.0); // the goalie squaring up to the shooter
-        bool _newSkate;    // face the shooter at once on the first skate-in frame
+        float _life;       // the goalie's Stance Life clock: game seconds, never reset, so it never jumps
 
         public void Init(Round round, Camera shooterCamera, GoalieView goalie)
         {
@@ -40,17 +40,26 @@ namespace HockeyGame
 
         void LateUpdate()
         {
-            if (_round == null) return;
+            if (_round != null) Step(Time.deltaTime);
+        }
 
+        /// <summary>One frame: dt is the game (scaled) seconds since the last one. LateUpdate runs it each frame.</summary>
+        public void Step(float dt)
+        {
             RoundPhase phase = _round.Phase;
             double phaseSeconds = _round.PhaseSecondsElapsed;
             if (phase == RoundPhase.SkateIn && _lastPhase != RoundPhase.SkateIn)
             {
                 _drift = 0f;
                 _gameTime = 0f;
-                _newSkate = true;
             }
+            // The goalie carries on from the facing he was shown at (after a Shot: squared up to that shooter), then turns to
+            // the next shooter as they skate in: no snap between Shots (#44).
+            if (phase != _lastPhase && (phase == RoundPhase.SkateIn || phase == RoundPhase.Idle || phase == RoundPhase.RoundOver))
+                _turn.Reset(_goalie.ShownFacing);
             _lastPhase = phase;
+            _life += dt;
+            _goalie.Live(_life);
 
             // Time and look come from the phase every frame, so a Shot (window -> result hold) snaps both back at once.
             float timeScale = (float)Breakaway.TimeScale(phase, phaseSeconds);
@@ -60,11 +69,10 @@ namespace HockeyGame
             float set = (float)Breakaway.GoalieSet(phase, phaseSeconds, _round.LastResult.HasValue && _round.LastResult.Value.HasShot);
             if (phase == RoundPhase.Idle || phase == RoundPhase.RoundOver)
             {
+                _goalie.Face((float)_turn.Shown, (float)_turn.Shown); // keeps facing the last shooter
                 _goalie.SetProgress(set);
                 return; // camera stays where it is
             }
-
-            float dt = Time.deltaTime; // scaled
             // In the skate-in game time is real time: follow the Round's clock exactly, so each stride sound
             // (RoundSoundCues, from the same phase seconds) lands on the bob's low point. Afterwards it runs on scaled.
             if (phase == RoundPhase.SkateIn) _gameTime = (float)phaseSeconds;
@@ -81,8 +89,7 @@ namespace HockeyGame
             // and window (game time), and holds still from the Shot on (the camera stops too, so the target the save was
             // measured on stays put while the goalie reacts into the pose at that angle).
             float target = GoalieCharacter.FacingToward(ground);
-            if (_newSkate) { _turn.Reset(target); _newSkate = false; }
-            else if (phase != RoundPhase.ResultHold) _turn.Step(target, dt, phase != RoundPhase.SkateIn);
+            if (phase != RoundPhase.ResultHold) _turn.Step(target, dt, phase != RoundPhase.SkateIn);
             _goalie.Face((float)_turn.Shown, target);
             _goalie.SetProgress(set);
         }

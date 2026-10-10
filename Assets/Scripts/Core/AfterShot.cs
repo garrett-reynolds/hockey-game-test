@@ -27,19 +27,28 @@ namespace HockeyGame.Core
         public readonly double Watch;
         /// <summary>A Miss: the eyes go from the puck to the post it passed.</summary>
         public readonly double Glance;
-        /// <summary>How far through the gesture; 1 is its end pose, held until the result hold ends.</summary>
+        /// <summary>How far through the gesture; 1 is its end pose, shown until he recovers.</summary>
         public readonly double Gesture;
+        /// <summary>A Save: the glove held up with the puck in it, or the blocker followed through, once the puck is off it.</summary>
+        public readonly double FollowThrough;
+        /// <summary>How far he has glided back across the crease to his spot (from where his reach pushed him).</summary>
+        public readonly double Return;
+        /// <summary>How far he has recovered into the Ready Stance: 1 is the Ready Stance, which he shows to the end of the hold.</summary>
+        public readonly double Recover;
 
-        public AfterShotMoment(double lateReach, double relax, double watch, double glance, double gesture)
+        public AfterShotMoment(double lateReach, double relax, double watch, double glance, double gesture,
+            double followThrough = 0, double @return = 0, double recover = 0)
         {
             LateReach = lateReach; Relax = relax; Watch = watch; Glance = glance; Gesture = gesture;
+            FollowThrough = followThrough; Return = @return; Recover = recover;
         }
     }
 
     /// <summary>
     /// The goalie's motion after the Shot, as a pure function of the time since the puck reached the Net Face (and, on a
     /// GOAL!, since it met the netting). The result hold always runs ResultHoldSeconds (2.5 s) after the puck gets there
-    /// (Round.DelayResult), and every gesture ends in its held end pose by EndSeconds after it (#44 blends out of that pose).
+    /// (Round.DelayResult). Every reaction plays out, glides back to the goalie's spot and recovers into the Ready Stance by
+    /// RecoveredBy (#44), so the hold ends, and the next Shot starts, in the Ready Stance with no snap.
     /// </summary>
     public static class AfterShot
     {
@@ -49,14 +58,24 @@ namespace HockeyGame.Core
         public const double LatestNetting = 0.5;
         /// <summary>A GOAL!, after the netting: the look back turns in over (0.05..0.45 s), the arm drops (0.1..0.6 s).</summary>
         public const double LookBackFrom = 0.05, LookBackTo = 0.45, RelaxFrom = 0.1, RelaxTo = 0.6;
-        /// <summary>A GOAL!, after the netting: the annoyed gesture (0.8..1.8 s); the head comes forward (0.8..1.1 s).</summary>
-        public const double AnnoyedFrom = 0.8, AnnoyedTo = 1.8, LookForwardTo = 1.1;
+        /// <summary>A GOAL!, after the netting: the annoyed gesture (0.6..1.4 s); the head comes forward (0.6..0.9 s).</summary>
+        public const double AnnoyedFrom = 0.6, AnnoyedTo = 1.4, LookForwardTo = 0.9;
+        /// <summary>A GOAL!, after the netting: glides back to his spot (0.5..1.5 s), then recovers (1.4..1.9 s).</summary>
+        public const double GoalReturnFrom = 0.5, GoalReturnTo = 1.5, GoalRecoverFrom = 1.4, GoalRecoverTo = 1.9;
         /// <summary>Miss or Save: the head turns to the puck over this long after it gets there.</summary>
         public const double FollowSeconds = 0.15;
-        /// <summary>A Miss: the relief beat (0.9..1.9 s after the puck gets there); the eyes go to the post over 0.9..1.3 s.</summary>
-        public const double ReliefFrom = 0.9, ReliefTo = 1.9, GlanceTo = 1.3;
+        /// <summary>A Miss: the relief beat (0.8..1.7 s after the puck gets there); the eyes go to the post over 0.8..1.2 s.</summary>
+        public const double ReliefFrom = 0.8, ReliefTo = 1.7, GlanceTo = 1.2;
+        /// <summary>A Miss: glides back to his spot once a Frame Hit's deflection is clear of him (0.9..1.7 s), then recovers (1.7..2.35 s).</summary>
+        public const double MissReturnFrom = 0.9, MissReturnTo = 1.7, MissRecoverFrom = 1.7, MissRecoverTo = 2.35;
+        /// <summary>A Save: the follow-through once the puck is off the gear (0.15..0.55 s).</summary>
+        public const double FollowThroughFrom = 0.15, FollowThroughTo = 0.55;
+        /// <summary>A Save: glides back to his spot (1.0..2.0 s), recovers (1.5..2.3 s).</summary>
+        public const double SaveReturnFrom = 1.0, SaveReturnTo = 2.0, SaveRecoverFrom = 1.5, SaveRecoverTo = 2.3;
         /// <summary>Every gesture is in its end pose this long after the puck gets there, at the latest.</summary>
         public const double EndSeconds = LatestNetting + AnnoyedTo;
+        /// <summary>Every reaction is back in the Ready Stance, on its spot, this long after the puck gets there, at the latest.</summary>
+        public const double RecoveredBy = LatestNetting + GoalRecoverTo;
 
         /// <summary>
         /// The gesture for a Shot result, from its Net Face point alone: a Miss is relieved, a Save has none, a GOAL! gets one of
@@ -87,13 +106,17 @@ namespace HockeyGame.Core
                         double n = System.Math.Max(sinceNetting, sinceArrival - LatestNetting);
                         double look = Ramp(n, LookBackFrom, LookBackTo) * (1 - Ramp(n, AnnoyedFrom, LookForwardTo));
                         return new AfterShotMoment(Ramp(sinceArrival, 0, LateReachSeconds), Ramp(n, RelaxFrom, RelaxTo), look, 0,
-                            Numbers.Clamp01((n - AnnoyedFrom) / (AnnoyedTo - AnnoyedFrom)));
+                            Numbers.Clamp01((n - AnnoyedFrom) / (AnnoyedTo - AnnoyedFrom)), 0,
+                            Ramp(n, GoalReturnFrom, GoalReturnTo), Ramp(n, GoalRecoverFrom, GoalRecoverTo));
                     }
                 case AfterShotGesture.Relief:
                     return new AfterShotMoment(0, 0, Ramp(sinceArrival, 0, FollowSeconds), Ramp(sinceArrival, ReliefFrom, GlanceTo),
-                        Numbers.Clamp01((sinceArrival - ReliefFrom) / (ReliefTo - ReliefFrom)));
+                        Numbers.Clamp01((sinceArrival - ReliefFrom) / (ReliefTo - ReliefFrom)), 0,
+                        Ramp(sinceArrival, MissReturnFrom, MissReturnTo), Ramp(sinceArrival, MissRecoverFrom, MissRecoverTo));
                 default:
-                    return new AfterShotMoment(0, 0, Ramp(sinceArrival, 0, FollowSeconds), 0, 0);
+                    return new AfterShotMoment(0, 0, Ramp(sinceArrival, 0, FollowSeconds), 0, 0,
+                        Ramp(sinceArrival, FollowThroughFrom, FollowThroughTo),
+                        Ramp(sinceArrival, SaveReturnFrom, SaveReturnTo), Ramp(sinceArrival, SaveRecoverFrom, SaveRecoverTo));
             }
         }
 

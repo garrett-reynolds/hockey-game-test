@@ -45,55 +45,83 @@ namespace HockeyGame.Core.Tests
                 Assert.AreEqual(0, m.Relax, g.ToString());
                 Assert.AreEqual(0, m.Watch, g.ToString());
                 Assert.AreEqual(0, m.Gesture, g.ToString());
+                Assert.AreEqual(0, m.FollowThrough, g.ToString());
+                Assert.AreEqual(0, m.Return, g.ToString());
+                Assert.AreEqual(0, m.Recover, g.ToString());
             }
         }
 
         [Test]
-        public void On_a_goal_the_hand_reaches_late_then_he_looks_back_into_the_net_then_gestures_and_holds_the_end_pose()
+        public void On_a_goal_the_hand_reaches_late_then_he_looks_back_into_the_net_then_gestures_then_recovers()
         {
             const AfterShotGesture g = AfterShotGesture.Slump;
             Assert.AreEqual(1, AfterShot.At(g, 0.3, -1).LateReach, 1e-9, "the hand gets there a quarter second after the puck");
             Assert.AreEqual(0, AfterShot.At(g, 0.3, -1).Watch, "no look back before the puck meets the netting");
-            AfterShotMoment looking = AfterShot.At(g, 0.95, 0.65);
+            AfterShotMoment looking = AfterShot.At(g, 0.75, 0.45);
             Assert.AreEqual(1, looking.Watch, 1e-9, "looking back into the net after the netting");
-            Assert.AreEqual(1, looking.Relax, 1e-9, "the arm has dropped");
             Assert.AreEqual(0, looking.Gesture);
-            Assert.Greater(AfterShot.At(g, 1.6, 1.3).Gesture, 0.0, "the gesture under way");
-            AfterShotMoment end = AfterShot.At(g, 2.2, 1.9);
+            Assert.AreEqual(1, AfterShot.At(g, 0.9, 0.6).Relax, 1e-9, "the arm has dropped");
+            Assert.Greater(AfterShot.At(g, 1.3, 1.0).Gesture, 0.0, "the gesture under way");
+            Assert.Greater(AfterShot.At(g, 1.3, 1.0).Return, 0.0, "gliding back to his spot while he gestures");
+            AfterShotMoment end = AfterShot.At(g, 1.7, 1.4);
             Assert.AreEqual(1, end.Gesture, 1e-9, "the end pose");
             Assert.AreEqual(0, end.Watch, 1e-9, "head forward again for the end pose");
-            Assert.AreEqual(1, AfterShot.At(g, 30, 29.7).Gesture, 1e-9, "the end pose is held");
+            Assert.AreEqual(0, end.Recover, 1e-9, "the end pose shows before he recovers");
+            Assert.Greater(AfterShot.At(g, 1.9, 1.6).Recover, 0.2, "recovering");
+            Assert.AreEqual(1, AfterShot.At(g, 2.3, 2.0).Recover, 1e-9, "back in the Ready Stance");
+            Assert.AreEqual(1, AfterShot.At(g, 2.3, 2.0).Return, 1e-9, "back on his spot");
+            Assert.AreEqual(1, AfterShot.At(g, 30, 29.7).Recover, 1e-9, "stays recovered");
         }
 
-        [Test]
-        public void A_goal_s_gesture_ends_before_the_result_hold_does_even_when_the_netting_is_late()
+        [TestCase(AfterShotGesture.Slump, 0.5)]
+        [TestCase(AfterShotGesture.StickSlap, 0.5)]
+        [TestCase(AfterShotGesture.StickSlap, -1.0)]
+        [TestCase(AfterShotGesture.Relief, -1.0)]
+        [TestCase(AfterShotGesture.None, -1.0)]
+        public void After_every_result_the_goalie_is_back_in_the_Ready_Stance_before_the_result_hold_ends(AfterShotGesture g, double netting)
         {
-            // The result hold runs 2.5 s after the puck gets there (Round.DelayResult). A deep netting is met about 0.4 s in.
+            // The result hold runs 2.5 s after the puck gets there (Round.DelayResult); the netting is met at the latest 0.5 s in.
             Assert.AreEqual(2.5, new RoundSettings().ResultHoldSeconds);
-            Assert.AreEqual(1, AfterShot.At(AfterShotGesture.StickSlap, 2.3, 1.9).Gesture, 1e-9);
-            Assert.AreEqual(1, AfterShot.At(AfterShotGesture.StickSlap, 2.3, -1).Gesture, 1e-9, "netting never reported: started anyway");
+            AfterShotMoment m = AfterShot.At(g, 2.4, netting < 0 ? -1 : 2.4 - netting);
+            Assert.AreEqual(1, m.Recover, 1e-9, "recovered by 2.4 s");
+            Assert.AreEqual(1, m.Return, 1e-9, "back on his spot by 2.4 s");
+            Assert.AreEqual(0, AfterShot.At(g, 1.0, netting < 0 ? -1 : 1.0 - netting).Recover, 1e-9, "not before the reaction has played");
         }
 
         [Test]
-        public void On_a_miss_the_head_follows_the_puck_then_relief_glances_at_the_post_and_holds()
+        public void A_goal_s_gesture_ends_before_he_recovers_even_when_the_netting_is_late()
+        {
+            Assert.AreEqual(1, AfterShot.At(AfterShotGesture.StickSlap, 1.9, 1.4).Gesture, 1e-9);
+            Assert.AreEqual(0, AfterShot.At(AfterShotGesture.StickSlap, 1.75, -1).Recover, 1e-9);
+            Assert.AreEqual(1, AfterShot.At(AfterShotGesture.StickSlap, 1.9, -1).Gesture, 1e-9, "netting never reported: started anyway");
+        }
+
+        [Test]
+        public void On_a_miss_the_head_follows_the_puck_then_relief_glances_at_the_post_then_he_recovers()
         {
             const AfterShotGesture g = AfterShotGesture.Relief;
             Assert.AreEqual(1, AfterShot.At(g, 0.2, -1).Watch, 1e-9, "following the puck going by");
             Assert.AreEqual(0, AfterShot.At(g, 0.2, -1).Glance);
             Assert.AreEqual(0, AfterShot.At(g, 0.2, -1).Relax, "a miss keeps the reach (the deflection is measured on it)");
-            Assert.Greater(AfterShot.At(g, 1.4, -1).Gesture, 0.0, "the relief beat");
-            AfterShotMoment end = AfterShot.At(g, 2.2, -1);
+            Assert.AreEqual(0, AfterShot.At(g, 0.5, -1).Return, "still where he reached while the puck goes by");
+            Assert.Greater(AfterShot.At(g, 1.3, -1).Gesture, 0.0, "the relief beat");
+            AfterShotMoment end = AfterShot.At(g, 1.7, -1);
             Assert.AreEqual(1, end.Gesture, 1e-9);
             Assert.AreEqual(1, end.Glance, 1e-9, "looking at the post");
+            Assert.AreEqual(0, end.Recover, 1e-9);
         }
 
         [Test]
-        public void On_a_save_the_head_follows_the_rebound_for_the_rest_of_the_hold()
+        public void On_a_save_the_goalie_follows_through_watches_the_rebound_then_recovers()
         {
+            Assert.AreEqual(0, AfterShot.At(AfterShotGesture.None, 0.1, -1).FollowThrough, 1e-9, "the gear holds while the puck comes off it");
+            Assert.AreEqual(1, AfterShot.At(AfterShotGesture.None, 0.6, -1).FollowThrough, 1e-9, "glove held up, blocker followed through");
             Assert.AreEqual(1, AfterShot.At(AfterShotGesture.None, 0.2, -1).Watch, 1e-9);
-            Assert.AreEqual(1, AfterShot.At(AfterShotGesture.None, 2.4, -1).Watch, 1e-9);
+            Assert.AreEqual(1, AfterShot.At(AfterShotGesture.None, 1.4, -1).Watch, 1e-9, "watching the rebound");
+            Assert.AreEqual(0, AfterShot.At(AfterShotGesture.None, 1.4, -1).Recover, 1e-9);
             Assert.AreEqual(0, AfterShot.At(AfterShotGesture.None, 2.4, -1).Gesture);
             Assert.AreEqual(0, AfterShot.At(AfterShotGesture.None, 2.4, -1).Relax);
+            Assert.AreEqual(0, AfterShot.At(AfterShotGesture.Slump, 0.6, 0.3).FollowThrough, "only a save follows through");
         }
     }
 }
