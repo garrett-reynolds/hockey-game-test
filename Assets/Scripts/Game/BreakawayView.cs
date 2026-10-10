@@ -7,7 +7,7 @@ namespace HockeyGame
 {
     /// <summary>
     /// The breakaway feel, driven by what the Round core reports: the camera skates in and curls toward the net,
-    /// the world slows down with a grey, high-contrast, vignetted look while the goalie waits in its ready stance, and a
+    /// the world slows down with a grey, high-contrast, vignetted look while the goalie waits in its Ready Stance, and a
     /// red ring around the net drains over the shooting window. The goalie turns to face the shooter as they come in. A Shot
     /// snaps time and look back to normal, and the goalie reacts into its Goalie Pose at the shooter's angle.
     /// Sets Time.timeScale; the Round core keeps ticking on unscaled real time.

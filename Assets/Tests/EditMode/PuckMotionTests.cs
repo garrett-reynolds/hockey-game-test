@@ -51,7 +51,7 @@ namespace HockeyGame.Core.Tests
             Vector3 stick = HitAt(n, PuckSurface.Stick).Velocity;
             Vector3 blocker = HitAt(n, PuckSurface.Blocker).Velocity;
 
-            Assert.Greater(frame.magnitude, pad.magnitude, "the iron pings it away faster than a pad");
+            Assert.Greater(frame.magnitude, pad.magnitude, "the frame pings it away faster than a pad");
             Assert.Greater(pad.magnitude, stick.magnitude, "a pad rebounds harder than the stick");
             Assert.Greater(pad.magnitude, blocker.magnitude, "a pad rebounds harder than the blocker");
             Assert.Less(blocker.x, -0.5f * blocker.magnitude, "the blocker kicks it hard to the side (the shooter's left, the blocker's outside)");

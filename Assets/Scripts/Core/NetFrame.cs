@@ -12,7 +12,7 @@ namespace HockeyGame.Core
     /// <summary>
     /// The posts and crossbar round the Net Face, in Net Face coordinates (0-100 from the bottom-left, shooter's view).
     /// They stand just outside the opening, one frame thickness wide. A Shot on them is still a Miss: this only
-    /// says where a Miss rang off the iron, for sound and the puck's deflection.
+    /// says where a Miss rang off the frame, for sound and the puck's deflection.
     /// </summary>
     public static class NetFrame
     {

@@ -4,7 +4,7 @@ using UnityEngine;
 namespace HockeyGame
 {
     /// <summary>
-    /// The character pose for each Goalie Pose, laid on top of the ready stance. Each limb is aimed in the shooter's
+    /// The character pose for each Goalie Pose, laid on top of the Ready Stance. Each limb is aimed in the shooter's
     /// frame: up, toward the shooter, and toward the shooter's right. Each Right pose is written in a mirrored
     /// frame, so the limb on the post side swaps (blocker at the left post, catcher at the right); it is tuned on its own.
     /// Hands keep their gear to the shooter: the blocker board and the catcher pocket face the shooter.

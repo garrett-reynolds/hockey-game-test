@@ -69,13 +69,13 @@ namespace HockeyGame.Core
         public static double LookAmount(double timeScale) => Numbers.Clamp01((1.0 - timeScale) / (1.0 - SlowTimeScale));
 
         /// <summary>
-        /// How long the goalie takes to react from the ready stance into the Goalie Pose after the Shot (real seconds).
+        /// How long the goalie takes to react from the Ready Stance into the Goalie Pose after the Shot (real seconds).
         /// Shorter than ShotFlight.MinSeconds, so the goalie is fully posed before even the fastest puck reaches the Net Face.
         /// </summary>
         public const double GoalieReactSeconds = 0.2;
 
         /// <summary>
-        /// How far the goalie has moved from the ready stance into the pose (0..1). 0 until the Shot: the player gets no hint
+        /// How far the goalie has moved from the Ready Stance into the pose (0..1). 0 until the Shot: the player gets no hint
         /// of the pose. In the result hold after a Shot it eases out to 1 over GoalieReactSeconds (real time); with no Shot
         /// (too late) it stays 0.
         /// </summary>
