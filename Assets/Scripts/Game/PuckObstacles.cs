@@ -32,6 +32,17 @@ namespace HockeyGame
         readonly List<Vector3> _corners = new List<Vector3>();
         readonly List<Chunk> _chunks = new List<Chunk>();
         readonly List<Tube> _tubes = new List<Tube>();
+        readonly List<(PuckObstacles shape, Matrix4x4 toWorld, Matrix4x4 toLocal)> _placed = new List<(PuckObstacles, Matrix4x4, Matrix4x4)>();
+
+        /// <summary>
+        /// Adds another set of meshes (no tubes), built in its own space, placed by toWorld: a rigid move (turn and shift, no
+        /// scale), so distances are the same in both spaces. Queries move into its space instead of every triangle moving out,
+        /// so a shape measured once (GoalieCharacter.AddPosed) costs nothing to place again.
+        /// </summary>
+        public void AddPlaced(PuckObstacles shape, Matrix4x4 toWorld)
+        {
+            _placed.Add((shape, toWorld, toWorld.inverse));
+        }
 
         /// <summary>Adds a triangle mesh in world space. piece names it for Nearest (for example "Left Pad").</summary>
         public void AddMesh(Vector3[] vertices, int[] triangles, PuckSurface surface, string piece = null)
@@ -71,11 +82,39 @@ namespace HockeyGame
             if (length < 1e-7f) return false;
             Vector3 dir = move / length;
             float best = float.PositiveInfinity;
+            CastChunks(from, to, dir, length, radius, pieces, ref best, ref normal, ref surface);
+            foreach (var (shape, toWorld, toLocal) in _placed)
+            {
+                float before = best;
+                Vector3 n = default;
+                shape.CastChunks(toLocal.MultiplyPoint3x4(from), toLocal.MultiplyPoint3x4(to), toLocal.MultiplyVector(dir), length, radius, pieces, ref best, ref n, ref surface);
+                if (best < before) normal = toWorld.MultiplyVector(n);
+            }
+            foreach (Tube tube in _tubes)
+            {
+                if (pieces != null && System.Array.IndexOf(pieces, tube.Piece) < 0) continue;
+                if (!CastTube(tube, from, dir, length, radius, out float d, out Vector3 n) || d >= best) continue;
+                best = d;
+                normal = n;
+                surface = tube.Surface;
+            }
+            if (float.IsPositiveInfinity(best)) return false;
+            at = from + dir * best;
+            return true;
+        }
 
+        /// <summary>Cast's test against this set's own triangles: improves best (distance along dir) and its normal and surface.</summary>
+        void CastChunks(Vector3 from, Vector3 to, Vector3 dir, float length, float radius, string[] pieces, ref float best, ref Vector3 normal, ref PuckSurface surface)
+        {
+            Vector3 move = to - from;
             var sweep = new Bounds((from + to) / 2f, new Vector3(Mathf.Abs(move.x), Mathf.Abs(move.y), Mathf.Abs(move.z)) + Vector3.one * (2f * radius));
             foreach (Chunk chunk in _chunks)
             {
                 if (!chunk.Box.Intersects(sweep) || (pieces != null && System.Array.IndexOf(pieces, chunk.Piece) < 0)) continue;
+                // The move's line must pass within the radius of the box (a long move's sweep box holds most of the goalie).
+                Bounds reach = chunk.Box;
+                reach.Expand(2f * radius);
+                if (!reach.IntersectRay(new Ray(from, dir), out float enter) || enter > length) continue;
                 for (int t = chunk.First; t < chunk.First + chunk.Count; t++)
                 {
                     Vector3 a = _corners[t * 3], b = _corners[t * 3 + 1], c = _corners[t * 3 + 2];
@@ -103,17 +142,6 @@ namespace HockeyGame
                     surface = chunk.Surface;
                 }
             }
-            foreach (Tube tube in _tubes)
-            {
-                if (pieces != null && System.Array.IndexOf(pieces, tube.Piece) < 0) continue;
-                if (!CastTube(tube, from, dir, length, radius, out float d, out Vector3 n) || d >= best) continue;
-                best = d;
-                normal = n;
-                surface = tube.Surface;
-            }
-            if (float.IsPositiveInfinity(best)) return false;
-            at = from + dir * best;
-            return true;
         }
 
         static bool Inside(Vector3 p, Vector3 a, Vector3 b, Vector3 c, Vector3 n)
@@ -163,20 +191,13 @@ namespace HockeyGame
             normal = default;
             surface = default;
             float best = float.PositiveInfinity;
-            foreach (Chunk chunk in _chunks)
+            NearestChunks(point, piece, ref best, ref normal, ref surface);
+            foreach (var (shape, toWorld, toLocal) in _placed)
             {
-                if (piece != null && chunk.Piece != piece) continue;
-                if (chunk.Box.SqrDistance(point) >= best) continue;
-                for (int t = chunk.First; t < chunk.First + chunk.Count; t++)
-                {
-                    Vector3 a = _corners[t * 3], b = _corners[t * 3 + 1], c = _corners[t * 3 + 2];
-                    Vector3 q = ClosestOnTriangle(point, a, b, c);
-                    float d = (point - q).sqrMagnitude;
-                    if (d >= best) continue;
-                    best = d;
-                    surface = chunk.Surface;
-                    normal = d > 1e-10f ? (point - q).normalized : FaceToward(a, b, c, point);
-                }
+                float before = best;
+                Vector3 n = default;
+                shape.NearestChunks(toLocal.MultiplyPoint3x4(point), piece, ref best, ref n, ref surface);
+                if (best < before) normal = toWorld.MultiplyVector(n);
             }
             foreach (Tube tube in _tubes)
             {
@@ -192,6 +213,26 @@ namespace HockeyGame
             }
             distance = Mathf.Sqrt(best);
             return !float.IsPositiveInfinity(best);
+        }
+
+        /// <summary>Nearest's test against this set's own triangles: improves best (squared distance), its normal and surface.</summary>
+        void NearestChunks(Vector3 point, string piece, ref float best, ref Vector3 normal, ref PuckSurface surface)
+        {
+            foreach (Chunk chunk in _chunks)
+            {
+                if (piece != null && chunk.Piece != piece) continue;
+                if (chunk.Box.SqrDistance(point) >= best) continue;
+                for (int t = chunk.First; t < chunk.First + chunk.Count; t++)
+                {
+                    Vector3 a = _corners[t * 3], b = _corners[t * 3 + 1], c = _corners[t * 3 + 2];
+                    Vector3 q = ClosestOnTriangle(point, a, b, c);
+                    float d = (point - q).sqrMagnitude;
+                    if (d >= best) continue;
+                    best = d;
+                    surface = chunk.Surface;
+                    normal = d > 1e-10f ? (point - q).normalized : FaceToward(a, b, c, point);
+                }
+            }
         }
 
         static Vector3 FaceToward(Vector3 a, Vector3 b, Vector3 c, Vector3 point)

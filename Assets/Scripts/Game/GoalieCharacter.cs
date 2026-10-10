@@ -26,6 +26,8 @@ namespace HockeyGame
         Transform[] _bones = new Transform[0];   // every mapped humanoid bone
         Snapshot _rest, _ready;                  // T-pose as imported; the Ready Stance
         readonly Snapshot[] _poses = new Snapshot[6]; // one per Goalie Pose, fully set
+        readonly Shape[] _shapes = new Shape[6];       // one per Goalie Pose, measured on first use (ShapeOf)
+        MeshRenderer[] _gear = new MeshRenderer[0];    // every gear piece, in model order
 
         /// <summary>The object that holds the character; the parent of the model. Inactive while hidden.</summary>
         public GameObject Root { get; }
@@ -57,6 +59,7 @@ namespace HockeyGame
             animator.runtimeAnimatorController = null; // bones are posed from code
             model.transform.SetParent(Root.transform, false);
             _body = model.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+            _gear = Array.FindAll(model.GetComponentsInChildren<MeshRenderer>(true), r => GearPiece.PieceOf(r.name) != null);
             _skates = Array.FindAll(model.GetComponentsInChildren<Renderer>(true), r => r.name == GearPiece.ObjectName(GearPiece.LeftSkate) || r.name == GearPiece.ObjectName(GearPiece.RightSkate));
 
             _model = model.transform;
@@ -223,9 +226,109 @@ namespace HockeyGame
         {
             bounds = default;
             if (!Present) return false;
-            foreach (MeshRenderer r in _model.GetComponentsInChildren<MeshRenderer>(true))
+            foreach (MeshRenderer r in _gear)
                 if (r.name == GearPiece.ObjectName(piece)) { bounds = r.bounds; return true; }
             return false;
+        }
+
+        /// <summary>
+        /// The gear and body of one Goalie Pose fully set, in the Root's own space: the turn to the shooter moves the Root,
+        /// not the bones, so one measurement serves every facing.
+        /// </summary>
+        sealed class Shape
+        {
+            public Vector3 Hips; // in the Root's space, on the ice plane (y 0): the turn is about the vertical through it
+            public readonly PuckObstacles Local = new PuckObstacles(); // the gear and body as AddTo adds them, in the Root's space
+            public readonly Dictionary<string, (Matrix4x4 toRoot, Bounds mesh)> Gear = new Dictionary<string, (Matrix4x4, Bounds)>();
+        }
+
+        /// <summary>
+        /// Measures the pose now if it has not been yet (the Shot then costs no posing or mesh copying). Call while the
+        /// character is shown, for example when the Round picks the pose.
+        /// </summary>
+        public void Prepare(GoaliePose pose)
+        {
+            if (Present) ShapeOf(pose);
+        }
+
+        Shape ShapeOf(GoaliePose pose)
+        {
+            Shape shape = _shapes[(int)pose];
+            if (shape != null) return shape;
+            Snapshot shown = Take();
+            Transform root = Root.transform;
+            Vector3 rootPosition = root.localPosition;
+            Quaternion rootRotation = root.localRotation;
+
+            Pose(pose, 1f, 0f);
+            shape = new Shape();
+            Vector3 hips = root.InverseTransformPoint(Bone(HumanBodyBones.Hips).position);
+            shape.Hips = new Vector3(hips.x, 0f, hips.z);
+            Matrix4x4 toRoot = root.worldToLocalMatrix;
+            foreach (MeshRenderer r in _gear)
+            {
+                string piece = GearPiece.PieceOf(r.name);
+                Mesh mesh = r.GetComponent<MeshFilter>().sharedMesh;
+                Matrix4x4 local = toRoot * r.transform.localToWorldMatrix;
+                shape.Gear[piece] = (local, mesh.bounds);
+                shape.Local.AddMesh(ToWorld(mesh.vertices, local), mesh.triangles, PuckMotion.SurfaceOf(piece), piece);
+            }
+            var baked = new Mesh();
+            foreach (SkinnedMeshRenderer body in _body)
+            {
+                body.BakeMesh(baked, true);
+                Matrix4x4 local = toRoot * Matrix4x4.TRS(body.transform.position, body.transform.rotation, Vector3.one);
+                shape.Local.AddMesh(ToWorld(baked.vertices, local), baked.triangles, PuckSurface.Body, GearPiece.Body);
+            }
+            SceneObjects.DestroySafely(baked);
+
+            Put(shown);
+            root.localPosition = rootPosition;
+            root.localRotation = rootRotation;
+            _shapes[(int)pose] = shape;
+            return shape;
+        }
+
+        /// <summary>The Root's local-to-world matrix as Pose(pose, 1, facing) leaves it.</summary>
+        Matrix4x4 RootToWorld(Shape shape, float facing)
+        {
+            Quaternion turn = Quaternion.AngleAxis(facing, Vector3.up);
+            Vector3 position = new Vector3(0f, 0f, StandZ) + shape.Hips - turn * shape.Hips;
+            Matrix4x4 local = Matrix4x4.TRS(position, turn, Root.transform.localScale);
+            Transform parent = Root.transform.parent;
+            return parent != null ? parent.localToWorldMatrix * local : local;
+        }
+
+        /// <summary>
+        /// GearBounds as Pose(pose, 1, facing) would give it, without moving the character (measured once per pose).
+        /// </summary>
+        public bool PosedGearBounds(GoaliePose pose, float facing, string piece, out Bounds bounds)
+        {
+            bounds = default;
+            if (!Present) return false;
+            Shape shape = ShapeOf(pose);
+            if (!shape.Gear.TryGetValue(piece, out var gear)) return false;
+            Matrix4x4 toWorld = RootToWorld(shape, facing) * gear.toRoot;
+            Bounds b = gear.mesh;
+            for (int i = 0; i < 8; i++)
+            {
+                Vector3 p = toWorld.MultiplyPoint3x4(new Vector3(
+                    (i & 1) == 0 ? b.min.x : b.max.x, (i & 2) == 0 ? b.min.y : b.max.y, (i & 4) == 0 ? b.min.z : b.max.z));
+                if (i == 0) bounds = new Bounds(p, Vector3.zero);
+                else bounds.Encapsulate(p);
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// AddTo as Pose(pose, 1, facing) would give it, without moving the character: the pose is measured once (Prepare)
+        /// and only placed at the facing here, so a Shot costs no posing, baking or mesh copying.
+        /// </summary>
+        public void AddPosed(PuckObstacles obstacles, GoaliePose pose, float facing)
+        {
+            if (!Present) return;
+            Shape shape = ShapeOf(pose);
+            obstacles.AddPlaced(shape.Local, RootToWorld(shape, facing));
         }
 
         /// <summary>
@@ -235,10 +338,9 @@ namespace HockeyGame
         public void AddTo(PuckObstacles obstacles)
         {
             if (!Present) return;
-            foreach (MeshRenderer r in _model.GetComponentsInChildren<MeshRenderer>(true))
+            foreach (MeshRenderer r in _gear)
             {
                 string piece = GearPiece.PieceOf(r.name);
-                if (piece == null) continue;
                 Mesh shared = r.GetComponent<MeshFilter>().sharedMesh;
                 obstacles.AddMesh(ToWorld(shared.vertices, r.transform.localToWorldMatrix), shared.triangles, PuckMotion.SurfaceOf(piece), piece);
             }

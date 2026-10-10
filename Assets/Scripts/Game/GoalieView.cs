@@ -138,9 +138,6 @@ namespace HockeyGame
         /// <summary>The facing the pose ends at: the target, within the turn cap (GoalieTurn.MaxDegrees).</summary>
         float PosedFacing() => Mathf.Clamp(_target, -(float)GoalieTurn.MaxDegrees, (float)GoalieTurn.MaxDegrees);
 
-        /// <summary>The character fully posed and turned, as it stands once the reaction ends (saves are measured on this).</summary>
-        void PoseFull() => _character.Pose((GoaliePose)_shown, 1f, PosedFacing());
-
         void PoseCharacter()
         {
             if (_character != null && _visible) _character.Pose((GoaliePose)_shown, _set, Mathf.Lerp(_ready, PosedFacing(), _set));
@@ -186,6 +183,7 @@ namespace HockeyGame
             }
             if (_character == null) return;
             _character.Show(_visible);
+            if (_visible) _character.Prepare((GoaliePose)_shown); // measured now, at the Round start, not on the Shot
             PoseCharacter();
         }
 
@@ -200,10 +198,7 @@ namespace HockeyGame
             stop = default;
             if (_character == null || !_visible) return false;
             // Measured on the full pose and turn: the save is asked for on the Shot, before the goalie has reacted.
-            PoseFull();
-            bool found = PosedGear(contact, netPoint, out Bounds gear);
-            PoseCharacter();
-            if (!found) return false;
+            if (!PosedGear(contact, netPoint, out Bounds gear)) return false;
             float z = gear.min.z - puckThickness / 2f;
             float t = Mathf.Approximately(netPoint.z, from.z) ? 1f : Mathf.Clamp01((z - from.z) / (netPoint.z - from.z));
             stop = Vector3.Lerp(from, netPoint, t);
@@ -214,8 +209,11 @@ namespace HockeyGame
         {
             gear = default;
             string piece = SavePiece(contact, netPoint);
-            return piece != null && _character.GearBounds(piece, out gear);
+            return piece != null && PosedBounds(piece, out gear);
         }
+
+        /// <summary>A gear piece's world bounds on the full pose and turn (as the goalie stands once the reaction ends).</summary>
+        bool PosedBounds(string piece, out Bounds bounds) => _character.PosedGearBounds((GoaliePose)_shown, PosedFacing(), piece, out bounds);
 
         /// <summary>The gear piece that makes a save (the same one the save sound picks); null if it is missing.</summary>
         string SavePiece(SoundCue contact, Vector3 netPoint)
@@ -223,7 +221,7 @@ namespace HockeyGame
             if (contact == SoundCue.GloveCatch) return GearPiece.Catcher;
             if (contact == SoundCue.BlockerHit) return GearPiece.Blocker;
             // A pad save: the pad nearer the puck's spot.
-            if (!_character.GearBounds(GearPiece.LeftPad, out Bounds a) || !_character.GearBounds(GearPiece.RightPad, out Bounds b)) return null;
+            if (!PosedBounds(GearPiece.LeftPad, out Bounds a) || !PosedBounds(GearPiece.RightPad, out Bounds b)) return null;
             return Mathf.Abs(a.center.x - netPoint.x) < Mathf.Abs(b.center.x - netPoint.x) ? GearPiece.LeftPad : GearPiece.RightPad;
         }
 
@@ -234,9 +232,7 @@ namespace HockeyGame
         public bool AddObstacles(PuckObstacles obstacles)
         {
             if (_character == null || !_visible) return false;
-            PoseFull();
-            _character.AddTo(obstacles);
-            PoseCharacter();
+            _character.AddPosed(obstacles, (GoaliePose)_shown, PosedFacing());
             return true;
         }
 
@@ -250,9 +246,7 @@ namespace HockeyGame
             normal = Vector3.back;
             surface = PuckSurface.Pad;
             if (_character == null || !_visible) return false;
-            PoseFull();
             string piece = SavePiece(contact, netPoint);
-            PoseCharacter();
             if (piece == null || !obstacles.Nearest(stop, piece, out normal, out surface, out float distance)) return false;
             if (contact == SoundCue.SaveImpact && obstacles.Nearest(stop, GearPiece.Stick, out Vector3 blade, out PuckSurface stick, out float toStick) && toStick < distance)
             {
