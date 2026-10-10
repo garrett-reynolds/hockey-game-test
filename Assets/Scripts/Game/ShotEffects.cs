@@ -24,11 +24,10 @@ namespace HockeyGame
         const float SaveZ = GloveZ - GloveDepth / 2f - PuckThickness;
         const float MissCarrySeconds = 0.8f;
         const float CaughtSeconds = 0.25f;           // a goal puck rests in the netting bulge this long, then drops
-        const float OffIceMargin = 0.01f;            // a puck at rest with its centre above PuckThickness + this lies on the goalie's gear, off the ice
         const float BaseRailMetres = 0.07f;          // the net's back base tube and skirt on the ice: copied by hand from Tools/make_supplied_net.py's output, change both together
         static readonly Color SaveBlockColour = new Color(0.45f, 0.6f, 1f); // lighter than the GoalieView blocks so the slide shows on a Covered Zone
 
-        enum Stage { None, Flying, IntoNet, InNet, Deflecting, Carrying, OnGoalie } // OnGoalie: at rest on him, moved by GoalieView.Carry
+        enum Stage { None, Flying, IntoNet, InNet, Deflecting, Carrying, OnGoalie } // OnGoalie: held in the catching glove, moved by GoalieView.Carry
 
         readonly Camera _camera;
         readonly GameObject _puck;
@@ -352,9 +351,9 @@ namespace HockeyGame
             _motion.Advance(dt);
             _puck.transform.position = _motion.Position;
             _puck.transform.rotation = _motion.Rotation;
-            // At rest on the goalie (held in the catching glove, or lying on his gear off the ice): from now on it moves with
-            // him as he follows through and recovers (#44).
-            if (_goalie != null && _goalie.HasCharacter && (_motion.Held || (_motion.Settled && _motion.Position.y > PuckThickness + OffIceMargin)))
+            // Held in the catching glove: from now on it moves with him as he follows through and recovers (#44). No other gear
+            // carries it: a puck at rest on other gear drops off to the ice (PuckMotion, #48).
+            if (_goalie != null && _goalie.HasCharacter && _motion.Held)
             {
                 _goalie.Carry(_puck.transform);
                 _stage = Stage.OnGoalie;

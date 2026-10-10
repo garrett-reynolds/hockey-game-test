@@ -18,12 +18,15 @@ namespace HockeyGame
         const float Radius = Diameter / 2f;
         /// <summary>Share of the speed a puck leaving a goalie or the frame always has back toward the shooter (-z).</summary>
         const float BackShare = 0.35f;
+        /// <summary>Degrees: the least angle a steered rebound (the blocker's) leaves the face it hit at.</summary>
+        const float MinLeaveAngle = 30f;
         /// <summary>Share of the rigid-disc tumble a hit gives (the full figure spins the puck too fast to read).</summary>
         const float TumbleShare = 0.1f;
         const float MaxTumble = 40f;   // rad/s, about 6 turns a second
         const float OffGearSpeed = 1f; // m/s: a puck that lands on top of gear slides off it at least this fast
         const float RestingSpeed = 0.3f; // m/s into a surface: slower than this it slides along it instead of bouncing
-        const int WedgedSteps = 36;      // 0.15 s held fast in a crease of the gear: it stays there
+        const int WedgedSteps = 36;      // 0.15 s held fast in a crease of the gear: it stays there (or drops off, off the ice)
+        const float OffIceHeight = 0.01f; // m: wedged with its lowest point higher than this, it is on the gear, off the ice
         int _wedged;
 
         /// <summary>
@@ -88,7 +91,7 @@ namespace HockeyGame
             _obstacles = obstacles;
         }
 
-        readonly PuckObstacles _obstacles;
+        PuckObstacles _obstacles; // null once it has dropped off the gear
         /// <summary>How close the puck's centre comes to gear or the frame it bounces off after the first contact.</summary>
         public const float CollisionRadius = 0.03f;
 
@@ -118,6 +121,9 @@ namespace HockeyGame
             float speed = first ? Mathf.Clamp(after.magnitude, feel.Min, feel.Max) : Mathf.Min(after.magnitude, feel.Max);
             after = after.sqrMagnitude > 1e-8f ? after.normalized * speed : n * speed;
             if (first || n.z < 0f) after = TowardShooter(after);
+            // However it is steered, the Shot's own rebound leaves the real face at a real angle: one that only grazes a
+            // curved face (the blocker's) slides along it into the next facet or a crease of the gear and sticks there (#48).
+            if (first && feel.Steer > 0f) after = OffFace(after, normal);
             if (after.y > feel.MaxUp) after.y = feel.MaxUp;
             if (!first && n.y > 0.5f)
             {
@@ -153,6 +159,18 @@ namespace HockeyGame
             float left = Mathf.Sqrt(Mathf.Max(0f, speed * speed - z * z));
             rest = rest.sqrMagnitude > 1e-8f ? rest.normalized * left : new Vector2(0f, left);
             return new Vector3(rest.x, rest.y, z);
+        }
+
+        /// <summary>Turns v out of the face (unit normal) until it leaves at least MinLeaveAngle, keeping its speed and its way along the face.</summary>
+        static Vector3 OffFace(Vector3 v, Vector3 normal)
+        {
+            float speed = v.magnitude;
+            float least = Mathf.Sin(MinLeaveAngle * Mathf.Deg2Rad) * speed;
+            float away = Vector3.Dot(v, normal);
+            if (away >= least) return v;
+            Vector3 along = v - away * normal;
+            if (along.sqrMagnitude < 1e-8f) return normal * speed;
+            return along.normalized * Mathf.Sqrt(speed * speed - least * least) + normal * least;
         }
 
         /// <summary>Lying flat and still on the ice.</summary>
@@ -229,13 +247,21 @@ namespace HockeyGame
                     from = at;
                     if (i == 2) { p = at; v = Vector3.zero; break; } // in a crease of the gear
                 }
-                // Held fast in a crease of the gear for a while: it stays there, as it lies.
+                // Held fast in a crease of the gear for a while: down at the ice it stays there, as it lies. Off the ice it
+                // drops off the gear to the ice, toward the shooter (#48): only the catching glove keeps the puck on the goalie.
                 _wedged = (p - Position).sqrMagnitude < 1e-10f ? _wedged + 1 : 0;
                 if (_wedged > WedgedSteps)
                 {
+                    AngularVelocity = Vector3.zero;
+                    if (Position.y - LowestBelowCentre(Rotation * Vector3.up) > OffIceHeight)
+                    {
+                        _obstacles = null; // clear of the gear from now on: the goalie has moved on from where it was measured
+                        Velocity = Vector3.back * OffGearSpeed;
+                        _wedged = 0;
+                        return;
+                    }
                     Settled = true;
                     Velocity = Vector3.zero;
-                    AngularVelocity = Vector3.zero;
                     return;
                 }
             }

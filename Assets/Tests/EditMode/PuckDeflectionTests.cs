@@ -355,15 +355,16 @@ namespace HockeyGame.Core.Tests
                 List<Triangle> near = Near(goalie, run.Contact, run.Path);
                 string where = pose + " (" + x.ToString("F1") + ", " + y.ToString("F1") + ") ";
                 Vector3 last = run.Contact;
-                // Still for longer than PuckMotion's 0.15 s wedge-to-settle span (the glove holds it still until its 0.25 s
-                // follow-through): held or settled, no more physics, and from then on it may ride on the recovering goalie (#44).
+                // Still for 8 frames (0.13 s, just under PuckMotion's 0.15 s wedge span; the glove holds it still until its 0.25 s
+                // follow-through): held, or wedged in the gear as measured. From then on it rides in the glove on the recovering
+                // goalie (#44), settles at the ice, or drops off the gear to the ice clear of it, as the goalie has moved on (#48).
                 bool rested = false;
                 int stillFrames = 0;
                 for (int i = 0; i < run.Path.Count; i++)
                 {
                     Vector3 p = run.Path[i];
                     stillFrames = p == last ? stillFrames + 1 : 0;
-                    rested |= stillFrames >= 10;
+                    rested |= stillFrames >= 8;
                     Vector3 axis = run.Turns[i] * Vector3.up;
                     float lowest = p.y - 0.075f * Mathf.Sqrt(Mathf.Max(0f, 1f - axis.y * axis.y)) - 0.025f * Mathf.Abs(axis.y);
                     if (lowest < -0.002f) { failures.Add(where + "into the ice at frame " + i); break; }
@@ -375,8 +376,9 @@ namespace HockeyGame.Core.Tests
                 Vector3 end = run.Path[run.Path.Count - 1];
                 if (end.y > 0.04f)
                 {
-                    // Off the ice: held in the catching glove or lying on the gear, carried there as he recovers.
-                    if (!AgainstGear(GoalieTriangles(character), end)) failures.Add(where + "off the ice but not on the goalie at the end: " + end.ToString("F3"));
+                    // Off the ice: only held in the catching glove, carried there as he recovers (#48: no other gear carries it).
+                    if (run.Surface != PuckSurface.Catcher) failures.Add(where + "off the ice at the end after a " + run.Surface + " save (carried on the goalie): " + end.ToString("F3"));
+                    else if (!AgainstGear(GoalieTriangles(character), end)) failures.Add(where + "off the ice but not on the goalie at the end: " + end.ToString("F3"));
                     continue;
                 }
                 Vector3 endAxis = run.Turns[run.Turns.Count - 1] * Vector3.up;
@@ -386,6 +388,70 @@ namespace HockeyGame.Core.Tests
                     failures.Add(where + "not lying still, flat on the ice (or held in the gear), at the end: " + end.ToString("F3"));
             }
             Assert.IsEmpty(failures, string.Join("\n", failures));
+        }
+
+        /// <summary>
+        /// Every Save the blocker makes: Net Face spots 6 apart wherever the Save Reaction is the blocker, for each pose
+        /// covering them. Each Shot takes the next Test Shot speed in turn, so the set spans the whole speed range.
+        /// </summary>
+        static IEnumerable<(GoaliePose pose, double x, double y, int kmh)> BlockerSaves()
+        {
+            int kmh = TestShotSpeed.MinKmh;
+            foreach (GoaliePose pose in System.Enum.GetValues(typeof(GoaliePose)))
+                for (double x = 2; x < 50; x += 6)
+                for (double y = 42; y < 100; y += 6)
+                {
+                    if (SaveReactions.For(x, y) != SaveReaction.Blocker || GoaliePoses.CoverAt(pose, Zones.Column(x), Zones.Row(y)) != ZoneCover.Covered) continue;
+                    yield return (pose, x, y, kmh);
+                    kmh = kmh == TestShotSpeed.MaxKmh ? TestShotSpeed.MinKmh : kmh + TestShotSpeed.StepKmh;
+                }
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void A_blocker_save_bounces_off_the_blocker_and_ends_on_the_ice_never_carried(bool close)
+        {
+            var failures = new List<string>();
+            int shots = 0;
+            foreach ((GoaliePose pose, double x, double y, int kmh) in BlockerSaves())
+            {
+                TearDown();
+                SetUp();
+                PlaceShooter(pose, close);
+                var character = new GoalieCharacter(_rink.transform);
+                Run run = Shoot(pose, x, y, kmh, character, GoalieCharacter.FacingToward(_camera.transform.position));
+                shots++;
+                string where = pose + " (" + x + ", " + y + ") " + kmh + " km/h ";
+                Assert.AreEqual(ShotResultKind.Save, run.Kind, where);
+                Assert.AreEqual(PuckSurface.Blocker, run.Surface, where + "met the blocker");
+                Vector3 end = run.Path[run.Path.Count - 1];
+                // On the ice: lying flat with its centre half a puck up. Carried on the goalie, it would be off the ice.
+                if (end.y > 0.04f) failures.Add(where + "off the ice at the end (on the goalie): " + end.ToString("F3"));
+            }
+            Assert.Greater(shots, 100, "blocker saves tried");
+            Assert.IsEmpty(failures, failures.Count + " of " + shots + "\n" + string.Join("\n", failures));
+        }
+
+        // Body saves from 3 m out whose rebound comes to rest in a crease of the gear, well off the ice (found by a probe, #48).
+        [TestCase(GoaliePose.MiddleButterfly, 44.0, 72.0)]
+        [TestCase(GoaliePose.MiddleStandUp, 50.0, 72.0)]
+        public void A_puck_at_rest_on_gear_that_is_not_the_catcher_drops_off_to_the_ice_never_carried(GoaliePose pose, double x, double y)
+        {
+            PlaceShooter(pose, true);
+            Run run = Shoot(pose, x, y, 80, facing: GoalieCharacter.FacingToward(_camera.transform.position));
+            Assert.AreEqual(ShotResultKind.Save, run.Kind);
+            Assert.AreEqual(PuckSurface.Body, run.Surface);
+            int still = 0;
+            bool restedOnGear = false;
+            for (int i = 1; i < run.Path.Count; i++)
+            {
+                still = run.Path[i] == run.Path[i - 1] ? still + 1 : 0;
+                restedOnGear |= still >= 6 && run.Path[i].y > 0.06f;
+            }
+            Assert.IsTrue(restedOnGear, "came to rest on the gear, off the ice");
+            Vector3 end = run.Path[run.Path.Count - 1];
+            Assert.AreEqual(0.025f, end.y, 0.002f, "dropped off to lie on the ice: " + end.ToString("F3"));
+            Assert.AreEqual(run.Path[run.Path.Count - 2], end, "lying still");
         }
 
         /// <summary>

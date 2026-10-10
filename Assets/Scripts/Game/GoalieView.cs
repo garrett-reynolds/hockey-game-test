@@ -190,8 +190,8 @@ namespace HockeyGame
         public bool HasCharacter => _character != null;
 
         /// <summary>
-        /// A puck that has come to rest on the goalie (held in the catching glove, or lying on his gear) moves with what it
-        /// rests on as he follows through and recovers: placed by each SetProgress. Null lets go. Nothing without the character.
+        /// A puck held in the catching glove (the only gear that keeps it, #48) moves with the glove as he follows through and
+        /// recovers: placed by each SetProgress. Null lets go. Nothing without the character.
         /// </summary>
         public void Carry(Transform puck)
         {
