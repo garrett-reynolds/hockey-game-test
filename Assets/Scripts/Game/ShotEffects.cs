@@ -41,6 +41,28 @@ namespace HockeyGame
 
         /// <summary>True on the frame the puck reaches the Net Face (or passes it on a Miss). Sound times the result to this.</summary>
         public bool PuckArrivedThisFrame { get; private set; }
+
+        /// <summary>
+        /// On a Save or a Frame Hit, from the Shot frame on: the sound of the surface the puck visibly hits (ContactSurface).
+        /// It differs from the result's own sound when the stick or a skate makes a pad save, or gear in front of the frame
+        /// takes a Frame Hit (RoundSoundCues plays it instead). null otherwise.
+        /// </summary>
+        public SoundCue? ContactSound => _hasContact ? SoundOf(_contactSurface) : (SoundCue?)null;
+
+        /// <summary>On a Save or a Frame Hit, from the Shot frame on: the surface the puck deflects off (null otherwise).</summary>
+        public PuckSurface? ContactSurface => _hasContact ? _contactSurface : (PuckSurface?)null;
+
+        /// <summary>The result sound for what the puck hits: wood for the blocker, stick and skates, a thud for pads and body.</summary>
+        public static SoundCue SoundOf(PuckSurface surface)
+        {
+            switch (surface)
+            {
+                case PuckSurface.Catcher: return SoundCue.GloveCatch;
+                case PuckSurface.Blocker: case PuckSurface.Stick: case PuckSurface.Skate: return SoundCue.BlockerHit;
+                case PuckSurface.Frame: return SoundCue.PostPing;
+                default: return SoundCue.SaveImpact; // pads, mask, visor, body
+            }
+        }
         ShotResult _result;
         Stage _stage;
         float _time;          // seconds in the current stage
@@ -56,9 +78,9 @@ namespace HockeyGame
         static readonly string[] LineGear = { GearPiece.Stick, GearPiece.LeftSkate, GearPiece.RightSkate };
         static readonly string[] GoalieGear = { GearPiece.LeftPad, GearPiece.RightPad, GearPiece.Blocker, GearPiece.Catcher, GearPiece.Stick,
             GearPiece.LeftSkate, GearPiece.RightSkate, GearPiece.Mask, GearPiece.Visor, GearPiece.Body };
-        bool _onLine;             // the save is made on gear met on the puck line (see Play)
-        Vector3 _lineNormal;
-        PuckSurface _lineSurface;
+        bool _hasContact;         // a Save or a Frame Hit: the puck deflects off this surface (worked out in Play)
+        Vector3 _contactNormal;
+        PuckSurface _contactSurface;
 
         /// <param name="findFile">Model file lookup for the puck and save glove; null = Assets/Resources/Models (see ModelFiles).</param>
         /// <param name="goalie">The goalie; when it shows the character, a save stops on the character's gear.</param>
@@ -154,19 +176,21 @@ namespace HockeyGame
                 NetBuilder.AddFrame(_obstacles);
                 _goalie?.AddObstacles(_obstacles);
             }
-            _onLine = false;
+            bool onLine = false;
             bool frameHit = result.Kind != ShotResultKind.Save && _obstacles != null;
             if (((onGoalie && RoundSoundCues.SaveContact(result.X, result.Y) != SoundCue.GloveCatch) || frameHit)
-                && _obstacles.Cast(_start, _target, PuckThickness / 2f, out Vector3 first, out _lineNormal, out _lineSurface, frameHit ? GoalieGear : LineGear))
+                && _obstacles.Cast(_start, _target, PuckThickness / 2f, out Vector3 first, out _contactNormal, out _contactSurface, frameHit ? GoalieGear : LineGear))
             {
                 // A Frame Hit the goalie's gear is in front of (a post-hugging pad): it knocks off that gear, still a Miss.
-                if (_lineSurface == PuckSurface.Catcher) _lineSurface = PuckSurface.Body; // no catch on a Miss
+                if (_contactSurface == PuckSurface.Catcher) _contactSurface = PuckSurface.Body; // no catch on a Miss
                 // The stick or a skate is on the puck line in front of the gear that makes the save: the puck stops there, not
                 // through it, and deflects off its real face. Only gear the save sound never names (the pads, blocker and catching
                 // glove keep their stop on SaveStop's line); the catching glove always catches.
                 _target = first;
-                _onLine = true;
+                onLine = true;
             }
+            _hasContact = _obstacles != null;
+            if (_hasContact && !onLine) Contact(result);
             _flightSeconds = (float)ShotFlight.Seconds(Vector3.Distance(_start, _target), result.SpeedKmh);
             _velocity = (_target - _start) / _flightSeconds;
 
@@ -271,28 +295,31 @@ namespace HockeyGame
                     _stage = Stage.IntoNet;
                     break;
                 case ShotResultKind.Save:
-                    {
-                        SoundCue contact = RoundSoundCues.SaveContact(_result.X, _result.Y);
-                        Vector3 normal = _lineNormal;
-                        PuckSurface surface = _lineSurface;
-                        if (!_onLine && (!_onGoalie || !_goalie.SaveSurface(_obstacles, _target, _netPoint, contact, out normal, out surface)))
-                        {
-                            // The save block: its face is square to the shooter; the gear it stands for decides the feel.
-                            normal = Vector3.back;
-                            surface = contact == SoundCue.GloveCatch ? PuckSurface.Catcher : contact == SoundCue.BlockerHit ? PuckSurface.Blocker : PuckSurface.Pad;
-                        }
-                        StartDeflection(normal, surface);
-                    }
+                    StartDeflection(_contactNormal, _contactSurface);
                     break;
                 default:
                     if (NetFrame.At(_result.X, _result.Y) == FrameHit.None) { _stage = Stage.Carrying; break; } // wide Miss: carry on past the net
-                    if (_onLine) { StartDeflection(_lineNormal, _lineSurface); break; }
-                    // Off the round frame: the tube normal where the puck met it.
-                    FrameHit hit = NetFrame.At(_result.X, _result.Y);
-                    _obstacles.Nearest(_target, hit == FrameHit.LeftPost ? NetBuilder.LeftPostPiece : hit == FrameHit.RightPost ? NetBuilder.RightPostPiece : NetBuilder.CrossbarPiece, out Vector3 tube, out _);
-                    StartDeflection(tube, PuckSurface.Frame);
+                    StartDeflection(_contactNormal, _contactSurface); // off the frame, or the gear in front of it
                     break;
             }
+        }
+
+        /// <summary>The surface a Save or Frame Hit not met on the puck line deflects off, and its normal at the stop.</summary>
+        void Contact(ShotResult result)
+        {
+            if (result.Kind == ShotResultKind.Save)
+            {
+                SoundCue contact = RoundSoundCues.SaveContact(result.X, result.Y);
+                if (_onGoalie && _goalie.SaveSurface(_obstacles, _target, _netPoint, contact, out _contactNormal, out _contactSurface)) return;
+                // The save block: its face is square to the shooter; the gear it stands for decides the feel.
+                _contactNormal = Vector3.back;
+                _contactSurface = contact == SoundCue.GloveCatch ? PuckSurface.Catcher : contact == SoundCue.BlockerHit ? PuckSurface.Blocker : PuckSurface.Pad;
+                return;
+            }
+            // Off the round frame: the tube normal where the puck met it.
+            FrameHit hit = NetFrame.At(result.X, result.Y);
+            _obstacles.Nearest(_target, hit == FrameHit.LeftPost ? NetBuilder.LeftPostPiece : hit == FrameHit.RightPost ? NetBuilder.RightPostPiece : NetBuilder.CrossbarPiece, out _contactNormal, out _);
+            _contactSurface = PuckSurface.Frame;
         }
 
         Quaternion FlightRotation(float seconds) => _flightTurn * Quaternion.AngleAxis(FlightSpin * seconds * Mathf.Rad2Deg, Vector3.up);
@@ -316,6 +343,7 @@ namespace HockeyGame
         void Clear()
         {
             _stage = Stage.None;
+            _hasContact = false;
             _puck.SetActive(false);
             _glove.SetActive(false);
             SetGoalLight(false);

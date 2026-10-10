@@ -113,6 +113,46 @@ namespace HockeyGame.Core.Tests
             CollectionAssert.AreEquivalent(new[] { SoundCue.MissImpact, SoundCue.Groan }, cues.Update(round, true));
         }
 
+        // What the puck visibly hits (ShotEffects) can differ from the gear the Zone names: the stick or a skate in front
+        // of the pads, or gear in front of the frame. The sound follows the puck; the result does not change.
+        [Test]
+        public void A_save_the_puck_makes_on_the_stick_sounds_like_the_stick_not_the_pad()
+        {
+            var round = StartedRound();
+            var cues = new RoundSoundCues(new SaveData());
+            Run(round, cues, 3.8);
+            round.SubmitShot(50, 10, 100, false);        // Covered bottom row: a pad save by its Zone
+            round.DelayResult(0.5);
+            cues.Update(round, false, SoundCue.BlockerHit); // the Shot frame: the puck will meet the stick
+            CollectionAssert.AreEquivalent(new[] { SoundCue.BlockerHit, SoundCue.Groan }, cues.Update(round, true));
+            Assert.AreEqual(ShotResultKind.Save, round.LastResult.Value.Kind);
+        }
+
+        [Test]
+        public void A_Frame_Hit_the_goalie_s_pad_is_in_front_of_thuds_off_the_pad_and_is_still_a_Miss()
+        {
+            var round = StartedRound();
+            var cues = new RoundSoundCues(new SaveData());
+            Run(round, cues, 3.8);
+            round.SubmitShot(-2, 50, 100, false);        // on the left post
+            round.DelayResult(0.5);
+            cues.Update(round, false, SoundCue.SaveImpact);
+            CollectionAssert.AreEquivalent(new[] { SoundCue.SaveImpact, SoundCue.Groan }, cues.Update(round, true, SoundCue.SaveImpact));
+            Assert.AreEqual(ShotResultKind.Miss, round.LastResult.Value.Kind);
+        }
+
+        [Test]
+        public void With_no_contact_sound_the_result_sounds_as_its_Zone_says()
+        {
+            var round = StartedRound();
+            var cues = new RoundSoundCues(new SaveData());
+            Run(round, cues, 3.8);
+            round.SubmitShot(-2, 50, 100, false);
+            round.DelayResult(0.5);
+            cues.Update(round, false, null);
+            CollectionAssert.AreEquivalent(new[] { SoundCue.PostPing, SoundCue.Groan }, cues.Update(round, true, null));
+        }
+
         // Plays one Shot at (x, y) and returns the cues on the puck's arrival frame.
         private static List<SoundCue> ArrivalCues(Round round, double x, double y)
         {

@@ -69,7 +69,7 @@ namespace HockeyGame
             bool goalieShown = phaseNow != RoundPhase.Idle && phaseNow != RoundPhase.RoundOver;
             _goalie.Show(goalieShown, _round.GoaliePose, _save.EasyMode);
             _effects.Update(_round, Time.unscaledDeltaTime);
-            _sound.Update(_round, _effects.PuckArrivedThisFrame, Time.unscaledDeltaTime);
+            _sound.Update(_round, _effects.PuckArrivedThisFrame, Time.unscaledDeltaTime, _effects.ContactSound);
 
             bool playing = _flow.Screen == FlowScreen.Playing;
             bool pressed = false; // key or click outside a Round: at most one Press per frame

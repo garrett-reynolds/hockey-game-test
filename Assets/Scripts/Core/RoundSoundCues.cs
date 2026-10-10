@@ -57,6 +57,7 @@ namespace HockeyGame.Core
         private int _ticksPlayed;
         private readonly ShotResultWatch _newResult = new ShotResultWatch();
         private ShotResult? _pendingImpact;
+        private SoundCue? _pendingContact;
 
         /// <summary>Reads the tick on/off setting from save each frame, so a settings change applies at once.</summary>
         public RoundSoundCues(SaveData save)
@@ -71,7 +72,15 @@ namespace HockeyGame.Core
         /// Cues to start this frame. puckArrived is true on the frame the on-screen puck reaches the net
         /// (or passes it on a Miss). The list is reused; read it before the next call.
         /// </summary>
-        public IReadOnlyList<SoundCue> Update(Round round, bool puckArrived)
+        public IReadOnlyList<SoundCue> Update(Round round, bool puckArrived) => Update(round, puckArrived, null);
+
+        /// <summary>
+        /// As Update(round, puckArrived), with the sound of what the on-screen puck visibly hits on a Save or a Frame Hit
+        /// (ShotEffects.ContactSound): the stick or a skate in front of the pads, or the goalie's gear in front of the frame.
+        /// It replaces the Zone's save sound or the post ping; the result does not change. null: the result's own sound.
+        /// Given once (from the Shot frame on), it holds until the impact plays.
+        /// </summary>
+        public IReadOnlyList<SoundCue> Update(Round round, bool puckArrived, SoundCue? contact)
         {
             _cues.Clear();
             RoundPhase phase = round.Phase;
@@ -97,8 +106,10 @@ namespace HockeyGame.Core
                 else
                 {
                     _pendingImpact = round.LastResult.Value;
+                    _pendingContact = null;
                 }
             }
+            if (_pendingImpact.HasValue && contact.HasValue) _pendingContact = contact;
 
             // The result shows when the puck lands (Round.DelayResult), so a missed arrival frame still plays it then.
             if (_pendingImpact.HasValue && (puckArrived || (phase == RoundPhase.ResultHold && round.ResultShowing)))
@@ -130,15 +141,16 @@ namespace HockeyGame.Core
                     _cues.Add(SoundCue.Cheer);
                     break;
                 case ShotResultKind.Save:
-                    _cues.Add(SaveContact(result.X, result.Y));
+                    _cues.Add(_pendingContact ?? SaveContact(result.X, result.Y));
                     _cues.Add(SoundCue.Groan);
                     break;
                 default:
-                    _cues.Add(NetFrame.At(result.X, result.Y) == FrameHit.None ? SoundCue.MissImpact : SoundCue.PostPing);
+                    _cues.Add(NetFrame.At(result.X, result.Y) == FrameHit.None ? SoundCue.MissImpact : _pendingContact ?? SoundCue.PostPing);
                     _cues.Add(SoundCue.Groan);
                     break;
             }
             _pendingImpact = null;
+            _pendingContact = null;
         }
 
         /// <summary>

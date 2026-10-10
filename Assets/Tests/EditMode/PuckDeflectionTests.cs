@@ -41,6 +41,7 @@ namespace HockeyGame.Core.Tests
             public readonly List<Vector3> Path = new List<Vector3>();       // after the contact, one per frame
             public readonly List<Quaternion> Turns = new List<Quaternion>();
             public bool Visible = true;     // shown through the whole hold
+            public SoundCue? Sound;         // ShotEffects.ContactSound on the arrival frame
             public Vector3 Leaving => Path[6] - Contact; // over the first 0.1 s
         }
 
@@ -66,7 +67,7 @@ namespace HockeyGame.Core.Tests
                 effects.Update(round, Frame);
                 round.Tick(Frame);
                 if (round.Phase != RoundPhase.ResultHold) break;
-                if (effects.PuckArrivedThisFrame) { arrived = true; run.Contact = puck.position; continue; }
+                if (effects.PuckArrivedThisFrame) { arrived = true; run.Contact = puck.position; run.Sound = effects.ContactSound; continue; }
                 if (!arrived) continue;
                 run.Path.Add(puck.position);
                 run.Turns.Add(puck.rotation);
@@ -150,11 +151,54 @@ namespace HockeyGame.Core.Tests
             NetFaceMapping.ToMetres(StickX, StickY, out double right, out double up);
             Assert.IsTrue(probe.SaveSurface(obstacles, run.Contact, new Vector3((float)right, (float)up, 0f), SoundCue.SaveImpact, out _, out PuckSurface surface));
             Assert.AreEqual(PuckSurface.Stick, surface, "made on the stick");
+            Assert.AreEqual(SoundCue.BlockerHit, run.Sound, "sounds like the stick (wood), not the pad the Zone names");
             Assert.Greater(Vector3.Dot(run.Leaving.normalized, GearFacing(character, GearPiece.Stick, run.Contact)), 0.2f, "away from the blade");
 
             float highest = float.NegativeInfinity;
             foreach (Vector3 p in run.Path) highest = Mathf.Max(highest, p.y);
             Assert.Less(highest, run.Contact.y + 0.03f, "never rises off the blade");
+        }
+
+        /// <summary>The result sound a test expects for each surface (its own table, not ShotEffects.SoundOf).</summary>
+        static SoundCue Expected(PuckSurface surface) =>
+            surface == PuckSurface.Frame ? SoundCue.PostPing
+            : surface == PuckSurface.Blocker || surface == PuckSurface.Stick || surface == PuckSurface.Skate ? SoundCue.BlockerHit
+            : surface == PuckSurface.Catcher ? SoundCue.GloveCatch
+            : SoundCue.SaveImpact;
+
+        [Test]
+        public void A_Frame_Hit_the_goalie_s_gear_is_in_front_of_sounds_like_that_gear_not_the_post_and_is_still_a_Miss()
+        {
+            int blocked = 0, frameHits = 0;
+            foreach (TestCaseData c in AllSaves())
+            {
+                var pose = (GoaliePose)c.Arguments[0];
+                double x = (double)c.Arguments[1], y = (double)c.Arguments[2];
+                if (NetFrame.At(x, y) == FrameHit.None) continue;
+                TearDown();
+                SetUp();
+                PlaceShooter(pose, true); // 3 m out: post-hugging gear covers the post from here (#38)
+                NetBuilder.Build(_rink.transform);
+                var view = new GoalieView(_rink.transform, new GoalieCharacter(_rink.transform));
+                var effects = new ShotEffects(_rink.transform, _camera.GetComponent<Camera>(), null, view);
+                var round = new Round(ScriptedRandom.Forcing(pose), new RoundSettings(), 0);
+                round.StartRound();
+                round.Tick(3.7);
+                view.Show(true, round.GoaliePose, false);
+                float facing = GoalieCharacter.FacingToward(_camera.transform.position);
+                view.Face(facing, facing);
+                round.SubmitShot(x, y, 100, false);
+                effects.Update(round, Frame); // the Shot frame: the contact is known from here
+                string where = pose + " (" + x.ToString("F1") + ", " + y.ToString("F1") + ")";
+                Assert.AreEqual(ShotResultKind.Miss, round.LastResult.Value.Kind, where);
+                Assert.IsTrue(effects.ContactSurface.HasValue, where);
+                PuckSurface surface = effects.ContactSurface.Value;
+                Assert.AreEqual(Expected(surface), effects.ContactSound, where + " off " + surface);
+                frameHits++;
+                if (surface != PuckSurface.Frame) blocked++;
+            }
+            Assert.Greater(blocked, 0, "some Frame Hits are blocked by gear from 3 m");
+            Assert.Greater(frameHits - blocked, 0, "most still ring off the frame");
         }
 
         // A low Shot the stick blade is nearer than the pads (found with the posed gear).

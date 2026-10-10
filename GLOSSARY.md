@@ -52,5 +52,5 @@ _Avoid_: Neutral pose, idle pose
 A Shot that does not reach the Net Face, or no Shot in time. It uses one of the Round's 6 Shots.
 
 **Frame Hit**:
-A Miss whose position lands on a post or the crossbar: just outside the Net Face, within the frame's 0.08 m thickness. It pings and the puck deflects off the frame, but it is still a Miss.
+A Miss whose position lands on a post or the crossbar: just outside the Net Face, within the frame's 0.08 m thickness. It pings and the puck deflects off the frame, but it is still a Miss. When the goalie's gear stands in front of the frame on the puck's line (a post-hugging pad, seen from close in), the puck knocks off that gear instead and the sound is that gear's, not the ping; it is still a Miss. Likewise a Save the puck meets on the stick or a skate sounds like the stick or skate, whatever gear its Zone names.
 _Avoid_: Iron, post shot
