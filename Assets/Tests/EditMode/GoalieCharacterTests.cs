@@ -7,8 +7,7 @@ namespace HockeyGame.Core.Tests
 {
     public class GoalieCharacterTests
     {
-        static readonly string[] GearNames =
-            { GearPiece.LeftPad, GearPiece.RightPad, GearPiece.Blocker, GearPiece.Catcher, GearPiece.Stick, GearPiece.Mask, GearPiece.Visor, GearPiece.LeftSkate, GearPiece.RightSkate };
+        static readonly string[] GearNames = GearPiece.Gear;
         static readonly string[] ClothesNames = { "Jersey", "Pants", "Socks" };
 
         static GameObject LoadModel()

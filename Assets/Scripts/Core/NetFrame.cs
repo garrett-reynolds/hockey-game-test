@@ -16,7 +16,10 @@ namespace HockeyGame.Core
     /// </summary>
     public static class NetFrame
     {
-        /// <summary>Net Face size and frame (post and crossbar) thickness in metres; NetFaceMapping and NetBuilder build to these.</summary>
+        /// <summary>
+        /// Net Face size and frame (post and crossbar) thickness in metres; NetFaceMapping and NetBuilder build to these.
+        /// Tools/make_supplied_net.py copies them by hand (HALF_W, H, POST): change both together.
+        /// </summary>
         public const double FaceWidthMetres = 1.83;
         public const double FaceHeightMetres = 1.22;
         public const double ThicknessMetres = 0.08;

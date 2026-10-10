@@ -10,14 +10,14 @@ namespace HockeyGame.Core
         FastTick,
         Buzzer,
         GoalImpact,   // puck hits the net + goal horn
-        SaveImpact,   // puck thuds on the goalie pad
+        SaveImpact,   // puck thuds on the goalie pad (or body)
         MissImpact,   // puck clangs on the boards
         Cheer,
         Groan,
         NewBestCheer,
         PostPing,     // a Miss rings off a post or the crossbar
         GloveCatch,   // a Save in the catching glove
-        BlockerHit,   // a Save off the blocker
+        BlockerHit,   // a Save off the blocker (or the stick or a skate)
         Skating,      // the skate-in begins: start the skating sound
         SkatingStop   // the skate-in ends: stop the skating sound
     }
