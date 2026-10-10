@@ -28,10 +28,15 @@ namespace HockeyGame
         const int WedgedSteps = 36;      // 0.15 s held fast in a crease of the gear: it stays there (or drops off, off the ice)
         const float OffIceHeight = 0.01f; // m: wedged with its lowest point higher than this, it is on the gear, off the ice
         int _wedged;
+        /// <summary>km/h: the Shot speed each surface's Min..Max rebound speeds are set for. A faster or slower Shot comes off
+        /// as much faster or slower (#46).</summary>
+        const float FeelKmh = TestShotSpeed.DefaultKmh;
+        float _shotScale = 1f; // the Shot's speed over FeelKmh, from its own contact: later knocks keep to the same scaled Max
 
         /// <summary>
         /// How a surface sends the puck back. Bounce: share of the speed into the surface it keeps out of it.
-        /// Grip: share of the speed along the surface it keeps. Speeds clamp to Min..Max m/s so a rebound reads on screen.
+        /// Grip: share of the speed along the surface it keeps. Speeds clamp to Min..Max m/s (at an 80 km/h Shot, scaled with
+        /// the Shot's speed) so a rebound reads on screen.
         /// Steer: the Shot's own rebound leaves as if the surface were angled this much to the shooter's left (the blocker turns pucks to the corner).
         /// MaxUp: the most upward speed it can leave with (the stick keeps it low).
         /// </summary>
@@ -98,8 +103,8 @@ namespace HockeyGame
         /// <summary>The puck hits a surface (normal: unit, facing the puck) where it is now.</summary>
         public void Hit(Vector3 normal, PuckSurface surface) => Bounce(normal, surface, true);
 
-        /// <param name="first">The Shot's own contact: the rebound speed clamps to the surface's Min..Max so it reads on
-        /// screen, and the catching glove holds. Later knocks (off the obstacles) only slow it.</param>
+        /// <param name="first">The Shot's own contact: the rebound speed clamps to the surface's Min..Max (scaled with the Shot's
+        /// speed) so it reads on screen, and the catching glove holds. Later knocks (off the obstacles) only slow it.</param>
         void Bounce(Vector3 normal, PuckSurface surface, bool first)
         {
             Feel feel = FeelOf(first || surface != PuckSurface.Catcher ? surface : PuckSurface.Body);
@@ -111,6 +116,7 @@ namespace HockeyGame
                 return;
             }
             Vector3 v = Velocity;
+            if (first) _shotScale = v.magnitude / (FeelKmh / 3.6f);
             // Only the Shot's own rebound is steered: a later knock comes off the real face (Fly tested it against that face,
             // and a steered normal can call a puck still pushing into the face "already leaving", so it would hang there).
             Vector3 n = first && feel.Steer > 0f ? (normal + Vector3.left * feel.Steer).normalized : normal;
@@ -118,7 +124,8 @@ namespace HockeyGame
             if (into >= 0f) return; // already leaving
             Vector3 along = v - into * n;
             Vector3 after = -feel.Bounce * into * n + feel.Grip * along;
-            float speed = first ? Mathf.Clamp(after.magnitude, feel.Min, feel.Max) : Mathf.Min(after.magnitude, feel.Max);
+            float max = feel.Max * _shotScale;
+            float speed = first ? Mathf.Clamp(after.magnitude, feel.Min * _shotScale, max) : Mathf.Min(after.magnitude, max);
             after = after.sqrMagnitude > 1e-8f ? after.normalized * speed : n * speed;
             if (first || n.z < 0f) after = TowardShooter(after);
             // However it is steered, the Shot's own rebound leaves the real face at a real angle: one that only grazes a

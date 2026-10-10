@@ -67,7 +67,8 @@ namespace HockeyGame
             Time.timeScale = timeScale;
             _look.weight = (float)Breakaway.LookAmount(timeScale);
 
-            float set = (float)Breakaway.GoalieSet(phase, phaseSeconds, _round.LastResult.HasValue && _round.LastResult.Value.HasShot);
+            float set = (float)Breakaway.GoalieSet(phase, phaseSeconds, _round.LastResult.HasValue && _round.LastResult.Value.HasShot,
+                _round.ResultDelaySeconds);
             if (phase == RoundPhase.Idle || phase == RoundPhase.RoundOver)
             {
                 _goalie.Face((float)_turn.Shown, (float)_turn.Shown); // keeps facing the last shooter

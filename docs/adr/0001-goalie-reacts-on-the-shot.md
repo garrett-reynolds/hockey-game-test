@@ -6,7 +6,7 @@ The goalie used to move into the Round's Goalie Pose during the slow-down, so th
 
 ## Consequences
 
-- The reaction takes 0.2 s of real time (`Breakaway.GoalieReactSeconds`), eased out. The on-screen puck flight is never shorter than 0.3 s (`ShotFlight.MinSeconds`), so the goalie is fully posed before even the fastest puck reaches the Net Face, and a SAVE stops on the posed gear and a GOAL! goes through a real gap.
+- The reaction takes 0.2 s of real time (`Breakaway.GoalieReactSeconds`), eased out. The on-screen puck flies at the Shot's real speed (distance ÷ speed, no floor; #46), so a hard Shot can reach the Net Face in under 0.2 s. Then the reaction is quicker: the same ease over the puck's flight time instead (`Breakaway.GoalieSet`), as a real goalie gets less time on a hard shot. Either way the goalie is fully posed when the puck reaches the Net Face, so a SAVE stops on the posed gear and a GOAL! goes through a real gap. (Until #46 the flight was never shorter than 0.3 s, which made every Shot over about 70 km/h look the same.)
 - A saved puck's stop point is measured on the fully posed gear at the moment of the Shot, while the goalie is still in the Ready Stance.
 - No Shot in time (TOO LATE): the goalie stays in the Ready Stance; there is no Shot to react to. A Miss or Frame Hit is a real Shot, so the goalie still reacts into the pose.
 - With the `forceGoalieBlocks=true` developer flag the blocks follow the same timing: neutral block shapes (the same for every pose) from the skate-in until the Shot, then they morph into the pose's blocks over the same 0.2 s.

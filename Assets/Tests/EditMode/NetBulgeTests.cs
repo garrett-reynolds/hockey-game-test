@@ -177,6 +177,7 @@ namespace HockeyGame.Core.Tests
 
             float slow = Peak(50f), fast = Peak(110f);
             Assert.Greater(fast, slow * 1.5f);
+            Assert.Greater(Peak(200f), Peak(150f) * 1.2f, "still bigger at the top of the Test Shot range (#46)");
         }
 
         [Test]

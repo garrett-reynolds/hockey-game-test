@@ -65,11 +65,16 @@ namespace HockeyGame.Core.Tests
             round.SubmitShot(x, y, kmh, false);
             var run = new Run { Kind = round.LastResult.Value.Kind };
             bool arrived = false;
+            float flown = 0f;
             for (int i = 0; i < 1000 && round.Phase == RoundPhase.ResultHold; i++)
             {
                 view.SetProgress(1f);
-                effects.Update(round, Frame);
-                round.Tick(Frame);
+                // The frame the puck gets there ends just as it does, so Contact is where it met the gear, before any rebound.
+                float left = (float)round.ResultDelaySeconds - flown;
+                float dt = !arrived && i > 0 && left < Frame ? left + 1e-5f : Frame;
+                flown += dt;
+                effects.Update(round, dt);
+                round.Tick(dt);
                 if (round.Phase != RoundPhase.ResultHold) break;
                 if (effects.PuckArrivedThisFrame) { arrived = true; run.Contact = puck.position; run.Sound = effects.ContactSound; run.Surface = effects.ContactSurface; onArrive?.Invoke(run.Contact); continue; }
                 if (!arrived) continue;
@@ -432,9 +437,10 @@ namespace HockeyGame.Core.Tests
             Assert.IsEmpty(failures, failures.Count + " of " + shots + "\n" + string.Join("\n", failures));
         }
 
-        // Body saves from 3 m out whose rebound comes to rest in a crease of the gear, well off the ice (found by a probe, #48).
-        [TestCase(GoaliePose.MiddleButterfly, 44.0, 72.0)]
-        [TestCase(GoaliePose.MiddleStandUp, 50.0, 72.0)]
+        // Body saves from 3 m out whose rebound comes to rest in a crease of the gear, well off the ice (found by a probe, #48;
+        // found again once the puck flew at the Shot's real speed, #46).
+        [TestCase(GoaliePose.MiddleButterfly, 38.0, 74.0)]
+        [TestCase(GoaliePose.MiddleStandUp, 56.0, 74.0)]
         public void A_puck_at_rest_on_gear_that_is_not_the_catcher_drops_off_to_the_ice_never_carried(GoaliePose pose, double x, double y)
         {
             PlaceShooter(pose, true);

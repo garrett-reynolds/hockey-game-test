@@ -74,6 +74,9 @@ namespace HockeyGame.Core
         /// </summary>
         public bool ResultShowing => Phase != RoundPhase.ResultHold || _phaseElapsed >= _resultDelay;
 
+        /// <summary>Real seconds the current result is held back (see DelayResult): the on-screen puck flight, 0 if none.</summary>
+        public double ResultDelaySeconds => _resultDelay;
+
         /// <summary>
         /// Holds back the current result for this many real seconds (the on-screen puck flight), then holds it
         /// for the normal ResultHoldSeconds. Only in ResultHold; later calls replace the delay.

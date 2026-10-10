@@ -84,19 +84,22 @@ namespace HockeyGame.Core
         /// <summary>
         /// How long the goalie takes to react out of the Ready Stance after the Shot (real seconds; into its Save Reaction, or
         /// the Goalie Pose for the block goalie).
-        /// Shorter than ShotFlight.MinSeconds, so the reaction is complete before even the fastest puck reaches the Net Face.
+        /// A Shot whose puck reaches the Net Face sooner gets a quicker reaction (see GoalieSet), so the goalie is always fully
+        /// in it when the puck arrives.
         /// </summary>
         public const double GoalieReactSeconds = 0.2;
 
         /// <summary>
         /// How far the goalie has moved from the Ready Stance into its reaction (0..1). 0 until the Shot: the player gets no hint
-        /// of the pose. In the result hold after a Shot it eases out to 1 over GoalieReactSeconds (real time); with no Shot
-        /// (too late) it stays 0.
+        /// of the pose. In the result hold after a Shot it eases out to 1 over GoalieReactSeconds (real time), or over the puck
+        /// flight (flightSeconds, real time) if that is shorter: a real goalie gets less time on a hard Shot, and the puck still
+        /// meets the gear as it was measured, fully reacted (#46). With no Shot (too late) it stays 0.
         /// </summary>
-        public static double GoalieSet(RoundPhase phase, double phaseSeconds, bool shotTaken)
+        public static double GoalieSet(RoundPhase phase, double phaseSeconds, bool shotTaken, double flightSeconds)
         {
             if (phase != RoundPhase.ResultHold || !shotTaken) return 0;
-            return EaseOut(Numbers.Clamp01(phaseSeconds / GoalieReactSeconds));
+            double react = Math.Min(GoalieReactSeconds, flightSeconds);
+            return react > 0 ? EaseOut(Numbers.Clamp01(phaseSeconds / react)) : 1;
         }
 
         /// <summary>Share of the shooting window ring still showing (1 full, 0 empty).</summary>

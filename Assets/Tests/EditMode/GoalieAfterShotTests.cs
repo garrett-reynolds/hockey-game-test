@@ -218,7 +218,7 @@ namespace HockeyGame.Core.Tests
                     round.Tick(Frame);
                     if (round.Phase != RoundPhase.ResultHold) break;
                     arrived |= effects.PuckArrivedThisFrame;
-                    view.SetProgress((float)Breakaway.GoalieSet(round.Phase, round.PhaseSecondsElapsed, true));
+                    view.SetProgress((float)Breakaway.GoalieSet(round.Phase, round.PhaseSecondsElapsed, true, round.ResultDelaySeconds));
                     frame(character, (float)round.PhaseSecondsElapsed, arrived, puck);
                 }
                 Assert.IsTrue(arrived);

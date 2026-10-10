@@ -19,17 +19,24 @@ namespace HockeyGame.Core.Tests
             Assert.Less(ShotFlight.Seconds(9.0, 120.0), ShotFlight.Seconds(9.0, 60.0));
         }
 
-        [TestCase(9.0, 200.0)]   // 0.162 s unclamped
-        [TestCase(0.0, 80.0)]
-        public void FlightTime_IsNeverShorterThanMinimum(double metres, double kmh)
+        [Test]
+        public void A_200_kmh_Shot_flies_in_less_than_half_the_time_of_an_80_kmh_Shot_from_the_same_spot()
         {
-            Assert.AreEqual(0.3, ShotFlight.Seconds(metres, kmh), 1e-9);
+            Assert.Less(ShotFlight.Seconds(6.0, 200.0), ShotFlight.Seconds(6.0, 80.0) / 2.0);
         }
 
         [Test]
-        public void FlightTime_ExactlyAtMinimum()
+        public void Flight_time_strictly_falls_as_speed_rises_over_the_whole_Test_Shot_range()
         {
-            Assert.AreEqual(0.3, ShotFlight.Seconds(3.0, 36.0), 1e-9); // 10 m/s over 3 m
+            foreach (double metres in new[] { 2.0, 6.0, 9.0 }) // 2 m: the closest start, the camera stopped 3 m out
+                for (int kmh = 15; kmh <= 200; kmh += 5)
+                    Assert.Less(ShotFlight.Seconds(metres, kmh), ShotFlight.Seconds(metres, kmh - 5), metres + " m at " + kmh + " km/h");
+        }
+
+        [Test]
+        public void A_zero_distance_still_gives_a_flight_of_one_frame_never_zero()
+        {
+            Assert.AreEqual(1.0 / 60.0, ShotFlight.Seconds(0.0, 80.0), 1e-9);
         }
 
         [TestCase(0.0)]
@@ -38,7 +45,7 @@ namespace HockeyGame.Core.Tests
         {
             double seconds = ShotFlight.Seconds(9.0, kmh);
             Assert.IsFalse(double.IsInfinity(seconds) || double.IsNaN(seconds));
-            Assert.GreaterOrEqual(seconds, 0.3);
+            Assert.AreEqual(9.0 / (10.0 / 3.6), seconds, 1e-9, "flies as if at 10 km/h");
         }
     }
 }

@@ -85,32 +85,43 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void Goalie_holds_the_ready_stance_until_the_Shot()
         {
-            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.Idle, 0, false), Tol);
-            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.SkateIn, 2.0, false), Tol);
-            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.SlowDown, 0.6, false), Tol);
-            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.SlowDown, 5.0, false), Tol);
-            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.ShootingWindow, 0, false), Tol);
-            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.ShootingWindow, 3.0, false), Tol);
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.Idle, 0, false, 0.5), Tol);
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.SkateIn, 2.0, false, 0.5), Tol);
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.SlowDown, 0.6, false, 0.5), Tol);
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.SlowDown, 5.0, false, 0.5), Tol);
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.ShootingWindow, 0, false, 0.5), Tol);
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.ShootingWindow, 3.0, false, 0.5), Tol);
         }
 
         [Test]
-        public void On_the_Shot_the_goalie_reacts_into_the_pose_before_the_fastest_puck_reaches_the_Net_Face()
+        public void On_the_Shot_the_goalie_reacts_into_the_pose_over_0_2_s_when_the_puck_takes_longer()
         {
-            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.ResultHold, 0, true), Tol, "still ready at the Shot");
-            double midway = Breakaway.GoalieSet(RoundPhase.ResultHold, 0.1, true);
-            Assert.Greater(midway, 0.0, "moving");
-            Assert.Less(midway, 1.0, "not there yet");
-            // The fastest puck: a huge speed from the closest the shooter gets to the net.
-            double fastestFlight = ShotFlight.Seconds(Breakaway.ClosestDrift, 1000);
-            Assert.AreEqual(1.0, Breakaway.GoalieSet(RoundPhase.ResultHold, fastestFlight, true), Tol, "fully posed when the puck lands");
-            Assert.AreEqual(1.0, Breakaway.GoalieSet(RoundPhase.ResultHold, 2.0, true), Tol);
+            const double Flight = 0.5; // 6 m at about 43 km/h
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.ResultHold, 0, true, Flight), Tol, "still ready at the Shot");
+            double midway = Breakaway.GoalieSet(RoundPhase.ResultHold, 0.1, true, Flight);
+            Assert.AreEqual(0.75, midway, Tol, "eased out, three quarters there half way through 0.2 s");
+            Assert.AreEqual(1.0, Breakaway.GoalieSet(RoundPhase.ResultHold, 0.2, true, Flight), Tol, "fully posed after 0.2 s");
+            Assert.AreEqual(1.0, Breakaway.GoalieSet(RoundPhase.ResultHold, 2.0, true, Flight), Tol);
+        }
+
+        [TestCase(200.0)]
+        [TestCase(1000.0)]
+        public void A_puck_faster_than_the_reaction_gets_a_quicker_reaction_fully_posed_when_the_puck_lands(double kmh)
+        {
+            // The fastest puck: from the closest the shooter gets to the net (the puck starts about 1 m in front of the eye).
+            double flight = ShotFlight.Seconds(Breakaway.ClosestDrift - 1.0, kmh);
+            Assert.Less(flight, Breakaway.GoalieReactSeconds, "the puck lands before a 0.2 s reaction would end");
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.ResultHold, 0, true, flight), Tol, "still ready at the Shot");
+            Assert.AreEqual(0.75, Breakaway.GoalieSet(RoundPhase.ResultHold, flight / 2, true, flight), Tol, "the same ease, quicker");
+            Assert.AreEqual(1.0, Breakaway.GoalieSet(RoundPhase.ResultHold, flight, true, flight), Tol, "fully posed when the puck lands");
+            Assert.AreEqual(1.0, Breakaway.GoalieSet(RoundPhase.ResultHold, 2.0, true, flight), Tol);
         }
 
         [Test]
         public void With_no_Shot_too_late_the_goalie_stays_in_the_ready_stance()
         {
-            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.ResultHold, 0, false), Tol);
-            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.ResultHold, 2.0, false), Tol);
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.ResultHold, 0, false, 0.5), Tol);
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.ResultHold, 2.0, false, 0.5), Tol);
         }
 
         [Test]

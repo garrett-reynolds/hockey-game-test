@@ -42,6 +42,20 @@ namespace HockeyGame.Core.Tests
             Assert.Greater(Vector3.Dot(v, n), 1f, "away from the surface");
         }
 
+        [TestCase(PuckSurface.Pad)]
+        [TestCase(PuckSurface.Blocker)]
+        [TestCase(PuckSurface.Stick)]
+        [TestCase(PuckSurface.Skate)]
+        [TestCase(PuckSurface.Body)]
+        [TestCase(PuckSurface.Frame)]
+        public void The_rebound_off_gear_or_the_frame_is_as_much_faster_as_the_Shot(PuckSurface surface)
+        {
+            Vector3 n = new Vector3(0.3f, 0f, -1f).normalized; // level: MaxUp caps only the upward part, the same at any speed
+            float Off(float kmh) => HitAt(n, surface, new Vector3(0f, 0f, kmh / 3.6f)).Velocity.magnitude;
+            Assert.AreEqual(2.5f, Off(200f) / Off(80f), 0.01f, "200 km/h comes off 2.5 times faster than 80 km/h");
+            Assert.AreEqual(0.5f, Off(40f) / Off(80f), 0.01f, "40 km/h comes off half as fast");
+        }
+
         [Test]
         public void Each_surface_feels_different()
         {
