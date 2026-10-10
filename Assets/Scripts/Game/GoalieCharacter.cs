@@ -74,6 +74,8 @@ namespace HockeyGame
             _butterfly = MakeButterfly();
             _reaction = _ready;
             Put(_ready);
+            Transform head = Bone(HumanBodyBones.Head);
+            if (head != null) _faceLocal = head.InverseTransformDirection(Root.transform.rotation * Vector3.back);
         }
 
         /// <summary>
@@ -283,6 +285,7 @@ namespace HockeyGame
                 gear.Point = piece == GearPiece.Stick ? Blade(local, Rigid(r.transform)) : gear.Local.center;
                 _gearShapes[piece] = gear;
             }
+            if (_gearShapes.ContainsKey(GearPiece.Stick)) _bladeY = Lowest(GearPiece.Stick);
             _readyBody = BakeBody(_ready);
             _butterflyBody = BakeBody(_butterfly);
             Put(shown);
@@ -366,7 +369,7 @@ namespace HockeyGame
         /// ends at. The puck flies from `from` to `to` (world space). touch (a Save): the reaction's gear (ReactionPiece) reaches
         /// the puck's line: the catcher or blocker by arm (two-bone IK), the stick blade along the ice, a pad dropped into the
         /// butterfly (standing for a puck a little higher), or the body pushed across in front of it; pushing across the crease (up to
-        /// MaxSlide) when the arm alone cannot reach. Not touch (a Goal or a Miss, #43): a hand reach that stops short and
+        /// MaxSlide) when the arm alone cannot reach. Not touch (a Goal or a Miss): a hand reach that stops short and
         /// keeps the whole goalie off the puck's line. The same arguments always give the same reaction.
         /// </summary>
         public void React(SaveReaction reaction, Vector3 from, Vector3 to, float facing, bool touch)
@@ -380,6 +383,8 @@ namespace HockeyGame
 
             if (touch) Reach(reaction, from, to, facing);
             else Beaten(reaction, from, to, facing);
+            _line = (from, to, facing, touch ? (SaveReaction?)null : reaction);
+            _late = null; // built when the puck has got past (AfterShot), not on the Shot frame
 
             Put(shown);
             root.localPosition = rootPosition;
@@ -476,7 +481,7 @@ namespace HockeyGame
         {
             // First the first reach whose gear and body boxes the puck passes clear of (quick, smallest push first); failing
             // that, the first that truly misses the puck (exact, slower: largest push first and only a few tries); failing both,
-            // the last one tried (#43 reworks these reactions).
+            // the last one tried. The beaten hand carries on only once the puck has gone by (AfterShot).
             if (BeatenPass(reaction, from, to, facing, true)) return;
             BeatenPass(reaction, from, to, facing, false);
         }
@@ -747,6 +752,181 @@ namespace HockeyGame
         }
 
         const float LookDegrees = 20f;
+
+        // ---- After the Shot (#43) ----------------------------------------------------------------------------------------
+
+        Vector3 _faceLocal = Vector3.forward;  // head-local: the way the face looks in the Ready Stance
+        (Vector3 from, Vector3 to, float facing, SaveReaction? beaten) _line; // the last React's puck line; beaten: a Goal or Miss reach
+        Snapshot _late;                        // a GOAL!: the beaten hand carried on toward where the puck went (built after it has)
+
+        /// <summary>The most the head turns from square to follow the puck (degrees about the vertical; neck alone).</summary>
+        public const float WatchDegrees = 75f;
+        /// <summary>On a GOAL! the look back into the net turns this far, the shoulders taking LookBackSpine of it.</summary>
+        public const float LookBackDegrees = 125f;
+        const float LookBackSpine = 0.35f;
+        const float WatchUp = 30f, WatchDown = 50f;
+        /// <summary>A GOAL!'s late hand gets this share of the way from where the beaten reach left it to the puck's line.</summary>
+        const float LateShare = 0.85f;
+
+        /// <summary>
+        /// Poses the character as Pose(set, facing), then moves it on through what it does once the puck has got there (#43,
+        /// AfterShot): a GOAL!'s late reach and dropped arms; the head (on a GOAL! the shoulders too) turning to `watch`, the
+        /// puck or what it looks at; and the gesture (its progress in moment). On a Save or a Miss only the neck turns, so the
+        /// gear stays where the rebound was measured. The same arguments always give the same look. Nothing more before the
+        /// puck gets there (a zero moment) or with set 0.
+        /// </summary>
+        public void Pose(float set, float facing, AfterShotGesture gesture, AfterShotMoment moment, Vector3 watch)
+        {
+            Pose(set, facing);
+            if (!Present || set <= 0f) return;
+            bool goal = gesture == AfterShotGesture.Slump || gesture == AfterShotGesture.StickSlap;
+            if (goal && (moment.LateReach > 0 || moment.Relax > 0))
+            {
+                if (_late == null) _late = LateReach();
+                float late = (float)moment.LateReach, relax = (float)moment.Relax;
+                for (int i = 0; i < _bones.Length; i++)
+                    _bones[i].localRotation = Quaternion.Slerp(Quaternion.Slerp(_bones[i].localRotation, _late.Rotations[i], late), _ready.Rotations[i], relax);
+                PlaceRoot(facing);
+            }
+            if (moment.Watch > 0) Watch(watch, (float)moment.Watch, goal ? LookBackDegrees : WatchDegrees, goal ? LookBackSpine : 0f);
+            if (moment.Gesture > 0) Gesture(gesture, (float)moment.Gesture);
+            if (goal) KeepBladeUp();
+        }
+
+        float _bladeY; // the stick's lowest point in the Ready Stance (Prepare)
+
+        /// <summary>The lowest corner of a piece's measured box as it stands now (world y).</summary>
+        float Lowest(string piece)
+        {
+            GearShape gear = _gearShapes[piece];
+            Matrix4x4 m = Rigid(gear.Transform);
+            Bounds b = gear.Local;
+            float lowest = float.MaxValue;
+            for (int i = 0; i < 8; i++)
+                lowest = Mathf.Min(lowest, m.MultiplyPoint3x4(new Vector3(
+                    (i & 1) == 0 ? b.min.x : b.max.x, (i & 2) == 0 ? b.min.y : b.max.y, (i & 4) == 0 ? b.min.z : b.max.z)).y);
+            return lowest;
+        }
+
+        /// <summary>
+        /// A GOAL!'s bend forward would push the stick blade into the ice: the stick hand lifts it back to its stance height,
+        /// keeping its turn (only up, so a lifted stick is left alone).
+        /// </summary>
+        void KeepBladeUp()
+        {
+            if (!_gearShapes.ContainsKey(GearPiece.Stick)) return;
+            float low = _bladeY - Lowest(GearPiece.Stick);
+            if (low > 0.002f) ReachStickHand(GearPoint(GearPiece.Stick) + Vector3.up * low, 0f, false); // the hand keeps its turn: the stick only rises
+        }
+
+        /// <summary>The reaction with its beaten hand carried on toward the puck's line, too late (the arm alone: no push).</summary>
+        Snapshot LateReach()
+        {
+            Snapshot shown = Take();
+            Put(_reaction);
+            PlaceRoot(_line.facing);
+            if (_line.beaten == SaveReaction.Glove || _line.beaten == SaveReaction.Blocker)
+            {
+                bool glove = _line.beaten == SaveReaction.Glove;
+                string piece = glove ? GearPiece.Catcher : GearPiece.Blocker;
+                ReachHand(glove, piece, Vector3.Lerp(GearPoint(piece), OnLine(_line.from, _line.to, piece), LateShare), _line.facing, false);
+            }
+            Snapshot late = Take();
+            Put(shown);
+            return late;
+        }
+
+        /// <summary>
+        /// Turns the head toward a point, `weight` of the way: at most `most` degrees from square about the vertical (a point
+        /// behind is looked at over the shoulder on its side) and WatchUp/WatchDown up and down. spine: the share of the turn the
+        /// shoulders take. The neck turns the head and mask together; the head never bends on the neck.
+        /// </summary>
+        void Watch(Vector3 point, float weight, float most, float spine)
+        {
+            Transform neck = Bone(HumanBodyBones.Neck), head = Bone(HumanBodyBones.Head), back = Bone(HumanBodyBones.Spine);
+            if (neck == null || head == null) return;
+            Vector3 forward = Root.transform.rotation * Vector3.back, left = Root.transform.rotation * Vector3.right;
+            Vector3 to = point - head.position, flat = Vector3.ProjectOnPlane(to, Vector3.up);
+            if (to.sqrMagnitude < 1e-6f) return;
+            float yaw = flat.sqrMagnitude > 1e-8f ? Vector3.SignedAngle(forward, flat, Vector3.up) : 0f;
+            if (Mathf.Abs(yaw) > 120f)
+            {
+                // Behind: over the shoulder on the point's side of the hips (steady while the point stays on that side).
+                float onLeft = Vector3.Dot(point - Bone(HumanBodyBones.Hips).position, left) >= 0f ? 1f : -1f;
+                yaw = Mathf.Abs(yaw) * onLeft * Mathf.Sign(Vector3.SignedAngle(forward, left, Vector3.up));
+            }
+            yaw = Mathf.Clamp(yaw, -most, most);
+            float pitch = Mathf.Clamp(Mathf.Atan2(to.y, flat.magnitude) * Mathf.Rad2Deg, -WatchDown, WatchUp);
+            if (back != null && spine > 0f) back.rotation = Quaternion.AngleAxis(yaw * spine * weight, Vector3.up) * back.rotation;
+            Vector3 square = Quaternion.AngleAxis(yaw, Vector3.up) * forward;
+            Vector3 want = Vector3.RotateTowards(square, pitch >= 0f ? Vector3.up : Vector3.down, Mathf.Abs(pitch) * Mathf.Deg2Rad, 0f);
+            Vector3 face = head.TransformDirection(_faceLocal);
+            neck.rotation = Quaternion.Slerp(Quaternion.identity, Quaternion.FromToRotation(face, want), weight) * neck.rotation;
+        }
+
+        /// <summary>The gesture at progress p (0..1; 1 is its end pose): spine and neck bends, and for the slap the stick arm.</summary>
+        void Gesture(AfterShotGesture gesture, float p)
+        {
+            Vector3 forward = Root.transform.rotation * Vector3.back, left = Root.transform.rotation * Vector3.right;
+            switch (gesture)
+            {
+                case AfterShotGesture.Slump:
+                    {
+                        Bend(HumanBodyBones.Spine, forward, 18f * Ease(p, 0f, 0.35f));
+                        Bend(HumanBodyBones.Neck, forward, 28f * Ease(p, 0.1f, 0.45f));
+                        float u = Mathf.Clamp01((p - 0.4f) / 0.45f); // two shakes of the head, dying away
+                        Turn(HumanBodyBones.Neck, 14f * Mathf.Sin(u * 4f * Mathf.PI) * Mathf.Sin(u * Mathf.PI));
+                    }
+                    break;
+                case AfterShotGesture.StickSlap:
+                    {
+                        // Up over 0.4, held, slammed down (speeding up) over 0.08, a small bounce off the ice, then the head drops.
+                        float lift = p < 0.4f ? Ease(p, 0f, 0.4f) : p < 0.48f ? 1f : p < 0.56f ? 1f - Square((p - 0.48f) / 0.08f)
+                            : p < 0.66f ? 0.12f * Mathf.Sin((p - 0.56f) / 0.1f * Mathf.PI) : 0f;
+                        Transform shoulder = Bone(HumanBodyBones.RightUpperArm), hand = Bone(HumanBodyBones.RightHand);
+                        if (shoulder != null && hand != null && lift > 0f)
+                        {
+                            Vector3 arm = hand.position - shoulder.position;
+                            Vector3 raised = (forward * 0.75f + Vector3.up * 0.55f - left * 0.15f).normalized * arm.magnitude;
+                            shoulder.rotation = Quaternion.Slerp(Quaternion.identity, Quaternion.FromToRotation(arm, raised), lift) * shoulder.rotation;
+                        }
+                        Bend(HumanBodyBones.Spine, forward, 8f * Ease(p, 0.6f, 0.9f));
+                        Bend(HumanBodyBones.Neck, forward, 22f * Ease(p, 0.6f, 0.9f));
+                    }
+                    break;
+                case AfterShotGesture.Relief:
+                    {
+                        // A breath in (head up a little), then out (down past where it was), settling a little low.
+                        float breath = p < 0.35f ? Ease(p, 0f, 0.35f) : 1f - 1.6f * Ease(p, 0.35f, 0.75f);
+                        Bend(HumanBodyBones.Neck, -forward, 14f * breath);
+                    }
+                    break;
+            }
+        }
+
+        /// <summary>Bends a bone (and all it carries) so its up turns `degrees` toward a direction (negative: away).</summary>
+        void Bend(HumanBodyBones bone, Vector3 toward, float degrees)
+        {
+            Transform t = Bone(bone);
+            if (t == null || Mathf.Abs(degrees) < 1e-4f) return;
+            if (degrees < 0f) { toward = -toward; degrees = -degrees; }
+            t.rotation = Quaternion.FromToRotation(Vector3.up, Vector3.RotateTowards(Vector3.up, toward, degrees * Mathf.Deg2Rad, 0f)) * t.rotation;
+        }
+
+        /// <summary>Turns a bone (and all it carries) about the vertical.</summary>
+        void Turn(HumanBodyBones bone, float degrees)
+        {
+            Transform t = Bone(bone);
+            if (t != null) t.rotation = Quaternion.AngleAxis(degrees, Vector3.up) * t.rotation;
+        }
+
+        static float Ease(float p, float from, float to)
+        {
+            float u = Mathf.Clamp01((p - from) / (to - from));
+            return u * u * (3f - 2f * u);
+        }
+
+        static float Square(float u) => u * u;
 
         /// <summary>Adds the reaction's gear and body, as the last React left them, to what a puck can hit (only placing).</summary>
         public void AddReaction(PuckObstacles obstacles)

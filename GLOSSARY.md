@@ -49,8 +49,16 @@ The goalie's crouch before the Shot, the same for every Goalie Pose and Attack S
 _Avoid_: Neutral pose, idle pose
 
 **Save Reaction**:
-What the goalie character does on a Save, chosen only from where the Shot meets the Net Face: a glove save (the catching glove, on the shooter's right, mid to high), a blocker save (the blocker, on the shooter's left, mid to high), a pad save (low: the pad on the puck's side, down in the butterfly or standing), a stick save (along the ice through the middle) or a body save (the middle). The chosen gear reaches the puck's line, the puck stops on it, and the save sound and the rebound are that gear's. The same point always gets the same reaction, whatever the Goalie Pose. On a Goal or a Miss the goalie only reaches toward the puck and never touches it.
+What the goalie character does on a Save, chosen only from where the Shot meets the Net Face: a glove save (the catching glove, on the shooter's right, mid to high), a blocker save (the blocker, on the shooter's left, mid to high), a pad save (low: the pad on the puck's side, down in the butterfly or standing), a stick save (along the ice through the middle) or a body save (the middle). The chosen gear reaches the puck's line, the puck stops on it, and the save sound and the rebound are that gear's. The same point always gets the same reaction, whatever the Goalie Pose. On a Goal or a Miss the goalie only reaches toward the puck and never touches it. Once the puck has got there the goalie's head follows it (a pad save watches the rebound).
 _Avoid_: Save pose, save animation
+
+**Annoyed Gesture**:
+What the goalie character does on a GOAL! once the puck has met the netting: after a late reach and a look back into the net, he either slumps and shakes his head or slaps his stick on the ice, chosen by the Shot's Zone (column + row even: slump, odd: stick slap). It ends in a pose held until the result hold ends.
+_Avoid_: Goal animation, celebration
+
+**Relief**:
+What the goalie character does on a Miss (wide or a Frame Hit) after his head has followed the puck going by: a small breath out and a glance back at the post on the puck's side, held until the result hold ends.
+_Avoid_: Miss animation
 
 **Miss**:
 A Shot that does not reach the Net Face, or no Shot in time. It uses one of the Round's 6 Shots.

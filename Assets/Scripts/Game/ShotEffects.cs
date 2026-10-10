@@ -66,6 +66,8 @@ namespace HockeyGame
         ShotResult _result;
         Stage _stage;
         float _time;          // seconds in the current stage
+        float _clock;         // seconds since the Shot
+        float _arrivedAt, _nettedAt; // _clock when the puck reached the Net Face and when a goal met the netting (-1: not yet)
         float _flightSeconds;
         float _backZ;          // world z where a goal puck meets the netting at the back of the net
         Vector3 _start, _target, _velocity;
@@ -150,6 +152,8 @@ namespace HockeyGame
         {
             Clear();
             _result = result;
+            _clock = 0f;
+            _arrivedAt = _nettedAt = -1f;
             if (!result.HasShot) return; // Too Late: no puck
 
             Transform cam = _camera.transform;
@@ -216,6 +220,15 @@ namespace HockeyGame
         void Step(float dt)
         {
             _time += dt;
+            _clock += dt;
+            StepPuck(dt);
+            // The goalie carries on from its reach once the puck has got there (#43): it watches the puck, gestures.
+            if (_stage != Stage.None || _arrivedAt >= 0f)
+                _goalie?.Watch(_puck.transform.position, _arrivedAt < 0f ? -1f : _clock - _arrivedAt, _nettedAt < 0f ? -1f : _clock - _nettedAt);
+        }
+
+        void StepPuck(float dt)
+        {
             switch (_stage)
             {
                 case Stage.Flying:
@@ -241,6 +254,7 @@ namespace HockeyGame
                             p.z = _backZ - PuckThickness;
                             _stage = Stage.InNet;
                             _time = 0f;
+                            _nettedAt = _clock;
                             _velocity = Vector3.zero;
                             _net.Hit(new Vector3(p.x, p.y, _backZ), (float)_result.SpeedKmh);
                         }
@@ -280,6 +294,7 @@ namespace HockeyGame
         void Arrive()
         {
             PuckArrivedThisFrame = true;
+            _arrivedAt = _flightSeconds;
             _time = 0f;
             switch (_result.Kind)
             {

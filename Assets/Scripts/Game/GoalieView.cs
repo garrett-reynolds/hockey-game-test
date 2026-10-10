@@ -144,7 +144,11 @@ namespace HockeyGame
 
         void PoseCharacter()
         {
-            if (_character != null && _visible) _character.Pose(_set, Mathf.Lerp(_ready, PosedFacing(), _set));
+            if (_character == null || !_visible) return;
+            float facing = Mathf.Lerp(_ready, PosedFacing(), _set);
+            if (!_reacted) { _character.Pose(_set, facing); return; }
+            AfterShotMoment moment = AfterShot.At(_gesture, _sinceArrival, _sinceNetting);
+            _character.Pose(_set, facing, _gesture, moment, Vector3.Lerp(_puck, _post, (float)moment.Glance));
         }
 
         void PlaceSetBlocks(int pose)
@@ -194,7 +198,7 @@ namespace HockeyGame
         /// <summary>
         /// On the Shot: the goalie character's reaction to this result, the puck flying from `from` (world space) to the
         /// Shot's Net Face point. A Save gets the Save Reaction of its point (SaveReactions), its gear reaching the puck's
-        /// line; a Goal or a Miss gets a reach that stays off the puck (#43). Built at the facing the reaction ends at; shown
+        /// line; a Goal or a Miss gets a reach that stays off the puck (what follows: Watch). Built at the facing the reaction ends at; shown
         /// by SetProgress. Nothing for no Shot or no character shown.
         /// </summary>
         public void React(ShotResult result, Vector3 from)
@@ -205,6 +209,10 @@ namespace HockeyGame
             var netPoint = new Vector3((float)right, (float)up, 0f);
             _character.React(SaveReactions.For(result.X, result.Y), from, netPoint, PosedFacing(), result.Kind == ShotResultKind.Save);
             _reacted = true;
+            _gesture = AfterShot.GestureFor(result.Kind, result.X, result.Y);
+            _sinceArrival = _sinceNetting = -1f;
+            _puck = netPoint;
+            _post = new Vector3((netPoint.x >= 0f ? 1f : -1f) * (float)NetFaceMapping.WidthMetres / 2f, 0.5f, 0f);
             _reaction = new PuckObstacles();
             _character.AddReaction(_reaction);
             PoseCharacter();
@@ -212,6 +220,25 @@ namespace HockeyGame
 
         bool _reacted;
         PuckObstacles _reaction; // the reaction's gear and body, from React
+        AfterShotGesture _gesture;               // what the goalie does once the puck has got there (AfterShot)
+        float _sinceArrival = -1f, _sinceNetting = -1f;
+        Vector3 _puck, _post;                    // where the puck is now; the post a Miss glances back at
+
+        /// <summary>
+        /// Each frame of the result hold, from ShotEffects: where the puck is (shown or not), the seconds since it reached the
+        /// Net Face and since a GOAL! met the netting (negative: not yet). From these the goalie carries on after its reach
+        /// (AfterShot, #43): its head follows the puck, then a GOAL! looks back into the net and shows an Annoyed Gesture, and
+        /// a Miss shows Relief. Shown by the next SetProgress.
+        /// </summary>
+        public void Watch(Vector3 puck, float sinceArrival, float sinceNetting)
+        {
+            _puck = puck;
+            _sinceArrival = sinceArrival;
+            _sinceNetting = sinceNetting;
+        }
+
+        /// <summary>What the goalie does after the last React's Shot (None before any).</summary>
+        public AfterShotGesture Gesture => _reacted ? _gesture : AfterShotGesture.None;
 
         /// <summary>The piece of gear the Save Reaction put on the puck's line (GearPiece), or null.</summary>
         public string ReactionPiece => _reacted ? _character.ReactionPiece : null;
