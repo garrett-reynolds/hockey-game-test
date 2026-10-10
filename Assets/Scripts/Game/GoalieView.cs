@@ -149,11 +149,11 @@ namespace HockeyGame
             float facing = Mathf.Lerp(_ready, PosedFacing(), _set);
             ShownFacing = facing;
             float recovered = 0f;
-            if (!_reacted) _character.Pose(_set, facing);
+            if (!_reacted) _character.ShowReaction(_set, facing);
             else
             {
                 AfterShotMoment moment = AfterShot.At(_gesture, _sinceArrival, _sinceNetting);
-                _character.Pose(_set, facing, _gesture, moment, Vector3.Lerp(_puck, _post, (float)moment.Glance));
+                _character.ShowReaction(_set, facing, _gesture, moment, Vector3.Lerp(_puck, _post, (float)moment.Glance));
                 recovered = (float)moment.Recover;
             }
             // Stance Life fades out as the reaction comes in (none at all fully reacted: what the Shot measured is what shows)

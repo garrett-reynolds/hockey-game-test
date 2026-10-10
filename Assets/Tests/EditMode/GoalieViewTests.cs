@@ -69,7 +69,7 @@ namespace HockeyGame.Core.Tests
             var reference = new GoalieCharacter(new GameObject("Reference").transform);
             var character = new GoalieCharacter(_parent.transform);
             var view = new GoalieView(_parent.transform, character);
-            reference.Pose(0f);
+            reference.ShowReaction(0f);
             foreach (GoaliePose pose in System.Enum.GetValues(typeof(GoaliePose)))
             {
                 view.Show(true, pose, false);
@@ -101,7 +101,7 @@ namespace HockeyGame.Core.Tests
             var view = new GoalieView(_parent.transform, character);
             Transform hips = character.Bone(HumanBodyBones.Hips), referenceHips = reference.Bone(HumanBodyBones.Hips);
             view.Show(true, GoaliePose.MiddleStandUp, false);
-            reference.Pose(0f);
+            reference.ShowReaction(0f);
 
             void AssertTurned(float degrees, string why)
             {
@@ -199,7 +199,7 @@ namespace HockeyGame.Core.Tests
         public void The_goalie_holds_the_Ready_Stance_until_the_Shot_then_the_set_blend_moves_it_into_the_reaction()
         {
             var reference = new GoalieCharacter(new GameObject("Reference").transform);
-            reference.Pose(0f);
+            reference.ShowReaction(0f);
             var character = new GoalieCharacter(_parent.transform);
             var view = new GoalieView(_parent.transform, character);
             view.Show(true, GoaliePose.MiddleButterfly, false);

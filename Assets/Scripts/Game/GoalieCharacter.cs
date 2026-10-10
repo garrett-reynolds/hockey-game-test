@@ -28,7 +28,7 @@ namespace HockeyGame
         Transform _model;
         Transform[] _bones = new Transform[0];   // every mapped humanoid bone
         Snapshot _rest, _ready, _butterfly;      // T-pose as imported; the Ready Stance; the butterfly the Pads reaction drops into
-        Snapshot _reaction;                      // what Pose(1, facing) shows: the last React, or the Ready Stance before any
+        Snapshot _reaction;                      // what ShowReaction(1, facing) shows: the last React, or the Ready Stance before any
         MeshRenderer[] _gear = new MeshRenderer[0];    // every gear piece, in model order
 
         /// <summary>The object that holds the character; the parent of the model. Inactive while hidden.</summary>
@@ -84,7 +84,7 @@ namespace HockeyGame
         /// about the vertical, + toward the shooter's left; see GoalieTurn) about the goalie's own spot, the vertical through its
         /// hips. Does nothing without a model.
         /// </summary>
-        public void Pose(float set, float facing = 0f)
+        public void ShowReaction(float set, float facing = 0f)
         {
             if (!Present) return;
             set = Mathf.Clamp01(set);
@@ -365,7 +365,7 @@ namespace HockeyGame
         }
 
         /// <summary>
-        /// Builds what the goalie moves into from the Ready Stance on the Shot (shown by Pose(set, facing)), at the facing it
+        /// Builds what the goalie moves into from the Ready Stance on the Shot (shown by ShowReaction(set, facing)), at the facing it
         /// ends at. The puck flies from `from` to `to` (world space). touch (a Save): the reaction's gear (ReactionPiece) reaches
         /// the puck's line: the catcher or blocker by arm (two-bone IK), the stick blade along the ice, a pad dropped into the
         /// butterfly (standing for a puck a little higher), or the body pushed across in front of it; pushing across the crease (up to
@@ -769,15 +769,15 @@ namespace HockeyGame
         const float LateShare = 0.85f;
 
         /// <summary>
-        /// Poses the character as Pose(set, facing), then moves it on through what it does once the puck has got there (#43,
+        /// Shows the character as ShowReaction(set, facing), then moves it on through what it does once the puck has got there (#43,
         /// AfterShot): a GOAL!'s late reach and dropped arms; the head (on a GOAL! the shoulders too) turning to `watch`, the
         /// puck or what it looks at; and the gesture (its progress in moment). On a Save or a Miss only the neck turns, so the
         /// gear stays where the rebound was measured. The same arguments always give the same look. Nothing more before the
         /// puck gets there (a zero moment) or with set 0.
         /// </summary>
-        public void Pose(float set, float facing, AfterShotGesture gesture, AfterShotMoment moment, Vector3 watch)
+        public void ShowReaction(float set, float facing, AfterShotGesture gesture, AfterShotMoment moment, Vector3 watch)
         {
-            Pose(set, facing);
+            ShowReaction(set, facing);
             if (!Present || set <= 0f) return;
             if (moment.Return > 0)
             {
@@ -802,7 +802,7 @@ namespace HockeyGame
             if (gesture == AfterShotGesture.None && moment.FollowThrough > 0) FollowThrough((float)moment.FollowThrough, facing);
             if (moment.Recover > 0)
             {
-                // Back up into the Ready Stance: at 1 exactly the Ready Stance on his spot, as Pose(0, facing) shows it.
+                // Back up into the Ready Stance: at 1 exactly the Ready Stance on his spot, as ShowReaction(0, facing) shows it.
                 float r = (float)moment.Recover;
                 for (int i = 0; i < _bones.Length; i++)
                     _bones[i].localRotation = Quaternion.Slerp(_bones[i].localRotation, _ready.Rotations[i], r);

@@ -50,7 +50,7 @@ namespace HockeyGame.Core.Tests
                 SaveReaction reaction = SaveReactions.For(x, y);
                 string where = reaction + " (" + x + ", " + y + ") from " + eye + ": ";
                 character.React(reaction, eye, NetPoint(x, y), facing, true);
-                character.Pose(1f, facing);
+                character.ShowReaction(1f, facing);
 
                 Assert.Less(character.BodyBounds().max.z, 0f, where + "in front of the Net Face (a butterfly pushed to a post comes right back to it)");
                 float lowest = float.MaxValue;
@@ -80,10 +80,10 @@ namespace HockeyGame.Core.Tests
             character.Show(true);
             Vector3 eye = Eyes[0];
             character.React(SaveReaction.Pads, eye, NetPoint(15, 8), 0f, true);
-            character.Pose(1f);
+            character.ShowReaction(1f);
             float lowHips = character.Bone(HumanBodyBones.Hips).position.y;
             character.React(SaveReaction.Pads, eye, NetPoint(15, 35), 0f, true);
-            character.Pose(1f);
+            character.ShowReaction(1f);
             float highHips = character.Bone(HumanBodyBones.Hips).position.y;
             Assert.Less(lowHips, highHips - 0.15f, "down on the knees for the low one");
             Assert.That(LowestY(Gear(character, GearPiece.RightPad)), Is.InRange(-0.035f, 0.03f), "the standing pad is on the ice");
@@ -102,14 +102,14 @@ namespace HockeyGame.Core.Tests
             {
                 float facing = GoalieCharacter.FacingToward(eye);
                 Vector3 net = NetPoint(x, y);
-                character.Pose(0f, facing * 0.5f); // the Ready Stance, part turned, on show when the Shot comes
+                character.ShowReaction(0f, facing * 0.5f); // the Ready Stance, part turned, on show when the Shot comes
                 character.React(SaveReactions.For(x, y), eye, net, facing, true);
                 var measured = new PuckObstacles();
                 character.AddReaction(measured);
                 var placed = new Bounds[GearPiece.Gear.Length];
                 for (int i = 0; i < placed.Length; i++) Assert.IsTrue(character.ReactionGearBounds(GearPiece.Gear[i], out placed[i]));
 
-                character.Pose(1f, facing);
+                character.ShowReaction(1f, facing);
                 var fresh = new PuckObstacles();
                 character.AddTo(fresh);
                 string where = "(" + x + ", " + y + ") from " + eye + ": ";
@@ -147,7 +147,7 @@ namespace HockeyGame.Core.Tests
         {
             var character = new GoalieCharacter(_parent.transform);
             character.Show(true);
-            character.Pose(0.25f, 12f);
+            character.ShowReaction(0.25f, 12f);
             var before = Snapshot(character);
             character.React(SaveReaction.Pads, Eyes[1], NetPoint(10, 10), 17f, true);
             character.React(SaveReaction.Glove, Eyes[2], NetPoint(90, 50), -17f, false);
@@ -180,7 +180,7 @@ namespace HockeyGame.Core.Tests
         {
             var character = new GoalieCharacter(_parent.transform, name => null);
             Assert.DoesNotThrow(() => character.React(SaveReaction.Glove, Eyes[0], NetPoint(90, 90), 0f, true));
-            Assert.DoesNotThrow(() => character.Pose(1f));
+            Assert.DoesNotThrow(() => character.ShowReaction(1f));
             Assert.IsNull(character.ReactionPiece);
             Assert.IsFalse(character.ReactionGearBounds(GearPiece.Catcher, out _));
         }
