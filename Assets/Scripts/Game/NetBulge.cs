@@ -23,12 +23,19 @@ namespace HockeyGame
         const float ShakeSeconds = 0.8f;           // box net placeholder
         const float ShakeMetres = 0.04f;
         const float ColumnMetres = 0.03f;          // BackOfNet looks this far across and up for the netting
+        // The bounds were grown once for the biggest bulge, so a vertex update keeps them (and skips the work).
+        const UnityEngine.Rendering.MeshUpdateFlags Moved = UnityEngine.Rendering.MeshUpdateFlags.DontRecalculateBounds;
+        const float SettledMetres = 1e-4f;         // once the biggest swing left is under this, the netting is back at rest
 
         readonly Transform _netting;
         readonly Vector3 _nettingRest;
         readonly Mesh _mesh;      // null = shake the whole netting part
         readonly Vector3[] _rest, _moved;
         readonly float[] _weight, _delay;
+        readonly float[] _quiet;  // when each vertex's swing has died to under SettledMetres (seconds after the hit)
+        readonly int[] _active;   // the vertices still swinging; one whose swing never reaches SettledMetres never moves
+        int _activeCount;
+        float _settleSeconds;     // when the last of them is quiet (at most SettleSeconds)
         Vector3 _localPush;   // one metre toward the back of the net, in the netting's local space
         float _amplitude;
         int _hitVertex;       // the netting vertex nearest the hit point: the puck rides it
@@ -55,7 +62,9 @@ namespace HockeyGame
             _mesh.MarkDynamic();
             filter.sharedMesh = _mesh;
             _rest = _mesh.vertices;
-            _moved = new Vector3[_rest.Length];
+            _moved = (Vector3[])_rest.Clone();
+            _active = new int[_rest.Length];
+            _quiet = new float[_rest.Length];
             _weight = new float[_rest.Length];
             _delay = new float[_rest.Length];
             // Room for the biggest bulge both ways, so it is never culled and bounds need no per-frame update.
@@ -87,13 +96,17 @@ namespace HockeyGame
         public void Hit(Vector3 point, float speedKmh)
         {
             if (_netting == null) return;
+            if (_moving) Reset();
             _time = 0f;
             _moving = true;
             if (_mesh == null) return;
             _localPush = _netting.InverseTransformVector(Vector3.forward);
             _amplitude = Mathf.Clamp(speedKmh * MetresPerKmh, MinMetres, MaxMetres);
             Matrix4x4 toWorld = _netting.localToWorldMatrix;
-            float nearest = float.MaxValue;
+            // The swing decays e-fold every 1 / (Damping w0) seconds after a vertex starts.
+            float decay = Damping * 2f * Mathf.PI * SpringHz;
+            float nearest = float.MaxValue, latest = 0f;
+            _activeCount = 0;
             for (int i = 0; i < _rest.Length; i++)
             {
                 Vector3 w = toWorld.MultiplyPoint3x4(_rest[i]);
@@ -102,7 +115,13 @@ namespace HockeyGame
                 float pin = Mathf.SmoothStep(0f, 1f, w.y / PinMetres) * Mathf.SmoothStep(0f, 1f, w.z / PinMetres);
                 _weight[i] = Mathf.Exp(-(r * r) / (RadiusMetres * RadiusMetres)) * pin;
                 _delay[i] = r / RippleMetresPerSecond;
+                float swing = _amplitude * _weight[i];
+                if (swing < SettledMetres) continue;
+                _quiet[i] = _delay[i] + Mathf.Log(swing / SettledMetres) / decay;
+                _active[_activeCount++] = i;
+                latest = Mathf.Max(latest, _quiet[i]);
             }
+            _settleSeconds = Mathf.Min(SettleSeconds, latest);
         }
 
         /// <summary>Advance by real seconds.</summary>
@@ -111,19 +130,23 @@ namespace HockeyGame
             if (!_moving) return;
             _time += dt;
             if (_mesh == null) { Shake(); return; }
-            if (_time >= SettleSeconds) { Reset(); return; }
+            if (_time >= _settleSeconds) { Reset(); return; }
             float w0 = 2f * Mathf.PI * SpringHz;
             float wd = w0 * Mathf.Sqrt(1f - Damping * Damping);
-            for (int i = 0; i < _rest.Length; i++)
+            BackAtHit = 0f;
+            bool any = false;
+            for (int k = 0; k < _activeCount; k++)
             {
+                int i = _active[k];
+                if (_time > _quiet[i]) { _active[k--] = _active[--_activeCount]; continue; } // done: left within SettledMetres of rest
                 float tau = _time - _delay[i];
-                float back = tau <= 0f || _weight[i] < 1e-4f
-                    ? 0f
-                    : _amplitude * _weight[i] * Mathf.Exp(-Damping * w0 * tau) * Mathf.Sin(wd * tau);
+                if (tau <= 0f) continue; // the ripple has not reached it yet: still at rest
+                float back = _amplitude * _weight[i] * Mathf.Exp(-Damping * w0 * tau) * Mathf.Sin(wd * tau);
                 _moved[i] = _rest[i] + _localPush * back;
                 if (i == _hitVertex) BackAtHit = back;
+                any = true;
             }
-            _mesh.vertices = _moved;
+            if (any) _mesh.SetVertices(_moved, 0, _moved.Length, Moved);
         }
 
         void Shake()
@@ -139,7 +162,12 @@ namespace HockeyGame
         {
             if (_netting == null) return;
             if (_mesh == null) _netting.localPosition = _nettingRest;
-            else if (_moving) _mesh.vertices = _rest;
+            else if (_moving)
+            {
+                System.Array.Copy(_rest, _moved, _rest.Length);
+                _activeCount = 0;
+                _mesh.SetVertices(_rest, 0, _rest.Length, Moved);
+            }
             _moving = false;
             BackAtHit = 0f;
         }

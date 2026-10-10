@@ -71,6 +71,35 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void The_netting_stops_moving_once_the_bulge_has_died_away_and_netting_far_off_is_never_touched()
+        {
+            NetBuilder.Build(_rink);
+            Transform netting = NetBuilder.FindNetting(_rink);
+            var bulge = new NetBulge(netting);
+            Vector3[] rest = WorldVertices(netting);
+            Vector3 hit = BackOfNet(bulge, 30, 60);
+            bulge.Hit(hit, 60f);
+            float seconds = 0f;
+            bool farMoved = false;
+            while (bulge.Moving && seconds < 3f)
+            {
+                bulge.Step(Frame);
+                seconds += Frame;
+                if (seconds > 0.5f && seconds < 0.6f)
+                {
+                    Vector3[] now = WorldVertices(netting);
+                    for (int i = 0; i < rest.Length; i++)
+                        if ((rest[i] - hit).magnitude > 1.2f && now[i] != rest[i]) farMoved = true;
+                }
+            }
+            Assert.IsFalse(farMoved, "netting over a metre from the hit is left exactly at rest");
+            Assert.Less(seconds, 2.2f, "no more netting updates once every swing is under a tenth of a millimetre");
+            Vector3[] settled = WorldVertices(netting);
+            for (int i = 0; i < rest.Length; i++)
+                Assert.AreEqual(0f, (settled[i] - rest[i]).magnitude, 1e-5f, "back at rest");
+        }
+
+        [Test]
         public void The_puck_rides_the_netting_at_a_low_hit_where_the_netting_is_held_by_the_base_frame()
         {
             NetBuilder.Build(_rink);
