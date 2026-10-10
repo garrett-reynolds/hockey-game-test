@@ -74,9 +74,10 @@ namespace HockeyGame
 
         /// <summary>
         /// Moves the character from the ready stance (set 0) into the Goalie Pose (set 1). The same pose and set always give
-        /// the same look, whatever was shown before. Does nothing without a model.
+        /// the same look, whatever was shown before. facing: a body turn (degrees about the vertical, + toward the shooter's
+        /// left; see GoalieTurn) about the goalie's own spot, the vertical through its hips. Does nothing without a model.
         /// </summary>
-        public void Pose(GoaliePose pose, float set)
+        public void Pose(GoaliePose pose, float set, float facing = 0f)
         {
             if (!Present) return;
             Snapshot target = _poses[(int)pose];
@@ -84,7 +85,43 @@ namespace HockeyGame
             for (int i = 0; i < _bones.Length; i++)
                 _bones[i].localRotation = Quaternion.Slerp(_ready.Rotations[i], target.Rotations[i], set);
             _model.localPosition = Vector3.Lerp(_ready.ModelPosition, target.ModelPosition, set);
+
+            // Turn the Root about the hips' vertical: the hips stay on their spot in the crease.
+            Transform root = Root.transform;
+            Vector3 hips = root.InverseTransformPoint(Bone(HumanBodyBones.Hips).position);
+            hips.y = 0f;
+            Quaternion turn = Quaternion.AngleAxis(facing, Vector3.up);
+            root.localRotation = turn;
+            root.localPosition = new Vector3(0f, 0f, StandZ) + hips - turn * hips;
         }
+
+        /// <summary>
+        /// The widest turn each Goalie Pose keeps (degrees either way) so that, seen from the shooter, it still reads as the
+        /// pose table (GoalieCoverageTests). A side shooter is 17.7-19.2 degrees off at the Shot, but turning a side pose
+        /// swings its far pad back toward the net and uncovers the far low corner (#39 probe, 1-degree steps): the butterflies
+        /// pass up to 2 degrees, LeftPostHug to 7 (RightPostHug 10), so the post-hugs keep 6. The Middle poses keep the whole
+        /// turn (their shooter is straight out at the Shot anyway).
+        /// </summary>
+        public static float MaxTurn(GoaliePose pose)
+        {
+            switch (pose)
+            {
+                case GoaliePose.LeftButterfly:
+                case GoaliePose.RightButterfly:
+                    return 2f;
+                case GoaliePose.LeftPostHug:
+                case GoaliePose.RightPostHug:
+                    return 6f;
+                default:
+                    return (float)GoalieTurn.MaxDegrees;
+            }
+        }
+
+        /// <summary>
+        /// The facing (GoalieTurn) that squares the goalie up to a shooter at this point (rink space: Net Face at z = 0,
+        /// the shooter at -z), seen from where the goalie stands: centred on the net, StandZ out.
+        /// </summary>
+        public static float FacingToward(Vector3 shooter) => (float)GoalieTurn.Facing(shooter.x, StandZ - shooter.z);
 
         sealed class Snapshot
         {

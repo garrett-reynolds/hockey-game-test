@@ -44,7 +44,7 @@ namespace HockeyGame.Core.Tests
             public Vector3 Leaving => Path[6] - Contact; // over the first 0.1 s
         }
 
-        Run Shoot(GoaliePose pose, double x, double y, double kmh = 100, GoalieCharacter character = null)
+        Run Shoot(GoaliePose pose, double x, double y, double kmh = 100, GoalieCharacter character = null, float facing = 0f)
         {
             NetBuilder.Build(_rink.transform);
             character = character ?? new GoalieCharacter(_rink.transform);
@@ -55,6 +55,7 @@ namespace HockeyGame.Core.Tests
             round.StartRound();
             round.Tick(3.7);
             view.Show(true, round.GoaliePose, false);
+            view.Face(facing, facing);
             Assert.AreEqual(pose, round.GoaliePose);
             round.SubmitShot(x, y, kmh, false);
             var run = new Run { Kind = round.LastResult.Value.Kind };
@@ -251,7 +252,8 @@ namespace HockeyGame.Core.Tests
                 SetUp();
                 PlaceShooter(pose, close);
                 var character = new GoalieCharacter(_rink.transform);
-                Run run = Shoot(pose, x, y, character: character);
+                // Squared up to the shooter (#39): the pose's own turn limit applies.
+                Run run = Shoot(pose, x, y, character: character, facing: GoalieCharacter.FacingToward(_camera.transform.position));
                 List<Triangle> goalie = GoalieTriangles(character);
                 string where = pose + " (" + x.ToString("F1") + ", " + y.ToString("F1") + ") ";
                 Vector3 last = run.Contact;

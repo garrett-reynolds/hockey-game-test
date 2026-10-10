@@ -11,7 +11,7 @@ namespace HockeyGame.Core.Tests
     /// at points in each Zone of the Net Face touches nothing in Open Zones, touches the goalie at half or more of the points in
     /// Covered Zones and at some points in Contested Zones. The hidden goalie blocks still decide every Shot; the character is a
     /// readable hint, so only Open Zones are strict. Checked from where the camera is when the window opens and from where
-    /// the drift ends, 3 m from the net (near).
+    /// the drift ends, 3 m from the net (near), with the goalie squared up to that eye (#39).
     /// </summary>
     public class GoalieCoverageTests
     {
@@ -51,14 +51,19 @@ namespace HockeyGame.Core.Tests
         {
             var character = new GoalieCharacter(_parent.transform);
             Assume.That(character.Present, "no goalie model");
-            character.Show(true);
-            character.Pose(pose, 1f);
-            var colliders = AddColliders(character);
+            var goalie = new GoalieView(_parent.transform, character);
+            goalie.Show(true, pose, false);
 
             var report = new StringBuilder();
             bool ok = true;
             foreach (var (view, eye) in Eyes(GoaliePoses.SideOf(pose)))
             {
+                // Squared up to the shooter at this eye, fully set (the pose's own turn limit applies).
+                float facing = GoalieCharacter.FacingToward(eye);
+                goalie.Face(facing, facing);
+                goalie.SetProgress(1f);
+                var colliders = AddColliders(character);
+                report.AppendLine($"  {view}: facing {facing:F1} degrees, posed at {Mathf.Clamp(facing, -GoalieCharacter.MaxTurn(pose), GoalieCharacter.MaxTurn(pose)):F1}");
                 var hits = new bool[3, 3][,];
                 for (int column = 0; column < 3; column++)
                 for (int row = 0; row < 3; row++)
@@ -77,6 +82,7 @@ namespace HockeyGame.Core.Tests
                 }
                 report.AppendLine($"  {view} hit map (top row first, # = hit):");
                 report.Append(Map(hits));
+                RemoveColliders(colliders);
             }
             Assert.IsTrue(ok, pose + " does not match the pose table:\n" + report);
         }
@@ -163,6 +169,16 @@ namespace HockeyGame.Core.Tests
             }
             Physics.SyncTransforms();
             return colliders;
+        }
+
+        static void RemoveColliders(HashSet<Collider> colliders)
+        {
+            foreach (Collider c in colliders)
+            {
+                if (c.name.EndsWith(" (collider)")) Object.DestroyImmediate(c.gameObject);
+                else Object.DestroyImmediate(c);
+            }
+            Physics.SyncTransforms();
         }
 
         static string Map(bool[,][,] hits)

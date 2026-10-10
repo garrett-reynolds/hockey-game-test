@@ -161,5 +161,149 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(0f, Quaternion.Angle(referenceKnee.rotation, knee.rotation), 0.01f, "still in the ready stance afterwards");
             Object.DestroyImmediate(reference.Root.transform.parent.gameObject);
         }
+
+        [Test]
+        public void The_goalie_squares_up_to_the_shooter_from_where_it_stands_in_the_crease()
+        {
+            // 0.4 m out from the Net Face: a shooter 2.7 m to the left and 9 m out is 8.6 m ahead of the goalie.
+            Assert.AreEqual(17.43f, GoalieCharacter.FacingToward(new Vector3(-2.7f, 1.5f, -9f)), 0.01f);
+            Assert.AreEqual(-17.43f, GoalieCharacter.FacingToward(new Vector3(2.7f, 1.5f, -9f)), 0.01f);
+            Assert.AreEqual(0f, GoalieCharacter.FacingToward(new Vector3(0f, 1.5f, -3f)), 0.01f);
+        }
+
+        [Test]
+        public void The_goalie_turns_about_its_own_spot_to_face_the_shooter_and_reacts_into_the_pose_at_the_shooters_angle()
+        {
+            var reference = new GoalieCharacter(new GameObject("Reference").transform);
+            var character = new GoalieCharacter(_parent.transform);
+            var view = new GoalieView(_parent.transform, character);
+            Transform hips = character.Bone(HumanBodyBones.Hips), referenceHips = reference.Bone(HumanBodyBones.Hips);
+            view.Show(true, GoaliePose.MiddleStandUp, false);
+
+            void AssertTurned(float degrees, string why)
+            {
+                Assert.AreEqual(0f, Quaternion.Angle(Quaternion.AngleAxis(degrees, Vector3.up) * referenceHips.rotation, hips.rotation), 0.05f, why + ": turned");
+                Assert.AreEqual(0f, new Vector2(hips.position.x - referenceHips.position.x, hips.position.z - referenceHips.position.z).magnitude, 0.001f, why + ": on its own spot");
+            }
+
+            view.Face(12f, 18f);
+            view.SetProgress(0f);
+            reference.Pose(GoaliePose.MiddleStandUp, 0f);
+            AssertTurned(12f, "ready stance, facing where the goalie has turned so far");
+
+            view.SetProgress(0.5f);
+            reference.Pose(GoaliePose.MiddleStandUp, 0.5f);
+            AssertTurned(15f, "half way through the reaction");
+
+            view.SetProgress(1f);
+            reference.Pose(GoaliePose.MiddleStandUp, 1f);
+            AssertTurned(18f, "posed at the shooter's angle (a Middle pose keeps the whole turn)");
+
+            view.Face(0f, 0f);
+            AssertTurned(0f, "straight out again");
+            Object.DestroyImmediate(reference.Root.transform.parent.gameObject);
+        }
+
+        [Test]
+        public void A_save_stops_on_the_turned_gear_measured_where_the_reaction_ends()
+        {
+            var character = new GoalieCharacter(_parent.transform);
+            var view = new GoalieView(_parent.transform, character);
+            var from = new Vector3(-2.4f, 1.2f, -8f);
+            var net = new Vector3(0.6f, 1f, 0f);
+            view.Show(true, GoaliePose.MiddleStandUp, false);
+
+            view.SetProgress(1f);
+            Assert.IsTrue(view.SaveStop(from, net, SoundCue.GloveCatch, 0.05f, out Vector3 straight));
+            var straightGear = new PuckObstacles();
+            view.AddObstacles(straightGear);
+
+            view.Face(17.4f, 17.4f);
+            Assert.IsTrue(view.SaveStop(from, net, SoundCue.GloveCatch, 0.05f, out Vector3 turned));
+            Assert.IsTrue(character.GearBounds("Catcher", out Bounds gear));
+            Assert.AreEqual(gear.min.z - 0.025f, turned.z, 0.001f, "just in front of the turned catcher");
+            Assert.Less(Vector3.Cross(turned - from, (net - from).normalized).magnitude, 0.001f, "on the puck's line");
+            Assert.Greater(Vector3.Distance(straight, turned), 0.01f, "the turn moves the catcher");
+            var turnedGear = new PuckObstacles();
+            view.AddObstacles(turnedGear);
+            Assert.IsTrue(turnedGear.Nearest(turned, "Catcher", out _, out _, out float onTurned));
+            Assert.IsTrue(straightGear.Nearest(turned, "Catcher", out _, out _, out float onStraight));
+            Assert.AreNotEqual(onStraight, onTurned, "the puck meets the turned gear, not the straight one");
+
+            // The Shot frame: the goalie has shuffled to 15 degrees, the shooter is at 17.4; nothing has reacted yet.
+            view.Face(15f, 17.4f);
+            view.SetProgress(0f);
+            Assert.IsTrue(view.SaveStop(from, net, SoundCue.GloveCatch, 0.05f, out Vector3 onShot));
+            Assert.AreEqual(0f, Vector3.Distance(turned, onShot), 0.001f, "measured where the reaction ends");
+            var shotGear = new PuckObstacles();
+            view.AddObstacles(shotGear);
+            Assert.IsTrue(shotGear.Nearest(turned, "Catcher", out _, out _, out float onShotGear));
+            Assert.AreEqual(onTurned, onShotGear, 0.001f, "obstacles too");
+            Assert.IsTrue(view.SaveSurface(shotGear, onShot, net, SoundCue.GloveCatch, out _, out PuckSurface surface));
+            Assert.AreEqual(PuckSurface.Catcher, surface);
+
+            Transform hips = character.Bone(HumanBodyBones.Hips);
+            view.Face(0f, 0f);
+            Quaternion straightHips = hips.rotation;
+            view.Face(15f, 17.4f);
+            Assert.AreEqual(15f, Quaternion.Angle(straightHips, hips.rotation), 0.05f, "still shown at 15 degrees, in the ready stance, afterwards");
+        }
+
+        [Test]
+        public void Squared_up_the_goalie_shoulders_lie_square_across_the_line_to_the_shooter()
+        {
+            var character = new GoalieCharacter(_parent.transform);
+            var view = new GoalieView(_parent.transform, character);
+            view.Show(true, GoaliePose.MiddleStandUp, false);
+            view.SetProgress(0f);
+            Transform left = character.Bone(HumanBodyBones.LeftUpperArm), right = character.Bone(HumanBodyBones.RightUpperArm);
+            Transform hips = character.Bone(HumanBodyBones.Hips);
+            foreach (var shooter in new[] { new Vector3(-2.7f, 1.5f, -9f), new Vector3(2.7f, 1.5f, -9f), new Vector3(-8.2f, 1.5f, -15.5f) })
+            {
+                float SquareOff()
+                {
+                    Vector3 shoulders = Vector3.ProjectOnPlane(right.position - left.position, Vector3.up).normalized;
+                    Vector3 toShooter = Vector3.ProjectOnPlane(shooter - hips.position, Vector3.up).normalized;
+                    return Mathf.Abs(Vector3.Dot(shoulders, toShooter));
+                }
+                view.Face(0f, 0f);
+                Assert.Greater(SquareOff(), 0.2f, shooter + ": straight out, the shoulders are not square to a side shooter");
+                float facing = GoalieCharacter.FacingToward(shooter);
+                view.Face(facing, facing);
+                Assert.Less(SquareOff(), 0.03f, shooter + ": turned, they are");
+            }
+        }
+
+        [TestCase(GoaliePose.LeftButterfly, 2f)]
+        [TestCase(GoaliePose.RightButterfly, -2f)]
+        [TestCase(GoaliePose.LeftPostHug, 6f)]
+        [TestCase(GoaliePose.RightPostHug, -6f)]
+        public void A_side_pose_keeps_only_the_turn_that_still_reads_as_the_pose_table_and_saves_are_measured_there(GoaliePose pose, float posed)
+        {
+            var reference = new GoalieCharacter(new GameObject("Reference").transform);
+            var character = new GoalieCharacter(_parent.transform);
+            var view = new GoalieView(_parent.transform, character);
+            Transform hips = character.Bone(HumanBodyBones.Hips), referenceHips = reference.Bone(HumanBodyBones.Hips);
+            float shooter = GoalieCharacter.FacingToward(new Vector3(posed > 0 ? -2.7f : 2.7f, 1.5f, -9f));
+            var from = new Vector3(posed > 0 ? -2.4f : 2.4f, 1.2f, -8f);
+            var net = new Vector3(0.6f, 1f, 0f);
+            view.Show(true, pose, false);
+
+            view.Face(posed, posed);
+            view.SetProgress(1f);
+            Assert.IsTrue(view.SaveStop(from, net, SoundCue.GloveCatch, 0.05f, out Vector3 atLimit));
+
+            view.Face(shooter, shooter);
+            view.SetProgress(0f);
+            reference.Pose(pose, 0f);
+            Assert.AreEqual(0f, Quaternion.Angle(Quaternion.AngleAxis(shooter, Vector3.up) * referenceHips.rotation, hips.rotation), 0.05f, "the ready stance squares right up to the shooter");
+            Assert.IsTrue(view.SaveStop(from, net, SoundCue.GloveCatch, 0.05f, out Vector3 onShot));
+            Assert.AreEqual(0f, Vector3.Distance(atLimit, onShot), 0.001f, "the save is measured on the pose at its own limit");
+
+            view.SetProgress(1f);
+            reference.Pose(pose, 1f);
+            Assert.AreEqual(0f, Quaternion.Angle(Quaternion.AngleAxis(posed, Vector3.up) * referenceHips.rotation, hips.rotation), 0.05f, "posed at the pose's limit");
+            Object.DestroyImmediate(reference.Root.transform.parent.gameObject);
+        }
     }
 }
