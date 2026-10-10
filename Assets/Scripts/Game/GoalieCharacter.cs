@@ -474,31 +474,40 @@ namespace HockeyGame
 
         void Beaten(SaveReaction reaction, Vector3 from, Vector3 to, float facing)
         {
-            // First the first reach whose gear and body boxes the puck passes clear of (quick); failing that, the first that
-            // truly misses the puck (exact, slower); failing both, the last one tried (#43 reworks these reactions).
+            // First the first reach whose gear and body boxes the puck passes clear of (quick, smallest push first); failing
+            // that, the first that truly misses the puck (exact, slower: largest push first and only a few tries); failing both,
+            // the last one tried (#43 reworks these reactions).
             if (BeatenPass(reaction, from, to, facing, true)) return;
             BeatenPass(reaction, from, to, facing, false);
         }
 
+        /// <summary>The most reaches the exact pass tries (each is five casts), so a Shot frame stays a few milliseconds.</summary>
+        const int ExactTries = 3;
+
         bool BeatenPass(SaveReaction reaction, Vector3 from, Vector3 to, float facing, bool quick)
         {
+            int tries = 0;
             bool hand = reaction == SaveReaction.Glove || reaction == SaveReaction.Blocker;
             string piece = reaction == SaveReaction.Glove ? GearPiece.Catcher : GearPiece.Blocker;
             Put(_ready);
             PlaceRoot(facing);
             float away = Bone(HumanBodyBones.Hips).position.x >= to.x ? 1f : -1f; // push away from the puck's side
-            foreach (float slide in BeatenSlides)
-            foreach (float sign in slide == 0f ? new[] { 1f } : new[] { away, -away })
-            foreach (float share in hand ? BeatenReach : NoGaps)
+            for (int i = 0; i < BeatenSlides.Length; i++)
             {
-                Put(_ready);
-                PlaceRoot(facing);
-                Slide(sign * slide, facing, BeatenMaxSlide);
-                Vector3 target = OnLine(from, to, piece), stood = GearPoint(piece);
-                if (share > 0f) ReachHand(reaction == SaveReaction.Glove, piece, Vector3.Lerp(stood, target, share), facing, false);
-                Look(target);
-                Finish(null, _readyBody);
-                if (quick ? !MayTouch(from, to) : !Touches(from, to)) return true;
+                float slide = BeatenSlides[quick ? i : BeatenSlides.Length - 1 - i];
+                foreach (float sign in slide == 0f ? new[] { 1f } : new[] { away, -away })
+                foreach (float share in hand ? BeatenReach : NoGaps)
+                {
+                    Put(_ready);
+                    PlaceRoot(facing);
+                    Slide(sign * slide, facing, BeatenMaxSlide);
+                    Vector3 target = OnLine(from, to, piece), stood = GearPoint(piece);
+                    if (share > 0f) ReachHand(reaction == SaveReaction.Glove, piece, Vector3.Lerp(stood, target, share), facing, false);
+                    Look(target);
+                    Finish(null, _readyBody);
+                    if (quick ? !MayTouch(from, to) : !Touches(from, to)) return true;
+                    if (!quick && ++tries >= ExactTries) return false;
+                }
             }
             return false;
         }
