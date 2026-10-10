@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using HockeyGame.Core;
 using UnityEngine;
-using Object = UnityEngine.Object;
 
 namespace HockeyGame
 {
@@ -51,7 +50,7 @@ namespace HockeyGame
             if (animator == null || !animator.isHuman)
             {
                 Debug.LogWarning("goalie-dressing is not a Humanoid model; the goalie character is left out.");
-                Destroy(model);
+                SceneObjects.DestroySafely(model);
                 return;
             }
             Animator = animator;
@@ -248,7 +247,7 @@ namespace HockeyGame
                 Matrix4x4 toWorld = Matrix4x4.TRS(body.transform.position, body.transform.rotation, Vector3.one);
                 obstacles.AddMesh(ToWorld(mesh.vertices, toWorld), mesh.triangles, PuckSurface.Body, "Body");
             }
-            Destroy(mesh);
+            SceneObjects.DestroySafely(mesh);
         }
 
         static Vector3[] ToWorld(Vector3[] vertices, Matrix4x4 toWorld)
@@ -297,7 +296,7 @@ namespace HockeyGame
                     else bounds.Encapsulate(p);
                 }
             }
-            Destroy(mesh);
+            SceneObjects.DestroySafely(mesh);
             return bounds;
         }
 
@@ -415,12 +414,6 @@ namespace HockeyGame
             Vector3 hips = Bone(HumanBodyBones.Hips).position;
             Vector3 root = Root.transform.position;
             model.position += new Vector3(root.x - hips.x, root.y - lowest, 0f);
-        }
-
-        static void Destroy(Object o)
-        {
-            if (Application.isPlaying) Object.Destroy(o);
-            else Object.DestroyImmediate(o);
         }
     }
 }

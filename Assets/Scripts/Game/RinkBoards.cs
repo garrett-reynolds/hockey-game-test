@@ -49,9 +49,7 @@ namespace HockeyGame
             boards.transform.SetParent(rink, false);
             boards.transform.localPosition = Box.center;
 
-            GameObject model = ModelFiles.Load(ModelFiles.Boards, () => new GameObject("No Boards Model"), findFile);
-            model.transform.SetParent(boards.transform, false);
-            ModelFiles.FitTo(model.transform, Box.size);
+            GameObject model = ModelFiles.Place(boards.transform, ModelFiles.Boards, () => new GameObject("No Boards Model"), findFile, Box.size);
 
             foreach (Renderer r in model.GetComponentsInChildren<Renderer>())
                 if (r.name == GlassPart) MakeGlass(r);

@@ -1,7 +1,6 @@
 using System;
 using System.Linq;
 using UnityEngine;
-using Object = UnityEngine.Object;
 
 namespace HockeyGame
 {
@@ -37,10 +36,8 @@ namespace HockeyGame
         {
             var net = new GameObject("Net");
             net.transform.SetParent(rink, false);
-            GameObject model = ModelFiles.Load(ModelFiles.Net, PlaceholderNet, findFile);
-            model.transform.SetParent(net.transform, false);
+            GameObject model = ModelFiles.Place(net.transform, ModelFiles.Net, PlaceholderNet, findFile, null);
             Fit(model.transform);
-            foreach (Collider c in model.GetComponentsInChildren<Collider>(true)) DestroyNow(c);
             return net;
         }
 
@@ -95,21 +92,7 @@ namespace HockeyGame
             return root.gameObject;
         }
 
-        static void Box(Transform parent, string name, Vector3 localPosition, Vector3 scale, Color colour)
-        {
-            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            cube.name = name;
-            cube.transform.SetParent(parent, false);
-            cube.transform.localPosition = localPosition;
-            cube.transform.localScale = scale;
-            DestroyNow(cube.GetComponent<Collider>());
-            RinkBuilder.Paint(cube, colour);
-        }
-
-        static void DestroyNow(Object o)
-        {
-            if (Application.isPlaying) Object.Destroy(o);
-            else Object.DestroyImmediate(o);
-        }
+        static void Box(Transform parent, string name, Vector3 localPosition, Vector3 scale, Color colour) =>
+            RinkBuilder.Cube(parent, name, parent.TransformPoint(localPosition), scale, colour);
     }
 }

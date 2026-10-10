@@ -148,7 +148,8 @@ namespace HockeyGame
 
         /// <summary>Fixed step: the motion is the same whatever the frame rate (it only depends on the time since the hit).</summary>
         public const float Step = 1f / 240f;
-        const float Gravity = 9.81f;
+        /// <summary>Metres per second squared; ShotEffects drops a goal puck off the netting with it too.</summary>
+        public const float Gravity = 9.81f;
         const float AirSpin = 0.3f;        // share of the tumble the air takes away each second
         const float IceBounce = 0.35f;     // share of the falling speed it bounces back up with
         const float IceGrip = 0.7f;        // share of the sliding speed it keeps at each bounce

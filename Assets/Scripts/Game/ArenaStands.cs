@@ -40,9 +40,7 @@ namespace HockeyGame
             arena.transform.SetParent(rink, false);
             arena.transform.localPosition = Box.center;
 
-            GameObject model = ModelFiles.Load(ModelFiles.Arena, () => new GameObject("No Arena Model"), findFile);
-            model.transform.SetParent(arena.transform, false);
-            ModelFiles.FitTo(model.transform, Box.size);
+            GameObject model = ModelFiles.Place(arena.transform, ModelFiles.Arena, () => new GameObject("No Arena Model"), findFile, Box.size);
 
             foreach (Renderer r in model.GetComponentsInChildren<Renderer>())
             {

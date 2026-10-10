@@ -1,7 +1,6 @@
 using System;
 using System.Linq;
 using UnityEngine;
-using Object = UnityEngine.Object;
 
 namespace HockeyGame
 {
@@ -28,10 +27,7 @@ namespace HockeyGame
             root.SetParent(rink, false);
             root.localPosition = new Vector3(0f, H + 0.3f, RinkBuilder.NetDepth / 2f);
 
-            GameObject model = ModelFiles.Load(ModelFiles.GoalLight, PlaceholderLight, findFile);
-            model.transform.SetParent(root, false);
-            ModelFiles.FitTo(model.transform, Size);
-            foreach (Collider c in model.GetComponentsInChildren<Collider>(true)) DestroyNow(c);
+            GameObject model = ModelFiles.Place(root, ModelFiles.GoalLight, PlaceholderLight, findFile, Size);
 
             Renderer[] renderers = model.GetComponentsInChildren<Renderer>(true);
             Renderer lamp = renderers.FirstOrDefault(r => r.name == LampName) ?? renderers.FirstOrDefault();
@@ -64,12 +60,6 @@ namespace HockeyGame
             var box = GameObject.CreatePrimitive(PrimitiveType.Cube);
             box.name = "Goal Light Placeholder";
             return box;
-        }
-
-        static void DestroyNow(Object o)
-        {
-            if (Application.isPlaying) Object.Destroy(o);
-            else Object.DestroyImmediate(o);
         }
     }
 }

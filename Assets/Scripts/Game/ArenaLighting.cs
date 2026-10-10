@@ -155,8 +155,7 @@ namespace HockeyGame
             camera.farClipPlane = 200f;
             camera.enabled = false;
             camera.RenderToCubemap(cube);
-            if (Application.isPlaying) Object.Destroy(camera.gameObject);
-            else Object.DestroyImmediate(camera.gameObject);
+            SceneObjects.DestroySafely(camera.gameObject);
 
             RenderSettings.defaultReflectionMode = DefaultReflectionMode.Custom;
             RenderSettings.customReflectionTexture = cube;

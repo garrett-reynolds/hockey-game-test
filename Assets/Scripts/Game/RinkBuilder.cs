@@ -42,9 +42,7 @@ namespace HockeyGame
             cube.transform.SetParent(parent);
             cube.transform.position = position;
             cube.transform.localScale = scale;
-            Collider collider = cube.GetComponent<Collider>();
-            if (Application.isPlaying) Object.Destroy(collider);
-            else Object.DestroyImmediate(collider); // edit mode (tests) cannot Destroy
+            SceneObjects.DestroySafely(cube.GetComponent<Collider>());
             Paint(cube, colour);
             return cube;
         }

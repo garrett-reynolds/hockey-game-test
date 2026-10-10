@@ -90,10 +90,20 @@ namespace HockeyGame
         public static void RemoveColliders(GameObject model)
         {
             foreach (Collider c in model.GetComponentsInChildren<Collider>(true))
-            {
-                if (Application.isPlaying) Object.Destroy(c);
-                else Object.DestroyImmediate(c);
-            }
+                SceneObjects.DestroySafely(c);
+        }
+
+        /// <summary>
+        /// Load, then put the model under parent (local, unmoved), fit it into a box of this size (FitTo; null = leave it
+        /// as loaded) and remove its colliders. The usual way a piece gets its model.
+        /// </summary>
+        public static GameObject Place(Transform parent, string fileName, Func<GameObject> placeholder, Func<string, GameObject> findFile, Vector3? size)
+        {
+            GameObject model = Load(fileName, placeholder, findFile);
+            model.transform.SetParent(parent, false);
+            if (size.HasValue) FitTo(model.transform, size.Value);
+            RemoveColliders(model);
+            return model;
         }
 
         static GameObject FromResources(string fileName)

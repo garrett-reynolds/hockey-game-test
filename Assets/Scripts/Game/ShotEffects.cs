@@ -25,7 +25,6 @@ namespace HockeyGame
         const float MissCarrySeconds = 0.8f;
         const float CaughtSeconds = 0.25f;           // a goal puck rests in the netting bulge this long, then drops
         const float BaseRailMetres = 0.07f;          // the net's back base tube and skirt on the ice (Tools/make_supplied_net.py)
-        const float Gravity = 9.81f;
         static readonly Color SaveBlockColour = new Color(0.45f, 0.6f, 1f); // lighter than the GoalieView blocks so the slide shows on a Covered Zone
 
         enum Stage { None, Flying, IntoNet, InNet, Deflecting, Carrying }
@@ -71,18 +70,12 @@ namespace HockeyGame
             // The flight moves and turns this pivot; its local Y is the puck's flat-face normal.
             _puck = new GameObject("Puck");
             _puck.transform.SetParent(rink, false);
-            GameObject puckModel = ModelFiles.Load(ModelFiles.Puck, PlaceholderPuck, findFile);
-            puckModel.transform.SetParent(_puck.transform, false);
-            ModelFiles.FitTo(puckModel.transform, new Vector3(PuckDiameter, PuckThickness, PuckDiameter));
-            ModelFiles.RemoveColliders(puckModel);
+            ModelFiles.Place(_puck.transform, ModelFiles.Puck, PlaceholderPuck, findFile, new Vector3(PuckDiameter, PuckThickness, PuckDiameter));
 
             // The save block slides this pivot; the save-glove model (or the old light blue block) fills 0.3 x 0.25 x GloveDepth.
             _glove = new GameObject("Save Block");
             _glove.transform.SetParent(rink, false);
-            GameObject gloveModel = ModelFiles.Load(ModelFiles.SaveGlove, PlaceholderSaveBlock, findFile);
-            gloveModel.transform.SetParent(_glove.transform, false);
-            ModelFiles.FitTo(gloveModel.transform, new Vector3(0.3f, 0.25f, GloveDepth));
-            ModelFiles.RemoveColliders(gloveModel);
+            ModelFiles.Place(_glove.transform, ModelFiles.SaveGlove, PlaceholderSaveBlock, findFile, new Vector3(0.3f, 0.25f, GloveDepth));
 
             _goalLight = new GoalLight(rink);
 
@@ -238,7 +231,7 @@ namespace HockeyGame
                         p.z = _backZ - Mathf.Lerp(PuckThickness, BaseRailMetres + PuckThickness / 2f, clear) + _net.BackAtHit;
                         if (_time > CaughtSeconds && p.y > PuckDiameter / 2f)
                         {
-                            _velocity.y -= Gravity * dt;
+                            _velocity.y -= PuckMotion.Gravity * dt;
                             p.y = Mathf.Max(p.y + _velocity.y * dt, PuckDiameter / 2f);
                         }
                         _puck.transform.position = p;

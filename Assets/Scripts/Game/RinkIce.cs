@@ -30,9 +30,7 @@ namespace HockeyGame
             var ice = new GameObject("Ice");
             ice.transform.SetParent(rink, false);
 
-            GameObject model = ModelFiles.Load(ModelFiles.Ice, Placeholder, findFile);
-            model.transform.SetParent(ice.transform, false);
-            ModelFiles.FitTo(model.transform, new Vector3(Size, Thickness, Size));
+            GameObject model = ModelFiles.Place(ice.transform, ModelFiles.Ice, Placeholder, findFile, new Vector3(Size, Thickness, Size));
             // FitTo centres the model on y = 0; a model with thickness is lifted so its top is at y = 0.
             float top = Bounds(model).max.y - ice.transform.position.y;
             model.transform.localPosition -= Vector3.up * top;
