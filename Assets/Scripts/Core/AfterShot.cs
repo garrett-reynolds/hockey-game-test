@@ -47,8 +47,9 @@ namespace HockeyGame.Core
     /// <summary>
     /// The goalie's motion after the Shot, as a pure function of the time since the puck reached the Net Face (and, on a
     /// GOAL!, since it met the netting). The result hold always runs ResultHoldSeconds (2.5 s) after the puck gets there
-    /// (Round.DelayResult). Every reaction plays out, glides back to the goalie's spot and recovers into the Ready Stance by
-    /// RecoveredBy (#44), so the hold ends, and the next Shot starts, in the Ready Stance with no snap.
+    /// (Round.DelayResult). Every reaction plays out, glides back to the goalie's spot (on a GOAL! before the Annoyed Gesture,
+    /// so it reads on its own) and recovers into the Ready Stance by RecoveredBy (#44), so the hold ends, and the next Shot
+    /// starts, in the Ready Stance with no snap.
     /// </summary>
     public static class AfterShot
     {
