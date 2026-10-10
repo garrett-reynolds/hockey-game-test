@@ -136,10 +136,21 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void A_stick_save_is_deflected_low()
+        public void A_stick_save_is_made_on_the_blade_and_deflected_low_the_way_the_blade_faces()
         {
-            Run run = Shoot(StickPose, StickX, StickY);
+            var character = new GoalieCharacter(_rink.transform);
+            Run run = Shoot(StickPose, StickX, StickY, character: character);
             Assert.AreEqual(ShotResultKind.Save, run.Kind);
+
+            var probe = new GoalieView(_rink.transform, character);
+            probe.Show(true, StickPose, false);
+            var obstacles = new PuckObstacles();
+            probe.AddObstacles(obstacles);
+            NetFaceMapping.ToMetres(StickX, StickY, out double right, out double up);
+            Assert.IsTrue(probe.SaveSurface(obstacles, run.Contact, new Vector3((float)right, (float)up, 0f), SoundCue.SaveImpact, out _, out PuckSurface surface));
+            Assert.AreEqual(PuckSurface.Stick, surface, "made on the stick");
+            Assert.Greater(Vector3.Dot(run.Leaving.normalized, GearFacing(character, "Stick", run.Contact)), 0.2f, "away from the blade");
+
             float highest = float.NegativeInfinity;
             foreach (Vector3 p in run.Path) highest = Mathf.Max(highest, p.y);
             Assert.Less(highest, run.Contact.y + 0.03f, "never rises off the blade");
@@ -205,13 +216,31 @@ namespace HockeyGame.Core.Tests
                 for (int y = 5; y < 100; y += 15)
                     if (GoaliePoses.CoverAt(pose, Zones.Column(x), Zones.Row(y)) == ZoneCover.Covered)
                         yield return new TestCaseData(pose, (double)x, (double)y);
-            foreach (double x in new[] { -NetFrame.PostWidth * 0.5, 100 + NetFrame.PostWidth * 0.2, 100 + NetFrame.PostWidth * 0.9 })
-                yield return new TestCaseData(GoaliePose.MiddleButterfly, x, 30.0);
-            yield return new TestCaseData(GoaliePose.MiddleButterfly, 30.0, 100 + NetFrame.CrossbarHeight * 0.5);
+            foreach (GoaliePose pose in new[] { GoaliePose.MiddleButterfly, GoaliePose.LeftPostHug, GoaliePose.RightPostHug })
+            {
+                foreach (double x in new[] { -NetFrame.PostWidth * 0.5, -NetFrame.PostWidth * 0.9, 100 + NetFrame.PostWidth * 0.2, 100 + NetFrame.PostWidth * 0.9 })
+                    foreach (double y in new[] { 5.0, 30.0, 80.0 })
+                        yield return new TestCaseData(pose, x, y);
+                yield return new TestCaseData(pose, 30.0, 100 + NetFrame.CrossbarHeight * 0.5);
+            }
         }
 
-        [Test]
-        public void After_any_save_or_frame_hit_the_puck_stays_out_of_the_goalie_frame_and_ice_and_settles_flat()
+        /// <summary>
+        /// Where the Shot is taken from for a pose's Attack Side (Breakaway.SkatePoint's stop, 30% of 9 m out to the side, eye
+        /// 1.5 m): at the 9 m stop, or drifted in to 3 m from the net (Breakaway.ClosestDrift). Looks at the Net Face centre.
+        /// </summary>
+        void PlaceShooter(GoaliePose pose, bool close)
+        {
+            int side = (int)pose / 2 - 1; // left -1, middle 0, right +1
+            var ground = new Vector2(side * 0.3f * 9f, -9f);
+            if (close) ground *= 3f / ground.magnitude;
+            _camera.transform.position = new Vector3(ground.x, 1.5f, ground.y);
+            _camera.transform.LookAt(new Vector3(0f, 0.61f, 0f));
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void After_any_save_or_frame_hit_the_puck_stays_out_of_the_goalie_frame_and_ice_and_settles_flat(bool close)
         {
             var failures = new List<string>();
             foreach (TestCaseData c in AllSaves())
@@ -220,6 +249,7 @@ namespace HockeyGame.Core.Tests
                 double x = (double)c.Arguments[1], y = (double)c.Arguments[2];
                 TearDown();
                 SetUp();
+                PlaceShooter(pose, close);
                 var character = new GoalieCharacter(_rink.transform);
                 Run run = Shoot(pose, x, y, character: character);
                 List<Triangle> goalie = GoalieTriangles(character);
@@ -240,10 +270,21 @@ namespace HockeyGame.Core.Tests
                 if (held) continue; // the catching glove
                 Vector3 end = run.Path[run.Path.Count - 1];
                 Vector3 endAxis = run.Turns[run.Turns.Count - 1] * Vector3.up;
-                if (Mathf.Abs(endAxis.y) < 0.999f || Mathf.Abs(end.y - 0.025f) > 0.002f || run.Path[run.Path.Count - 2] != end)
-                    failures.Add(where + "not lying still and flat on the ice at the end: " + end.ToString("F3"));
+                bool still = run.Path[run.Path.Count - 2] == end;
+                bool flatOnIce = Mathf.Abs(endAxis.y) > 0.999f && Mathf.Abs(end.y - 0.025f) < 0.002f;
+                if (!still || (!flatOnIce && !AgainstGear(goalie, end)))
+                    failures.Add(where + "not lying still, flat on the ice (or held in the gear), at the end: " + end.ToString("F3"));
             }
             Assert.IsEmpty(failures, string.Join("\n", failures));
+        }
+
+        /// <summary>Within 5 cm of a goalie triangle corner or edge midpoint: resting in a crease of the gear.</summary>
+        static bool AgainstGear(List<Triangle> goalie, Vector3 p)
+        {
+            foreach (Triangle t in goalie)
+                foreach (Vector3 q in new[] { t.A, t.B, t.C, (t.A + t.B) / 2f, (t.B + t.C) / 2f, (t.C + t.A) / 2f })
+                    if ((q - p).sqrMagnitude < 0.0025f) return true;
+            return false;
         }
 
         static bool InFrame(Vector3 p)

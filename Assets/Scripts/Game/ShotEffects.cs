@@ -54,6 +54,8 @@ namespace HockeyGame
         bool _onGoalie;          // the save stops on the goalie character's gear
         PuckObstacles _obstacles; // the frame (and posed goalie) a deflected puck can hit
         PuckMotion _motion;
+        static readonly string[] LineGear = { "Stick", "Left Skate", "Right Skate" };
+        static readonly string[] GoalieGear = { "Left Pad", "Right Pad", "Blocker", "Catcher", "Stick", "Left Skate", "Right Skate", "Mask", "Visor", "Body" };
         bool _onLine;             // the save is made on gear met on the puck line (see Play)
         Vector3 _lineNormal;
         PuckSurface _lineSurface;
@@ -159,11 +161,15 @@ namespace HockeyGame
                 _goalie?.AddObstacles(_obstacles);
             }
             _onLine = false;
-            if (onGoalie && RoundSoundCues.SaveContact(result.X, result.Y) != SoundCue.GloveCatch
-                && _obstacles.Cast(_start, _target, PuckThickness / 2f, out Vector3 first, out _lineNormal, out _lineSurface))
+            bool frameHit = result.Kind != ShotResultKind.Save && _obstacles != null;
+            if (((onGoalie && RoundSoundCues.SaveContact(result.X, result.Y) != SoundCue.GloveCatch) || frameHit)
+                && _obstacles.Cast(_start, _target, PuckThickness / 2f, out Vector3 first, out _lineNormal, out _lineSurface, frameHit ? GoalieGear : LineGear))
             {
-                // Other gear (the stick blade, a skate) is on the puck line in front of the gear that makes the save: the puck
-                // stops there, not through it, and deflects off that gear's real face. The catching glove always catches.
+                // A Frame Hit the goalie's gear is in front of (a post-hugging pad): it knocks off that gear, still a Miss.
+                if (_lineSurface == PuckSurface.Catcher) _lineSurface = PuckSurface.Body; // no catch on a Miss
+                // The stick or a skate is on the puck line in front of the gear that makes the save: the puck stops there, not
+                // through it, and deflects off its real face. Only gear the save sound never names (the pads, blocker and catching
+                // glove keep their stop on SaveStop's line); the catching glove always catches.
                 _target = first;
                 _onLine = true;
             }
@@ -286,8 +292,10 @@ namespace HockeyGame
                     break;
                 default:
                     if (NetFrame.At(_result.X, _result.Y) == FrameHit.None) { _stage = Stage.Carrying; break; } // wide Miss: carry on past the net
+                    if (_onLine) { StartDeflection(_lineNormal, _lineSurface); break; }
                     // Off the round iron: the tube normal where the puck met it.
-                    _obstacles.Nearest(_target, null, out Vector3 tube, out _);
+                    FrameHit hit = NetFrame.At(_result.X, _result.Y);
+                    _obstacles.Nearest(_target, hit == FrameHit.LeftPost ? "Left Post" : hit == FrameHit.RightPost ? "Right Post" : "Crossbar", out Vector3 tube, out _);
                     StartDeflection(tube, PuckSurface.Frame);
                     break;
             }

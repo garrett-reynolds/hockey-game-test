@@ -59,9 +59,9 @@ namespace HockeyGame
 
         /// <summary>
         /// The first surface the puck's centre, moving from `from` to `to`, comes within `radius` of (only surfaces it is
-        /// moving toward). at: where the centre is then; normal: the surface's, facing the puck.
+        /// moving toward). at: where the centre is then; normal: the surface's, facing the puck. pieces: only these (null: all).
         /// </summary>
-        public bool Cast(Vector3 from, Vector3 to, float radius, out Vector3 at, out Vector3 normal, out PuckSurface surface)
+        public bool Cast(Vector3 from, Vector3 to, float radius, out Vector3 at, out Vector3 normal, out PuckSurface surface, string[] pieces = null)
         {
             at = to;
             normal = default;
@@ -75,7 +75,7 @@ namespace HockeyGame
             var sweep = new Bounds((from + to) / 2f, new Vector3(Mathf.Abs(move.x), Mathf.Abs(move.y), Mathf.Abs(move.z)) + Vector3.one * (2f * radius));
             foreach (Chunk chunk in _chunks)
             {
-                if (!chunk.Box.Intersects(sweep)) continue;
+                if (!chunk.Box.Intersects(sweep) || (pieces != null && System.Array.IndexOf(pieces, chunk.Piece) < 0)) continue;
                 for (int t = chunk.First; t < chunk.First + chunk.Count; t++)
                 {
                     Vector3 a = _corners[t * 3], b = _corners[t * 3 + 1], c = _corners[t * 3 + 2];
@@ -89,7 +89,15 @@ namespace HockeyGame
                     float d = Mathf.Max(0f, (height - radius) / closing);
                     if (d > length || d >= best) continue;
                     Vector3 onPlane = from + dir * d - n * Mathf.Min(height, radius);
-                    if (!Inside(onPlane, a, b, c, n)) continue;
+                    if (!Inside(onPlane, a, b, c, n))
+                    {
+                        // Not met face-on within the radius; the centre itself may still cross the triangle (it starts close
+                        // beside it): stop at the crossing, kept back by the radius as far as the move allows.
+                        float through = height / closing;
+                        if (through > length || !Inside(from + dir * through, a, b, c, n)) continue;
+                        d = Mathf.Max(0f, through - radius);
+                        if (d >= best) continue;
+                    }
                     best = d;
                     normal = n;
                     surface = chunk.Surface;
@@ -97,6 +105,7 @@ namespace HockeyGame
             }
             foreach (Tube tube in _tubes)
             {
+                if (pieces != null && System.Array.IndexOf(pieces, tube.Piece) < 0) continue;
                 if (!CastTube(tube, from, dir, length, radius, out float d, out Vector3 n) || d >= best) continue;
                 best = d;
                 normal = n;
