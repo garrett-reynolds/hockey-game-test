@@ -18,6 +18,8 @@ namespace HockeyGame.Core
         public const double MiddleFrom = 35.0, MiddleTo = 65.0;
         /// <summary>The body takes middle Shots up to this height (0.92 m, the shoulders); above it a hand does.</summary>
         public const double BodyBelow = 75.0;
+        /// <summary>The middle of the net (Net Face x): a hand Shot from here rightward is the glove's, left of it the blocker's.</summary>
+        public const double HandSidesSplit = 50.0;
 
         public static SaveReaction For(double x, double y)
         {
@@ -25,8 +27,11 @@ namespace HockeyGame.Core
             if (y < StickBelow && middle) return SaveReaction.Stick;
             if (y < PadsBelow) return SaveReaction.Pads;
             if (middle && y < BodyBelow) return SaveReaction.Body;
-            return x >= 50.0 ? SaveReaction.Glove : SaveReaction.Blocker;
+            return x >= HandSidesSplit ? SaveReaction.Glove : SaveReaction.Blocker;
         }
+
+        /// <summary>True for a save with a hand: the catching glove or the blocker.</summary>
+        public static bool IsHand(SaveReaction reaction) => reaction == SaveReaction.Glove || reaction == SaveReaction.Blocker;
 
         /// <summary>The save sound of the reaction's gear: wood for the blocker and the stick, a thud for pads and body.</summary>
         public static SoundCue Sound(SaveReaction reaction)

@@ -98,30 +98,28 @@ namespace HockeyGame.Core
         public static AfterShotMoment At(AfterShotGesture gesture, double sinceArrival, double sinceNetting)
         {
             if (sinceArrival < 0) return default;
-            switch (gesture)
+            if (IsGoal(gesture))
             {
-                case AfterShotGesture.Slump:
-                case AfterShotGesture.StickSlap:
-                    {
-                        double n = System.Math.Max(sinceNetting, sinceArrival - LatestNetting);
-                        double look = Ramp(n, LookBackFrom, LookBackTo) * (1 - Ramp(n, AnnoyedFrom, LookForwardTo));
-                        return new AfterShotMoment(Ramp(sinceArrival, 0, LateReachSeconds), Ramp(n, RelaxFrom, RelaxTo), look, 0,
-                            Numbers.Clamp01((n - AnnoyedFrom) / (AnnoyedTo - AnnoyedFrom)), 0,
-                            Ramp(n, GoalReturnFrom, GoalReturnTo), Ramp(n, GoalRecoverFrom, GoalRecoverTo));
-                    }
-                case AfterShotGesture.Relief:
-                    return new AfterShotMoment(0, 0, Ramp(sinceArrival, 0, FollowSeconds), Ramp(sinceArrival, ReliefFrom, GlanceTo),
-                        Numbers.Clamp01((sinceArrival - ReliefFrom) / (ReliefTo - ReliefFrom)), 0,
-                        Ramp(sinceArrival, MissReturnFrom, MissReturnTo), Ramp(sinceArrival, MissRecoverFrom, MissRecoverTo));
-                default:
-                    return new AfterShotMoment(0, 0, Ramp(sinceArrival, 0, FollowSeconds), 0, 0,
-                        Ramp(sinceArrival, FollowThroughFrom, FollowThroughTo),
-                        Ramp(sinceArrival, SaveReturnFrom, SaveReturnTo), Ramp(sinceArrival, SaveRecoverFrom, SaveRecoverTo));
+                double n = System.Math.Max(sinceNetting, sinceArrival - LatestNetting);
+                double look = Ramp(n, LookBackFrom, LookBackTo) * (1 - Ramp(n, AnnoyedFrom, LookForwardTo));
+                return new AfterShotMoment(Ramp(sinceArrival, 0, LateReachSeconds), Ramp(n, RelaxFrom, RelaxTo), look, 0,
+                    Numbers.Clamp01((n - AnnoyedFrom) / (AnnoyedTo - AnnoyedFrom)), 0,
+                    Ramp(n, GoalReturnFrom, GoalReturnTo), Ramp(n, GoalRecoverFrom, GoalRecoverTo));
             }
+            if (gesture == AfterShotGesture.Relief)
+                return new AfterShotMoment(0, 0, Ramp(sinceArrival, 0, FollowSeconds), Ramp(sinceArrival, ReliefFrom, GlanceTo),
+                    Numbers.Clamp01((sinceArrival - ReliefFrom) / (ReliefTo - ReliefFrom)), 0,
+                    Ramp(sinceArrival, MissReturnFrom, MissReturnTo), Ramp(sinceArrival, MissRecoverFrom, MissRecoverTo));
+            return new AfterShotMoment(0, 0, Ramp(sinceArrival, 0, FollowSeconds), 0, 0,
+                Ramp(sinceArrival, FollowThroughFrom, FollowThroughTo),
+                Ramp(sinceArrival, SaveReturnFrom, SaveReturnTo), Ramp(sinceArrival, SaveRecoverFrom, SaveRecoverTo));
         }
 
-        /// <summary>0 before from, 1 after to, eased in and out between.</summary>
-        static double Ramp(double t, double from, double to)
+        /// <summary>True for a GOAL!'s gestures (the two Annoyed Gestures).</summary>
+        public static bool IsGoal(AfterShotGesture gesture) => gesture == AfterShotGesture.Slump || gesture == AfterShotGesture.StickSlap;
+
+        /// <summary>0 before from, 1 after to, eased in and out between (smoothstep). The goalie's gestures use it too.</summary>
+        public static double Ramp(double t, double from, double to)
         {
             double u = Numbers.Clamp01((t - from) / (to - from));
             return u * u * (3 - 2 * u);

@@ -17,6 +17,28 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void Cleared_obstacles_hold_nothing_until_filled_again()
+        {
+            var wall = new PuckObstacles();
+            AddSquare(wall, Vector3.zero, Vector3.back, PuckSurface.Pad, "Wall");
+            var obstacles = new PuckObstacles();
+            AddSquare(obstacles, Vector3.zero, Vector3.back, PuckSurface.Pad, "Wall");
+            obstacles.AddPlaced(wall, Matrix4x4.Translate(Vector3.forward * 0.5f));
+            obstacles.AddTube(new Vector3(0f, -1f, 0f), new Vector3(0f, 1f, 0f), 0.05f, PuckSurface.Frame);
+            Vector3 from = new Vector3(0f, 0f, -2f), to = new Vector3(0f, 0f, 2f);
+            Assert.IsTrue(obstacles.Cast(from, to, 0.01f, out _, out _, out _));
+
+            obstacles.Clear();
+            Assert.IsFalse(obstacles.Cast(from, to, 0.01f, out _, out _, out _), "no mesh, placed shape or tube left");
+            Assert.IsFalse(obstacles.NearAnyMesh(from, to, 0.01f));
+            Assert.IsFalse(obstacles.Nearest(Vector3.zero, "Wall", out _, out _));
+
+            obstacles.AddPlaced(wall, Matrix4x4.Translate(Vector3.forward * 0.5f));
+            Assert.IsTrue(obstacles.Cast(from, to, 0.01f, out Vector3 at, out _, out _, new[] { "Wall" }));
+            Assert.AreEqual(0.49f, at.z, 1e-3f, "only the wall placed again, half a metre in");
+        }
+
+        [Test]
         public void A_puck_flying_into_a_wall_bounces_off_it_and_never_goes_through()
         {
             var obstacles = new PuckObstacles();

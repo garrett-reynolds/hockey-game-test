@@ -1,3 +1,5 @@
+using HockeyGame.Core;
+
 namespace HockeyGame
 {
     /// <summary>
@@ -25,6 +27,9 @@ namespace HockeyGame
 
         /// <summary>The model object's name for a piece of gear ("Gear Left Pad").</summary>
         public static string ObjectName(string piece) => Prefix + piece;
+
+        /// <summary>The hand a hand Save Reaction (SaveReactions.IsHand) uses: the glove reaction the Catcher, else the Blocker.</summary>
+        public static string HandOf(SaveReaction hand) => hand == SaveReaction.Glove ? Catcher : Blocker;
 
         /// <summary>The piece a model object is ("Gear Left Pad" -> "Left Pad"), or null when it is not gear.</summary>
         public static string PieceOf(string objectName) =>

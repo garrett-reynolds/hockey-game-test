@@ -35,5 +35,22 @@ namespace HockeyGame.Core.Tests
         {
             Assert.AreEqual(sound, SaveReactions.Sound(reaction));
         }
+
+        [TestCase(SaveReaction.Glove, true)]
+        [TestCase(SaveReaction.Blocker, true)]
+        [TestCase(SaveReaction.Pads, false)]
+        [TestCase(SaveReaction.Stick, false)]
+        [TestCase(SaveReaction.Body, false)]
+        public void Only_the_glove_and_blocker_saves_are_made_with_a_hand(SaveReaction reaction, bool hand)
+        {
+            Assert.AreEqual(hand, SaveReactions.IsHand(reaction));
+        }
+
+        [Test]
+        public void A_glove_save_is_made_with_the_catcher_and_a_blocker_save_with_the_blocker()
+        {
+            Assert.AreEqual("Catcher", GearPiece.HandOf(SaveReaction.Glove));
+            Assert.AreEqual("Blocker", GearPiece.HandOf(SaveReaction.Blocker));
+        }
     }
 }

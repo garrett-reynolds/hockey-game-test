@@ -18,6 +18,7 @@ namespace HockeyGame
         const float CoveredFraction = 1f;
         internal const float BlockDepth = 0.1f;
         internal const float BlockZ = -0.08f;   // centre; block spans z -0.13..-0.03, in front of the Net Face
+        const float PostGlanceHeight = 0.5f;   // how high up the post a Miss glances back at (metres)
         const float GlowZ = 0.06f;     // just behind the Net Face
         /// <summary>The glow's shader: unlit, with its depth test set per material (see SetProgress).</summary>
         public const string EasyGlowShader = "Hockey Game/Easy Glow";
@@ -34,6 +35,16 @@ namespace HockeyGame
         int _shown = -1;
         bool _visible;
         readonly GoalieCharacter _character; // null or without a model: the blocks are drawn
+        float _life;                             // Stance Life clock (Live)
+        Transform _carried, _carrier;            // Carry: the resting puck, and what it moves with
+        Vector3 _carriedAt;
+        Quaternion _carriedTurn;
+        bool _reacted;
+        readonly PuckObstacles _reaction = new PuckObstacles(); // the reaction's gear and body, from React (refilled each Shot)
+        readonly string[] _reactionPiece = new string[1];       // SaveStop's cast: the reaction's piece alone
+        AfterShotGesture _gesture;               // what the goalie does once the puck has got there (AfterShot)
+        float _sinceArrival = -1f, _sinceNetting = -1f;
+        Vector3 _puck, _post;                    // where the puck is now; the post a Miss glances back at
 
         /// <param name="character">The goalie character; null (or no model) draws the blocks instead.</param>
         public GoalieView(Transform parent, GoalieCharacter character = null)
@@ -166,8 +177,6 @@ namespace HockeyGame
             }
         }
 
-        float _life; // Stance Life clock (Live)
-
         /// <summary>
         /// The Stance Life clock (seconds; BreakawayView runs it on real time, so he stays alive through the slow-down): the goalie's
         /// breathing, weight shifts and stick taps in the Ready Stance (StanceLife). Shown by the next SetProgress.
@@ -179,10 +188,6 @@ namespace HockeyGame
 
         /// <summary>True when the rigged goalie character is drawn (not the blocks).</summary>
         public bool HasCharacter => _character != null;
-
-        Transform _carried, _carrier;
-        Vector3 _carriedAt;
-        Quaternion _carriedTurn;
 
         /// <summary>
         /// A puck that has come to rest on the goalie (held in the catching glove, or lying on his gear) moves with what it
@@ -261,17 +266,11 @@ namespace HockeyGame
             _gesture = AfterShot.GestureFor(result.Kind, result.X, result.Y);
             _sinceArrival = _sinceNetting = -1f;
             _puck = netPoint;
-            _post = new Vector3((netPoint.x >= 0f ? 1f : -1f) * (float)NetFaceMapping.WidthMetres / 2f, 0.5f, 0f);
-            _reaction = new PuckObstacles();
+            _post = new Vector3((netPoint.x >= 0f ? 1f : -1f) * (float)NetFaceMapping.WidthMetres / 2f, PostGlanceHeight, 0f);
+            _reaction.Clear();
             _character.AddReaction(_reaction);
             PoseCharacter();
         }
-
-        bool _reacted;
-        PuckObstacles _reaction; // the reaction's gear and body, from React
-        AfterShotGesture _gesture;               // what the goalie does once the puck has got there (AfterShot)
-        float _sinceArrival = -1f, _sinceNetting = -1f;
-        Vector3 _puck, _post;                    // where the puck is now; the post a Miss glances back at
 
         /// <summary>
         /// Each frame of the result hold, from ShotEffects: where the puck is (shown or not), the seconds since it reached the
@@ -302,7 +301,8 @@ namespace HockeyGame
             stop = default;
             string piece = ReactionPiece;
             if (piece == null) return false;
-            if (_reaction.Cast(GoalieCharacter.NearGoalie(from, netPoint), netPoint, puckThickness / 2f, out stop, out _, out _, new[] { piece })) return true;
+            _reactionPiece[0] = piece;
+            if (_reaction.Cast(GoalieCharacter.NearGoalie(from, netPoint), netPoint, puckThickness / 2f, out stop, out _, out _, _reactionPiece)) return true;
             // The gear stops short of the line (out of reach): just in front of it, on the line.
             if (piece == GearPiece.Body || !_character.ReactionGearBounds(piece, out Bounds gear)) return false;
             float z = gear.min.z - puckThickness / 2f;

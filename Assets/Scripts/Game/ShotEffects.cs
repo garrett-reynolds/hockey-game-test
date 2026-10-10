@@ -24,6 +24,7 @@ namespace HockeyGame
         const float SaveZ = GloveZ - GloveDepth / 2f - PuckThickness;
         const float MissCarrySeconds = 0.8f;
         const float CaughtSeconds = 0.25f;           // a goal puck rests in the netting bulge this long, then drops
+        const float OffIceMargin = 0.01f;            // a puck at rest with its centre above PuckThickness + this lies on the goalie's gear, off the ice
         const float BaseRailMetres = 0.07f;          // the net's back base tube and skirt on the ice: copied by hand from Tools/make_supplied_net.py's output, change both together
         static readonly Color SaveBlockColour = new Color(0.45f, 0.6f, 1f); // lighter than the GoalieView blocks so the slide shows on a Covered Zone
 
@@ -353,7 +354,7 @@ namespace HockeyGame
             _puck.transform.rotation = _motion.Rotation;
             // At rest on the goalie (held in the catching glove, or lying on his gear off the ice): from now on it moves with
             // him as he follows through and recovers (#44).
-            if (_goalie != null && _goalie.HasCharacter && (_motion.Held || (_motion.Settled && _motion.Position.y > PuckThickness + 0.01f)))
+            if (_goalie != null && _goalie.HasCharacter && (_motion.Held || (_motion.Settled && _motion.Position.y > PuckThickness + OffIceMargin)))
             {
                 _goalie.Carry(_puck.transform);
                 _stage = Stage.OnGoalie;

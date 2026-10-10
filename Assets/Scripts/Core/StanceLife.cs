@@ -25,16 +25,20 @@ namespace HockeyGame.Core
         public const double BreathSeconds = 3.4;
         /// <summary>One weight shift (onto one skate, the other and back), seconds; its size swells and fades over SwellSeconds.</summary>
         public const double ShiftSeconds = 7.3, SwellSeconds = 13.1;
+        /// <summary>The weight shift's size swells and fades between SwellMiddle - SwellDepth and SwellMiddle + SwellDepth of full.</summary>
+        public const double SwellMiddle = 0.6, SwellDepth = 0.4;
         /// <summary>Time is cut into slots this long; a slot holds at most one tap (two touches over TapSeconds).</summary>
         public const double TapSlotSeconds = 3.6, TapSeconds = 0.7;
         /// <summary>The share of slots that hold a tap.</summary>
         public const double TapShare = 0.55;
+        /// <summary>A tap starts at least this long into its slot (seconds).</summary>
+        public const double TapLead = 0.3;
 
         public static StanceLifeMoment At(double seconds)
         {
             double breath = 0.5 - 0.5 * System.Math.Cos(2 * System.Math.PI * seconds / BreathSeconds);
             double shift = System.Math.Sin(2 * System.Math.PI * seconds / ShiftSeconds)
-                * (0.6 + 0.4 * System.Math.Sin(2 * System.Math.PI * seconds / SwellSeconds));
+                * (SwellMiddle + SwellDepth * System.Math.Sin(2 * System.Math.PI * seconds / SwellSeconds));
             return new StanceLifeMoment(breath, shift, Tap(seconds));
         }
 
@@ -43,7 +47,7 @@ namespace HockeyGame.Core
             long slot = (long)System.Math.Floor(seconds / TapSlotSeconds);
             if (Hash(slot, 1) >= TapShare) return 0;
             // Starts somewhere in the slot, leaving room for the tap to end inside it.
-            double start = slot * TapSlotSeconds + 0.3 + Hash(slot, 2) * (TapSlotSeconds - TapSeconds - 0.3);
+            double start = slot * TapSlotSeconds + TapLead + Hash(slot, 2) * (TapSlotSeconds - TapSeconds - TapLead);
             double u = (seconds - start) / TapSeconds;
             if (u <= 0 || u >= 1) return 0;
             double s = System.Math.Sin(2 * System.Math.PI * u);

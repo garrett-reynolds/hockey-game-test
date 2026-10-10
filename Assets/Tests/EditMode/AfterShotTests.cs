@@ -35,6 +35,27 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(AfterShotGesture.None, AfterShot.GestureFor(ShotResultKind.Save, 88, 82));
         }
 
+        [TestCase(AfterShotGesture.Slump, true)]
+        [TestCase(AfterShotGesture.StickSlap, true)]
+        [TestCase(AfterShotGesture.Relief, false)]
+        [TestCase(AfterShotGesture.None, false)]
+        public void Only_the_annoyed_gestures_follow_a_goal(AfterShotGesture gesture, bool goal)
+        {
+            Assert.AreEqual(goal, AfterShot.IsGoal(gesture));
+        }
+
+        [TestCase(-1.0, 0.0)]
+        [TestCase(1.0, 0.0)]
+        [TestCase(1.5, 0.15625)]
+        [TestCase(2.0, 0.5)]
+        [TestCase(2.5, 0.84375)]
+        [TestCase(3.0, 1.0)]
+        [TestCase(9.0, 1.0)]
+        public void A_ramp_eases_in_and_out_between_its_ends_and_holds_outside_them(double t, double expected)
+        {
+            Assert.AreEqual(expected, AfterShot.Ramp(t, 1.0, 3.0), 1e-12);
+        }
+
         [Test]
         public void Before_the_puck_gets_there_nothing_moves_after_the_reach()
         {

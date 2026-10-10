@@ -38,6 +38,19 @@ namespace HockeyGame
         readonly List<Tube> _tubes = new List<Tube>();
         readonly List<(PuckObstacles shape, Matrix4x4 toWorld, Matrix4x4 toLocal)> _placed = new List<(PuckObstacles, Matrix4x4, Matrix4x4)>();
 
+        /// <summary>Takes everything out, to be filled again (so one can be reused without a new one each Shot frame).</summary>
+        public void Clear()
+        {
+            _corners.Clear();
+            _normals.Clear();
+            _box = default;
+            _meshes = false;
+            _pieces.Clear();
+            _chunks.Clear();
+            _tubes.Clear();
+            _placed.Clear();
+        }
+
         /// <summary>
         /// Adds another set of meshes (no tubes), built in its own space, placed by toWorld: a rigid move (turn and shift, no
         /// scale), so distances are the same in both spaces. Queries move into its space instead of every triangle moving out,

@@ -255,6 +255,8 @@ namespace HockeyGame
         List<(Transform bone, PuckObstacles shape)> _readyBody, _butterflyBody; // the body and clothes in each base, in pieces carried by their bones
         readonly List<(PuckObstacles shape, Matrix4x4 toWorld)> _placed = new List<(PuckObstacles, Matrix4x4)>(); // where React left them
         readonly Dictionary<string, Matrix4x4> _placedGear = new Dictionary<string, Matrix4x4>();
+        readonly PuckObstacles _scratch = new PuckObstacles(); // Placed()'s, reused so a Shot frame makes no new ones
+        readonly string[] _onePiece = new string[1];            // OnePiece()'s
 
         /// <summary>
         /// The piece of gear (GearPiece) the last React put on the puck's line: Catcher, Blocker, a pad, Stick or Body. Null
@@ -399,8 +401,8 @@ namespace HockeyGame
             string piece;
             switch (reaction)
             {
-                case SaveReaction.Glove: piece = GearPiece.Catcher; ReachHand(true, piece, OnLine(from, to, piece), facing, true); break;
-                case SaveReaction.Blocker: piece = GearPiece.Blocker; ReachHand(false, piece, OnLine(from, to, piece), facing, true); break;
+                case SaveReaction.Glove:
+                case SaveReaction.Blocker: piece = GearPiece.HandOf(reaction); ReachHand(reaction == SaveReaction.Glove, piece, OnLine(from, to, piece), facing, true); break;
                 case SaveReaction.Stick: piece = GearPiece.Stick; ReachStick(from, to, facing); break;
                 case SaveReaction.Pads: piece = ReachPad(from, to, facing, butterfly); break;
                 default: piece = GearPiece.Body; ReachBody(from, to, facing); break;
@@ -408,14 +410,12 @@ namespace HockeyGame
             var body = butterfly ? _butterflyBody : _readyBody;
             Look(piece == GearPiece.Body ? LineAt(from, to, Bone(HumanBodyBones.Chest).position.z) : OnLine(from, to, piece));
             Finish(piece, body);
-            if (reaction == SaveReaction.Glove || reaction == SaveReaction.Blocker) ReachPastPads(reaction == SaveReaction.Glove, piece, from, to, facing, body);
+            if (SaveReactions.IsHand(reaction)) ReachPastPads(reaction == SaveReaction.Glove, piece, from, to, facing, body);
             if (reaction != SaveReaction.Pads) return;
             // A pad save with the stick or blocker in front of the pad on the puck's line: the blade goes further to the far
             // side, then the blocker comes up and out of the way (the pad stays put, so where the puck meets it is found once).
-            var obstacles = new PuckObstacles();
-            AddReaction(obstacles);
             Vector3 near = NearGoalie(from, to);
-            if (!obstacles.Cast(near, to, PuckMotion.Thickness / 2f, out Vector3 onPad, out _, out _, new[] { piece })) return;
+            if (!Placed().Cast(near, to, PuckMotion.Thickness / 2f, out Vector3 onPad, out _, out _, OnePiece(piece))) return;
             bool left = piece == GearPiece.LeftPad;
             for (int i = 1; i < FiveHoleBlades.Length + BlockerOut.Length && InFront(near, onPad); i++)
             {
@@ -446,9 +446,7 @@ namespace HockeyGame
             if (LineAt(from, to, depth).y > PadTop) return; // above every pad of the stance
             for (int i = 0; i < ReachForward.Length; i++)
             {
-                var obstacles = new PuckObstacles();
-                AddReaction(obstacles);
-                if (!obstacles.Cast(near, to, PuckMotion.Thickness / 2f, out Vector3 onHand, out _, out _, new[] { piece })) return;
+                if (!Placed().Cast(near, to, PuckMotion.Thickness / 2f, out Vector3 onHand, out _, out _, OnePiece(piece))) return;
                 if (!InFront(near, onHand, HandRivals)) return;
                 ReachHand(goalieLeft, piece, LineAt(from, to, depth - ReachForward[i]), facing, true);
                 Finish(piece, body);
@@ -461,9 +459,7 @@ namespace HockeyGame
         /// <summary>True when one of the rivals (by default the stick, blocker or a skate) is on the puck's line before `onGear`.</summary>
         bool InFront(Vector3 near, Vector3 onGear, string[] rivals = null)
         {
-            var obstacles = new PuckObstacles();
-            AddReaction(obstacles);
-            return obstacles.Cast(near, onGear - (onGear - near).normalized * 0.002f, PuckMotion.Thickness / 2f, out _, out _, out _, rivals ?? PadRivals);
+            return Placed().Cast(near, onGear - (onGear - near).normalized * 0.002f, PuckMotion.Thickness / 2f, out _, out _, out _, rivals ?? PadRivals);
         }
 
         /// <summary>The gear that can stand in front of a pad on the puck's line in a pad save.</summary>
@@ -476,6 +472,8 @@ namespace HockeyGame
         /// <summary>A beaten goalie may push this far out of the puck's way (metres; a save reaches at most MaxSlide).</summary>
         const float BeatenMaxSlide = 0.8f;
         static readonly float[] NoGaps = { 0f };
+        readonly float[] _sides = new float[2]; // BeatenPass: away from the puck's side first, then toward it
+        static readonly float[] NoPush = { 1f };
 
         void Beaten(SaveReaction reaction, Vector3 from, Vector3 to, float facing)
         {
@@ -492,15 +490,16 @@ namespace HockeyGame
         bool BeatenPass(SaveReaction reaction, Vector3 from, Vector3 to, float facing, bool quick)
         {
             int tries = 0;
-            bool hand = reaction == SaveReaction.Glove || reaction == SaveReaction.Blocker;
-            string piece = reaction == SaveReaction.Glove ? GearPiece.Catcher : GearPiece.Blocker;
+            bool hand = SaveReactions.IsHand(reaction);
+            string piece = GearPiece.HandOf(reaction);
             Put(_ready);
             PlaceRoot(facing);
             float away = Bone(HumanBodyBones.Hips).position.x >= to.x ? 1f : -1f; // push away from the puck's side
+            _sides[0] = away; _sides[1] = -away;
             for (int i = 0; i < BeatenSlides.Length; i++)
             {
                 float slide = BeatenSlides[quick ? i : BeatenSlides.Length - 1 - i];
-                foreach (float sign in slide == 0f ? new[] { 1f } : new[] { away, -away })
+                foreach (float sign in slide == 0f ? NoPush : _sides)
                 foreach (float share in hand ? BeatenReach : NoGaps)
                 {
                     Put(_ready);
@@ -520,15 +519,35 @@ namespace HockeyGame
         /// <summary>Cautious and quick: false only when the puck surely passes clear of every gear and body box of the reaction.</summary>
         bool MayTouch(Vector3 from, Vector3 to)
         {
-            var obstacles = new PuckObstacles();
-            AddReaction(obstacles);
-            return obstacles.NearAnyMesh(NearGoalie(from, to), to, PuckMotion.Diameter / 2f);
+            return Placed().NearAnyMesh(NearGoalie(from, to), to, PuckMotion.Diameter / 2f);
         }
 
         /// <summary>
         /// Where the puck's line comes within reach of the goalie (1.3 m in front of where it stands): the rest of the line
         /// cannot meet it, so a cast from here costs a fraction of one from the shooter.
         /// </summary>
+        /// <summary>The puck's middle and its edges as it flies face on (offsets from its centre).</summary>
+        static readonly Vector3[] PuckEdges =
+        {
+            Vector3.zero, Vector3.left * (PuckMotion.Diameter / 2f), Vector3.right * (PuckMotion.Diameter / 2f),
+            Vector3.up * (PuckMotion.Diameter / 2f), Vector3.down * (PuckMotion.Diameter / 2f),
+        };
+
+        /// <summary>The reaction's gear and body as placed now (AddReaction), in one PuckObstacles reused for every check.</summary>
+        PuckObstacles Placed()
+        {
+            _scratch.Clear();
+            AddReaction(_scratch);
+            return _scratch;
+        }
+
+        /// <summary>Just this piece, for a cast (one array reused for every check).</summary>
+        string[] OnePiece(string piece)
+        {
+            _onePiece[0] = piece;
+            return _onePiece;
+        }
+
         internal static Vector3 NearGoalie(Vector3 from, Vector3 to) => from.z < StandZ - 1.3f ? LineAt(from, to, StandZ - 1.3f) : from;
 
         /// <summary>
@@ -537,11 +556,9 @@ namespace HockeyGame
         /// </summary>
         public bool Touches(Vector3 from, Vector3 to)
         {
-            var obstacles = new PuckObstacles();
-            AddReaction(obstacles);
+            PuckObstacles obstacles = Placed();
             from = NearGoalie(from, to);
-            float r = PuckMotion.Diameter / 2f;
-            foreach (Vector3 edge in new[] { Vector3.zero, Vector3.left * r, Vector3.right * r, Vector3.up * r, Vector3.down * r })
+            foreach (Vector3 edge in PuckEdges)
                 if (obstacles.Cast(from + edge, to + edge, PuckMotion.Thickness / 2f, out _, out _, out _)) return true;
             return false;
         }
@@ -651,7 +668,7 @@ namespace HockeyGame
         /// Two-bone IK: turns upper and lower so `end` (a point carried by lower, in its own frame) lands on target, or as
         /// near as the limb reaches, the middle joint bending toward pole.
         /// </summary>
-        static void TwoBone(Transform upper, Transform lower, Vector3 end, Vector3 target, Vector3 pole)
+        internal static void TwoBone(Transform upper, Transform lower, Vector3 end, Vector3 target, Vector3 pole)
         {
             Vector3 a = upper.position;
             float la = Vector3.Distance(a, lower.position), lb = Vector3.Distance(lower.position, lower.TransformPoint(end));
@@ -764,7 +781,6 @@ namespace HockeyGame
         /// <summary>On a GOAL! the look back into the net turns this far, the shoulders taking LookBackSpine of it.</summary>
         public const float LookBackDegrees = 125f;
         const float LookBackSpine = 0.35f;
-        const float WatchUp = 30f, WatchDown = 50f;
         /// <summary>A GOAL!'s late hand gets this share of the way from where the beaten reach left it to the puck's line.</summary>
         const float LateShare = 0.85f;
 
@@ -787,7 +803,7 @@ namespace HockeyGame
                 _model.localPosition = new Vector3(Mathf.Lerp(at.x, spot.x, r), at.y, Mathf.Lerp(at.z, spot.z, r));
                 PlaceRoot(facing);
             }
-            bool goal = gesture == AfterShotGesture.Slump || gesture == AfterShotGesture.StickSlap;
+            bool goal = AfterShot.IsGoal(gesture);
             if (goal && (moment.LateReach > 0 || moment.Relax > 0))
             {
                 if (_late == null) _late = LateReach();
@@ -796,8 +812,8 @@ namespace HockeyGame
                     _bones[i].localRotation = Quaternion.Slerp(Quaternion.Slerp(_bones[i].localRotation, _late.Rotations[i], late), _ready.Rotations[i], relax);
                 PlaceRoot(facing);
             }
-            if (moment.Watch > 0) Watch(watch, (float)moment.Watch, goal ? LookBackDegrees : WatchDegrees, goal ? LookBackSpine : 0f);
-            if (moment.Gesture > 0) Gesture(gesture, (float)moment.Gesture);
+            if (moment.Watch > 0) GoalieGestures.Watch(this, _faceLocal, watch, (float)moment.Watch, goal ? LookBackDegrees : WatchDegrees, goal ? LookBackSpine : 0f);
+            if (moment.Gesture > 0) GoalieGestures.Gesture(this, gesture, (float)moment.Gesture);
             if (goal) KeepBladeUp();
             if (gesture == AfterShotGesture.None && moment.FollowThrough > 0) FollowThrough((float)moment.FollowThrough, facing);
             if (moment.Recover > 0)
@@ -813,6 +829,8 @@ namespace HockeyGame
 
         /// <summary>How far a glove save's glove comes up to show the puck, and a blocker save's blocker follows through out (metres).</summary>
         public const float GloveHoldUp = 0.1f, BlockerFollowThrough = 0.08f;
+        /// <summary>Which way the blocker follows through, in the goalie's frame: mostly toward his right, a little up and forward.</summary>
+        const float FollowRight = 0.85f, FollowUp = 0.3f, FollowForward = 0.3f;
 
         /// <summary>
         /// A Save, once the puck is off the gear: the catching glove comes up with the puck in it (GoalieView carries it), the
@@ -825,54 +843,20 @@ namespace HockeyGame
             else if (ReactionPiece == GearPiece.Blocker)
             {
                 Vector3 goalieRight = Root.transform.rotation * Vector3.left, forward = Root.transform.rotation * Vector3.back;
-                ReachHand(false, GearPiece.Blocker, GearPoint(GearPiece.Blocker) + (goalieRight * 0.85f + Vector3.up * 0.3f + forward * 0.3f).normalized * (BlockerFollowThrough * p), facing, false);
+                ReachHand(false, GearPiece.Blocker, GearPoint(GearPiece.Blocker) + (goalieRight * FollowRight + Vector3.up * FollowUp + forward * FollowForward).normalized * (BlockerFollowThrough * p), facing, false);
             }
         }
 
         // ---- Stance Life (#44) -------------------------------------------------------------------------------------------
 
-        /// <summary>Stance Life at full size: the chest rises this far on a breath in (degrees); the hips move this far over a
-        /// skate (metres); a stick tap turns the stick arm up this far (degrees).</summary>
-        public const float BreathDegrees = 1.6f, ShiftMetres = 0.018f, TapDegrees = 3.5f;
-
         /// <summary>
         /// Adds Stance Life (StanceLife) to the pose shown, `weight` of it (0 none, 1 full): the chest rises with a breath, the
-        /// hips move over one skate with the skates kept where they are, and the stick arm lifts the blade for a tap. Only up
-        /// and across, never down: the blade never goes into the ice. Leaves the Root (facing, spot) alone.
+        /// hips move over one skate with the skates kept where they are, and the stick arm lifts the blade for a tap
+        /// (GoalieStanceLife). Leaves the Root (facing, spot) alone.
         /// </summary>
         public void Live(StanceLifeMoment life, float weight)
         {
-            if (!Present || weight <= 0f) return;
-            weight = Mathf.Min(weight, 1f);
-            Vector3 forward = Root.transform.rotation * Vector3.back, left = Root.transform.rotation * Vector3.right;
-            float shift = (float)life.Shift * ShiftMetres * weight;
-            if (Mathf.Abs(shift) > 1e-5f)
-            {
-                Transform lf = Bone(HumanBodyBones.LeftFoot), rf = Bone(HumanBodyBones.RightFoot);
-                Vector3 lp = lf.position, rp = rf.position, lk = Bone(HumanBodyBones.LeftLowerLeg).position, rk = Bone(HumanBodyBones.RightLowerLeg).position;
-                Quaternion lr = lf.rotation, rr = rf.rotation;
-                _model.position += left * shift;
-                Plant(HumanBodyBones.LeftUpperLeg, HumanBodyBones.LeftLowerLeg, lf, lp, lr, lk + left * shift);
-                Plant(HumanBodyBones.RightUpperLeg, HumanBodyBones.RightLowerLeg, rf, rp, rr, rk + left * shift);
-            }
-            Transform chest = Bone(HumanBodyBones.Chest) ?? Bone(HumanBodyBones.Spine);
-            if (chest != null) Bend(chest == Bone(HumanBodyBones.Chest) ? HumanBodyBones.Chest : HumanBodyBones.Spine, -forward, BreathDegrees * (float)life.Breath * weight);
-            float tap = TapDegrees * (float)life.Tap * weight;
-            Transform shoulder = Bone(HumanBodyBones.RightUpperArm), hand = Bone(HumanBodyBones.RightHand);
-            if (tap > 1e-4f && shoulder != null && hand != null)
-            {
-                Vector3 axis = Vector3.Cross(hand.position - shoulder.position, Vector3.up);
-                if (axis.sqrMagnitude > 1e-8f) shoulder.rotation = Quaternion.AngleAxis(tap, axis.normalized) * shoulder.rotation;
-            }
-        }
-
-        /// <summary>Keeps a foot (and its skate) where it was: two-bone IK on the leg, the knee kept in its own plane (`knee`: where it was, moved with the hips), so a tiny shift gives a tiny change.</summary>
-        void Plant(HumanBodyBones upper, HumanBodyBones lower, Transform foot, Vector3 at, Quaternion turn, Vector3 knee)
-        {
-            Transform u = Bone(upper), l = Bone(lower);
-            if (u == null || l == null) return;
-            TwoBone(u, l, l.InverseTransformPoint(foot.position), at, knee);
-            foot.rotation = turn;
+            if (Present) GoalieStanceLife.Apply(this, _model, life, weight);
         }
 
         /// <summary>
@@ -931,108 +915,16 @@ namespace HockeyGame
             Snapshot shown = Take();
             Put(_reaction);
             PlaceRoot(_line.facing);
-            if (_line.beaten == SaveReaction.Glove || _line.beaten == SaveReaction.Blocker)
+            if (_line.beaten is SaveReaction beaten && SaveReactions.IsHand(beaten))
             {
-                bool glove = _line.beaten == SaveReaction.Glove;
-                string piece = glove ? GearPiece.Catcher : GearPiece.Blocker;
+                bool glove = beaten == SaveReaction.Glove;
+                string piece = GearPiece.HandOf(beaten);
                 ReachHand(glove, piece, Vector3.Lerp(GearPoint(piece), OnLine(_line.from, _line.to, piece), LateShare), _line.facing, false);
             }
             Snapshot late = Take();
             Put(shown);
             return late;
         }
-
-        /// <summary>
-        /// Turns the head toward a point, `weight` of the way: at most `most` degrees from square about the vertical (a point
-        /// behind is looked at over the shoulder on its side) and WatchUp/WatchDown up and down. spine: the share of the turn the
-        /// shoulders take. The neck turns the head and mask together; the head never bends on the neck.
-        /// </summary>
-        void Watch(Vector3 point, float weight, float most, float spine)
-        {
-            Transform neck = Bone(HumanBodyBones.Neck), head = Bone(HumanBodyBones.Head), back = Bone(HumanBodyBones.Spine);
-            if (neck == null || head == null) return;
-            Vector3 forward = Root.transform.rotation * Vector3.back, left = Root.transform.rotation * Vector3.right;
-            Vector3 to = point - head.position, flat = Vector3.ProjectOnPlane(to, Vector3.up);
-            if (to.sqrMagnitude < 1e-6f) return;
-            float yaw = flat.sqrMagnitude > 1e-8f ? Vector3.SignedAngle(forward, flat, Vector3.up) : 0f;
-            if (Mathf.Abs(yaw) > 120f)
-            {
-                // Behind: over the shoulder on the point's side of the hips (steady while the point stays on that side).
-                float onLeft = Vector3.Dot(point - Bone(HumanBodyBones.Hips).position, left) >= 0f ? 1f : -1f;
-                yaw = Mathf.Abs(yaw) * onLeft * Mathf.Sign(Vector3.SignedAngle(forward, left, Vector3.up));
-            }
-            yaw = Mathf.Clamp(yaw, -most, most);
-            float pitch = Mathf.Clamp(Mathf.Atan2(to.y, flat.magnitude) * Mathf.Rad2Deg, -WatchDown, WatchUp);
-            if (back != null && spine > 0f) back.rotation = Quaternion.AngleAxis(yaw * spine * weight, Vector3.up) * back.rotation;
-            Vector3 square = Quaternion.AngleAxis(yaw, Vector3.up) * forward;
-            Vector3 want = Vector3.RotateTowards(square, pitch >= 0f ? Vector3.up : Vector3.down, Mathf.Abs(pitch) * Mathf.Deg2Rad, 0f);
-            Vector3 face = head.TransformDirection(_faceLocal);
-            neck.rotation = Quaternion.Slerp(Quaternion.identity, Quaternion.FromToRotation(face, want), weight) * neck.rotation;
-        }
-
-        /// <summary>The gesture at progress p (0..1; 1 is its end pose): spine and neck bends, and for the slap the stick arm.</summary>
-        void Gesture(AfterShotGesture gesture, float p)
-        {
-            Vector3 forward = Root.transform.rotation * Vector3.back, left = Root.transform.rotation * Vector3.right;
-            switch (gesture)
-            {
-                case AfterShotGesture.Slump:
-                    {
-                        Bend(HumanBodyBones.Spine, forward, 18f * Ease(p, 0f, 0.35f));
-                        Bend(HumanBodyBones.Neck, forward, 28f * Ease(p, 0.1f, 0.45f));
-                        float u = Mathf.Clamp01((p - 0.4f) / 0.45f); // two shakes of the head, dying away
-                        Turn(HumanBodyBones.Neck, 14f * Mathf.Sin(u * 4f * Mathf.PI) * Mathf.Sin(u * Mathf.PI));
-                    }
-                    break;
-                case AfterShotGesture.StickSlap:
-                    {
-                        // Up over 0.4, held, slammed down (speeding up) over 0.08, a small bounce off the ice, then the head drops.
-                        float lift = p < 0.4f ? Ease(p, 0f, 0.4f) : p < 0.48f ? 1f : p < 0.56f ? 1f - Square((p - 0.48f) / 0.08f)
-                            : p < 0.66f ? 0.12f * Mathf.Sin((p - 0.56f) / 0.1f * Mathf.PI) : 0f;
-                        Transform shoulder = Bone(HumanBodyBones.RightUpperArm), hand = Bone(HumanBodyBones.RightHand);
-                        if (shoulder != null && hand != null && lift > 0f)
-                        {
-                            Vector3 arm = hand.position - shoulder.position;
-                            Vector3 raised = (forward * 0.75f + Vector3.up * 0.55f - left * 0.15f).normalized * arm.magnitude;
-                            shoulder.rotation = Quaternion.Slerp(Quaternion.identity, Quaternion.FromToRotation(arm, raised), lift) * shoulder.rotation;
-                        }
-                        Bend(HumanBodyBones.Spine, forward, 8f * Ease(p, 0.6f, 0.9f));
-                        Bend(HumanBodyBones.Neck, forward, 22f * Ease(p, 0.6f, 0.9f));
-                    }
-                    break;
-                case AfterShotGesture.Relief:
-                    {
-                        // A breath in (head up a little), then out (down past where it was), settling a little low.
-                        float breath = p < 0.35f ? Ease(p, 0f, 0.35f) : 1f - 1.6f * Ease(p, 0.35f, 0.75f);
-                        Bend(HumanBodyBones.Neck, -forward, 14f * breath);
-                    }
-                    break;
-            }
-        }
-
-        /// <summary>Bends a bone (and all it carries) so its up turns `degrees` toward a direction (negative: away).</summary>
-        void Bend(HumanBodyBones bone, Vector3 toward, float degrees)
-        {
-            Transform t = Bone(bone);
-            if (t == null || Mathf.Abs(degrees) < 1e-4f) return;
-            if (degrees < 0f) { toward = -toward; degrees = -degrees; }
-            t.rotation = Quaternion.FromToRotation(Vector3.up, Vector3.RotateTowards(Vector3.up, toward, degrees * Mathf.Deg2Rad, 0f)) * t.rotation;
-        }
-
-        /// <summary>Turns a bone (and all it carries) about the vertical.</summary>
-        void Turn(HumanBodyBones bone, float degrees)
-        {
-            Transform t = Bone(bone);
-            if (t != null) t.rotation = Quaternion.AngleAxis(degrees, Vector3.up) * t.rotation;
-        }
-
-        static float Ease(float p, float from, float to)
-        {
-            float u = Mathf.Clamp01((p - from) / (to - from));
-            return u * u * (3f - 2f * u);
-        }
-
-        static float Square(float u) => u * u;
 
         /// <summary>Adds the reaction's gear and body, as the last React left them, to what a puck can hit (only placing).</summary>
         public void AddReaction(PuckObstacles obstacles)
