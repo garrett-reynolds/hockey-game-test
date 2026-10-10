@@ -8,8 +8,8 @@ namespace HockeyGame
     /// <summary>
     /// The breakaway feel, driven by what the Round core reports: the camera skates in and curls toward the net,
     /// the world slows down with a grey, high-contrast, vignetted look while the goalie waits in its ready stance, and a
-    /// red ring around the net drains over the shooting window. A Shot snaps time and look back to normal, and the goalie
-    /// reacts into its Goalie Pose.
+    /// red ring around the net drains over the shooting window. The goalie turns to face the shooter as they come in. A Shot
+    /// snaps time and look back to normal, and the goalie reacts into its Goalie Pose at the shooter's angle.
     /// Sets Time.timeScale; the Round core keeps ticking on unscaled real time.
     /// </summary>
     public sealed class BreakawayView : MonoBehaviour
@@ -26,6 +26,8 @@ namespace HockeyGame
         RoundPhase _lastPhase = RoundPhase.Idle;
         float _drift;      // metres drifted toward the net since the skate-in ended (scaled time)
         float _gameTime;   // scaled seconds since the skate-in began (stride bob and roll)
+        readonly GoalieTurn _turn = new GoalieTurn(0.0); // the goalie squaring up to the shooter
+        bool _newSkate;    // face the shooter at once on the first skate-in frame
 
         public void Init(Round round, Camera shooterCamera, GoalieView goalie)
         {
@@ -46,6 +48,7 @@ namespace HockeyGame
             {
                 _drift = 0f;
                 _gameTime = 0f;
+                _newSkate = true;
             }
             _lastPhase = phase;
 
@@ -54,9 +57,12 @@ namespace HockeyGame
             Time.timeScale = timeScale;
             _look.weight = (float)Breakaway.LookAmount(timeScale);
 
-            _goalie.SetProgress((float)Breakaway.GoalieSet(phase, phaseSeconds, _round.LastResult.HasValue && _round.LastResult.Value.HasShot));
-
-            if (phase == RoundPhase.Idle || phase == RoundPhase.RoundOver) return; // camera stays where it is
+            float set = (float)Breakaway.GoalieSet(phase, phaseSeconds, _round.LastResult.HasValue && _round.LastResult.Value.HasShot);
+            if (phase == RoundPhase.Idle || phase == RoundPhase.RoundOver)
+            {
+                _goalie.SetProgress(set);
+                return; // camera stays where it is
+            }
 
             float dt = Time.deltaTime; // scaled
             _gameTime += dt;
@@ -66,10 +72,20 @@ namespace HockeyGame
 
             double u = phase == RoundPhase.SkateIn ? Breakaway.SkateProgress(phaseSeconds, _round.Settings) : 1.0;
             Breakaway.SkatePoint(side, u, out double x, out double distance);
-            PlaceCamera((float)x, (float)distance);
+            Vector3 ground = PlaceCamera((float)x, (float)distance);
+
+            // The goalie squares up to the shooter: shuffles round during the skate-in, follows closely through the slow-down
+            // and window (game time), and holds still from the Shot on (the camera stops too, so the target the save was
+            // measured on stays put while the goalie reacts into the pose at that angle).
+            float target = GoalieCharacter.FacingToward(ground);
+            if (_newSkate) { _turn.Reset(target); _newSkate = false; }
+            else if (phase != RoundPhase.ResultHold) _turn.Step(target, dt, phase != RoundPhase.SkateIn);
+            _goalie.Face((float)_turn.Shown, target);
+            _goalie.SetProgress(set);
         }
 
-        void PlaceCamera(float x, float distance)
+        /// <summary>Places the camera; returns its spot on the ice (before the stride bob).</summary>
+        Vector3 PlaceCamera(float x, float distance)
         {
             // Unity: the Net Face is at z = 0 and the shooter stands at -z.
             var ground = new Vector3(x, 0f, -distance);
@@ -83,6 +99,7 @@ namespace HockeyGame
             t.LookAt(NetCentre);
             float rollDegrees = (float)Breakaway.RollRadians * Mathf.Sin(_gameTime * 5f) * Mathf.Rad2Deg;
             t.Rotate(0f, 0f, rollDegrees, Space.Self);
+            return ground;
         }
 
         Volume MakeLookVolume()

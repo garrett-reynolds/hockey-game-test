@@ -45,7 +45,7 @@ The way the goalie sets up for one Shot. Each Attack Side has its own Goalie Pos
 _Avoid_: Stance (on its own it is ambiguous: say Goalie Pose or Ready Stance), position
 
 **Ready Stance**:
-The goalie's crouch before the Shot, the same for every Goalie Pose and Attack Side. The goalie holds it through the skate-in and slow-down, reacts out of it on the Shot, and keeps it when there is no Shot in time.
+The goalie's crouch before the Shot, the same for every Goalie Pose and Attack Side. The goalie holds it through the skate-in and slow-down, reacts out of it on the Shot, and keeps it when there is no Shot in time. In it the goalie turns on its spot to face the shooter (up to 30 degrees either way). On the Shot it keeps as much of that turn as the Goalie Pose allows: the Middle poses keep all of it, the side post-hugs 6 degrees and the side butterflies 2 degrees, so each pose still reads as its Zones from the shooter's eye.
 _Avoid_: Neutral pose, idle pose
 
 **Miss**:

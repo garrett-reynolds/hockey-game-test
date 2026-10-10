@@ -23,6 +23,7 @@ namespace HockeyGame
         readonly GameObject[] _glows = new GameObject[6];
         readonly System.Collections.Generic.List<SetBlock>[] _setBlocks = new System.Collections.Generic.List<SetBlock>[6];
         float _set = 1f;
+        float _ready, _target; // facing (degrees): turned so far in the ready stance; squared up to the shooter
         bool _glowOn;
         int _shown = -1;
         bool _visible;
@@ -97,9 +98,31 @@ namespace HockeyGame
             PoseCharacter(); // every call, so nothing else left on the bones wins
         }
 
+        /// <summary>
+        /// Which way the goalie character faces (degrees about the vertical, + toward the shooter's left; see GoalieTurn):
+        /// `ready` is where it has turned so far in the ready stance; `target` squares up to the shooter. Reacting into the
+        /// pose, it finishes the turn to the target (or the pose's own limit, GoalieCharacter.MaxTurn). The blocks never turn.
+        /// </summary>
+        public void Face(float ready, float target)
+        {
+            _ready = ready;
+            _target = target;
+            PoseCharacter();
+        }
+
+        /// <summary>The facing the pose ends at: the target, within the pose's limit.</summary>
+        float PosedFacing()
+        {
+            float limit = GoalieCharacter.MaxTurn((GoaliePose)_shown);
+            return Mathf.Clamp(_target, -limit, limit);
+        }
+
+        /// <summary>The character fully posed and turned, as it stands once the reaction ends (saves are measured on this).</summary>
+        void PoseFull() => _character.Pose((GoaliePose)_shown, 1f, PosedFacing());
+
         void PoseCharacter()
         {
-            if (_character != null && _visible) _character.Pose((GoaliePose)_shown, _set);
+            if (_character != null && _visible) _character.Pose((GoaliePose)_shown, _set, Mathf.Lerp(_ready, PosedFacing(), _set));
         }
 
         void PlaceSetBlocks(int pose)
@@ -148,15 +171,15 @@ namespace HockeyGame
         /// <summary>
         /// Where a saved puck flying from `from` to `netPoint` stops when the goalie character is shown: just in front of the
         /// gear that made the save (the same pad, catcher or blocker the save sound picks), on the puck's line. The gear is
-        /// where the Goalie Pose puts it, even while the goalie is still in the ready stance or reacting.
+        /// where the Goalie Pose and the turn to the shooter put it, even while the goalie is still in the ready stance or reacting.
         /// False with no character shown (the save block is used instead).
         /// </summary>
         public bool SaveStop(Vector3 from, Vector3 netPoint, SoundCue contact, float puckThickness, out Vector3 stop)
         {
             stop = default;
             if (_character == null || !_visible) return false;
-            // Measured on the full pose: the save is asked for on the Shot, while the goalie is still reacting.
-            _character.Pose((GoaliePose)_shown, 1f);
+            // Measured on the full pose and turn: the save is asked for on the Shot, before the goalie has reacted.
+            PoseFull();
             bool found = PosedGear(contact, netPoint, out Bounds gear);
             PoseCharacter();
             if (!found) return false;
@@ -190,7 +213,7 @@ namespace HockeyGame
         public bool AddObstacles(PuckObstacles obstacles)
         {
             if (_character == null || !_visible) return false;
-            _character.Pose((GoaliePose)_shown, 1f);
+            PoseFull();
             _character.AddTo(obstacles);
             PoseCharacter();
             return true;
@@ -206,7 +229,7 @@ namespace HockeyGame
             normal = Vector3.back;
             surface = PuckSurface.Pad;
             if (_character == null || !_visible) return false;
-            _character.Pose((GoaliePose)_shown, 1f);
+            PoseFull();
             string piece = SavePiece(contact, netPoint);
             PoseCharacter();
             if (piece == null || !obstacles.Nearest(stop, piece, out normal, out surface, out float distance)) return false;
