@@ -6,6 +6,27 @@ namespace HockeyGame.Core
     /// </summary>
     public readonly struct ShotRace
     {
+        /// <summary>
+        /// The race for a Shot at Net Face point (x, y), secondsSinceWindowOpened into the shooting window, with this Reaction
+        /// Time. The puck starts where the shooter has skated to (Breakaway.ShotStart); its Flight Time runs to where it passes
+        /// the goalie, at the depth of his Set-up spot (SetUps.Spot). The goalie-reach port is asked once. Rolls nothing: Round
+        /// passes the Shot's rolled Reaction Time, the Goal-rate tool the nominal one (RoundSettings.ReactionSeconds).
+        /// </summary>
+        public static ShotRace At(SetUp setUp, AttackSide side, double secondsSinceWindowOpened, double x, double y, double speedKmh,
+            double reactionSeconds, IGoalieReach reach, RoundSettings settings)
+        {
+            RinkPoint from = Breakaway.ShotStart(side, secondsSinceWindowOpened, settings);
+            RinkPoint netPoint = RinkPoint.OnNetFace(x, y);
+            RinkPoint spot = SetUps.Spot(setUp, side, secondsSinceWindowOpened, from, settings);
+            double flight = ShotFlight.Seconds(RinkPoint.Distance(from, RinkPoint.AtDepth(from, netPoint, spot.Z)), speedKmh);
+
+            GoalieReachAnswer answer = reach.Reach(setUp, side, secondsSinceWindowOpened, from, netPoint);
+            double move = answer.InTheWay ? 0 : answer.MoveSeconds;
+            double reachSeconds = answer.InTheWay ? 0 : reactionSeconds + move;
+            SaveReaction shown = answer.InTheWay || !answer.QuickestGear.HasValue ? SaveReactions.For(x, y) : answer.QuickestGear.Value;
+            return new ShotRace(setUp, side, reactionSeconds, move, reachSeconds, flight, answer.InTheWay, shown, from, spot);
+        }
+
         public SetUp SetUp { get; }
         public AttackSide AttackSide { get; }
         /// <summary>How long the goalie waited after the Shot before he started to move (seconds).</summary>

@@ -203,24 +203,9 @@ namespace HockeyGame.Core
             }
         }
 
-        /// <summary>
-        /// Reach in time for a Shot at Net Face point (x, y), now in the shooting window. The puck starts where the shooter has
-        /// skated to (Breakaway.ShotStart); its Flight Time runs to where it passes the goalie, at the depth of his Set-up spot.
-        /// </summary>
-        private ShotRace Race(double x, double y, double speedKmh)
-        {
-            double sinceWindowOpened = _phaseElapsed;
-            RinkPoint from = Breakaway.ShotStart(AttackSide, sinceWindowOpened, _settings);
-            RinkPoint netPoint = RinkPoint.OnNetFace(x, y);
-            RinkPoint spot = SetUps.Spot(SetUp, AttackSide, sinceWindowOpened, from, _settings);
-            double flight = ShotFlight.Seconds(RinkPoint.Distance(from, RinkPoint.AtDepth(from, netPoint, spot.Z)), speedKmh);
-
-            GoalieReachAnswer answer = _reach.Reach(SetUp, AttackSide, sinceWindowOpened, from, netPoint);
-            double move = answer.InTheWay ? 0 : answer.MoveSeconds;
-            double reach = answer.InTheWay ? 0 : ReactionSeconds + move;
-            SaveReaction shown = answer.InTheWay || !answer.QuickestGear.HasValue ? SaveReactions.For(x, y) : answer.QuickestGear.Value;
-            return new ShotRace(SetUp, AttackSide, ReactionSeconds, move, reach, flight, answer.InTheWay, shown, from, spot);
-        }
+        /// <summary>Reach in time for a Shot at Net Face point (x, y), now in the shooting window, on this Shot's rolled Reaction Time.</summary>
+        private ShotRace Race(double x, double y, double speedKmh) =>
+            ShotRace.At(SetUp, AttackSide, _phaseElapsed, x, y, speedKmh, ReactionSeconds, _reach, _settings);
 
         /// <summary>A new Shot: its Attack Side and Set-up from the Round's shuffles, its post side and its Reaction Time, in the roll order.</summary>
         private void StartShot()

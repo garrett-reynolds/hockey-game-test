@@ -272,5 +272,23 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(RoundPhase.SkateIn, round.Phase);
             Assert.IsNull(round.LastRace);
         }
+
+        // The Goal-rate tool previews races with ShotRace.At; it must be the very race Round decides by.
+        [Test]
+        public void The_race_at_a_point_is_the_race_Round_decides_by()
+        {
+            var settings = new RoundSettings(); // with the Reaction Time wobble
+            var reach = new FakeReach(GoalieReachAnswer.Reaches(SaveReaction.Blocker, 0.07));
+            var round = InWindow(reach, settings, 1.7, ScriptedRandom.Forcing(AttackSide.Left));
+            double since = round.PhaseSecondsElapsed;
+            ShotRace preview = ShotRace.At(round.SetUp, round.AttackSide, since, 22, 64, 120, round.ReactionSeconds, reach, settings);
+            round.SubmitShot(22, 64, 120, false);
+            ShotRace race = round.LastRace.Value;
+            Assert.AreEqual(race.FlightSeconds, preview.FlightSeconds, Tol);
+            Assert.AreEqual(race.ReachSeconds, preview.ReachSeconds, Tol);
+            Assert.AreEqual(race.SaveReaction, preview.SaveReaction);
+            Assert.AreEqual(race.IsSave, preview.IsSave);
+            Assert.AreEqual(race.Spot.Z, preview.Spot.Z, Tol);
+        }
     }
 }
