@@ -276,7 +276,8 @@ namespace HockeyGame
         /// SaveReactions), its gear reaching the puck's line; a Goal or a Miss gets a reach that stays off the puck (what follows:
         /// Watch). Built at the facing the reaction ends at; shown by SetProgress. Nothing for no Shot or no character shown.
         /// </summary>
-        public void React(ShotResult result, Vector3 from, SaveReaction? reaction = null)
+        public void React(ShotResult result, Vector3 from, SaveReaction? reaction = null, double lateMarginSeconds = double.PositiveInfinity,
+            double lateMarginLimitSeconds = 0)
         {
             _reacted = false;
             _carried = null;
@@ -285,7 +286,7 @@ namespace HockeyGame
             var netPoint = new Vector3((float)right, (float)up, 0f);
             _character.React(reaction ?? SaveReactions.For(result.X, result.Y), from, netPoint, PosedFacing(), result.Kind == ShotResultKind.Save);
             _reacted = true;
-            _gesture = AfterShot.GestureFor(result.Kind, result.X, result.Y);
+            _gesture = AfterShot.GestureFor(result.Kind, lateMarginSeconds, lateMarginLimitSeconds);
             _sinceArrival = _sinceNetting = -1f;
             _puck = netPoint;
             _post = new Vector3((netPoint.x >= 0f ? 1f : -1f) * (float)NetFaceMapping.WidthMetres / 2f, PostGlanceHeight, 0f);

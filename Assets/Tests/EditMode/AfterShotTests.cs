@@ -9,16 +9,30 @@ namespace HockeyGame.Core.Tests
     /// </summary>
     public class AfterShotTests
     {
-        [TestCase(15, 85, AfterShotGesture.Slump, TestName = "Goal top left: slumps and shakes his head")]
-        [TestCase(88, 82, AfterShotGesture.Slump, TestName = "Goal top right: slumps and shakes his head")]
-        [TestCase(50, 50, AfterShotGesture.Slump, TestName = "Goal through the middle: slumps")]
-        [TestCase(50, 90, AfterShotGesture.StickSlap, TestName = "Goal top middle: slaps the stick on the ice")]
-        [TestCase(10, 50, AfterShotGesture.StickSlap, TestName = "Goal mid left: slaps the stick on the ice")]
-        [TestCase(85, 50, AfterShotGesture.StickSlap, TestName = "Goal mid right: slaps the stick on the ice")]
-        public void A_goal_s_annoyed_gesture_comes_from_its_Net_Face_point(double x, double y, AfterShotGesture expected)
+        static readonly double Limit = new RoundSettings().LateMarginLimitSeconds;
+
+        [Test]
+        public void The_Late_Margin_limit_is_a_setting_of_0_05_seconds()
         {
-            Assert.AreEqual(expected, AfterShot.GestureFor(ShotResultKind.Goal, x, y));
-            Assert.AreEqual(expected, AfterShot.GestureFor(ShotResultKind.Goal, x, y), "the same point always gets the same gesture");
+            Assert.AreEqual(0.05, Limit, 1e-12);
+        }
+
+        [TestCase(0.049, AfterShotGesture.StickSlap, TestName = "Goal by just under the limit: slaps the stick on the ice")]
+        [TestCase(0.0, AfterShotGesture.StickSlap, TestName = "Goal by nothing: slaps the stick on the ice")]
+        [TestCase(0.05, AfterShotGesture.Slump, TestName = "Goal by exactly the limit: slumps")]
+        [TestCase(0.051, AfterShotGesture.Slump, TestName = "Goal by just over the limit: slumps")]
+        [TestCase(0.4, AfterShotGesture.Slump, TestName = "Goal by a lot: slumps")]
+        [TestCase(double.PositiveInfinity, AfterShotGesture.Slump, TestName = "Goal with no gear able to reach: slumps")]
+        public void A_goal_s_annoyed_gesture_comes_from_its_Late_Margin(double lateMargin, AfterShotGesture expected)
+        {
+            Assert.AreEqual(expected, AfterShot.GestureFor(ShotResultKind.Goal, lateMargin, Limit));
+        }
+
+        [Test]
+        public void The_limit_is_the_one_given_so_it_can_be_tuned()
+        {
+            Assert.AreEqual(AfterShotGesture.StickSlap, AfterShot.GestureFor(ShotResultKind.Goal, 0.08, 0.1));
+            Assert.AreEqual(AfterShotGesture.Slump, AfterShot.GestureFor(ShotResultKind.Goal, 0.08, 0.06));
         }
 
         [TestCase(-8, 50, TestName = "Wide left")]
@@ -26,13 +40,13 @@ namespace HockeyGame.Core.Tests
         [TestCase(50, 120, TestName = "Over the crossbar")]
         public void A_miss_is_followed_by_relief(double x, double y)
         {
-            Assert.AreEqual(AfterShotGesture.Relief, AfterShot.GestureFor(ShotResultKind.Miss, x, y));
+            Assert.AreEqual(AfterShotGesture.Relief, AfterShot.GestureFor(ShotResultKind.Miss, 0.2, Limit));
         }
 
         [Test]
         public void A_save_has_no_gesture()
         {
-            Assert.AreEqual(AfterShotGesture.None, AfterShot.GestureFor(ShotResultKind.Save, 88, 82));
+            Assert.AreEqual(AfterShotGesture.None, AfterShot.GestureFor(ShotResultKind.Save, 0.2, Limit));
         }
 
         [TestCase(AfterShotGesture.Slump, true)]

@@ -113,7 +113,7 @@ namespace HockeyGame.Core.Tests
             // Slump (15, 85): the head goes well down and stays there.
             GoalieView view = Make(out GoalieCharacter character);
             Vector3 net = NetPoint(15, 85), inNet = net + Vector3.forward * 0.6f;
-            view.React(Result(ShotResultKind.Goal, 15, 85), From);
+            view.React(Result(ShotResultKind.Goal, 15, 85), From, null, 0.2, 0.05); // a wide Late Margin
             Assert.AreEqual(AfterShotGesture.Slump, view.Gesture);
             At(view, net, -1f);
             float reachHead = MaskHeight(character), reachStick = StickBottom(character);
@@ -127,7 +127,7 @@ namespace HockeyGame.Core.Tests
             view = Make(out character);
             net = NetPoint(50, 90);
             inNet = net + Vector3.forward * 0.6f;
-            view.React(Result(ShotResultKind.Goal, 50, 90), From);
+            view.React(Result(ShotResultKind.Goal, 50, 90), From, null, 0.01, 0.05); // a narrow Late Margin
             Assert.AreEqual(AfterShotGesture.StickSlap, view.Gesture);
             At(view, net, -1f);
             float onIce = StickBottom(character);
@@ -165,7 +165,7 @@ namespace HockeyGame.Core.Tests
                 foreach (var (x, y) in new[] { (8.0, 90.0), (50.0, 92.0), (92.0, 88.0), (10.0, 50.0), (88.0, 45.0), (50.0, 8.0), (8.0, 10.0), (92.0, 12.0) })
                 {
                     view.SetProgress(0f);
-                    view.React(Result(ShotResultKind.Goal, x, y), from);
+                    view.React(Result(ShotResultKind.Goal, x, y), from, null, y > 60 ? 0.01 : 0.2, 0.05); // both Annoyed Gestures
                     Vector3 inNet = NetPoint(x, y) + new Vector3(0f, -0.2f, 0.6f), back = InNet(x, y), down = new Vector3(back.x, PuckMotion.Diameter / 2f, back.z);
                     foreach (var (a, n) in new[] { (0.1f, -1f), (0.25f, -1f), (0.6f, 0.3f), (1.2f, 0.9f), (1.9f, 1.6f), (2.3f, 1.9f) })
                     {

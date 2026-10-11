@@ -26,5 +26,8 @@ namespace HockeyGame.Core
 
         /// <summary>How far out from the Net Face (goal line) the goalie sets in a Clean Set-up (metres).</summary>
         public double NormalDepthMetres = 0.6;
+
+        /// <summary>A Goal he missed by less than this (Late Margin, seconds) gets a Stick Slap; otherwise a Slump.</summary>
+        public double LateMarginLimitSeconds = 0.05;
     }
 }

@@ -83,15 +83,15 @@ namespace HockeyGame.Core
         public const double RecoveredBy = LatestNetting + GoalRecoverTo;
 
         /// <summary>
-        /// The gesture for a Shot result, from its Net Face point alone: a Miss is relieved, a Save has none, a GOAL! gets one of
-        /// the two Annoyed Gestures by its Zone (column + row even: Slump, odd: StickSlap), so neighbouring Zones differ.
+        /// The gesture for a Shot result: a Miss is relieved, a Save has none, a GOAL! gets one of the two Annoyed Gestures by how
+        /// close he came: a Late Margin (Reach Time - Flight Time) under the limit is a Stick Slap, otherwise a Slump. No forced variety.
         /// </summary>
-        public static AfterShotGesture GestureFor(ShotResultKind kind, double x, double y)
+        public static AfterShotGesture GestureFor(ShotResultKind kind, double lateMarginSeconds, double lateMarginLimitSeconds)
         {
             switch (kind)
             {
                 case ShotResultKind.Save: return AfterShotGesture.None;
-                case ShotResultKind.Goal: return (Zones.Column(x) + Zones.Row(y)) % 2 == 0 ? AfterShotGesture.Slump : AfterShotGesture.StickSlap;
+                case ShotResultKind.Goal: return lateMarginSeconds < lateMarginLimitSeconds ? AfterShotGesture.StickSlap : AfterShotGesture.Slump;
                 default: return AfterShotGesture.Relief;
             }
         }

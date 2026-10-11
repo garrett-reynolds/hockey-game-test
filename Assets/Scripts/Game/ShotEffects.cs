@@ -143,7 +143,7 @@ namespace HockeyGame
             if (isNew)
             {
                 if (round.LastRace.HasValue) _goalie?.StandFor(round.LastRace.Value); // he reacts from where the race measured him
-                Play(round.LastResult.Value, round.LastRace?.SaveReaction);
+                Play(round.LastResult.Value, round.LastRace, round.Settings.LateMarginLimitSeconds);
                 if (_stage == Stage.Flying) round.DelayResult(_flightSeconds);
                 // The puck starts where it is on the Shot frame, with the Round's result-hold clock at 0, whichever way the
                 // Shot came in (a USB Shot before this call, a Test Shot after it): its flight keeps time with the goalie's
@@ -155,8 +155,9 @@ namespace HockeyGame
 
         SoundCue _saveSound; // the save sound of the Shot's Save Reaction (Play)
 
-        void Play(ShotResult result, SaveReaction? reaction)
+        void Play(ShotResult result, ShotRace? race, double lateMarginLimitSeconds)
         {
+            SaveReaction? reaction = race?.SaveReaction;
             Clear();
             _result = result;
             _saveSound = SaveReactions.Sound(reaction ?? SaveReactions.For(result.X, result.Y)); // the gear the race put on the puck's line
@@ -172,7 +173,7 @@ namespace HockeyGame
                 : NetFrame.At(result.X, result.Y) != FrameHit.None ? FrameFrontZ : 0f; // a Frame Hit stops on the frame's face
             _target = new Vector3((float)right, (float)up, z);
             _netPoint = new Vector3((float)right, (float)up, 0f);
-            _goalie?.React(result, _start, reaction); // the goalie character's Save Reaction from the race (or reach) to where this Shot goes
+            _goalie?.React(result, _start, reaction, race?.LateMarginSeconds ?? double.PositiveInfinity, lateMarginLimitSeconds); // the goalie character's Save Reaction from the race (or reach) to where this Shot goes
             bool onGoalie = false; // a save on the goalie character stops on its reaction's gear, with no save block
             if (result.Kind == ShotResultKind.Save && _goalie != null && _goalie.SaveStop(_start, _netPoint, PuckThickness, out Vector3 stop))
             {
