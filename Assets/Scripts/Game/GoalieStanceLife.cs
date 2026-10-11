@@ -5,7 +5,8 @@ namespace HockeyGame
 {
     /// <summary>
     /// Stance Life (#44, StanceLife) laid on top of the goalie character's pose: the chest rises with a breath, the hips move
-    /// over one skate with the skates kept where they are, and the stick arm lifts the blade for a tap.
+    /// over one skate with the skates kept where they are, and the stick arm lifts the blade for a tap. Also sits him lower
+    /// once set, before the Shot (#70, SitLower).
     /// </summary>
     internal static class GoalieStanceLife
     {
@@ -42,6 +43,22 @@ namespace HockeyGame
                 Vector3 axis = Vector3.Cross(hand.position - shoulder.position, Vector3.up);
                 if (axis.sqrMagnitude > 1e-8f) shoulder.rotation = Quaternion.AngleAxis(tap, axis.normalized) * shoulder.rotation;
             }
+        }
+
+        /// <summary>
+        /// Before the Shot (#70): sits the pose shown `metres` lower. model: the character's model, moved down; the feet (and
+        /// skates) are planted back where they were on the ice, so the knees bend more.
+        /// </summary>
+        public static void SitLower(GoalieCharacter c, Transform model, float metres)
+        {
+            Transform lf = c.Bone(HumanBodyBones.LeftFoot), rf = c.Bone(HumanBodyBones.RightFoot);
+            Transform lkb = c.Bone(HumanBodyBones.LeftLowerLeg), rkb = c.Bone(HumanBodyBones.RightLowerLeg);
+            if (lf == null || rf == null || lkb == null || rkb == null) return;
+            Vector3 lp = lf.position, rp = rf.position, lk = lkb.position, rk = rkb.position;
+            Quaternion lr = lf.rotation, rr = rf.rotation;
+            model.position += Vector3.down * metres;
+            Plant(c, HumanBodyBones.LeftUpperLeg, HumanBodyBones.LeftLowerLeg, lf, lp, lr, lk);
+            Plant(c, HumanBodyBones.RightUpperLeg, HumanBodyBones.RightLowerLeg, rf, rp, rr, rk);
         }
 
         /// <summary>Keeps a foot (and its skate) where it was: two-bone IK on the leg, the knee kept in its own plane (`knee`: where it was, moved with the hips), so a tiny shift gives a tiny change.</summary>

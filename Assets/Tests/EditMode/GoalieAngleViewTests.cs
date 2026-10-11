@@ -36,7 +36,8 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void Through_a_Round_he_plays_the_angle_on_the_skate_in_is_set_on_his_Set_up_spot_at_the_window_and_reacts_from_the_raced_spot()
         {
-            var settings = new RoundSettings { NormalDepthMetres = 0.6, ReactionWobbleSeconds = 0 };
+            // Gliding with the angle: the skate-in shuffles (#70) wait until he is 8 cm off it; BeforeTheShotTests plays them.
+            var settings = new RoundSettings { NormalDepthMetres = 0.6, ReactionWobbleSeconds = 0, SkateInShuffles = false };
             var cameraObject = new GameObject("Camera (test)", typeof(Camera));
             var driver = new GameObject("Breakaway (test)");
             try

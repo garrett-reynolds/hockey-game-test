@@ -32,5 +32,22 @@ namespace HockeyGame.Core
 
         /// <summary>A Goal he missed by less than this (Late Margin, seconds) gets a Stick Slap; otherwise a Slump.</summary>
         public double LateMarginLimitSeconds = 0.05;
+
+        // Before the Shot (#70): how the goalie looks while he waits. Shown only: the Round, the race and the Gaps never read
+        // these, so his spot at the Shot and the result are the same with each piece on or off. Each piece has its own switch.
+        /// <summary>His head follows the puck on the shooter's stick; the shoulders take HeadShoulderShare of the turn.</summary>
+        public bool HeadOnPuck = true;
+        public double HeadShoulderShare = 0.15;
+        /// <summary>
+        /// On the skate-in he waits until he is ShuffleStartMetres off the angle, then shuffles over in ShuffleSeconds (game
+        /// seconds), instead of gliding along with the angle. Only the skate-in: the Set-up (a Late Settle's closing too) is unchanged.
+        /// </summary>
+        public bool SkateInShuffles = true;
+        public double ShuffleStartMetres = 0.08;
+        public double ShuffleSeconds = 0.3;
+        /// <summary>Once set (through the slow-down), SetStillness of his Stance Life goes and he sits SetDropMetres lower.</summary>
+        public bool StillOnceSet = true;
+        public double SetStillness = 0.85;
+        public double SetDropMetres = 0.03;
     }
 }

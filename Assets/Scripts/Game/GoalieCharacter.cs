@@ -968,6 +968,27 @@ namespace HockeyGame
             if (Present) GoalieStanceLife.Apply(this, _model, life, weight);
         }
 
+        // ---- Before the Shot (#70, BeforeTheShot) ------------------------------------------------------------------------
+
+        /// <summary>
+        /// Sits the pose shown `metres` lower: the body comes down with the skates kept where they are on the ice (the knees
+        /// bend more) and the stick blade kept on it (the stick hand lifts it back, KeepBladeUp). Shown only: the race measures the Ready
+        /// Stance itself.
+        /// </summary>
+        public void SitLower(float metres)
+        {
+            if (!Present || metres <= 0f) return;
+            Prepare();
+            GoalieStanceLife.SitLower(this, _model, metres);
+            KeepBladeUp();
+        }
+
+        /// <summary>Turns the head toward the puck at `point`, `weight` of the way (at most WatchDegrees), the shoulders taking shoulderShare of the turn.</summary>
+        public void WatchPuck(Vector3 point, float weight, float shoulderShare)
+        {
+            if (Present && weight > 0f) GoalieGestures.Watch(this, _faceLocal, point, weight, WatchDegrees, shoulderShare);
+        }
+
         /// <summary>
         /// What a puck resting at `point` on the goalie moves with as he moves on: the gear piece it lies in or on (the catching
         /// glove holding it), or else the nearest bone. Null without a model, or with the point off the goalie.
@@ -1008,7 +1029,7 @@ namespace HockeyGame
         }
 
         /// <summary>
-        /// A GOAL!'s bend forward would push the stick blade into the ice: the stick hand lifts it back to its stance height,
+        /// A GOAL!'s bend forward (or sitting lower, SitLower) would push the stick blade into the ice: the stick hand lifts it back to its stance height,
         /// keeping its turn (only up, so a lifted stick is left alone).
         /// </summary>
         void KeepBladeUp()

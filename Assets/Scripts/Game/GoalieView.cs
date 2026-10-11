@@ -49,6 +49,9 @@ namespace HockeyGame
         AfterShotGesture _gesture;               // what the goalie does once the puck has got there (AfterShot)
         float _sinceArrival = -1f, _sinceNetting = -1f;
         Vector3 _puck, _post;                    // where the puck is now; the post a Miss glances back at
+        RoundSettings _before;                   // Before the Shot (#70, BeforeTheShot): its switches and sizes; null: none of it
+        Vector3 _puckOnStick;
+        float _watching, _settled;
 
         /// <param name="character">The goalie character; null (or no model) draws the block goalie instead.</param>
         public GoalieView(Transform parent, GoalieCharacter character = null)
@@ -164,9 +167,18 @@ namespace HockeyGame
                 _character.ShowReaction(_set, facing, _gesture, moment, Vector3.Lerp(_puck, _post, (float)moment.Glance));
                 recovered = (float)moment.Recover;
             }
+            // Before the Shot (#70): once set he sits lower and quieter, his head on the puck; each fades as the reaction comes in.
+            float lifeShare = 1f;
+            if (_before != null)
+            {
+                _character.SitLower((float)BeforeTheShot.DropMetres(_settled, _set, _before));
+                lifeShare = (float)BeforeTheShot.LifeShare(_settled, _set, _before);
+            }
             // Stance Life fades out as the reaction comes in (none at all fully reacted: what the Shot measured is what shows)
             // and back in as he recovers into the Ready Stance.
-            _character.Live(StanceLife.At(_life), 1f - _set * (1f - recovered));
+            _character.Live(StanceLife.At(_life), (1f - _set * (1f - recovered)) * lifeShare);
+            if (_before != null)
+                _character.WatchPuck(_puckOnStick, (float)BeforeTheShot.HeadWeight(_watching, _set, _before), (float)_before.HeadShoulderShare);
             if (_carried != null)
             {
                 _carried.position = _carrier.TransformPoint(_carriedAt);
@@ -179,6 +191,19 @@ namespace HockeyGame
         /// breathing, weight shifts and stick taps in the Ready Stance (StanceLife). Shown by the next SetProgress.
         /// </summary>
         public void Live(float seconds) => _life = seconds;
+
+        /// <summary>
+        /// Before the Shot (#70, BeforeTheShot): the puck on the shooter's stick (rink space) his head follows, `watching` of the
+        /// way (BeforeTheShot.Watching); how set he is (BeforeTheShot.Settled); and the RoundSettings switches and sizes of each
+        /// piece (null: none of it). Shown by the next SetProgress. Never reaches the race: it measures the Ready Stance itself.
+        /// </summary>
+        public void ShowBeforeTheShot(Vector3 puck, float watching, float settled, RoundSettings settings)
+        {
+            _puckOnStick = puck;
+            _watching = watching;
+            _settled = settled;
+            _before = settings;
+        }
 
         /// <summary>The facing (degrees, see Face) the goalie character was last shown at.</summary>
         public float ShownFacing { get; private set; }

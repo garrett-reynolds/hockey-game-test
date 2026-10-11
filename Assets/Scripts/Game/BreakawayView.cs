@@ -28,6 +28,8 @@ namespace HockeyGame
         float _gameTime;   // game seconds since the skate-in began (stride bob and roll; the stride sounds use the same clock)
         readonly GoalieTurn _turn = new GoalieTurn(0.0); // the goalie squaring up to the shooter
         GoalieShuffle _shuffle;  // the goalie playing the angle across the crease
+        SkateInShuffles _steps;  // ... in shuffles on the skate-in (#70)
+        RinkPoint _puckOnStick;  // the puck his head follows before the Shot (#70)
         float _lastTarget;       // the facing that squares him up to the puck, as last worked out
         float _life;       // the goalie's Stance Life clock: real seconds, never reset, so it never jumps
 
@@ -39,6 +41,7 @@ namespace HockeyGame
             _camera.GetUniversalAdditionalCameraData().renderPostProcessing = true;
             _look = MakeLookVolume();
             _shuffle = new GoalieShuffle(new RinkPoint(0, 0, -round.Settings.NormalDepthMetres)); // centred, at his normal depth
+            _steps = new SkateInShuffles(_shuffle.Shown);
             _goalie.Stand(ToVector(_shuffle.Shown));
         }
 
@@ -52,7 +55,8 @@ namespace HockeyGame
         {
             RoundPhase phase = _round.Phase;
             double phaseSeconds = _round.PhaseSecondsElapsed;
-            if (phase == RoundPhase.SkateIn && _lastPhase != RoundPhase.SkateIn)
+            bool skateInStarts = phase == RoundPhase.SkateIn && _lastPhase != RoundPhase.SkateIn;
+            if (skateInStarts)
             {
                 _drift = 0f;
                 _gameTime = 0f;
@@ -70,6 +74,15 @@ namespace HockeyGame
             float timeScale = (float)Breakaway.TimeScale(phase, phaseSeconds);
             Time.timeScale = timeScale;
             _look.weight = (float)Breakaway.LookAmount(timeScale);
+
+            // Before the Shot (#70): his head follows the puck (from the Shot on, where it started) and he gets set (BeforeTheShot).
+            RoundSettings settings = _round.Settings;
+            if (phase == RoundPhase.SkateIn || phase == RoundPhase.SlowDown || phase == RoundPhase.ShootingWindow)
+                _puckOnStick = Breakaway.Puck(_round.AttackSide, phase, phaseSeconds, settings);
+            else if (phase == RoundPhase.ResultHold && _round.LastRace.HasValue)
+                _puckOnStick = _round.LastRace.Value.ShotStart;
+            _goalie.ShowBeforeTheShot(ToVector(_puckOnStick), (float)BeforeTheShot.Watching(phase, phaseSeconds, settings),
+                (float)BeforeTheShot.Settled(phase, phaseSeconds, settings), settings);
 
             // On the Shot he moves as the Round's race timed him (Reach in time): what is seen agrees with the result (#63).
             float set = (float)Breakaway.GoalieSet(phase, phaseSeconds, _round.LastResult.HasValue && _round.LastResult.Value.HasShot,
@@ -115,7 +128,12 @@ namespace HockeyGame
             {
                 RinkPoint headedFor = SetUps.Approach(_round.SetUp, side, phase, phaseSeconds, _round.Settings);
                 if (phase == RoundPhase.ShootingWindow) _shuffle.Reset(headedFor);
-                else _shuffle.Step(headedFor, dt);
+                else
+                {
+                    // On the skate-in he plays the angle in shuffles (#70); the slow-down finishes any shuffle, then he settles.
+                    if (skateInStarts) _steps.Reset(headedFor);
+                    _shuffle.Step(_steps.Step(headedFor, dt, phase == RoundPhase.SkateIn && settings.SkateInShuffles, settings), dt);
+                }
                 target = _lastTarget = (float)SetUps.Facing(_shuffle.Shown, Breakaway.Puck(side, phase, phaseSeconds, _round.Settings));
                 _turn.Step(target, dt, phase != RoundPhase.SkateIn);
             }
