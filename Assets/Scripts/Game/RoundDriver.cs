@@ -25,7 +25,7 @@ namespace HockeyGame
         Round _round; // the flow's one Round; each start reuses it
         SaveData _save;
         SettingsScreen _settingsScreen; // made fresh each time F2 opens it (port list refreshed); null when closed
-        GoalieView _goalie; // the goalie character, or the blocks with no model or the forceGoalieBlocks developer flag
+        GoalieView _goalie; // the goalie character, or the block goalie with no model or the forceGoalieBlocks developer flag
         readonly EasyGlow _easyGlow = new EasyGlow(); // the Gaps Easy mode glows, a few cells measured each frame
         ShotEffects _effects;
         UsbShotSource _usb; // real Shots from the electronics
