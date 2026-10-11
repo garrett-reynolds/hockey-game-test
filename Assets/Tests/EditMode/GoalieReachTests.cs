@@ -183,9 +183,7 @@ namespace HockeyGame.Core.Tests
             GoalieCharacterReach port = Port(out _);
             SetUp setUp = SetUp.Of(kind, Post.Left);
             RinkPoint start = Breakaway.ShotStart(side, windowSeconds, Defaults);
-            var watch = System.Diagnostics.Stopwatch.StartNew();
             NetFaceGaps gaps = port.Gaps(setUp, side, windowSeconds, start, 0, NetFaceGaps.Cells);
-            TestContext.WriteLine("Gaps took " + watch.Elapsed.TotalMilliseconds.ToString("0.0") + " ms; " + gaps.Count + " Gaps");
             Assert.Greater(gaps.Count, 0, "a Set-up Mistake leaves some Gap (else this test proves nothing)");
             for (int column = 0; column < NetFaceGaps.Columns; column++)
             for (int row = 0; row < NetFaceGaps.Rows; row++)
