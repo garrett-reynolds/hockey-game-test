@@ -236,6 +236,7 @@ namespace HockeyGame.Core.Tests
             public readonly List<string> Shots = new List<string>(); // per Shot: Set-up, raced spot, reach and result
             public readonly List<string> Failures = new List<string>();
             public double WorstOffAngle, StillFrames;
+            public float WorstSettleStep; // the most he moves in one frame through the slow-down and onto his spot as the window opens
         }
 
         static double OffTheLine(Vector3 spot, RinkPoint puck) =>
@@ -300,6 +301,8 @@ namespace HockeyGame.Core.Tests
                         played.WorstOffAngle = Math.Max(played.WorstOffAngle, OffTheLine(view.ShownSpot, puck));
                         if (view.ShownSpot == lastSpot) played.StillFrames++;
                     }
+                    if (phase == RoundPhase.SlowDown || phase == RoundPhase.ShootingWindow && last != RoundPhase.ShootingWindow)
+                        played.WorstSettleStep = Mathf.Max(played.WorstSettleStep, Vector3.Distance(view.ShownSpot, lastSpot));
                     if (phase == RoundPhase.ShootingWindow && last != RoundPhase.ShootingWindow)
                     {
                         RinkPoint spot = SetUps.Spot(round.SetUp, round.AttackSide, seconds, Breakaway.ShotStart(round.AttackSide, seconds, settings), settings);
@@ -328,7 +331,8 @@ namespace HockeyGame.Core.Tests
             Played off = PlayRound(AllOff());
             foreach (string line in on.Shots) TestContext.Out.WriteLine(line);
             TestContext.Out.WriteLine("shuffles on: worst off the angle " + on.WorstOffAngle.ToString("F3") + " m, " + on.StillFrames
-                + " still frames; off: " + off.WorstOffAngle.ToString("F4") + " m, " + off.StillFrames + " still frames");
+                + " still frames; off: " + off.WorstOffAngle.ToString("F4") + " m, " + off.StillFrames + " still frames; worst settle step "
+                + on.WorstSettleStep.ToString("F4") + " m on, " + off.WorstSettleStep.ToString("F4") + " m off");
 
             Assert.IsEmpty(on.Failures, string.Join("\n", on.Failures));
             Assert.IsEmpty(off.Failures, string.Join("\n", off.Failures));
@@ -336,6 +340,8 @@ namespace HockeyGame.Core.Tests
             // The shuffles show on the skate-in, never further off the angle than he waits (plus the angle's slide in a frame).
             Assert.Less(on.WorstOffAngle, 0.09, "within 8 cm of the angle");
             Assert.Greater(on.StillFrames, off.StillFrames + 30, "he waits between shuffles");
+            // The slow-down finishes a shuffle smoothly: no jump onto his spot as the window opens.
+            Assert.LessOrEqual(on.WorstSettleStep, off.WorstSettleStep + 0.001f, "no bigger step than gliding (" + on.WorstSettleStep + " vs " + off.WorstSettleStep + " m)");
         }
     }
 }
