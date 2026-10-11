@@ -13,11 +13,12 @@ namespace HockeyGame.Editor
     /// a GoalieCharacter) and prints the Goals per Round, by Set-up and by speed band, for a random shooter and a Gap-reading
     /// shooter. Used to tune toward 1 Goal in 3 Shots for a Gap-reader (RoundSettings).
     /// <para>
-    /// The random shooter aims anywhere on the Net Face. The Gap-reader probes the same IGoalieReach race over a grid of Net
-    /// Face points, aims at the one with the biggest expected Late Margin for this Set-up (at the nominal Reaction Time), then adds
-    /// aim noise; a noisy Shot that leaves the Net Face is a Miss. Both shoot at a random speed and a random time in the window.
+    /// The random shooter aims anywhere on the Net Face. The Gap-reader aims at a Gap: of the cells the goalie-reach port calls
+    /// Gaps (IGoalieReach.Gaps, the cells Easy mode glows), the centre of the one with the biggest Late Margin in Round's own race
+    /// (ShotRace.At, at the nominal Reaction Time). Then it adds aim noise; a noisy Shot that leaves the Net Face is a Miss. Both
+    /// shoot at a random speed and a random time in the window. The report says how many Gap-reader Shots had no Gap to aim at.
     /// </para>
-    /// Run from the menu (Hockey Game/Measure Goal Rate), or from the CLI: Unity -batchmode -projectPath ... -executeMethod
+    /// Run from the menu (Hockey Game/Measure Goal Rate), or from the CLI: Unity -batchmode -quit -projectPath ... -executeMethod
     /// HockeyGame.Editor.GoalRateTool.RunFromCommandLine [-goalRounds N] [-goalSeed N] [-goalNoise units] -logFile ...
     /// </summary>
     public static class GoalRateTool
@@ -27,7 +28,6 @@ namespace HockeyGame.Editor
         /// <summary>Standard deviation of the Gap-reader's aim noise, in Net Face units (the Net Face is 0 to 100 each way).</summary>
         public const double DefaultAimNoise = 8;
 
-        const int GridSize = 10; // probe points at 5, 15, ... 95 on each axis
         static readonly double[] ShotTimes = { 0.0, 1.0, 2.0, 2.9 }; // seconds into the shooting window
         static readonly double[] BandEdges = { 10, 50, 90, 130, 170, 200 }; // km/h; the last band includes 200
 
@@ -56,6 +56,8 @@ namespace HockeyGame.Editor
         {
             public string Shooter;
             public int Rounds, Shots, Goals, Saves, Misses;
+            /// <summary>Gap-reader only: Shots aimed at a Gap, and Shots with no Gap to aim at (aimed at the best-margin cell).</summary>
+            public int AimedAtGap, NoGap;
             public readonly Dictionary<string, int[]> BySetUp = new Dictionary<string, int[]>(); // { shots, goals }
             public readonly int[] BandShots = new int[BandEdges.Length - 1];
             public readonly int[] BandGoals = new int[BandEdges.Length - 1];
@@ -82,8 +84,9 @@ namespace HockeyGame.Editor
                 var character = new GoalieCharacter(root.transform);
                 var report = new Report { Rounds = rounds, Seed = seed, AimNoise = aimNoise };
                 var reach = new GoalieCharacterReach(character, settings);
-                report.Random = Play("Random", rounds, seed, settings, reach, aimNoise, false);
-                report.GapReader = Play("Gap-reader", rounds, seed, settings, reach, aimNoise, true);
+                var remembered = new RememberedReach(reach); // for the Gap-reader's aim; Round asks the port itself
+                report.Random = Play("Random", rounds, seed, settings, reach, remembered, aimNoise, false);
+                report.GapReader = Play("Gap-reader", rounds, seed, settings, reach, remembered, aimNoise, true);
                 report.Text = Format(report, character.Present);
                 return report;
             }
@@ -100,12 +103,44 @@ namespace HockeyGame.Editor
             public double Next() => _random.NextDouble();
         }
 
-        static Tally Play(string shooter, int rounds, int seed, RoundSettings settings, IGoalieReach reach, double aimNoise, bool readsGaps)
+        /// <summary>
+        /// The port's answers, remembered: they hang only on the Set-up, the Attack Side, the time in the window and the Net Face
+        /// point (the Shot start follows from the side and the time), never on the speed, and the Gap-reader asks the same ones
+        /// over and over.
+        /// </summary>
+        sealed class RememberedReach : IGoalieReach
+        {
+            readonly IGoalieReach _reach;
+            readonly Dictionary<(SetUp, AttackSide, double, double, double, double), GoalieReachAnswer> _answers =
+                new Dictionary<(SetUp, AttackSide, double, double, double, double), GoalieReachAnswer>();
+            readonly Dictionary<(SetUp, AttackSide, double, int, int), NetFaceGaps> _gaps =
+                new Dictionary<(SetUp, AttackSide, double, int, int), NetFaceGaps>();
+
+            public RememberedReach(IGoalieReach reach) { _reach = reach; }
+
+            public GoalieReachAnswer Reach(SetUp setUp, AttackSide side, double secondsSinceWindowOpened, RinkPoint shotStart, RinkPoint netPoint)
+            {
+                var key = (setUp, side, secondsSinceWindowOpened, netPoint.X, netPoint.Y, netPoint.Z);
+                if (!_answers.TryGetValue(key, out GoalieReachAnswer answer))
+                    _answers[key] = answer = _reach.Reach(setUp, side, secondsSinceWindowOpened, shotStart, netPoint);
+                return answer;
+            }
+
+            public NetFaceGaps Gaps(SetUp setUp, AttackSide side, double secondsSinceWindowOpened, RinkPoint shotStart, int firstCell, int cellCount)
+            {
+                var key = (setUp, side, secondsSinceWindowOpened, firstCell, cellCount);
+                if (!_gaps.TryGetValue(key, out NetFaceGaps gaps))
+                    _gaps[key] = gaps = _reach.Gaps(setUp, side, secondsSinceWindowOpened, shotStart, firstCell, cellCount);
+                return gaps;
+            }
+        }
+
+        static Tally Play(string shooter, int rounds, int seed, RoundSettings settings, IGoalieReach reach, IGoalieReach aimReach,
+            double aimNoise, bool readsGaps)
         {
             var tally = new Tally { Shooter = shooter };
             var roundRandom = new SystemRandom(seed);
             var shooterRandom = new System.Random(seed + 7919); // the shooter's own: speed, time, aim noise
-            var probes = new Dictionary<(SetUp, AttackSide, double, int), GoalieReachAnswer>();
             var round = new Round(roundRandom, settings, reach, 0);
             for (int r = 0; r < rounds; r++)
             {
@@ -119,7 +154,8 @@ namespace HockeyGame.Editor
                     double x, y;
                     if (readsGaps)
                     {
-                        AimAtBiggestGap(round, settings, reach, probes, speed, out x, out y);
+                        if (AimAtAGap(round, settings, aimReach, speed, out x, out y)) tally.AimedAtGap++;
+                        else tally.NoGap++;
                         x += aimNoise * Gaussian(shooterRandom);
                         y += aimNoise * Gaussian(shooterRandom);
                     }
@@ -137,31 +173,36 @@ namespace HockeyGame.Editor
             return tally;
         }
 
-        /// <summary>The probe grid point with the biggest expected Late Margin (Reach Time minus Flight Time, at the nominal Reaction Time).</summary>
-        static void AimAtBiggestGap(Round round, RoundSettings settings, IGoalieReach reach,
-            Dictionary<(SetUp, AttackSide, double, int), GoalieReachAnswer> probes, double speedKmh, out double bestX, out double bestY)
+        /// <summary>
+        /// Where the Gap-reader aims: the centre of the Gap (IGoalieReach.Gaps, the cells Easy mode glows) with the biggest Late
+        /// Margin in Round's race (ShotRace.At) at the nominal Reaction Time; among Gaps no gear can reach (an endless Late Margin),
+        /// the one the puck gets to soonest. With no Gap at all, it falls back to the Net Face cell with the biggest Late Margin
+        /// (the old best-margin aim, on the Gaps' cells). True when it aimed at a Gap.
+        /// </summary>
+        static bool AimAtAGap(Round round, RoundSettings settings, IGoalieReach reach, double speedKmh, out double bestX, out double bestY)
         {
             double t = round.PhaseSecondsElapsed;
             RinkPoint from = Breakaway.ShotStart(round.AttackSide, t, settings);
-            RinkPoint spot = SetUps.Spot(round.SetUp, round.AttackSide, t, from, settings);
-            double best = double.NegativeInfinity;
+            NetFaceGaps gaps = reach.Gaps(round.SetUp, round.AttackSide, t, from, 0, NetFaceGaps.Cells);
+            bool anyGap = gaps.Count > 0;
+            double best = double.NegativeInfinity, bestFlight = double.PositiveInfinity;
             bestX = bestY = 50;
-            for (int i = 0; i < GridSize * GridSize; i++)
+            for (int row = 0; row < NetFaceGaps.Rows; row++)
+            for (int column = 0; column < NetFaceGaps.Columns; column++)
             {
-                double x = 5 + 10 * (i % GridSize), y = 5 + 10 * (i / GridSize);
-                var key = (round.SetUp, round.AttackSide, t, i);
-                if (!probes.TryGetValue(key, out GoalieReachAnswer answer))
-                    probes[key] = answer = reach.Reach(round.SetUp, round.AttackSide, t, from, RinkPoint.OnNetFace(x, y));
-                double flight = ShotFlight.Seconds(RinkPoint.Distance(from, RinkPoint.AtDepth(from, RinkPoint.OnNetFace(x, y), spot.Z)), speedKmh);
-                double expectedReach = answer.InTheWay ? 0 : settings.ReactionSeconds + answer.MoveSeconds;
-                double margin = double.IsPositiveInfinity(expectedReach) ? 1e6 - flight : expectedReach - flight; // no gear can reach: the biggest gap there is
-                if (margin > best)
+                if (anyGap && !gaps.IsGap(column, row)) continue;
+                NetFaceGaps.CellCentre(column, row, out double x, out double y);
+                ShotRace race = ShotRace.At(round.SetUp, round.AttackSide, t, x, y, speedKmh, settings.ReactionSeconds, reach, settings);
+                double margin = race.LateMarginSeconds;
+                if (margin > best || (margin == best && race.FlightSeconds < bestFlight))
                 {
                     best = margin;
+                    bestFlight = race.FlightSeconds;
                     bestX = x;
                     bestY = y;
                 }
             }
+            return anyGap;
         }
 
         static double Gaussian(System.Random random)
@@ -199,6 +240,8 @@ namespace HockeyGame.Editor
             {
                 sb.Append(string.Format(inv, "{0}: {1:0.00} Goals per Round ({2:0.0%} of Shots); {3} Goals, {4} Saves, {5} Misses\n",
                     t.Shooter, t.GoalsPerRound, t.GoalRate, t.Goals, t.Saves, t.Misses));
+                if (t.AimedAtGap + t.NoGap > 0)
+                    sb.Append(string.Format(inv, "  aimed at a Gap on {0} Shots; no Gap to aim at on {1} (aimed at the best-margin cell)\n", t.AimedAtGap, t.NoGap));
                 foreach (SetUpKind kind in Enum.GetValues(typeof(SetUpKind)))
                     if (t.BySetUp.TryGetValue(kind.ToString(), out int[] c))
                         sb.Append(string.Format(inv, "  Set-up {0,-10} {1:0.0%} ({2} of {3})\n", kind, (double)c[1] / c[0], c[1], c[0]));
