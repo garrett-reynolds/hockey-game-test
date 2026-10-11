@@ -16,7 +16,7 @@ namespace HockeyGame
     /// </summary>
     public sealed class GoalieCharacter
     {
-        /// <summary>Where the goalie stands: centred on the net, this far in front of the Net Face (metres, -z is toward the shooter).</summary>
+        /// <summary>Where the goalie stands until he is placed (Spot): centred on the net, this far in front of the Net Face (metres, -z is toward the shooter).</summary>
         public const float StandZ = -0.4f;
         /// <summary>The furthest the goalie pushes across the crease to reach a Shot (metres, either way).</summary>
         public const float MaxSlide = 0.6f;
@@ -105,8 +105,18 @@ namespace HockeyGame
             root.localPosition = _spot + hips - turn * hips;
         }
 
-        /// <summary>Where the goalie stands in the crease (rink space, on the ice): centred on the net, StandZ out. MeasureReach moves it for a while.</summary>
+        /// <summary>Where the goalie stands in the crease (rink space, on the ice): centred on the net, StandZ out, until Spot moves it. MeasureReach moves it for a while.</summary>
         Vector3 _spot = new Vector3(0f, 0f, StandZ);
+
+        /// <summary>
+        /// Where the goalie stands in the crease (rink space, on the ice; y is dropped): the spot he turns about. He plays
+        /// the angle by moving it (BreakawayView). Shown, and used by the next React, from the next ShowReaction.
+        /// </summary>
+        public Vector3 Spot
+        {
+            get => _spot;
+            set => _spot = new Vector3(value.x, 0f, value.z);
+        }
 
         /// <summary>
         /// The facing (GoalieTurn) that squares the goalie up to a shooter at this point (rink space: Net Face at z = 0,

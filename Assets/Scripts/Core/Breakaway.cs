@@ -142,11 +142,29 @@ namespace HockeyGame.Core
         /// (as ShotEffects starts it), the eye at the skate-in's stop drifted on toward the net, looking at the Net Face centre.
         /// Leaves out the stride bob and roll (a few centimetres).
         /// </summary>
-        public static RinkPoint ShotStart(AttackSide side, double windowSeconds, RoundSettings settings)
+        public static RinkPoint ShotStart(AttackSide side, double windowSeconds, RoundSettings settings) =>
+            PuckBelowEye(1.0, Drift(side, settings.SlowDownSeconds, windowSeconds, settings), side);
+
+        /// <summary>
+        /// Where the puck is on the approach, phaseSeconds (real) into the skate-in, the slow-down or the shooting window: just
+        /// below the shooter's eye, as ShotStart (in the window it is ShotStart). The goalie plays the angle to it (SetUps.Approach).
+        /// </summary>
+        public static RinkPoint Puck(AttackSide side, RoundPhase phase, double phaseSeconds, RoundSettings settings)
         {
-            SkatePoint(side, 1.0, out double x, out double distance);
+            switch (phase)
+            {
+                case RoundPhase.SkateIn: return PuckBelowEye(SkateProgress(phaseSeconds, settings), 0, side);
+                case RoundPhase.SlowDown: return PuckBelowEye(1.0, Drift(side, phaseSeconds, 0, settings), side);
+                default: return ShotStart(side, phaseSeconds, settings);
+            }
+        }
+
+        /// <summary>The puck below the shooter's eye at skate progress u, drifted on toward the net (metres, capped).</summary>
+        static RinkPoint PuckBelowEye(double u, double drift, AttackSide side)
+        {
+            SkatePoint(side, u, out double x, out double distance);
             double toNet = Math.Sqrt(x * x + distance * distance);
-            double along = CappedDrift(Drift(side, settings.SlowDownSeconds, windowSeconds, settings), toNet);
+            double along = CappedDrift(drift, toNet);
             double eyeX = x - x / toNet * along, eyeZ = -distance + distance / toNet * along, eyeY = EyeHeight;
 
             // Looking at the Net Face centre (as Transform.LookAt): forward, then right = up x forward, then camera-up = forward x right.

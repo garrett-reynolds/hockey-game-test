@@ -142,6 +142,7 @@ namespace HockeyGame
             }
             if (isNew)
             {
+                if (round.LastRace.HasValue) _goalie?.StandFor(round.LastRace.Value); // he reacts from where the race measured him
                 Play(round.LastResult.Value, round.LastRace?.SaveReaction);
                 if (_stage == Stage.Flying) round.DelayResult(_flightSeconds);
                 // The puck starts where it is on the Shot frame, with the Round's result-hold clock at 0, whichever way the

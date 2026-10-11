@@ -201,7 +201,7 @@ namespace HockeyGame.Core
             double move = answer.InTheWay ? 0 : answer.MoveSeconds;
             double reach = answer.InTheWay ? 0 : ReactionSeconds + move;
             SaveReaction shown = answer.InTheWay || !answer.QuickestGear.HasValue ? SaveReactions.For(x, y) : answer.QuickestGear.Value;
-            return new ShotRace(SetUp, AttackSide, ReactionSeconds, move, reach, flight, answer.InTheWay, shown);
+            return new ShotRace(SetUp, AttackSide, ReactionSeconds, move, reach, flight, answer.InTheWay, shown, from, spot);
         }
 
         /// <summary>A new Shot: its Goalie Pose (and so Attack Side), its Set-up and its Reaction Time, in the roll order.</summary>

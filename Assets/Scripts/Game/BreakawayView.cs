@@ -8,7 +8,7 @@ namespace HockeyGame
     /// <summary>
     /// The breakaway feel, driven by what the Round core reports: the camera skates in and curls toward the net,
     /// the world slows down with a grey, high-contrast, vignetted look while the goalie waits in its Ready Stance, and a
-    /// red ring around the net drains over the shooting window. The goalie turns to face the shooter as they come in. A Shot
+    /// red ring around the net drains over the shooting window. The goalie plays the angle and turns to face the shooter as they come in. A Shot
     /// snaps time and look back to normal, and the goalie reacts to the Shot (its Save Reaction) at the shooter's angle.
     /// The goalie's Stance Life runs on real time throughout, so he stays alive through the slow-down. Sets Time.timeScale; the Round core keeps ticking on unscaled real time.
     /// </summary>
@@ -27,6 +27,8 @@ namespace HockeyGame
         float _drift;      // metres drifted toward the net since the skate-in ended (scaled time)
         float _gameTime;   // game seconds since the skate-in began (stride bob and roll; the stride sounds use the same clock)
         readonly GoalieTurn _turn = new GoalieTurn(0.0); // the goalie squaring up to the shooter
+        GoalieShuffle _shuffle;  // the goalie playing the angle across the crease
+        float _lastTarget;       // the facing that squares him up to the puck, as last worked out
         float _life;       // the goalie's Stance Life clock: real seconds, never reset, so it never jumps
 
         public void Init(Round round, Camera shooterCamera, GoalieView goalie)
@@ -36,6 +38,8 @@ namespace HockeyGame
             _goalie = goalie;
             _camera.GetUniversalAdditionalCameraData().renderPostProcessing = true;
             _look = MakeLookVolume();
+            _shuffle = new GoalieShuffle(new RinkPoint(0, 0, -round.Settings.NormalDepthMetres)); // centred, at his normal depth
+            _goalie.Stand(ToVector(_shuffle.Shown));
         }
 
         void LateUpdate()
@@ -88,19 +92,41 @@ namespace HockeyGame
 
             double u = phase == RoundPhase.SkateIn ? Breakaway.SkateProgress(phaseSeconds, _round.Settings) : 1.0;
             Breakaway.SkatePoint(side, u, out double x, out double distance);
-            Vector3 ground = PlaceCamera((float)x, (float)distance);
+            PlaceCamera((float)x, (float)distance);
 
-            // The goalie squares up to the shooter: shuffles round during the skate-in, follows closely through the slow-down
-            // and window (game time), and holds still from the Shot on (the camera stops too, so the target the save was
-            // measured on stays put while the goalie reacts, at that angle, to where the Shot goes: never showing the Goalie Pose).
-            float target = GoalieCharacter.FacingToward(ground);
-            if (phase != RoundPhase.ResultHold) _turn.Step(target, dt, phase != RoundPhase.SkateIn);
+            // The goalie plays the angle (SetUps.Approach): he shuffles across on the line from the puck to the net centre through
+            // the skate-in, settles into his Set-up through the slow-down, and stands on his Set-up spot through the window. He
+            // squares up to the puck: turning round during the skate-in, following closely through the slow-down and window
+            // (game time). From the Shot on he holds still where the race measured him (the camera stops too), reacting at that
+            // angle to where the Shot goes.
+            float target;
+            if (phase == RoundPhase.ResultHold)
+            {
+                if (_round.LastRace.HasValue)
+                {
+                    ShotRace race = _round.LastRace.Value;
+                    _shuffle.Reset(race.Spot);
+                    _lastTarget = (float)SetUps.Facing(race.Spot, race.ShotStart);
+                }
+                target = _lastTarget; // no Shot in time: he stays as the window ended
+            }
+            else
+            {
+                RinkPoint headedFor = SetUps.Approach(_round.SetUp, side, phase, phaseSeconds, _round.Settings);
+                if (phase == RoundPhase.ShootingWindow) _shuffle.Reset(headedFor);
+                else _shuffle.Step(headedFor, dt);
+                target = _lastTarget = (float)SetUps.Facing(_shuffle.Shown, Breakaway.Puck(side, phase, phaseSeconds, _round.Settings));
+                _turn.Step(target, dt, phase != RoundPhase.SkateIn);
+            }
+            _goalie.Stand(ToVector(_shuffle.Shown));
             _goalie.Face((float)_turn.Shown, target);
             _goalie.SetProgress(set);
         }
 
-        /// <summary>Places the camera; returns its spot on the ice (before the stride bob).</summary>
-        Vector3 PlaceCamera(float x, float distance)
+        static Vector3 ToVector(RinkPoint p) => new Vector3((float)p.X, (float)p.Y, (float)p.Z);
+
+        /// <summary>Places the camera: the shooter's eye on the skate-in at (x, distance out), drifted on toward the net.</summary>
+        void PlaceCamera(float x, float distance)
         {
             // Unity: the Net Face is at z = 0 and the shooter stands at -z.
             var ground = new Vector3(x, 0f, -distance);
@@ -114,7 +140,6 @@ namespace HockeyGame
             t.LookAt(NetCentre);
             float rollDegrees = (float)Breakaway.Roll(_gameTime) * Mathf.Rad2Deg;
             t.Rotate(0f, 0f, rollDegrees, Space.Self);
-            return ground;
         }
 
         Volume MakeLookVolume()

@@ -137,6 +137,22 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void The_race_publishes_the_shot_start_and_the_Set_up_spot_the_port_measured_so_the_goalie_is_shown_there()
+        {
+            var settings = Fixed();
+            var reach = FakeReach.NeverReaches();
+            var round = InWindow(reach, settings, windowSeconds: 1.25, random: ScriptedRandom.Forcing(GoaliePose.RightPostHug));
+            round.SubmitShot(60, 40, 100, false);
+
+            FakeReach.Ask ask = reach.Asks[0];
+            ShotRace race = round.LastRace.Value;
+            Assert.AreEqual(0, RinkPoint.Distance(ask.ShotStart, race.ShotStart), 1e-12);
+            RinkPoint portSpot = SetUps.Spot(ask.SetUp, ask.Side, ask.SecondsSinceWindowOpened, ask.ShotStart, settings);
+            Assert.AreEqual(0, RinkPoint.Distance(portSpot, race.Spot), 1e-12);
+            Assert.AreEqual(-settings.NormalDepthMetres, race.Spot.Z, 1e-12);
+        }
+
+        [Test]
         public void The_Flight_Time_runs_from_the_shot_start_to_where_the_puck_passes_the_goalie_at_his_depth()
         {
             var settings = Fixed();

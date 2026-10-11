@@ -20,6 +20,10 @@ namespace HockeyGame.Core
         public bool InTheWay { get; }
         /// <summary>The Save Reaction to show: the Shot point's when his gear was in the way, else the quickest gear in the race.</summary>
         public SaveReaction SaveReaction { get; }
+        /// <summary>Where the puck started (Breakaway.ShotStart).</summary>
+        public RinkPoint ShotStart { get; }
+        /// <summary>The goalie's Set-up spot at the Shot (SetUps.Spot): where the race measured him, so where he reacts from.</summary>
+        public RinkPoint Spot { get; }
 
         /// <summary>How late he was: Reach Time minus Flight Time (seconds; 0 or less on a Save).</summary>
         public double LateMarginSeconds => ReachSeconds - FlightSeconds;
@@ -28,7 +32,7 @@ namespace HockeyGame.Core
         public bool IsSave => ReachSeconds <= FlightSeconds;
 
         public ShotRace(SetUp setUp, AttackSide attackSide, double reactionSeconds, double moveSeconds, double reachSeconds,
-            double flightSeconds, bool inTheWay, SaveReaction saveReaction)
+            double flightSeconds, bool inTheWay, SaveReaction saveReaction, RinkPoint shotStart, RinkPoint spot)
         {
             SetUp = setUp;
             AttackSide = attackSide;
@@ -38,6 +42,8 @@ namespace HockeyGame.Core
             FlightSeconds = flightSeconds;
             InTheWay = inTheWay;
             SaveReaction = saveReaction;
+            ShotStart = shotStart;
+            Spot = spot;
         }
     }
 }

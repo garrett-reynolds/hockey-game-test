@@ -151,8 +151,30 @@ namespace HockeyGame
             PoseCharacter();
         }
 
-        /// <summary>The facing the reaction ends at: the target, within the turn cap (GoalieTurn.MaxDegrees).</summary>
-        float PosedFacing() => Mathf.Clamp(_target, -(float)GoalieTurn.MaxDegrees, (float)GoalieTurn.MaxDegrees);
+        /// <summary>The facing the reaction ends at, and React builds it at: the target, within the turn cap (GoalieTurn.MaxDegrees).</summary>
+        public float PosedFacing() => Mathf.Clamp(_target, -(float)GoalieTurn.MaxDegrees, (float)GoalieTurn.MaxDegrees);
+
+        /// <summary>
+        /// Where the goalie character stands in the crease (rink space, on the ice): he plays the angle and gets set by moving it
+        /// (BreakawayView). Shown by the next SetProgress; the next React builds the reaction there. The blocks never move.
+        /// </summary>
+        public void Stand(Vector3 spot)
+        {
+            if (_character != null) _character.Spot = spot;
+        }
+
+        /// <summary>Where the goalie character stands (see Stand); zero without a character.</summary>
+        public Vector3 ShownSpot => _character != null ? _character.Spot : Vector3.zero;
+
+        /// <summary>
+        /// On the Shot, before React: the goalie stands where the Round's race measured him (its Set-up spot) and is squared up
+        /// to where the puck started, so the reaction shown is the one that decided the Shot.
+        /// </summary>
+        public void StandFor(ShotRace race)
+        {
+            Stand(new Vector3((float)race.Spot.X, 0f, (float)race.Spot.Z));
+            _target = (float)SetUps.Facing(race.Spot, race.ShotStart);
+        }
 
         void PoseCharacter()
         {

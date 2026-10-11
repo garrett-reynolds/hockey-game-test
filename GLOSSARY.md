@@ -85,7 +85,7 @@ The rule that decides a Shot on the Net Face: a Save when the Reach Time is no l
 _Avoid_: Save chance, Contested roll
 
 **Ready Stance**:
-The goalie's crouch before the Shot, the same for every Goalie Pose and Attack Side. The goalie holds it through the skate-in and slow-down, reacts out of it on the Shot, and keeps it when there is no Shot in time. In it the goalie turns on its spot to face the shooter (up to 30 degrees either way) and, once Set-ups replace Goalie Poses, shuffles across and in or out to get set, and it keeps that turn through its reaction. In it he shows Stance Life; the goalie character also stands in it on the start and end screens.
+The goalie's crouch before the Shot, the same for every Goalie Pose and Attack Side. The goalie holds it through the skate-in and slow-down, reacts out of it on the Shot, and keeps it when there is no Shot in time. In it the goalie turns on its spot to face the shooter (up to 30 degrees either way) and, shuffles across and in or out to play the angle and get set into his Set-up, and it keeps that turn through its reaction. In it he shows Stance Life; the goalie character also stands in it on the start and end screens.
 _Avoid_: Neutral pose, idle pose
 
 **Save Reaction**:
