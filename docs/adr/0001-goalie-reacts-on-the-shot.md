@@ -1,5 +1,7 @@
 # The goalie reacts on the Shot instead of showing its pose first
 
+_Superseded by [docs/adr/0003](0003-reach-in-time-decides-the-shot.md): Reach in time decides the Shot, not a hidden Goalie Pose, and the Set-up is a visible hint before the Shot._
+
 _What the goalie reacts into changed in docs/adr/0002: a Save Reaction to where the Shot goes, not the Goalie Pose. The timing below still holds._
 
 The goalie used to move into the Round's Goalie Pose during the slow-down, so the player read the gap and shot at it. Garrett changed this on 2026-10-09: the goalie holds the Ready Stance through the skate-in and slow-down, and only on the Shot does it react into the Goalie Pose, so the player gets no hint of the pose before shooting. The Goalie Pose still decides every Shot exactly as before; only when the character shows it changed. Easy mode's green glow on the Open Zones still shows before the Shot, as the deliberate help for that mode.

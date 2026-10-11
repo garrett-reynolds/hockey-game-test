@@ -9,9 +9,8 @@ namespace HockeyGame
     /// The rigged goalie character: a life-size Humanoid model (Assets/Resources/Models/goalie-dressing.fbx, built by
     /// Tools/make_lifelike_goalie.py) wearing jersey, pants and socks that bend with its skin, and gear (pads, blocker,
     /// catcher, stick, mask, skates) parented to its bones in the file, so the gear follows every joint.
-    /// It stands at the net in a neutral Ready Stance and is hidden until shown. It decides nothing: the Round's hidden
-    /// Goalie Pose decides every Shot. On the Shot it moves into a Save Reaction chosen from where the Shot goes (React),
-    /// with the reaction's gear reaching the puck's line (see docs/adr/0002). With no model file, Present is false and the
+    /// It stands at the net in a neutral Ready Stance and is hidden until shown. On the Shot it moves into the Save Reaction the
+    /// Round's race gives (React), with the reaction's gear reaching the puck's line (see docs/adr/0003). With no model file, Present is false and the
     /// character draws nothing.
     /// </summary>
     public sealed class GoalieCharacter

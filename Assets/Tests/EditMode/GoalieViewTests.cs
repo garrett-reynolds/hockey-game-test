@@ -25,19 +25,16 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void With_the_character_the_blocks_stay_in_the_scene_but_are_not_drawn_and_the_character_shows_instead()
+        public void With_the_character_the_goalie_block_is_not_drawn_and_the_character_shows_instead()
         {
             var character = new GoalieCharacter(_parent.transform);
             var view = new GoalieView(_parent.transform, character);
-            view.Show(true, GoaliePose.MiddleStandUp);
+            view.Show(true);
 
-            Transform blocks = Group("Goalie MiddleStandUp");
-            Assert.IsTrue(blocks.gameObject.activeInHierarchy, "the blocks are still there, as the rules reference");
-            Assert.Greater(blocks.GetComponentsInChildren<Renderer>().Length, 0);
-            Assert.IsFalse(AnyDrawn(blocks), "the blocks are hidden");
+            Assert.IsFalse(AnyDrawn(Group(GoalieView.BlockName)), "the goalie block is hidden");
             Assert.IsTrue(character.Root.activeInHierarchy, "the character shows");
 
-            view.Show(false, GoaliePose.MiddleStandUp);
+            view.Show(false);
             Assert.IsFalse(character.Root.activeInHierarchy, "the character hides with the goalie");
         }
 
@@ -45,7 +42,7 @@ namespace HockeyGame.Core.Tests
         public void Easy_mode_glow_still_shows_with_the_character()
         {
             var view = new GoalieView(_parent.transform, new GoalieCharacter(_parent.transform));
-            view.Show(true, GoaliePose.MiddleButterfly);
+            view.Show(true);
             view.ShowGaps(NetFaceGaps.Where((x, y) => x > 70));
             Transform glow = Group("Gap glow");
             Assert.IsTrue(glow.gameObject.activeInHierarchy);
@@ -53,36 +50,36 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void Without_the_character_model_the_blocks_show_as_before()
+        public void Without_the_character_model_the_goalie_block_shows()
         {
             var character = new GoalieCharacter(_parent.transform, name => null);
             var view = new GoalieView(_parent.transform, character);
-            view.Show(true, GoaliePose.LeftButterfly);
-            Assert.IsTrue(AnyDrawn(Group("Goalie LeftButterfly")));
+            view.Show(true);
+            Assert.IsTrue(AnyDrawn(Group(GoalieView.BlockName)));
 
             var noCharacter = new GoalieView(_parent.transform);
-            Assert.DoesNotThrow(() => noCharacter.Show(true, GoaliePose.LeftButterfly));
+            Assert.DoesNotThrow(() => noCharacter.Show(true));
         }
 
         [Test]
-        public void Before_the_Shot_every_pose_shows_the_same_ready_stance()
+        public void The_goalie_block_stands_across_the_Net_Face_where_the_goalie_stands_and_hides_with_him()
         {
-            var reference = new GoalieCharacter(new GameObject("Reference").transform);
-            var character = new GoalieCharacter(_parent.transform);
-            var view = new GoalieView(_parent.transform, character);
-            reference.ShowReaction(0f);
-            foreach (GoaliePose pose in System.Enum.GetValues(typeof(GoaliePose)))
-            {
-                view.Show(true, pose);
-                view.SetProgress(0f);
-                foreach (var bone in new[] { HumanBodyBones.Hips, HumanBodyBones.LeftLowerLeg, HumanBodyBones.RightLowerLeg, HumanBodyBones.LeftHand, HumanBodyBones.RightHand })
-                {
-                    Transform mine = character.Bone(bone), theirs = reference.Bone(bone);
-                    Assert.AreEqual(0f, Vector3.Distance(theirs.position - reference.Root.transform.position, mine.position - character.Root.transform.position), 0.001f, pose + " " + bone + " position");
-                    Assert.AreEqual(0f, Quaternion.Angle(theirs.rotation, mine.rotation), 0.01f, pose + " " + bone + " rotation");
-                }
-            }
-            Object.DestroyImmediate(reference.Root.transform.parent.gameObject);
+            var view = new GoalieView(_parent.transform);
+            view.Show(true);
+            Transform block = Group(GoalieView.BlockName);
+            Vector3 before = block.position;
+            view.Stand(new Vector3(0.3f, 0f, -0.6f));
+            Assert.IsTrue(AnyDrawn(block));
+            Assert.AreEqual(0.3f, block.position.x, 1e-5f, "across with his spot");
+            Assert.AreEqual(before.y, block.position.y, 1e-5f, "on the ice as before");
+            Assert.AreEqual(before.z, block.position.z, 1e-5f, "still just in front of the Net Face");
+            Assert.AreEqual(0.3f, view.ShownSpot.x, 1e-5f);
+
+            view.Stand(new Vector3(-0.25f, 0f, -0.6f));
+            Assert.AreEqual(-0.25f, block.position.x, 1e-5f);
+
+            view.Show(false);
+            Assert.IsFalse(block.gameObject.activeInHierarchy, "hidden with the goalie");
         }
 
         [Test]
@@ -101,7 +98,7 @@ namespace HockeyGame.Core.Tests
             var character = new GoalieCharacter(_parent.transform);
             var view = new GoalieView(_parent.transform, character);
             Transform hips = character.Bone(HumanBodyBones.Hips), referenceHips = reference.Bone(HumanBodyBones.Hips);
-            view.Show(true, GoaliePose.MiddleStandUp);
+            view.Show(true);
             reference.ShowReaction(0f);
 
             void AssertTurned(float degrees, string why)
@@ -127,7 +124,7 @@ namespace HockeyGame.Core.Tests
         {
             var character = new GoalieCharacter(_parent.transform);
             var view = new GoalieView(_parent.transform, character);
-            view.Show(true, GoaliePose.MiddleStandUp);
+            view.Show(true);
             view.SetProgress(0f);
             Transform left = character.Bone(HumanBodyBones.LeftUpperArm), right = character.Bone(HumanBodyBones.RightUpperArm);
             Transform hips = character.Bone(HumanBodyBones.Hips);
@@ -169,30 +166,18 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void A_save_reaction_comes_from_the_Shot_point_alone_whatever_the_Goalie_Pose()
+        public void Without_a_Save_Reaction_from_the_race_a_save_reaction_comes_from_the_Shot_point()
         {
             var character = new GoalieCharacter(_parent.transform);
             var view = new GoalieView(_parent.transform, character);
             var from = new Vector3(0f, 1.15f, -9f);
+            view.Show(true);
             foreach (var (x, y, piece) in new[] { (85.0, 85.0, GearPiece.Catcher), (15.0, 85.0, GearPiece.Blocker), (15.0, 10.0, GearPiece.RightPad),
                 (85.0, 30.0, GearPiece.LeftPad), (50.0, 5.0, GearPiece.Stick), (50.0, 55.0, GearPiece.Body) })
             {
-                Quaternion[] first = null;
-                foreach (GoaliePose pose in new[] { GoaliePose.LeftPostHug, GoaliePose.MiddleStandUp, GoaliePose.RightButterfly })
-                {
-                    view.Show(true, pose);
-                    view.SetProgress(0f);
-                    view.React(Result(ShotResultKind.Save, x, y), from);
-                    Assert.AreEqual(piece, view.ReactionPiece, "(" + x + ", " + y + ") in " + pose);
-                    view.SetProgress(1f);
-                    var bones = new Quaternion[(int)HumanBodyBones.LastBone];
-                    for (int b = 0; b < bones.Length; b++) bones[b] = Quaternion.identity;
-                    for (var b = HumanBodyBones.Hips; b < HumanBodyBones.LastBone; b++)
-                        if (character.Bone(b) != null) bones[(int)b] = character.Bone(b).rotation;
-                    if (first == null) { first = bones; continue; }
-                    for (int b = 0; b < bones.Length; b++)
-                        Assert.AreEqual(0f, Quaternion.Angle(first[b], bones[b]), 0.01f, "(" + x + ", " + y + ") the same reaction in " + pose + ", bone " + (HumanBodyBones)b);
-                }
+                view.SetProgress(0f);
+                view.React(Result(ShotResultKind.Save, x, y), from);
+                Assert.AreEqual(piece, view.ReactionPiece, "(" + x + ", " + y + ")");
             }
         }
 
@@ -203,7 +188,7 @@ namespace HockeyGame.Core.Tests
             reference.ShowReaction(0f);
             var character = new GoalieCharacter(_parent.transform);
             var view = new GoalieView(_parent.transform, character);
-            view.Show(true, GoaliePose.MiddleButterfly);
+            view.Show(true);
             Transform hand = character.Bone(HumanBodyBones.LeftHand), referenceHand = reference.Bone(HumanBodyBones.LeftHand);
 
             view.React(Result(ShotResultKind.Save, 90, 80), new Vector3(0f, 1.15f, -9f)); // the Shot frame: a glove save
@@ -238,7 +223,7 @@ namespace HockeyGame.Core.Tests
         {
             var character = new GoalieCharacter(_parent.transform);
             var view = new GoalieView(_parent.transform, character);
-            view.Show(true, GoaliePose.MiddleStandUp);
+            view.Show(true);
             var failures = new List<string>();
             int saves = 0, padSaves = 0, padRivalFirst = 0;
             foreach (var (eyeName, eye) in AllEyes())
@@ -283,7 +268,7 @@ namespace HockeyGame.Core.Tests
         {
             var character = new GoalieCharacter(_parent.transform);
             var view = new GoalieView(_parent.transform, character);
-            view.Show(true, GoaliePose.MiddleStandUp);
+            view.Show(true);
             var failures = new List<string>();
             int shots = 0;
             foreach (var (eyeName, eye) in AllEyes())
@@ -314,7 +299,7 @@ namespace HockeyGame.Core.Tests
             var view = new GoalieView(_parent.transform, character);
             var from = new Vector3(-2.4f, 1.2f, -8f);
             var net = NetPoint(83, 82);
-            view.Show(true, GoaliePose.MiddleStandUp);
+            view.Show(true);
 
             view.Face(0f, 0f);
             view.React(Result(ShotResultKind.Save, 83, 82), from);
@@ -340,9 +325,9 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(PuckSurface.Catcher, surface);
 
             var blocks = new GoalieView(_parent.transform);
-            blocks.Show(true, GoaliePose.MiddleStandUp);
+            blocks.Show(true);
             blocks.React(Result(ShotResultKind.Save, 83, 82), from);
-            Assert.IsFalse(blocks.SaveStop(from, net, PuckMotion.Thickness, out _), "the blocks keep the save block");
+            Assert.IsFalse(blocks.SaveStop(from, net, PuckMotion.Thickness, out _), "the goalie block keeps the save block");
         }
     }
 }

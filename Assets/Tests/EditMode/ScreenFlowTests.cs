@@ -168,21 +168,6 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void Tuning_changed_in_SaveData_applies_to_the_next_Round()
-        {
-            var save = new SaveData();
-            var flow = NewFlow(save);
-            save.ContestedLowChance = 1;
-            save.ContestedTopChance = 1;
-            save.TopSpeedKmh = 90;
-            Assert.AreNotEqual(1, flow.Round.Settings.ContestedLowChance);
-            flow.Press();
-            Assert.AreEqual(1, flow.Round.Settings.ContestedLowChance);
-            Assert.AreEqual(1, flow.Round.Settings.ContestedTopChance);
-            Assert.AreEqual(90, flow.Round.Settings.TopSpeedKmh);
-        }
-
-        [Test]
         public void A_new_flow_shows_the_start_screen()
         {
             Assert.AreEqual(FlowScreen.Start, NewFlow().Screen);

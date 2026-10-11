@@ -5,7 +5,7 @@ namespace HockeyGame.Core
 
     /// <summary>
     /// Chooses the Save Reaction from where the Shot meets the Net Face (0..100 from the bottom-left, shooter's view). Only
-    /// the point counts, never the Goalie Pose, so the same point always gets the same reaction. The catching glove is on the
+    /// the point counts, so the same point always gets the same reaction. The catching glove is on the
     /// shooter's right (the goalie's left hand faces the shooter on that side), the blocker on the shooter's left.
     /// </summary>
     public static class SaveReactions

@@ -30,7 +30,7 @@ namespace HockeyGame.Core.Tests
             Object.DestroyImmediate(_camera);
         }
 
-        // The middle of each of the nine Zones, and Misses wide left, wide right and over the crossbar.
+        // Nine spots across the Net Face (a 3 x 3 grid: low, middle and high on each side and the middle), and Misses wide left, wide right and over the crossbar.
         static readonly (double x, double y)[] Spots =
         {
             (17, 17), (50, 17), (83, 17), (17, 50), (50, 50), (83, 50), (17, 83), (50, 83), (83, 83),
@@ -53,11 +53,10 @@ namespace HockeyGame.Core.Tests
             {
                 TearDown();
                 SetUp();
-                GoaliePose pose = GoaliePoses.PosesOf(side)[0]; // picks the Attack Side only: the real race decides the Shot
                 string where = side + " " + eyeName + " (" + x + ", " + y + ") reaction " + reaction + " s ";
                 // The Round's shot start is this eye's puck: the window opening, or drifted in as close as it goes (2.9 s in).
                 double windowSeconds = eyeName == "near" ? 2.9 : 0.0;
-                string failure = Shoot(eye, windowSeconds, reaction, pose, x, y, 200, usb, ref saves, ref clear, ref inTheWay, ref late, out bool goal);
+                string failure = Shoot(eye, windowSeconds, reaction, side, x, y, 200, usb, ref saves, ref clear, ref inTheWay, ref late, out bool goal);
                 if (failure != null) failures.Add(where + failure);
                 if (goal) goalsBySide[side] = (goalsBySide.TryGetValue(side, out int g) ? g : 0) + 1;
             }
@@ -71,7 +70,7 @@ namespace HockeyGame.Core.Tests
         }
 
         /// <summary>One Shot played through to the puck's arrival. Null when it meets the gear (a save) or passes clear of it.</summary>
-        string Shoot(Vector3 eye, double windowSeconds, double reactionSeconds, GoaliePose pose, double x, double y, double kmh, bool usb, ref int saves, ref int clear,
+        string Shoot(Vector3 eye, double windowSeconds, double reactionSeconds, AttackSide side, double x, double y, double kmh, bool usb, ref int saves, ref int clear,
             ref int inTheWay, ref int late, out bool goal)
         {
             NetBuilder.Build(_rink.transform);
@@ -84,7 +83,7 @@ namespace HockeyGame.Core.Tests
             // The real race (Reach in time) on the goalie standing on his Set-up spot (#64).
             goal = false;
             var settings = new RoundSettings { ReactionSeconds = reactionSeconds, ReactionWobbleSeconds = 0 };
-            var round = new Round(ScriptedRandom.Forcing(GoaliePoses.SideOf(pose)), settings, new GoalieCharacterReach(character, settings), 0);
+            var round = new Round(ScriptedRandom.Forcing(side), settings, new GoalieCharacterReach(character, settings), 0);
             round.StartRound();
             round.Tick(settings.SkateInSeconds + settings.SlowDownSeconds + windowSeconds);
             RinkPoint shotStart = Breakaway.ShotStart(round.AttackSide, windowSeconds, settings);
@@ -93,7 +92,7 @@ namespace HockeyGame.Core.Tests
             Vector3 puckStart = cam.position + cam.forward * (float)Breakaway.PuckAheadMetres - cam.up * (float)Breakaway.PuckBelowMetres; // as ShotEffects
             if (Vector3.Distance(puckStart, new Vector3((float)shotStart.X, (float)shotStart.Y, (float)shotStart.Z)) > 0.02f)
                 return "the race's shot start " + shotStart + " is not this eye's puck " + puckStart.ToString("F3");
-            view.Show(true, round.GoaliePose);
+            view.Show(true);
             view.Face(facing, facing);
             view.SetProgress(0f);
             round.SubmitShot(x, y, kmh, false);

@@ -85,7 +85,7 @@ namespace HockeyGame.Core
         /// <summary>
         /// As Update(round, puckArrived), with the sound of what the on-screen puck visibly hits on a Save or a Frame Hit
         /// (ShotEffects.ContactSound): the stick or a skate in front of the pads, or the goalie's gear in front of the frame.
-        /// It replaces the Zone's save sound or the post ping; the result does not change. null: the result's own sound.
+        /// It replaces the Save Reaction's save sound or the post ping; the result does not change. null: the result's own sound.
         /// Given once (from the Shot frame on), it holds until the impact plays.
         /// </summary>
         public IReadOnlyList<SoundCue> Update(Round round, bool puckArrived, SoundCue? contact)

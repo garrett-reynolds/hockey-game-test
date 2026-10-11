@@ -19,13 +19,13 @@ namespace HockeyGame
         const float PuckThickness = PuckMotion.Thickness;
         const float FlightSpin = 25f;                // rad/s about the face: about 4 turns a second, slow enough to read at 60 fps
         const float GloveDepth = 0.1f;
-        const float GloveGap = 0.02f;                // between the save block and the pose blocks
-        const float GloveZ = GoalieView.BlockZ - GoalieView.BlockDepth / 2f - GloveGap - GloveDepth / 2f; // in front of the pose blocks
+        const float GloveGap = 0.02f;                // between the save block and the goalie block
+        const float GloveZ = GoalieView.BlockZ - GoalieView.BlockDepth / 2f - GloveGap - GloveDepth / 2f; // in front of the goalie block
         const float SaveZ = GloveZ - GloveDepth / 2f - PuckThickness;
         const float MissCarrySeconds = 0.8f;
         const float CaughtSeconds = 0.25f;           // a goal puck rests in the netting bulge this long, then drops
         const float BaseRailMetres = 0.07f;          // the net's back base tube and skirt on the ice: copied by hand from Tools/make_supplied_net.py's output, change both together
-        static readonly Color SaveBlockColour = new Color(0.45f, 0.6f, 1f); // lighter than the GoalieView blocks so the slide shows on a Covered Zone
+        static readonly Color SaveBlockColour = new Color(0.45f, 0.6f, 1f); // lighter than the GoalieView block so the slide shows in front of it
 
         enum Stage { None, Flying, IntoNet, InNet, Deflecting, Carrying, OnGoalie } // OnGoalie: held in the catching glove, moved by GoalieView.Carry
 
@@ -216,10 +216,10 @@ namespace HockeyGame
 
             if (result.Kind == ShotResultKind.Save && !onGoalie)
             {
-                // The block starts at the centre of the Zone the puck hits and slides to the puck spot.
-                NetFaceMapping.ZoneRectangle(Zones.Column(result.X), Zones.Row(result.Y), 1f,
-                    out float minX, out float minY, out float maxX, out float maxY);
-                _gloveFrom = new Vector3((minX + maxX) / 2f, (minY + maxY) / 2f, GloveZ);
+                // The block starts across from where the race measured the goalie (his Set-up spot; the Net Face centre
+                // without a race) at the puck's height and slides to the puck spot.
+                float spotX = race.HasValue ? (float)race.Value.Spot.X : 0f;
+                _gloveFrom = new Vector3(spotX, _target.y, GloveZ);
                 _gloveTo = new Vector3(_target.x, _target.y, GloveZ);
                 _glove.transform.position = _gloveFrom;
                 _glove.SetActive(true);

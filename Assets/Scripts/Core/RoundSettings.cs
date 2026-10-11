@@ -3,11 +3,6 @@ namespace HockeyGame.Core
     /// <summary>Tunable values the Round core needs. Defaults are the spec values (the goalie's: starting numbers, tuned by feel).</summary>
     public sealed class RoundSettings
     {
-        // The Goalie Pose's Contested chance: no longer decides a Shot (Reach in time does); goes with the Goalie Pose.
-        public double ContestedLowChance = 0.50;
-        public double ContestedTopChance = 0.85;
-        public double TopSpeedKmh = 120;
-
         // Phase lengths, in real seconds.
         public double SkateInSeconds = 2.5;
         public double SlowDownSeconds = 1.2;

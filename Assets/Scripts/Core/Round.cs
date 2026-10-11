@@ -79,9 +79,6 @@ namespace HockeyGame.Core
         /// <summary>Attack Side of the current Shot, from the Round's shuffled pick (left, middle and right twice each).</summary>
         public AttackSide AttackSide { get; private set; }
 
-        /// <summary>Goalie Pose for the current Shot: the first pose of its Attack Side. It decides nothing; it goes with the Zones.</summary>
-        public GoaliePose GoaliePose => GoaliePoses.PosesOf(AttackSide)[0];
-
         /// <summary>The goalie's Set-up for the current Shot, from the Round's Set-up deck and the Shot's post side.</summary>
         public SetUp SetUp { get; private set; }
 

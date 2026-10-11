@@ -15,7 +15,7 @@ namespace HockeyGame.Core
 
     /// <summary>
     /// Stance Life (#44): the small, steady motion of a goalie waiting in the Ready Stance (breathing, weight shifts, now and
-    /// then a stick tap), so he is never a statue. A pure function of a clock alone: it never depends on the Goalie Pose, the
+    /// then a stick tap), so he is never a statue. A pure function of a clock alone: it never depends on the Set-up, the
     /// Attack Side or the Shot, so it gives no hint, and the same moment always looks the same. At time 0 it is the plain
     /// Ready Stance.
     /// </summary>

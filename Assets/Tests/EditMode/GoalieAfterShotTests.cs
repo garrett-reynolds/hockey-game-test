@@ -26,7 +26,7 @@ namespace HockeyGame.Core.Tests
         {
             character = new GoalieCharacter(_parent.transform);
             var view = new GoalieView(_parent.transform, character);
-            view.Show(true, GoaliePose.MiddleStandUp);
+            view.Show(true);
             view.Face(0f, 0f);
             view.SetProgress(0f);
             Snapshot[character] = Mask(character).InverseTransformDirection(Vector3.back); // the Ready Stance looks square on
@@ -190,7 +190,7 @@ namespace HockeyGame.Core.Tests
         /// Plays a Shot through the Round and ShotEffects as the game does each frame (ShotEffects, then the goalie's set from
         /// Breakaway), calling back with the seconds since the Shot, whether the puck has arrived, and the puck.
         /// </summary>
-        void Play(GoaliePose pose, double x, double y, System.Action<GoalieCharacter, float, bool, Transform> frame)
+        void Play(AttackSide side, double x, double y, System.Action<GoalieCharacter, float, bool, Transform> frame)
         {
             NetBuilder.Build(_parent.transform);
             var camera = new GameObject("Camera (test)", typeof(Camera));
@@ -202,10 +202,10 @@ namespace HockeyGame.Core.Tests
                 var view = new GoalieView(_parent.transform, character);
                 var effects = new ShotEffects(_parent.transform, camera.GetComponent<Camera>(), null, view);
                 Transform puck = _parent.transform.Find("Puck");
-                var round = new Round(ScriptedRandom.Forcing(GoaliePoses.SideOf(pose)), new RoundSettings(), FakeReach.Saving((sx, sy) => sy < 50), 0); // low saved, high scored
+                var round = new Round(ScriptedRandom.Forcing(side), new RoundSettings(), FakeReach.Saving((sx, sy) => sy < 50), 0); // low saved, high scored
                 round.StartRound();
                 round.Tick(3.7);
-                view.Show(true, round.GoaliePose);
+                view.Show(true);
                 view.Face(0f, 0f);
                 view.SetProgress(0f);
                 Snapshot[character] = Mask(character).InverseTransformDirection(Vector3.back);
@@ -233,7 +233,7 @@ namespace HockeyGame.Core.Tests
             int frames = 0;
             Vector3 last = Vector3.zero;
             var touches = new List<string>();
-            Play(GoaliePose.LeftButterfly, 50, 90, (character, t, arrived, puck) =>
+            Play(AttackSide.Left, 50, 90, (character, t, arrived, puck) =>
             {
                 float yaw = Mathf.Abs(Yaw(character));
                 if (!arrived) { yawBefore = Mathf.Max(yawBefore, yaw); reachHead = MaskHeight(character); }
@@ -260,7 +260,7 @@ namespace HockeyGame.Core.Tests
         {
             float worst = 0f, since = 0f;
             int watched = 0;
-            Play(GoaliePose.MiddleButterfly, 15, 12, (character, t, arrived, puck) =>
+            Play(AttackSide.Middle, 15, 12, (character, t, arrived, puck) =>
             {
                 if (!arrived || !puck.gameObject.activeInHierarchy) return;
                 since += 1f / 60f;

@@ -143,7 +143,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void With_no_contact_sound_the_result_sounds_as_its_Zone_says()
+        public void With_no_contact_sound_the_result_sounds_as_its_Save_Reaction_says()
         {
             var round = StartedRound();
             var cues = new RoundSoundCues(new SaveData());
@@ -220,7 +220,7 @@ namespace HockeyGame.Core.Tests
         [TestCase(85, 35, SoundCue.SaveImpact, TestName = "Middle right, low: pad")]
         [TestCase(15, 35, SoundCue.SaveImpact, TestName = "Middle left, low: pad")]
         [TestCase(50, 45, SoundCue.SaveImpact, TestName = "Centre, lower half: body")]
-        public void Save_in_a_middle_Zone_sounds_the_save_reaction_s_gear(double x, double y, SoundCue expected)
+        public void Save_in_the_middle_band_sounds_the_save_reaction_s_gear(double x, double y, SoundCue expected)
         {
             var round = StandUpRound();
             var heard = ArrivalCues(round, x, y);

@@ -36,7 +36,6 @@ namespace HockeyGame.Core
         {
             _save = save;
             _settings = settings ?? new RoundSettings();
-            _save.ApplyTo(_settings);
             Round = new Round(random, _settings, reach, save.BestScore);
         }
 
@@ -71,7 +70,6 @@ namespace HockeyGame.Core
             switch (Screen)
             {
                 case FlowScreen.Start:
-                    _save.ApplyTo(_settings);
                     Round.StartRound(_save.BestScore);
                     Screen = FlowScreen.Playing;
                     break;

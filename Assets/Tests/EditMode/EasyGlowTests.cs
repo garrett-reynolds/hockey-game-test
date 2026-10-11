@@ -222,7 +222,7 @@ namespace HockeyGame.Core.Tests
         public void The_glow_lights_exactly_the_Gaps_and_nothing_once_they_are_gone()
         {
             var view = new GoalieView(_parent.transform, new GoalieCharacter(_parent.transform));
-            view.Show(true, GoaliePose.MiddleButterfly);
+            view.Show(true);
             NetFaceGaps gaps = NetFaceGaps.Where((x, y) => x > 75 && y > 60);
             Assert.Greater(gaps.Count, 0);
 
@@ -243,7 +243,7 @@ namespace HockeyGame.Core.Tests
             foreach (Renderer r in AllGlowCells()) Assert.IsFalse(r.gameObject.activeInHierarchy, r.name + ": no Gaps");
 
             view.ShowGaps(gaps);
-            view.Show(false, GoaliePose.MiddleButterfly);
+            view.Show(false);
             foreach (Renderer r in AllGlowCells()) Assert.IsFalse(r.gameObject.activeInHierarchy, r.name + ": goalie hidden");
         }
 
@@ -292,7 +292,7 @@ namespace HockeyGame.Core.Tests
                 RinkPoint start = Breakaway.ShotStart(side, 0, Defaults);
                 RinkPoint spot = SetUps.Spot(setUp, side, 0, start, Defaults);
                 float facing = (float)SetUps.Facing(spot, start);
-                view.Show(true, GoaliePoses.PosesOf(side)[0]);
+                view.Show(true);
                 view.Stand(new Vector3((float)spot.X, 0f, (float)spot.Z));
                 view.Face(facing, facing);
                 view.SetProgress(0f); // Ready Stance: no Shot yet
@@ -347,7 +347,7 @@ namespace HockeyGame.Core.Tests
         public void Once_the_goalie_reacts_the_glow_is_depth_tested_so_the_puck_stays_in_front()
         {
             var view = new GoalieView(_parent.transform, new GoalieCharacter(_parent.transform));
-            view.Show(true, GoaliePose.MiddleButterfly);
+            view.Show(true);
             view.ShowGaps(NetFaceGaps.Where((x, y) => true));
             Renderer glow = GlowCell(0, 0);
             view.SetProgress(0f);

@@ -72,7 +72,7 @@ namespace HockeyGame
             // (EasyGlow), a hint only: the Round's Gaps, from the same goalie-reach port as the race.
             var phaseNow = _round.Phase;
             bool inShot = phaseNow != RoundPhase.Idle && phaseNow != RoundPhase.RoundOver;
-            _goalie.Show(inShot || _goalie.HasCharacter, _round.GoaliePose);
+            _goalie.Show(inShot || _goalie.HasCharacter);
             _goalie.ShowGaps(_easyGlow.Update(_save.EasyMode, _round));
             _effects.Update(_round, Time.unscaledDeltaTime);
             _sound.Update(_round, _effects.PuckArrivedThisFrame, Time.unscaledDeltaTime, _effects.ContactSound);

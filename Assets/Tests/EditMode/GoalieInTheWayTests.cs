@@ -38,7 +38,7 @@ namespace HockeyGame.Core.Tests
                 var round = new Round(ScriptedRandom.Forcing(side), settings, new GoalieCharacterReach(character, settings), 0);
                 round.StartRound();
                 round.Tick(settings.SkateInSeconds + settings.SlowDownSeconds + windowSeconds);
-                view.Show(true, round.GoaliePose);
+                view.Show(true);
                 round.SubmitShot(x, y, 100, false);
                 ShotRace race = round.LastRace.Value;
                 if (!race.InTheWay) continue;

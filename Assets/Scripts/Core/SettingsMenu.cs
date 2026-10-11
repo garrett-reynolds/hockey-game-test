@@ -37,9 +37,6 @@ namespace HockeyGame.Core
 
             AddRow("USB port", () => _save.UsbPort, ChangePort, null);
             AddToggle("Easy mode", () => _save.EasyMode, v => _save.EasyMode = v);
-            AddNumber("Contested chance at 0 km/h", () => _save.ContestedLowChance, v => _save.ContestedLowChance = v, SaveData.ChanceRange, Percent);
-            AddNumber("Contested chance at top speed", () => _save.ContestedTopChance, v => _save.ContestedTopChance = v, SaveData.ChanceRange, Percent);
-            AddNumber("Top speed", () => _save.TopSpeedKmh, v => _save.TopSpeedKmh = v, SaveData.TopSpeedRange, v => Format("0", v) + " km/h");
             AddToggle("Test Shots on at start", () => _save.TestShotOnAtStart, v => _save.TestShotOnAtStart = v);
             AddNumber("End screen input-ignore time", () => _save.InputIgnoreSeconds, v => _save.InputIgnoreSeconds = v, SaveData.InputIgnoreRange, Seconds);
             AddNumber("End screen auto-return time", () => _save.AutoReturnSeconds, v => _save.AutoReturnSeconds = v, SaveData.AutoReturnRange, Seconds);

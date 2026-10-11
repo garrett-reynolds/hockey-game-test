@@ -30,7 +30,7 @@ namespace HockeyGame.Core.Tests
                 var goalie = new GoalieView(rink, new GoalieCharacter(rink));
                 new ShotEffects(rink, camera, null, goalie);
                 new GoalLight(rink).SetOn(true);
-                goalie.Show(true, GoaliePose.RightButterfly);
+                goalie.Show(true);
                 goalie.ShowGaps(NetFaceGaps.Where((x, y) => true)); // Easy mode glow on
 
                 var missing = new SortedSet<string>();

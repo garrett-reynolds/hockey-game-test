@@ -1,6 +1,6 @@
-// The Easy mode glow on Open Zones (GoalieView). Plain unlit colour with fog, like URP Unlit, but its depth test is a
+// The Easy mode glow on the Gaps (GoalieView). Plain unlit colour with fog, like URP Unlit, but its depth test is a
 // material setting: GoalieView sets _ZTest to Always before the Shot, so the glow draws over the goalie in its Ready
-// Stance (which stands in front of the Open Zones), and back to LessEqual once the goalie reacts, so the flying puck
+// Stance (which stands in front of some Gaps, seen from the shooter), and back to LessEqual once the goalie reacts, so the flying puck
 // stays in front. Drawn after the other opaque objects and writes no depth.
 Shader "Hockey Game/Easy Glow"
 {

@@ -24,7 +24,7 @@ namespace HockeyGame.Core.Tests
             var menu = NewMenu(new SaveData());
             string[] labels =
             {
-                "USB port", "Easy mode", "Contested chance at 0 km/h", "Contested chance at top speed", "Top speed",
+                "USB port", "Easy mode",
                 "Test Shots on at start", "End screen input-ignore time", "End screen auto-return time",
                 "Tick", "Master volume", "Mute", "Reset best score"
             };
@@ -39,16 +39,13 @@ namespace HockeyGame.Core.Tests
             var menu = NewMenu(new SaveData { BestScore = 3 }, "COM3");
             Assert.AreEqual("Auto", menu.Value(0));
             Assert.AreEqual("OFF", menu.Value(1));
-            Assert.AreEqual("50%", menu.Value(2));
-            Assert.AreEqual("85%", menu.Value(3));
-            Assert.AreEqual("120 km/h", menu.Value(4));
+            Assert.AreEqual("ON", menu.Value(2));
+            Assert.AreEqual("2.0 s", menu.Value(3));
+            Assert.AreEqual("15.0 s", menu.Value(4));
             Assert.AreEqual("ON", menu.Value(5));
-            Assert.AreEqual("2.0 s", menu.Value(6));
-            Assert.AreEqual("15.0 s", menu.Value(7));
-            Assert.AreEqual("ON", menu.Value(8));
-            Assert.AreEqual("100%", menu.Value(9));
-            Assert.AreEqual("OFF", menu.Value(10));
-            Assert.AreEqual("best 3", menu.Value(11));
+            Assert.AreEqual("100%", menu.Value(6));
+            Assert.AreEqual("OFF", menu.Value(7));
+            Assert.AreEqual("best 3", menu.Value(8));
         }
 
         [Test]
@@ -108,40 +105,6 @@ namespace HockeyGame.Core.Tests
             Select(menu, "Mute");
             menu.Activate();
             Assert.IsTrue(save.Mute);
-        }
-
-        [Test]
-        public void Contested_chances_step_by_5_percent_and_stay_between_0_and_100_percent()
-        {
-            var save = new SaveData { ContestedLowChance = 0.05, ContestedTopChance = 0.95 };
-            var menu = NewMenu(save);
-
-            Select(menu, "Contested chance at 0 km/h");
-            Assert.IsTrue(menu.Change(-1));
-            Assert.AreEqual(0.0, save.ContestedLowChance, 1e-9);
-            Assert.IsFalse(menu.Change(-1));
-            Assert.AreEqual(0.0, save.ContestedLowChance, 1e-9);
-
-            Select(menu, "Contested chance at top speed");
-            menu.Change(1);
-            Assert.AreEqual(1.0, save.ContestedTopChance, 1e-9);
-            menu.Change(1);
-            Assert.AreEqual(1.0, save.ContestedTopChance, 1e-9);
-            menu.Change(-1);
-            Assert.AreEqual(0.95, save.ContestedTopChance, 1e-9);
-            Assert.AreEqual("95%", menu.Value(menu.Selected));
-        }
-
-        [Test]
-        public void Top_speed_steps_by_5_kmh_and_never_reaches_0()
-        {
-            var save = new SaveData { TopSpeedKmh = 15 };
-            var menu = NewMenu(save);
-            Select(menu, "Top speed");
-            menu.Change(1);
-            Assert.AreEqual(20, save.TopSpeedKmh, 1e-9);
-            for (int i = 0; i < 10; i++) menu.Change(-1);
-            Assert.AreEqual(10, save.TopSpeedKmh, 1e-9);
         }
 
         [Test]

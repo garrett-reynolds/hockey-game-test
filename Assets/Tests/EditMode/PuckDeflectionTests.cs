@@ -49,19 +49,19 @@ namespace HockeyGame.Core.Tests
 
         /// <param name="onArrive">Called on the frame the puck gets there, with the goalie fully reacted: as the rebound was
         /// measured (after it he follows through and recovers, #44), and where the puck is.</param>
-        Run Shoot(GoaliePose pose, double x, double y, double kmh = 100, GoalieCharacter character = null, float facing = 0f, System.Action<Vector3> onArrive = null)
+        Run Shoot(AttackSide side, double x, double y, double kmh = 100, GoalieCharacter character = null, float facing = 0f, System.Action<Vector3> onArrive = null)
         {
             NetBuilder.Build(_rink.transform);
             character = character ?? new GoalieCharacter(_rink.transform);
             var view = new GoalieView(_rink.transform, character);
             var effects = new ShotEffects(_rink.transform, _camera.GetComponent<Camera>(), null, view);
             Transform puck = _rink.transform.Find("Puck");
-            var round = new Round(ScriptedRandom.Forcing(GoaliePoses.SideOf(pose)), new RoundSettings(), FakeReach.InTheWay(), 0); // every Shot on the Net Face saved
+            var round = new Round(ScriptedRandom.Forcing(side), new RoundSettings(), FakeReach.InTheWay(), 0); // every Shot on the Net Face saved
             round.StartRound();
             round.Tick(3.7);
-            view.Show(true, pose);
+            view.Show(true);
             view.Face(facing, facing);
-            Assert.AreEqual(GoaliePoses.SideOf(pose), round.AttackSide);
+            Assert.AreEqual(side, round.AttackSide);
             round.SubmitShot(x, y, kmh, false);
             var run = new Run { Kind = round.LastResult.Value.Kind };
             bool arrived = false;
@@ -116,7 +116,7 @@ namespace HockeyGame.Core.Tests
         public void A_pad_save_leaves_the_way_the_pad_faces_where_the_puck_met_it()
         {
             var character = new GoalieCharacter(_rink.transform);
-            Run run = Shoot(GoaliePose.MiddleButterfly, 10, 30, character: character); // a standing pad save, the pad upright
+            Run run = Shoot(AttackSide.Middle, 10, 30, character: character); // a standing pad save, the pad upright
             Assert.AreEqual(ShotResultKind.Save, run.Kind);
             Vector3 facing = GearFacing(character, GearPiece.RightPad, run.Contact); // the goalie's right pad is on the shooter's left
             Assert.Greater(Vector3.Dot(run.Leaving.normalized, facing), 0.3f, "away from the pad face");
@@ -127,7 +127,7 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void A_blocker_save_is_kicked_hard_to_the_blocker_side()
         {
-            Run run = Shoot(GoaliePose.MiddleStandUp, 10, 80);
+            Run run = Shoot(AttackSide.Middle, 10, 80);
             Assert.AreEqual(ShotResultKind.Save, run.Kind);
             Vector3 flat = new Vector3(run.Leaving.x, 0f, run.Leaving.z);
             Assert.Less(flat.x, -0.5f * flat.magnitude, "to the shooter's left, the blocker's outside");
@@ -138,7 +138,7 @@ namespace HockeyGame.Core.Tests
         public void A_post_hit_leaves_off_the_round_post_by_where_on_the_tube_it_hit(double acrossPost, float side)
         {
             double x = 100.0 + NetFrame.PostWidth * acrossPost;
-            Run run = Shoot(GoaliePose.MiddleStandUp, x, 40);
+            Run run = Shoot(AttackSide.Middle, x, 40);
             Assert.AreEqual(ShotResultKind.Miss, run.Kind);
             Vector3 tube = new Vector3(run.Contact.x - PostAxisX, 0f, run.Contact.z).normalized; // the tube's normal at the contact
             Assert.AreEqual(side, Mathf.Sign(run.Leaving.x), "sideways the way the tube faces there");
@@ -151,7 +151,7 @@ namespace HockeyGame.Core.Tests
         {
             var character = new GoalieCharacter(_rink.transform);
             Vector3 blade = Vector3.zero;
-            Run run = Shoot(StickPose, StickX, StickY, character: character, onArrive: contact => blade = GearFacing(character, GearPiece.Stick, contact));
+            Run run = Shoot(StickSide, StickX, StickY, character: character, onArrive: contact => blade = GearFacing(character, GearPiece.Stick, contact));
             Assert.AreEqual(ShotResultKind.Save, run.Kind);
             Assert.AreEqual(PuckSurface.Stick, run.Surface, "made on the stick");
             Assert.AreEqual(SoundCue.BlockerHit, run.Sound, "sounds like the stick (wood)");
@@ -162,27 +162,27 @@ namespace HockeyGame.Core.Tests
             Assert.Less(highest, run.Contact.y + 0.03f, "never rises off the blade");
         }
 
-        // One Save for each Save Reaction, each in a Zone its pose covers, and the surface the puck must meet (the test's own table).
-        static readonly (GoaliePose pose, double x, double y, PuckSurface surface)[] ReactionSaves =
+        // One Save for each Save Reaction (every Shot is saved here), and the surface the puck must meet (the test's own table).
+        static readonly (AttackSide side, double x, double y, PuckSurface surface)[] ReactionSaves =
         {
-            (GoaliePose.MiddleStandUp, 88, 82, PuckSurface.Catcher),
-            (GoaliePose.MiddleStandUp, 12, 82, PuckSurface.Blocker),
-            (GoaliePose.MiddleButterfly, 15, 15, PuckSurface.Pad),
-            (GoaliePose.MiddleButterfly, 85, 25, PuckSurface.Pad),
-            (GoaliePose.MiddleButterfly, 50, 5, PuckSurface.Stick),
-            (GoaliePose.MiddleStandUp, 50, 55, PuckSurface.Body),
+            (AttackSide.Middle, 88, 82, PuckSurface.Catcher),
+            (AttackSide.Middle, 12, 82, PuckSurface.Blocker),
+            (AttackSide.Middle, 15, 15, PuckSurface.Pad),
+            (AttackSide.Middle, 85, 25, PuckSurface.Pad),
+            (AttackSide.Middle, 50, 5, PuckSurface.Stick),
+            (AttackSide.Middle, 50, 55, PuckSurface.Body),
         };
 
         [Test]
         public void The_puck_meets_the_save_reaction_s_gear_and_sounds_and_deflects_like_it()
         {
-            foreach (var (pose, x, y, surface) in ReactionSaves)
+            foreach (var (side, x, y, surface) in ReactionSaves)
             {
                 TearDown();
                 SetUp();
                 var character = new GoalieCharacter(_rink.transform);
                 List<Triangle> goalie = null;
-                Run run = Shoot(pose, x, y, character: character, onArrive: _ => goalie = GoalieTriangles(character));
+                Run run = Shoot(side, x, y, character: character, onArrive: _ => goalie = GoalieTriangles(character));
                 string where = "(" + x + ", " + y + ")";
                 Assert.AreEqual(ShotResultKind.Save, run.Kind, where);
                 Assert.AreEqual(surface, run.Surface, where + ": the puck meets the reaction's gear");
@@ -218,26 +218,26 @@ namespace HockeyGame.Core.Tests
             int frameHits = 0;
             foreach (TestCaseData c in AllSaves())
             {
-                var pose = (GoaliePose)c.Arguments[0];
+                var side = (AttackSide)c.Arguments[0];
                 double x = (double)c.Arguments[1], y = (double)c.Arguments[2];
                 if (NetFrame.At(x, y) == FrameHit.None) continue;
                 foreach (bool close in new[] { false, true })
                 {
                     TearDown();
                     SetUp();
-                    PlaceShooter(pose, close); // from 3 m, post-hugging gear used to cover the post (#38)
+                    PlaceShooter(side, close); // from 3 m (#38)
                     NetBuilder.Build(_rink.transform);
                     var view = new GoalieView(_rink.transform, new GoalieCharacter(_rink.transform));
                     var effects = new ShotEffects(_rink.transform, _camera.GetComponent<Camera>(), null, view);
-                    var round = new Round(ScriptedRandom.Forcing(GoaliePoses.SideOf(pose)), new RoundSettings(), FakeReach.InTheWay(), 0); // every Shot on the Net Face saved
+                    var round = new Round(ScriptedRandom.Forcing(side), new RoundSettings(), FakeReach.InTheWay(), 0); // every Shot on the Net Face saved
                     round.StartRound();
                     round.Tick(3.7);
-                    view.Show(true, pose);
+                    view.Show(true);
                     float facing = GoalieCharacter.FacingToward(_camera.transform.position);
                     view.Face(facing, facing);
                     round.SubmitShot(x, y, 100, false);
                     effects.Update(round, Frame); // the Shot frame: the contact is known from here
-                    string where = pose + " (" + x.ToString("F1") + ", " + y.ToString("F1") + ")" + (close ? " from 3 m" : "");
+                    string where = side + " (" + x.ToString("F1") + ", " + y.ToString("F1") + ")" + (close ? " from 3 m" : "");
                     Assert.AreEqual(ShotResultKind.Miss, round.LastResult.Value.Kind, where);
                     Assert.AreEqual(PuckSurface.Frame, effects.ContactSurface, where);
                     Assert.AreEqual(SoundCue.PostPing, effects.ContactSound, where);
@@ -247,8 +247,8 @@ namespace HockeyGame.Core.Tests
             Assert.Greater(frameHits, 0);
         }
 
-        // A Shot along the ice through the middle: a stick save (SaveReactions), in a Zone MiddleButterfly covers.
-        const GoaliePose StickPose = GoaliePose.MiddleButterfly;
+        // A Shot along the ice through the middle: a stick save (SaveReactions).
+        const AttackSide StickSide = AttackSide.Middle;
         const double StickX = 50, StickY = 5;
 
         [Test]
@@ -256,10 +256,10 @@ namespace HockeyGame.Core.Tests
         {
             var shots = new[]
             {
-                (GoaliePose.MiddleButterfly, 85.0, 30.0),                                  // pad (the goalie's left, standing)
-                (GoaliePose.MiddleStandUp, 10.0, 80.0),                                    // blocker
-                (StickPose, StickX, StickY),                                               // stick
-                (GoaliePose.MiddleStandUp, 100.0 + NetFrame.PostWidth * 0.75, 40.0),       // post
+                (AttackSide.Middle, 85.0, 30.0),                                  // pad (the goalie's left, standing)
+                (AttackSide.Middle, 10.0, 80.0),                                    // blocker
+                (StickSide, StickX, StickY),                                               // stick
+                (AttackSide.Middle, 100.0 + NetFrame.PostWidth * 0.75, 40.0),       // post
             };
             var runs = new Vector3[shots.Length];
             for (int i = 0; i < shots.Length; i++)
@@ -278,7 +278,7 @@ namespace HockeyGame.Core.Tests
         {
             var character = new GoalieCharacter(_rink.transform);
             Vector3 inGlove = Vector3.zero;
-            Run run = Shoot(GoaliePose.MiddleStandUp, 90, 80, character: character, onArrive: contact => inGlove = contact - Catcher(character));
+            Run run = Shoot(AttackSide.Middle, 90, 80, character: character, onArrive: contact => inGlove = contact - Catcher(character));
             Assert.AreEqual(ShotResultKind.Save, run.Kind);
             Assert.IsTrue(run.Visible, "shown in the glove");
             // The glove comes up and back into the Ready Stance (#44): the puck goes with it.
@@ -312,28 +312,27 @@ namespace HockeyGame.Core.Tests
 
         static IEnumerable<TestCaseData> AllSaves()
         {
-            foreach (GoaliePose pose in System.Enum.GetValues(typeof(GoaliePose)))
+            foreach (AttackSide side in System.Enum.GetValues(typeof(AttackSide)))
                 for (int x = 5; x < 100; x += 15)
                 for (int y = 5; y < 100; y += 15)
-                    if (GoaliePoses.CoverAt(pose, Zones.Column(x), Zones.Row(y)) == ZoneCover.Covered)
-                        yield return new TestCaseData(pose, (double)x, (double)y);
-            foreach (GoaliePose pose in new[] { GoaliePose.MiddleButterfly, GoaliePose.LeftPostHug, GoaliePose.RightPostHug })
+                    yield return new TestCaseData(side, (double)x, (double)y);
+            foreach (AttackSide side in System.Enum.GetValues(typeof(AttackSide)))
             {
                 foreach (double x in new[] { -NetFrame.PostWidth * 0.5, -NetFrame.PostWidth * 0.9, 100 + NetFrame.PostWidth * 0.2, 100 + NetFrame.PostWidth * 0.9 })
                     foreach (double y in new[] { 5.0, 30.0, 80.0 })
-                        yield return new TestCaseData(pose, x, y);
-                yield return new TestCaseData(pose, 30.0, 100 + NetFrame.CrossbarHeight * 0.5);
+                        yield return new TestCaseData(side, x, y);
+                yield return new TestCaseData(side, 30.0, 100 + NetFrame.CrossbarHeight * 0.5);
             }
         }
 
         /// <summary>
-        /// Where the Shot is taken from for a pose's Attack Side (Breakaway.SkatePoint's stop, 30% of 9 m out to the side, eye
+        /// Where the Shot is taken from for an Attack Side (Breakaway.SkatePoint's stop, 30% of 9 m out to the side, eye
         /// 1.5 m): at the 9 m stop, or drifted in to 3 m from the net (Breakaway.ClosestDrift). Looks at the Net Face centre.
         /// </summary>
-        void PlaceShooter(GoaliePose pose, bool close)
+        void PlaceShooter(AttackSide side, bool close)
         {
-            int side = (int)pose / 2 - 1; // left -1, middle 0, right +1
-            var ground = new Vector2(side * 0.3f * 9f, -9f);
+            int across = (int)side - 1; // left -1, middle 0, right +1
+            var ground = new Vector2(across * 0.3f * 9f, -9f);
             if (close) ground *= 3f / ground.magnitude;
             _camera.transform.position = new Vector3(ground.x, 1.5f, ground.y);
             _camera.transform.LookAt(new Vector3(0f, 0.61f, 0f));
@@ -346,19 +345,19 @@ namespace HockeyGame.Core.Tests
             var failures = new List<string>();
             foreach (TestCaseData c in AllSaves())
             {
-                var pose = (GoaliePose)c.Arguments[0];
+                var side = (AttackSide)c.Arguments[0];
                 double x = (double)c.Arguments[1], y = (double)c.Arguments[2];
                 TearDown();
                 SetUp();
-                PlaceShooter(pose, close);
+                PlaceShooter(side, close);
                 var character = new GoalieCharacter(_rink.transform);
-                // Squared up to the shooter (#39), and kept through the pose (#40). The puck moves among the gear as the
+                // Squared up to the shooter (#39), and kept through the reaction (#40). The puck moves among the gear as the
                 // reaction left it (it was measured there); after it the goalie follows through and recovers (#44).
                 List<Triangle> goalie = null;
-                Run run = Shoot(pose, x, y, character: character, facing: GoalieCharacter.FacingToward(_camera.transform.position),
+                Run run = Shoot(side, x, y, character: character, facing: GoalieCharacter.FacingToward(_camera.transform.position),
                     onArrive: _ => goalie = GoalieTriangles(character));
                 List<Triangle> near = Near(goalie, run.Contact, run.Path);
-                string where = pose + " (" + x.ToString("F1") + ", " + y.ToString("F1") + ") ";
+                string where = side + " (" + x.ToString("F1") + ", " + y.ToString("F1") + ") ";
                 Vector3 last = run.Contact;
                 // Still for 8 frames (0.13 s, just under PuckMotion's 0.15 s wedge span; the glove holds it still until its 0.25 s
                 // follow-through): held, or wedged in the gear as measured. From then on it rides in the glove on the recovering
@@ -396,18 +395,18 @@ namespace HockeyGame.Core.Tests
         }
 
         /// <summary>
-        /// Every Save the blocker makes: Net Face spots 6 apart wherever the Save Reaction is the blocker, for each pose
-        /// covering them. Each Shot takes the next Test Shot speed in turn, so the set spans the whole speed range.
+        /// Every Save the blocker makes: Net Face spots 6 apart wherever the Save Reaction is the blocker, from each
+        /// Attack Side. Each Shot takes the next Test Shot speed in turn, so the set spans the whole speed range.
         /// </summary>
-        static IEnumerable<(GoaliePose pose, double x, double y, int kmh)> BlockerSaves()
+        static IEnumerable<(AttackSide side, double x, double y, int kmh)> BlockerSaves()
         {
             int kmh = TestShotSpeed.MinKmh;
-            foreach (GoaliePose pose in System.Enum.GetValues(typeof(GoaliePose)))
+            foreach (AttackSide side in System.Enum.GetValues(typeof(AttackSide)))
                 for (double x = 2; x < 50; x += 6)
                 for (double y = 42; y < 100; y += 6)
                 {
-                    if (SaveReactions.For(x, y) != SaveReaction.Blocker || GoaliePoses.CoverAt(pose, Zones.Column(x), Zones.Row(y)) != ZoneCover.Covered) continue;
-                    yield return (pose, x, y, kmh);
+                    if (SaveReactions.For(x, y) != SaveReaction.Blocker) continue;
+                    yield return (side, x, y, kmh);
                     kmh = kmh == TestShotSpeed.MaxKmh ? TestShotSpeed.MinKmh : kmh + TestShotSpeed.StepKmh;
                 }
         }
@@ -418,15 +417,15 @@ namespace HockeyGame.Core.Tests
         {
             var failures = new List<string>();
             int shots = 0;
-            foreach ((GoaliePose pose, double x, double y, int kmh) in BlockerSaves())
+            foreach ((AttackSide side, double x, double y, int kmh) in BlockerSaves())
             {
                 TearDown();
                 SetUp();
-                PlaceShooter(pose, close);
+                PlaceShooter(side, close);
                 var character = new GoalieCharacter(_rink.transform);
-                Run run = Shoot(pose, x, y, kmh, character, GoalieCharacter.FacingToward(_camera.transform.position));
+                Run run = Shoot(side, x, y, kmh, character, GoalieCharacter.FacingToward(_camera.transform.position));
                 shots++;
-                string where = pose + " (" + x + ", " + y + ") " + kmh + " km/h ";
+                string where = side + " (" + x + ", " + y + ") " + kmh + " km/h ";
                 Assert.AreEqual(ShotResultKind.Save, run.Kind, where);
                 Assert.AreEqual(PuckSurface.Blocker, run.Surface, where + "met the blocker");
                 Vector3 end = run.Path[run.Path.Count - 1];
@@ -439,12 +438,12 @@ namespace HockeyGame.Core.Tests
 
         // Body saves from 3 m out whose rebound comes to rest in a crease of the gear, well off the ice (found by a probe, #48;
         // found again once the puck flew at the Shot's real speed, #46).
-        [TestCase(GoaliePose.MiddleButterfly, 38.0, 74.0)]
-        [TestCase(GoaliePose.MiddleStandUp, 56.0, 74.0)]
-        public void A_puck_at_rest_on_gear_that_is_not_the_catcher_drops_off_to_the_ice_never_carried(GoaliePose pose, double x, double y)
+        [TestCase(AttackSide.Middle, 38.0, 74.0)]
+        [TestCase(AttackSide.Middle, 56.0, 74.0)]
+        public void A_puck_at_rest_on_gear_that_is_not_the_catcher_drops_off_to_the_ice_never_carried(AttackSide side, double x, double y)
         {
-            PlaceShooter(pose, true);
-            Run run = Shoot(pose, x, y, 80, facing: GoalieCharacter.FacingToward(_camera.transform.position));
+            PlaceShooter(side, true);
+            Run run = Shoot(side, x, y, 80, facing: GoalieCharacter.FacingToward(_camera.transform.position));
             Assert.AreEqual(ShotResultKind.Save, run.Kind);
             Assert.AreEqual(PuckSurface.Body, run.Surface);
             int still = 0;

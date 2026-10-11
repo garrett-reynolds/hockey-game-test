@@ -20,38 +20,13 @@ _Avoid_: Fake shot, mouse shot, debug shot
 The goal opening, as a flat plane. Shot positions are measured on it from its bottom-left corner.
 _Avoid_: Goal mouth, target
 
-**Zone**:
-One box of the 3x3 grid that divides the Net Face.
-_Avoid_: Block, cell, square
-Going away with the Goalie Pose (map: the goalie reacts to the Shot, #49): name a place on the Net Face by its position, or in plain words such as "high on the glove side".
-
-**Open Zone**:
-A Zone where a Shot always scores on this attack.
-_Avoid_: Hole, weak spot
-Going away with the Goalie Pose (map #49); see Gap.
-
-**Covered Zone**:
-A Zone where a Shot is always saved on this attack.
-_Avoid_: Blocked zone, closed zone
-Going away with the Goalie Pose (map #49).
-
-**Contested Zone**:
-A Zone where a Shot may score or be saved; a faster Shot is more likely to score.
-_Avoid_: 50/50 zone, half-open zone
-Going away with the Goalie Pose; Reach in time replaces it, and speed then matters only through the Flight Time (map: the goalie reacts to the Shot, #49).
-
 **Attack Side**:
-The side the player approaches the net from on one Shot: left, middle, or right. It decides the angle the goalie plays in his Set-up (and, until the Goalie Pose goes, which Zones are Open, Covered, or Contested).
+The side the player approaches the net from on one Shot: left, middle, or right. It decides the angle the goalie plays in his Set-up.
 _Avoid_: Angle, lane
-
-**Goalie Pose**:
-The Round's hidden setup for one Shot. Each Attack Side has its own Goalie Poses, and each pose fixes which Zones are Open, Covered, or Contested, so it decides whether the Shot is a Save, a Goal or a Miss. Left and right are always from the shooter's view. The goalie character never shows it: the player sees the Ready Stance and then the goalie's reaction to where the Shot goes (see docs/adr/0002). Only the developer block goalie (forceGoalieBlocks) draws it.
-_Avoid_: Stance (on its own it is ambiguous: say Goalie Pose or Ready Stance), position
-Being replaced by Set-up (map: the goalie reacts to the Shot, #49).
 
 **Set-up**:
 Where the goalie is set for one Shot when the shooting window opens: his spot across the crease and his depth in it. The player can see it, and it is either a Clean Set-up or has one Set-up Mistake.
-_Avoid_: Goalie Pose (the old hidden rule), position
+_Avoid_: position
 
 **Clean Set-up**:
 A Set-up on the line from the shooter to the net centre, at his normal depth, settled in time.
@@ -62,7 +37,7 @@ _Avoid_: Weakness, tell, hole
 
 **Gap**:
 Part of the Net Face the goalie's set gear leaves open, so the shooter can see it. A Set-up Mistake makes a bigger Gap; a Clean Set-up leaves only small ones. A Shot into a Gap is not a sure Goal: Reach in time still decides.
-_Avoid_: Open Zone (the old hidden rule), hole, weak spot
+_Avoid_: hole, weak spot
 
 **Easy mode**:
 A player setting that glows each Gap a puck can fit through, from when the goalie is set until the Shot. It only makes the Gap easier to see; it does not change who wins the reach.
@@ -81,17 +56,16 @@ How long the puck takes from the Shot to the goalie. A faster or closer Shot has
 _Avoid_: Travel time
 
 **Reach in time**:
-The rule that decides a Shot on the Net Face: a Save when the Reach Time is no longer than the Flight Time, otherwise a Goal. Shot speed matters only through the Flight Time. It replaces the Goalie Pose and Zone rule (map: the goalie reacts to the Shot, #49). It does not decide a Miss or a Frame Hit: where the Shot goes decides those.
-_Avoid_: Save chance, Contested roll
+The rule that decides a Shot on the Net Face: a Save when the Reach Time is no longer than the Flight Time, otherwise a Goal. Shot speed matters only through the Flight Time. It does not decide a Miss or a Frame Hit: where the Shot goes decides those.
+_Avoid_: Save chance
 
 **Ready Stance**:
-The goalie's crouch before the Shot, the same for every Goalie Pose and Attack Side. The goalie holds it through the skate-in and slow-down, reacts out of it on the Shot, and keeps it when there is no Shot in time. In it the goalie turns on its spot to face the shooter (up to 30 degrees either way) and, shuffles across and in or out to play the angle and get set into his Set-up, and it keeps that turn through its reaction. In it he shows Stance Life; the goalie character also stands in it on the start and end screens.
-_Avoid_: Neutral pose, idle pose
+The goalie's crouch before the Shot, the same for every Set-up and Attack Side. The goalie holds it through the skate-in and slow-down, reacts out of it on the Shot, and keeps it when there is no Shot in time. In it the goalie turns on its spot to face the shooter (up to 30 degrees either way) and, shuffles across and in or out to play the angle and get set into his Set-up, and it keeps that turn through its reaction. In it he shows Stance Life; the goalie character also stands in it on the start and end screens.
+_Avoid_: Stance (on its own), neutral pose, idle pose
 
 **Save Reaction**:
-What the goalie character does on a Save, chosen only from where the Shot meets the Net Face: a glove save (the catching glove, on the shooter's right, mid to high), a blocker save (the blocker, on the shooter's left, mid to high), a pad save (low: the pad on the puck's side, down in the butterfly or standing), a stick save (along the ice through the middle) or a body save (the middle). The chosen gear reaches the puck's line, the puck stops on it, and the save sound and the rebound are that gear's. The same point always gets the same reaction, whatever the Goalie Pose. On a Goal or a Miss the goalie only reaches toward the puck and never touches it. Once the puck has got there the goalie's head follows it (a pad save watches the rebound).
+What the goalie character does with his gear on the Shot: a glove save (the catching glove, on the shooter's right), a blocker save (the blocker, on the shooter's left), a pad save (the pad on the puck's side, down in the butterfly or standing), a stick save (along the ice) or a body save. It is the gear that reaches the puck's line first in Reach in time; when his gear is already in the puck's line, it is the gear for where the Shot meets the Net Face (glove or blocker mid to high, a pad low, the stick along the ice through the middle, the body in the middle). On a Save the gear reaches the puck's line, the puck stops on it, and the save sound and the rebound are that gear's. On a Goal he moves the same way at his real speed and is seen to arrive just too late. On a Miss he only reaches toward the puck and never touches it. Once the puck has got there the goalie's head follows it (a pad save watches the rebound).
 _Avoid_: Save pose, save animation
-Changing with Reach in time: the gear that reaches the puck's line first makes the Save, and on a Goal the goalie moves at his real speed and is seen to arrive too late (map: the goalie reacts to the Shot, #49).
 
 **Annoyed Gesture**:
 What the goalie character does on a GOAL! once the puck has met the netting: after a late reach and a look back into the net, he either slaps his stick on the ice (he was only just too late: his Reach Time was longer than the Flight Time by less than about 0.05 s) or slumps and shakes his head (he was beaten clearly). The gesture tells the shooter how close the race was. He shows its end pose, then Recovery.
@@ -106,7 +80,7 @@ What the goalie character does once his reaction has played out (a Save's follow
 _Avoid_: Reset, return to idle
 
 **Stance Life**:
-The goalie character's small, steady motion in the Ready Stance: breathing, weight shifts from skate to skate (the skates stay put) and now and then a stick tap. It runs on real time (so it carries on at full speed through the slow-down) from a clock alone, never from the Goalie Pose, the Attack Side or the Shot, so it gives no hint. It fades out as he reacts (none once he has fully reacted) and back in during Recovery.
+The goalie character's small, steady motion in the Ready Stance: breathing, weight shifts from skate to skate (the skates stay put) and now and then a stick tap. It runs on real time (so it carries on at full speed through the slow-down) from a clock alone, never from the Set-up, the Attack Side or the Shot, so it gives no hint. It fades out as he reacts (none once he has fully reacted) and back in during Recovery.
 _Avoid_: Idle animation, idle pose (Idle is the start screen's phase)
 
 **Miss**:

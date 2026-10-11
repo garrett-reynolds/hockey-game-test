@@ -31,9 +31,6 @@ namespace HockeyGame.Core.Tests
                 UsbPort = "COM7",
                 LastUsbPort = "COM4",
                 EasyMode = true,
-                ContestedLowChance = 0.35,
-                ContestedTopChance = 0.7,
-                TopSpeedKmh = 95.5,
                 TestShotOnAtStart = false,
                 InputIgnoreSeconds = 3.5,
                 AutoReturnSeconds = 20.25,
@@ -50,9 +47,6 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(expected.UsbPort, actual.UsbPort);
             Assert.AreEqual(expected.LastUsbPort, actual.LastUsbPort);
             Assert.AreEqual(expected.EasyMode, actual.EasyMode);
-            Assert.AreEqual(expected.ContestedLowChance, actual.ContestedLowChance);
-            Assert.AreEqual(expected.ContestedTopChance, actual.ContestedTopChance);
-            Assert.AreEqual(expected.TopSpeedKmh, actual.TopSpeedKmh);
             Assert.AreEqual(expected.TestShotOnAtStart, actual.TestShotOnAtStart);
             Assert.AreEqual(expected.InputIgnoreSeconds, actual.InputIgnoreSeconds);
             Assert.AreEqual(expected.AutoReturnSeconds, actual.AutoReturnSeconds);
@@ -70,9 +64,6 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual("Auto", d.UsbPort);
             Assert.AreEqual("", d.LastUsbPort);
             Assert.IsFalse(d.EasyMode);
-            Assert.AreEqual(0.50, d.ContestedLowChance);
-            Assert.AreEqual(0.85, d.ContestedTopChance);
-            Assert.AreEqual(120, d.TopSpeedKmh);
             Assert.IsTrue(d.TestShotOnAtStart);
             Assert.AreEqual(2, d.InputIgnoreSeconds);
             Assert.AreEqual(15, d.AutoReturnSeconds);
@@ -120,13 +111,13 @@ namespace HockeyGame.Core.Tests
         {
             var original = NonDefault();
             original.Save(_path);
-            var text = File.ReadAllText(_path).Replace("topSpeedKmh=95.5", "topSpeedKmh=fast");
+            var text = File.ReadAllText(_path).Replace("autoReturnSeconds=20.25", "autoReturnSeconds=soon");
             File.WriteAllText(_path, text);
 
             var loaded = SaveData.Load(_path);
 
-            Assert.AreEqual(120, loaded.TopSpeedKmh);
-            original.TopSpeedKmh = 120;
+            Assert.AreEqual(15, loaded.AutoReturnSeconds);
+            original.AutoReturnSeconds = 15;
             AssertSame(original, loaded);
         }
 
@@ -135,14 +126,10 @@ namespace HockeyGame.Core.Tests
         {
             Directory.CreateDirectory(_dir);
             File.WriteAllText(_path,
-                "contestedLowChance=-0.5\ncontestedTopChance=4\ntopSpeedKmh=0\ninputIgnoreSeconds=-3\n" +
-                "autoReturnSeconds=0\nmasterVolume=-1\n");
+                "inputIgnoreSeconds=-3\nautoReturnSeconds=0\nmasterVolume=-1\n");
 
             var loaded = SaveData.Load(_path);
 
-            Assert.AreEqual(0.0, loaded.ContestedLowChance);
-            Assert.AreEqual(1.0, loaded.ContestedTopChance);
-            Assert.AreEqual(10.0, loaded.TopSpeedKmh);
             Assert.AreEqual(0.0, loaded.InputIgnoreSeconds);
             Assert.AreEqual(1.0, loaded.AutoReturnSeconds);
             Assert.AreEqual(0.0, loaded.MasterVolume);
@@ -152,11 +139,10 @@ namespace HockeyGame.Core.Tests
         public void Load_TooLargeNumbers_ClampToTheSettingsScreenMaximums()
         {
             Directory.CreateDirectory(_dir);
-            File.WriteAllText(_path, "topSpeedKmh=900\ninputIgnoreSeconds=99\nautoReturnSeconds=500\nmasterVolume=3\n");
+            File.WriteAllText(_path, "inputIgnoreSeconds=99\nautoReturnSeconds=500\nmasterVolume=3\n");
 
             var loaded = SaveData.Load(_path);
 
-            Assert.AreEqual(300.0, loaded.TopSpeedKmh);
             Assert.AreEqual(30.0, loaded.InputIgnoreSeconds);
             Assert.AreEqual(120.0, loaded.AutoReturnSeconds);
             Assert.AreEqual(1.0, loaded.MasterVolume);
@@ -171,7 +157,7 @@ namespace HockeyGame.Core.Tests
                 CultureInfo.CurrentCulture = new CultureInfo("de-DE");
                 var original = NonDefault();
                 original.Save(_path);
-                StringAssert.Contains("topSpeedKmh=95.5", File.ReadAllText(_path));
+                StringAssert.Contains("autoReturnSeconds=20.25", File.ReadAllText(_path));
                 AssertSame(original, SaveData.Load(_path));
             }
             finally
@@ -181,14 +167,18 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void ApplyTo_CopiesChancesAndTopSpeed_AndKeepsPhaseLengths()
+        public void Load_AFileFromBeforeReachInTime_IgnoresTheOldContestedKeysAndKeepsTheRest()
         {
-            var settings = new RoundSettings { SkateInSeconds = 9 };
-            NonDefault().ApplyTo(settings);
-            Assert.AreEqual(9, settings.SkateInSeconds);
-            Assert.AreEqual(0.35, settings.ContestedLowChance);
-            Assert.AreEqual(0.7, settings.ContestedTopChance);
-            Assert.AreEqual(95.5, settings.TopSpeedKmh);
+            Directory.CreateDirectory(_dir);
+            File.WriteAllText(_path, "bestScore=4\ncontestedLowChance=0.3\ncontestedTopChance=0.9\ntopSpeedKmh=100\nmasterVolume=0.5\n");
+
+            var loaded = SaveData.Load(_path);
+
+            Assert.AreEqual(4, loaded.BestScore);
+            Assert.AreEqual(0.5, loaded.MasterVolume);
+            loaded.Save(_path);
+            StringAssert.DoesNotContain("contested", File.ReadAllText(_path));
+            StringAssert.DoesNotContain("topSpeed", File.ReadAllText(_path));
         }
     }
 }

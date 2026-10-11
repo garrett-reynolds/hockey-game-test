@@ -7,16 +7,17 @@ namespace HockeyGame
     /// <summary>
     /// The goalie: the rigged goalie character when there is one, otherwise the block goalie, plus the Easy mode glow on the
     /// Gaps (ShowGaps: one glow cell per Net Face cell of NetFaceGaps).
-    /// All six Goalie Poses are built once as blocks from the pose table (Covered Zone = block filling the Zone,
-    /// Contested Zone = smaller block, Open Zone = nothing); showing a pose enables its group and disables the rest.
-    /// The blocks stay in the scene as the rules reference; with the character they are not drawn. The character never shows
-    /// the Goalie Pose: it holds the Ready Stance and on the Shot moves into a Save Reaction chosen from where the Shot goes
-    /// (React), set by the same blend (docs/adr/0002); after it he recovers into the Ready Stance before the result hold ends,
-    /// and in the Ready Stance he shows Stance Life (Live, #44). No colliders.
+    /// The block goalie (no character model, or the forceGoalieBlocks developer flag) is one block just in front of the Net
+    /// Face, standing across from where the goalie stands (Stand); with the character it is not drawn. The character holds
+    /// the Ready Stance and on the Shot moves into the Save Reaction the Round's race gives (React), set by the set blend
+    /// (docs/adr/0003); after it he recovers into the Ready Stance before the result hold ends, and in the Ready Stance he
+    /// shows Stance Life (Live, #44). No colliders.
     /// </summary>
     public sealed class GoalieView
     {
-        const float CoveredFraction = 1f;
+        /// <summary>The block goalie's name in the scene.</summary>
+        public const string BlockName = "Goalie block";
+        const float BlockWidth = 0.9f, BlockHeight = 0.9f; // the block goalie: a crouched goalie's front, from the ice
         internal const float BlockDepth = 0.1f;
         internal const float BlockZ = -0.08f;   // centre; block spans z -0.13..-0.03, in front of the Net Face
         const float PostGlanceHeight = 0.5f;   // how high up the post a Miss glances back at (metres)
@@ -28,17 +29,16 @@ namespace HockeyGame
 
         const float GlowFraction = 0.96f; // a glow cell's share of its Net Face cell, so neighbouring Gaps show as cells
 
-        readonly GameObject[] _blocks = new GameObject[6];
+        readonly GameObject _block; // the block goalie
         readonly GameObject _gapGlow;                                                   // Easy mode: one glow cell per Net Face cell
         readonly GameObject[] _gapCells = new GameObject[NetFaceGaps.Columns * NetFaceGaps.Rows];
         readonly Material _glow; // shared by every glow cell
-        readonly System.Collections.Generic.List<SetBlock>[] _setBlocks = new System.Collections.Generic.List<SetBlock>[6];
         float _set = 1f;
         float _ready, _target; // facing (degrees): turned so far in the Ready Stance; squared up to the shooter
         NetFaceGaps _gaps = NetFaceGaps.None; // what the glow shows (ShowGaps)
-        int _shown = -1;
         bool _visible;
-        readonly GoalieCharacter _character; // null or without a model: the blocks are drawn
+        Vector3 _spot;                       // where the goalie stands (Stand)
+        readonly GoalieCharacter _character; // null or without a model: the block goalie is drawn
         float _life;                             // Stance Life clock (Live)
         Transform _carried, _carrier;            // Carry: the resting puck, and what it moves with
         Vector3 _carriedAt;
@@ -50,52 +50,13 @@ namespace HockeyGame
         float _sinceArrival = -1f, _sinceNetting = -1f;
         Vector3 _puck, _post;                    // where the puck is now; the post a Miss glances back at
 
-        /// <param name="character">The goalie character; null (or no model) draws the blocks instead.</param>
+        /// <param name="character">The goalie character; null (or no model) draws the block goalie instead.</param>
         public GoalieView(Transform parent, GoalieCharacter character = null)
         {
             _character = character != null && character.Present ? character : null;
             _glow = GlowMaterial();
-            foreach (GoaliePose pose in System.Enum.GetValues(typeof(GoaliePose)))
-            {
-                int i = (int)pose;
-                _blocks[i] = new GameObject("Goalie " + pose);
-                _blocks[i].transform.SetParent(parent);
-                _setBlocks[i] = new System.Collections.Generic.List<SetBlock>();
-
-                for (int column = 0; column < 3; column++)
-                for (int row = 0; row < 3; row++)
-                {
-                    switch (GoaliePoses.CoverAt(pose, column, row))
-                    {
-                        case ZoneCover.Covered:
-                            {
-                                NetFaceMapping.ZoneRectangle(column, row, CoveredFraction, out float a, out float b, out float c, out float d);
-                                var block = Block(_blocks[i].transform, column, row, a, b, c, d, BlockDepth, BlockZ, GoalieColour, null);
-                                _setBlocks[i].Add(new SetBlock(block, GoaliePoseBlend.Neutral(column, row), new GoaliePoseBlend.Shape(a, b, c, d)));
-                            }
-                            break;
-                        case ZoneCover.Contested:
-                            {
-                                NetFaceMapping.ContestedRectangle(column, row,
-                                    IsOpen(pose, column - 1, row), IsOpen(pose, column + 1, row),
-                                    IsOpen(pose, column, row - 1), IsOpen(pose, column, row + 1),
-                                    out float a, out float b, out float c, out float d);
-                                var block = Block(_blocks[i].transform, column, row, a, b, c, d, BlockDepth, BlockZ, GoalieColour, null);
-                                _setBlocks[i].Add(new SetBlock(block, GoaliePoseBlend.Neutral(column, row), new GoaliePoseBlend.Shape(a, b, c, d)));
-                            }
-                            break;
-                        case ZoneCover.Open:
-                            {
-                                // Neutral-shape block that shrinks away as the goalie sets; hidden once set.
-                                var n = GoaliePoseBlend.Neutral(column, row);
-                                var settle = Block(_blocks[i].transform, column, row, n.MinX, n.MinY, n.MaxX, n.MaxY, BlockDepth, BlockZ, GoalieColour, null);
-                                settle.name += " (setting)";
-                                _setBlocks[i].Add(new SetBlock(settle, n, GoaliePoseBlend.OpenTarget(column, row)));
-                            }
-                            break;
-                    }
-                }
-            }
+            _block = RinkBuilder.Cube(parent, BlockName, new Vector3(0f, BlockHeight / 2f, BlockZ),
+                new Vector3(BlockWidth, BlockHeight, BlockDepth), GoalieColour);
             _gapGlow = new GameObject("Gap glow");
             _gapGlow.transform.SetParent(parent);
             for (int column = 0; column < NetFaceGaps.Columns; column++)
@@ -110,12 +71,8 @@ namespace HockeyGame
                 cell.GetComponent<Renderer>().sharedMaterial = _glow;
                 _gapCells[NetFaceGaps.Index(column, row)] = cell;
             }
-            if (_character != null)
-                foreach (GameObject group in _blocks)
-                    foreach (Renderer r in group.GetComponentsInChildren<Renderer>(true))
-                        r.enabled = false;
+            if (_character != null) _block.GetComponent<Renderer>().enabled = false;
             Apply();
-            for (int i = 0; i < _setBlocks.Length; i++) PlaceSetBlocks(i);
             SetGlowDepth();
         }
 
@@ -129,7 +86,7 @@ namespace HockeyGame
         }
 
         /// <summary>
-        /// Before the Shot the goalie's Ready Stance (or the neutral blocks) stands in front of some Gaps seen from the shooter's
+        /// Before the Shot the goalie's Ready Stance (or the block goalie) stands in front of some Gaps seen from the shooter's
         /// eye (the Gaps are measured from the puck, below and ahead of it), so the glow
         /// draws over it (no depth test); once the goalie reacts it is depth-tested again, so the flying puck stays in front.
         /// </summary>
@@ -139,15 +96,14 @@ namespace HockeyGame
         }
 
         /// <summary>
-        /// How far the goalie has moved out of the Ready Stance: 0 = Ready Stance / neutral block shapes, 1 = fully into the
-        /// reaction (the character) or the pose's blocks (the default).
+        /// How far the goalie has moved out of the Ready Stance: 0 = Ready Stance, 1 = fully into the reaction (the default).
+        /// The block goalie does not move with it.
         /// </summary>
         public void SetProgress(float progress)
         {
             if (!Mathf.Approximately(progress, _set))
             {
                 _set = Mathf.Clamp01(progress);
-                for (int i = 0; i < _setBlocks.Length; i++) PlaceSetBlocks(i);
                 SetGlowDepth();
             }
             PoseCharacter(); // every call, so nothing else left on the bones wins
@@ -157,7 +113,7 @@ namespace HockeyGame
         /// Which way the goalie character faces (degrees about the vertical, + toward the shooter's left; see GoalieTurn):
         /// `ready` is where it has turned so far in the Ready Stance; `target` squares up to the shooter. Reacting, it
         /// finishes the turn to the target, so it stays squared up to the shooter (#39); React builds the reaction there. The
-        /// blocks never turn.
+        /// block goalie never turns.
         /// </summary>
         public void Face(float ready, float target)
         {
@@ -170,16 +126,20 @@ namespace HockeyGame
         public float PosedFacing() => Mathf.Clamp(_target, -(float)GoalieTurn.MaxDegrees, (float)GoalieTurn.MaxDegrees);
 
         /// <summary>
-        /// Where the goalie character stands in the crease (rink space, on the ice): he plays the angle and gets set by moving it
-        /// (BreakawayView). Shown by the next SetProgress; the next React builds the reaction there. The blocks never move.
+        /// Where the goalie stands in the crease (rink space, on the ice): he plays the angle and gets set by moving it
+        /// (BreakawayView). The character is shown there by the next SetProgress, and the next React builds the reaction there;
+        /// the block goalie moves across the Net Face with it at once.
         /// </summary>
         public void Stand(Vector3 spot)
         {
+            _spot = spot;
             if (_character != null) _character.Spot = spot;
+            Vector3 at = _block.transform.position;
+            _block.transform.position = new Vector3(spot.x, at.y, at.z);
         }
 
-        /// <summary>Where the goalie character stands (see Stand); zero without a character.</summary>
-        public Vector3 ShownSpot => _character != null ? _character.Spot : Vector3.zero;
+        /// <summary>Where the goalie stands (see Stand).</summary>
+        public Vector3 ShownSpot => _character != null ? _character.Spot : _spot;
 
         /// <summary>
         /// On the Shot, before React: the goalie stands where the Round's race measured him (its Set-up spot) and is squared up
@@ -223,7 +183,7 @@ namespace HockeyGame
         /// <summary>The facing (degrees, see Face) the goalie character was last shown at.</summary>
         public float ShownFacing { get; private set; }
 
-        /// <summary>True when the rigged goalie character is drawn (not the blocks).</summary>
+        /// <summary>True when the rigged goalie character is drawn (not the block goalie).</summary>
         public bool HasCharacter => _character != null;
 
         /// <summary>
@@ -247,33 +207,11 @@ namespace HockeyGame
             PoseCharacter();
         }
 
-        void PlaceSetBlocks(int pose)
+        /// <summary>Show the goalie (or hide it, and the Easy mode glow, when visible is false).</summary>
+        public void Show(bool visible)
         {
-            foreach (var block in _setBlocks[pose])
-            {
-                var r = GoaliePoseBlend.Lerp(block.Neutral, block.Pose, _set);
-                float w = r.MaxX - r.MinX, h = r.MaxY - r.MinY;
-                bool show = w > 0.005f && h > 0.005f;
-                block.Cube.SetActive(show);
-                if (!show) continue;
-                block.Cube.transform.position = new Vector3((r.MinX + r.MaxX) / 2f, (r.MinY + r.MaxY) / 2f, BlockZ);
-                block.Cube.transform.localScale = new Vector3(w, h, BlockDepth);
-            }
-        }
-
-        readonly struct SetBlock
-        {
-            public readonly GameObject Cube;
-            public readonly GoaliePoseBlend.Shape Neutral, Pose;
-            public SetBlock(GameObject cube, GoaliePoseBlend.Shape neutral, GoaliePoseBlend.Shape pose) { Cube = cube; Neutral = neutral; Pose = pose; }
-        }
-
-        /// <summary>Show the goalie in the given pose (or hide it, and the Easy mode glow, when visible is false).</summary>
-        public void Show(bool visible, GoaliePose pose)
-        {
-            if (visible == _visible && (int)pose == _shown) return;
+            if (visible == _visible) return;
             _visible = visible;
-            _shown = (int)pose;
             Apply();
         }
 
@@ -299,8 +237,7 @@ namespace HockeyGame
 
         void Apply()
         {
-            for (int i = 0; i < _blocks.Length; i++)
-                _blocks[i].SetActive(_visible && i == _shown);
+            _block.SetActive(_visible);
             ApplyGaps();
             if (_character == null) return;
             _character.Show(_visible);
@@ -396,20 +333,6 @@ namespace HockeyGame
             surface = PuckSurface.Pad;
             string piece = ReactionPiece;
             return piece != null && obstacles.Nearest(stop, piece, out normal, out surface);
-        }
-
-        static bool IsOpen(GoaliePose pose, int column, int row)
-        {
-            return column >= 0 && column < 3 && row >= 0 && row < 3 && GoaliePoses.CoverAt(pose, column, row) == ZoneCover.Open;
-        }
-
-        static GameObject Block(Transform parent, int column, int row, float minX, float minY, float maxX, float maxY, float depth, float z, Color colour, Material material)
-        {
-            var cube = RinkBuilder.Cube(parent, "Zone " + column + "," + row,
-                new Vector3((minX + maxX) / 2f, (minY + maxY) / 2f, z),
-                new Vector3(maxX - minX, maxY - minY, depth), colour);
-            if (material != null) cube.GetComponent<Renderer>().sharedMaterial = material;
-            return cube;
         }
     }
 }

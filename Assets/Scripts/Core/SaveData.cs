@@ -23,10 +23,6 @@ namespace HockeyGame.Core
             public double Clamp(double value) => Math.Max(Min, Math.Min(Max, value));
         }
 
-        /// <summary>Contested chances: 0–100 %.</summary>
-        public static readonly NumberRange ChanceRange = new NumberRange(0, 1, 0.05);
-        /// <summary>Top speed: at least 10 km/h, so the Contested chance never divides by 0.</summary>
-        public static readonly NumberRange TopSpeedRange = new NumberRange(10, 300, 5);
         public static readonly NumberRange InputIgnoreRange = new NumberRange(0, 30, 0.5);
         public static readonly NumberRange AutoReturnRange = new NumberRange(1, 120, 1);
         public static readonly NumberRange VolumeRange = new NumberRange(0, 1, 0.1);
@@ -36,9 +32,6 @@ namespace HockeyGame.Core
         private const string UsbPortKey = "usbPort";
         private const string LastUsbPortKey = "lastUsbPort";
         private const string EasyModeKey = "easyMode";
-        private const string ContestedLowChanceKey = "contestedLowChance";
-        private const string ContestedTopChanceKey = "contestedTopChance";
-        private const string TopSpeedKmhKey = "topSpeedKmh";
         private const string TestShotOnAtStartKey = "testShotOnAtStart";
         private const string InputIgnoreSecondsKey = "inputIgnoreSeconds";
         private const string AutoReturnSecondsKey = "autoReturnSeconds";
@@ -52,9 +45,6 @@ namespace HockeyGame.Core
         /// <summary>In Auto mode, the last port that sent READY; tried first next time. Blank if none yet.</summary>
         public string LastUsbPort = "";
         public bool EasyMode = false;
-        public double ContestedLowChance = 0.50;
-        public double ContestedTopChance = 0.85;
-        public double TopSpeedKmh = 120;
         public bool TestShotOnAtStart = true;
         public double InputIgnoreSeconds = 2;
         public double AutoReturnSeconds = 15;
@@ -95,9 +85,6 @@ namespace HockeyGame.Core
             if (values.TryGetValue(UsbPortKey, out var port) && port.Length > 0) data.UsbPort = port;
             if (values.TryGetValue(LastUsbPortKey, out var lastPort)) data.LastUsbPort = lastPort;
             data.EasyMode = ReadBool(values, EasyModeKey, data.EasyMode);
-            data.ContestedLowChance = ReadDouble(values, ContestedLowChanceKey, data.ContestedLowChance, ChanceRange);
-            data.ContestedTopChance = ReadDouble(values, ContestedTopChanceKey, data.ContestedTopChance, ChanceRange);
-            data.TopSpeedKmh = ReadDouble(values, TopSpeedKmhKey, data.TopSpeedKmh, TopSpeedRange);
             data.TestShotOnAtStart = ReadBool(values, TestShotOnAtStartKey, data.TestShotOnAtStart);
             data.InputIgnoreSeconds = ReadDouble(values, InputIgnoreSecondsKey, data.InputIgnoreSeconds, InputIgnoreRange);
             data.AutoReturnSeconds = ReadDouble(values, AutoReturnSecondsKey, data.AutoReturnSeconds, AutoReturnRange);
@@ -122,9 +109,6 @@ namespace HockeyGame.Core
                 sb.Append(UsbPortKey).Append('=').Append(UsbPort).Append('\n');
                 sb.Append(LastUsbPortKey).Append('=').Append(LastUsbPort).Append('\n');
                 sb.Append(EasyModeKey).Append('=').Append(EasyMode ? "true" : "false").Append('\n');
-                sb.Append(ContestedLowChanceKey).Append('=').Append(ContestedLowChance.ToString("R", inv)).Append('\n');
-                sb.Append(ContestedTopChanceKey).Append('=').Append(ContestedTopChance.ToString("R", inv)).Append('\n');
-                sb.Append(TopSpeedKmhKey).Append('=').Append(TopSpeedKmh.ToString("R", inv)).Append('\n');
                 sb.Append(TestShotOnAtStartKey).Append('=').Append(TestShotOnAtStart ? "true" : "false").Append('\n');
                 sb.Append(InputIgnoreSecondsKey).Append('=').Append(InputIgnoreSeconds.ToString("R", inv)).Append('\n');
                 sb.Append(AutoReturnSecondsKey).Append('=').Append(AutoReturnSeconds.ToString("R", inv)).Append('\n');
@@ -139,14 +123,6 @@ namespace HockeyGame.Core
             {
                 return false;
             }
-        }
-
-        /// <summary>Copies the saved tuning values into the Round core's settings. Phase lengths are left as they are.</summary>
-        public void ApplyTo(RoundSettings settings)
-        {
-            settings.ContestedLowChance = ContestedLowChance;
-            settings.ContestedTopChance = ContestedTopChance;
-            settings.TopSpeedKmh = TopSpeedKmh;
         }
 
         private static int ReadInt(Dictionary<string, string> values, string key, int fallback)

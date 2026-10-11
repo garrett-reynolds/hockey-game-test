@@ -3,8 +3,8 @@ using NUnit.Framework;
 namespace HockeyGame.Core.Tests
 {
     /// <summary>
-    /// The Save Reaction is chosen from where the Shot meets the Net Face (shooter's view, 0..100 from the bottom-left),
-    /// never from the Goalie Pose. The catching glove is on the shooter's right.
+    /// The Save Reaction is chosen from where the Shot meets the Net Face (shooter's view, 0..100 from the bottom-left).
+    /// The catching glove is on the shooter's right.
     /// </summary>
     public class SaveReactionTests
     {

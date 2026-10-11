@@ -1,5 +1,7 @@
 # The goalie character shows a Save Reaction, not the Goalie Pose
 
+_Superseded by [docs/adr/0003](0003-reach-in-time-decides-the-shot.md): Reach in time decides the Shot, not a hidden Goalie Pose, and the Set-up is a visible hint before the Shot._
+
 ADR 0001 kept the Round's Goalie Pose as what the goalie character moves into on the Shot. Garrett played the game on 2026-10-10 and found that this looks random: the goalie dives into a pose picked before the Shot, whatever the Shot does. Since #42 the character never shows the Goalie Pose. On the Shot it reacts to where the puck actually goes (a Save Reaction: glove, blocker, pads, stick or body, chosen only from the Shot's Net Face point), and on a Goal or a Miss it reaches toward the puck without touching it.
 
 The Goalie Pose still decides every Shot exactly as before (Round, Zones and the hidden blocks are unchanged), and it is still never shown before the Shot, so ADR 0001's reason stands: the player gets no hint. Only what the character shows after the Shot changed.

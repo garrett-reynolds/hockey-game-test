@@ -3,7 +3,7 @@ using System.Globalization;
 
 namespace HockeyGame.Core
 {
-    /// <summary>Text shown after a Shot. Never shows the Zone or the score chance.</summary>
+    /// <summary>Text shown after a Shot. Never shows the race (Reach Time, Flight Time) or a score chance.</summary>
     public static class ShotResultText
     {
         /// <summary>The Shot speed, e.g. "92 km/h", for a Shot with a puck; null for Too Late.</summary>
