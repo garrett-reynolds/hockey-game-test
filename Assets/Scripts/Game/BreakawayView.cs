@@ -71,8 +71,9 @@ namespace HockeyGame
             Time.timeScale = timeScale;
             _look.weight = (float)Breakaway.LookAmount(timeScale);
 
+            // On the Shot he moves as the Round's race timed him (Reach in time): what is seen agrees with the result (#63).
             float set = (float)Breakaway.GoalieSet(phase, phaseSeconds, _round.LastResult.HasValue && _round.LastResult.Value.HasShot,
-                _round.ResultDelaySeconds);
+                _round.ResultDelaySeconds, _round.LastRace);
             if (phase == RoundPhase.Idle || phase == RoundPhase.RoundOver)
             {
                 _goalie.Face((float)_turn.Shown, (float)_turn.Shown); // keeps facing the last shooter

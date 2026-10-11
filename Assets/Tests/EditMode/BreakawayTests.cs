@@ -117,6 +117,83 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(1.0, Breakaway.GoalieSet(RoundPhase.ResultHold, 2.0, true, flight), Tol);
         }
 
+        /// <summary>A race the goalie's gear moved in (not in the way): Reach Time = Reaction Time + the move.</summary>
+        static ShotRace Raced(double reaction, double move, double flight) =>
+            new ShotRace(SetUp.Clean, AttackSide.Middle, reaction, move, reaction + move, flight, false, SaveReaction.Glove, default, default);
+
+        [Test]
+        public void On_a_raced_Shot_the_goalie_holds_the_ready_stance_until_the_Reaction_Time()
+        {
+            ShotRace race = Raced(0.15, 0.1, 0.3);
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.ResultHold, 0, true, 0.3, race), Tol, "still ready at the Shot");
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.ResultHold, 0.1, true, 0.3, race), Tol, "still ready before his Reaction Time");
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.ResultHold, 0.15, true, 0.3, race), Tol, "starts at his Reaction Time");
+            Assert.Greater(Breakaway.GoalieSet(RoundPhase.ResultHold, 0.16, true, 0.3, race), 0.0, "moving just after it");
+        }
+
+        [Test]
+        public void A_raced_Save_has_the_gear_on_the_line_at_or_before_the_Flight_Time()
+        {
+            ShotRace race = Raced(0.12, 0.08, 0.25);
+            Assert.IsTrue(race.IsSave);
+            Assert.AreEqual(1.0, Breakaway.GoalieSet(RoundPhase.ResultHold, race.ReachSeconds, true, 0.25, race), Tol, "there at the Reach Time");
+            Assert.AreEqual(1.0, Breakaway.GoalieSet(RoundPhase.ResultHold, race.FlightSeconds, true, 0.25, race), Tol, "there when the puck passes");
+            Assert.Less(Breakaway.GoalieSet(RoundPhase.ResultHold, race.ReachSeconds - 0.01, true, 0.25, race), 1.0, "not before the Reach Time");
+        }
+
+        [Test]
+        public void A_Save_won_at_the_edge_arrives_exactly_as_the_puck_passes()
+        {
+            ShotRace race = Raced(0.12, 0.08, 0.2);
+            Assert.IsTrue(race.IsSave);
+            Assert.AreEqual(1.0, Breakaway.GoalieSet(RoundPhase.ResultHold, race.FlightSeconds, true, 0.2, race), Tol);
+        }
+
+        [Test]
+        public void On_a_raced_Goal_the_gear_arrives_after_the_puck_passes()
+        {
+            ShotRace race = Raced(0.12, 0.2, 0.25);
+            Assert.IsFalse(race.IsSave);
+            Assert.Less(Breakaway.GoalieSet(RoundPhase.ResultHold, race.FlightSeconds, true, 0.4, race), 1.0, "still on the way when the puck passes");
+            Assert.AreEqual(1.0, Breakaway.GoalieSet(RoundPhase.ResultHold, race.ReachSeconds, true, 0.4, race), Tol, "there at the Reach Time, too late");
+            Assert.AreEqual(1.0, Breakaway.GoalieSet(RoundPhase.ResultHold, 2.0, true, 0.4, race), Tol);
+        }
+
+        [TestCase(0.05)]
+        [TestCase(0.3)]
+        public void The_gear_moves_at_the_race_speed_from_the_Reaction_Time_to_the_Reach_Time(double move)
+        {
+            ShotRace race = Raced(0.12, move, 0.25);
+            Assert.AreEqual(0.5, Breakaway.GoalieSet(RoundPhase.ResultHold, 0.12 + move / 2, true, 0.25, race), Tol, "half way in half the move time");
+            Assert.AreEqual(0.25, Breakaway.GoalieSet(RoundPhase.ResultHold, 0.12 + move / 4, true, 0.25, race), Tol);
+        }
+
+        [Test]
+        public void When_no_gear_can_reach_he_still_waits_his_Reaction_Time_then_reaches_over_0_2_s()
+        {
+            ShotRace race = Raced(0.12, double.PositiveInfinity, 0.25);
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.ResultHold, 0.12, true, 0.4, race), Tol);
+            Assert.Greater(Breakaway.GoalieSet(RoundPhase.ResultHold, 0.13, true, 0.4, race), 0.0);
+            Assert.AreEqual(1.0, Breakaway.GoalieSet(RoundPhase.ResultHold, 0.12 + Breakaway.GoalieReactSeconds, true, 0.4, race), Tol);
+        }
+
+        [Test]
+        public void With_gear_already_in_the_way_he_is_fully_in_the_Save_Reaction_when_the_puck_gets_there()
+        {
+            // No move in the race (move time 0): his gear is on the line already, so he needs no Reaction Time to get there.
+            var race = new ShotRace(SetUp.Clean, AttackSide.Middle, 0.12, 0, 0, 0.1, true, SaveReaction.Glove, default, default);
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.ResultHold, 0, true, 0.1, race), Tol);
+            Assert.AreEqual(1.0, Breakaway.GoalieSet(RoundPhase.ResultHold, 0.1, true, 0.1, race), Tol, "fully posed when the puck lands");
+        }
+
+        [Test]
+        public void Before_the_Shot_a_race_does_not_move_him()
+        {
+            ShotRace race = Raced(0.12, 0.1, 0.3);
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.ShootingWindow, 1.0, false, 0.3, race), Tol);
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.ResultHold, 1.0, false, 0.3, race), Tol, "no Shot");
+        }
+
         [Test]
         public void With_no_Shot_too_late_the_goalie_stays_in_the_ready_stance()
         {

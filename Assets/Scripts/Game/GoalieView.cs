@@ -219,11 +219,17 @@ namespace HockeyGame
         {
             _carried = null;
             if (puck == null || _character == null || !_visible) return;
+            // The catch was measured on the reaction as it ends (SaveStop): the puck is held where that glove has it, even when
+            // the puck gets there in the frame before he is shown fully in it (gear already in the way, a very short flight, #63).
+            _character.ShowReaction(1f, PosedFacing());
             _carrier = _character.Carrier(puck.position);
-            if (_carrier == null) return;
-            _carried = puck;
-            _carriedAt = _carrier.InverseTransformPoint(puck.position);
-            _carriedTurn = Quaternion.Inverse(_carrier.rotation) * puck.rotation;
+            if (_carrier != null)
+            {
+                _carried = puck;
+                _carriedAt = _carrier.InverseTransformPoint(puck.position);
+                _carriedTurn = Quaternion.Inverse(_carrier.rotation) * puck.rotation;
+            }
+            PoseCharacter();
         }
 
         void PlaceSetBlocks(int pose)
@@ -273,8 +279,10 @@ namespace HockeyGame
         /// <summary>
         /// On the Shot: the goalie character's reaction to this result, the puck flying from `from` (world space) to the
         /// Shot's Net Face point. A Save gets the Save Reaction to show (the Round's race: reaction; with none, the Shot point's,
-        /// SaveReactions), its gear reaching the puck's line; a Goal or a Miss gets a reach that stays off the puck (what follows:
-        /// Watch). Built at the facing the reaction ends at; shown by SetProgress. Nothing for no Shot or no character shown.
+        /// SaveReactions), its gear reaching the puck's line. A Goal the race timed some gear for (a reaction and a finite Late
+        /// Margin) gets that gear reaching the puck's line too: it gets there too late, after the puck has passed (Breakaway.GoalieSet,
+        /// #63). A Miss, or a Goal no gear could reach, gets a reach that stays off the puck (what follows: Watch). Built at the
+        /// facing the reaction ends at; shown by SetProgress. Nothing for no Shot or no character shown.
         /// </summary>
         public void React(ShotResult result, Vector3 from, SaveReaction? reaction = null, double lateMarginSeconds = double.PositiveInfinity,
             double lateMarginLimitSeconds = 0)
@@ -284,7 +292,8 @@ namespace HockeyGame
             if (_character == null || !_visible || !result.HasShot) return;
             NetFaceMapping.ToMetres(result.X, result.Y, out double right, out double up);
             var netPoint = new Vector3((float)right, (float)up, 0f);
-            _character.React(reaction ?? SaveReactions.For(result.X, result.Y), from, netPoint, PosedFacing(), result.Kind == ShotResultKind.Save);
+            bool lateReach = result.Kind == ShotResultKind.Goal && reaction.HasValue && !double.IsInfinity(lateMarginSeconds);
+            _character.React(reaction ?? SaveReactions.For(result.X, result.Y), from, netPoint, PosedFacing(), result.Kind == ShotResultKind.Save || lateReach);
             _reacted = true;
             _gesture = AfterShot.GestureFor(result.Kind, lateMarginSeconds, lateMarginLimitSeconds);
             _sinceArrival = _sinceNetting = -1f;

@@ -82,22 +82,31 @@ namespace HockeyGame.Core
         public static double LookAmount(double timeScale) => Numbers.Clamp01((1.0 - timeScale) / (1.0 - SlowTimeScale));
 
         /// <summary>
-        /// How long the goalie takes to react out of the Ready Stance after the Shot (real seconds; into its Save Reaction, or
-        /// the Goalie Pose for the block goalie).
-        /// A Shot whose puck reaches the Net Face sooner gets a quicker reaction (see GoalieSet), so the goalie is always fully
-        /// in it when the puck arrives.
+        /// How long the goalie takes to move out of the Ready Stance on a Shot the race did not time (real seconds): gear already
+        /// in the way (finished by the time the puck gets there, see GoalieSet), a reach no gear can make, or a Miss.
         /// </summary>
         public const double GoalieReactSeconds = 0.2;
 
         /// <summary>
-        /// How far the goalie has moved from the Ready Stance into its reaction (0..1). 0 until the Shot: the player gets no hint
-        /// of the pose. In the result hold after a Shot it eases out to 1 over GoalieReactSeconds (real time), or over the puck
-        /// flight (flightSeconds, real time) if that is shorter: a real goalie gets less time on a hard Shot, and the puck still
-        /// meets the gear as it was measured, fully reacted (#46). With no Shot (too late) it stays 0.
+        /// How far the goalie has moved from the Ready Stance into its reaction (0..1), on the result hold's clock (phaseSeconds,
+        /// real time: the puck's on-screen flight runs on it too). 0 until the Shot: the player gets no hint of the reaction.
+        /// With the Round's race (Reach in time) he moves as it timed him: still until the Reaction Time it rolled, then the
+        /// winning gear at its race speed, at an even pace, so it is on the puck's line at the Reach Time: at or before the
+        /// Flight Time on a Save, after the puck has passed on a Goal (#63). With no gear that can reach he still waits his Reaction
+        /// Time, then reaches over GoalieReactSeconds. With gear already in the way (no move in the race), or with no race (a
+        /// Miss), he eases in over GoalieReactSeconds, or over the on-screen flight (flightSeconds) if that is shorter, so he is
+        /// fully in it when the puck gets there. With no Shot (too late) it stays 0.
         /// </summary>
-        public static double GoalieSet(RoundPhase phase, double phaseSeconds, bool shotTaken, double flightSeconds)
+        public static double GoalieSet(RoundPhase phase, double phaseSeconds, bool shotTaken, double flightSeconds, ShotRace? race = null)
         {
             if (phase != RoundPhase.ResultHold || !shotTaken) return 0;
+            if (race is ShotRace r && !r.InTheWay)
+            {
+                double moving = phaseSeconds - r.ReactionSeconds;
+                if (moving <= 0) return 0;
+                if (double.IsPositiveInfinity(r.MoveSeconds)) return EaseOut(Numbers.Clamp01(moving / GoalieReactSeconds));
+                return r.MoveSeconds > 0 ? Numbers.Clamp01(moving / r.MoveSeconds) : 1;
+            }
             double react = Math.Min(GoalieReactSeconds, flightSeconds);
             return react > 0 ? EaseOut(Numbers.Clamp01(phaseSeconds / react)) : 1;
         }

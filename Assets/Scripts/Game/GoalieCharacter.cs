@@ -273,7 +273,7 @@ namespace HockeyGame
 
         /// <summary>
         /// The piece of gear (GearPiece) the last React put on the puck's line: Catcher, Blocker, a pad, Stick or Body. Null
-        /// before any React and after a reach that keeps off the puck (a Goal or a Miss).
+        /// before any React and after a reach that keeps off the puck (a Miss, or a Goal no gear can reach).
         /// </summary>
         public string ReactionPiece { get; private set; }
 
@@ -384,7 +384,8 @@ namespace HockeyGame
         /// ends at. The puck flies from `from` to `to` (world space). touch (a Save): the reaction's gear (ReactionPiece) reaches
         /// the puck's line: the catcher or blocker by arm (two-bone IK), the stick blade along the ice, a pad dropped into the
         /// butterfly (standing for a puck a little higher), or the body pushed across in front of it; pushing across the crease (up to
-        /// MaxSlide) when the arm alone cannot reach. Not touch (a Goal or a Miss): a hand reach that stops short and
+        /// MaxSlide) when the arm alone cannot reach. touch also serves a Goal the race timed some gear for: the same reach,
+        /// shown getting there too late (#63). Not touch (a Miss, or a Goal no gear can reach): a hand reach that stops short and
         /// keeps the whole goalie off the puck's line. The same arguments always give the same reaction.
         /// </summary>
         public void React(SaveReaction reaction, Vector3 from, Vector3 to, float facing, bool touch)

@@ -15,7 +15,8 @@ namespace HockeyGame.Core
 
     /// <summary>
     /// How far along each part of the goalie's after-the-Shot motion is (each 0..1). The reach itself (Breakaway.GoalieSet)
-    /// is finished before the puck gets there; all of this starts only once it has.
+    /// is finished before the puck gets there on a Save; on a Goal the race was lost, so it can still be on its way. All of
+    /// this starts only once the puck has got there.
     /// </summary>
     public readonly struct AfterShotMoment
     {

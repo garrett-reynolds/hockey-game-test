@@ -147,7 +147,7 @@ namespace HockeyGame
                 if (_stage == Stage.Flying) round.DelayResult(_flightSeconds);
                 // The puck starts where it is on the Shot frame, with the Round's result-hold clock at 0, whichever way the
                 // Shot came in (a USB Shot before this call, a Test Shot after it): its flight keeps time with the goalie's
-                // reaction (Breakaway.GoalieSet), so he is fully in it when the puck gets there (#46).
+                // move, which runs on the same clock as the race timed it (Breakaway.GoalieSet, #63).
                 realSeconds = 0f;
             }
             Step(realSeconds);

@@ -211,6 +211,20 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(expected + 0.1, round.LastRace.Value.ReachSeconds, Tol);
         }
 
+        [TestCase(0.0, 0.08)]
+        [TestCase(0.75, 0.14)]
+        public void The_goalie_starts_his_move_after_the_Reaction_Time_the_Round_rolled(double roll, double rolled)
+        {
+            var settings = new RoundSettings { ReactionSeconds = 0.12, ReactionWobbleSeconds = 0.04 };
+            var random = new ScriptedRandom(ScriptedRandom.AlternatingButterflies(), ScriptedRandom.ShotValues(GoaliePose.RightPostHug, roll));
+            var round = InWindow(new FakeReach(GoalieReachAnswer.Reaches(SaveReaction.Blocker, 0.1)), settings, random: random);
+            round.SubmitShot(20, 80, 100, false);
+            ShotRace race = round.LastRace.Value;
+            Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.ResultHold, rolled - 0.005, true, race.FlightSeconds, race), Tol, "still before it");
+            Assert.Greater(Breakaway.GoalieSet(RoundPhase.ResultHold, rolled + 0.005, true, race.FlightSeconds, race), 0.0, "moving after it");
+            Assert.AreEqual(1.0, Breakaway.GoalieSet(RoundPhase.ResultHold, rolled + 0.1, true, race.FlightSeconds, race), Tol, "there at the Reach Time");
+        }
+
         // Roll order: each Shot start takes the pose pick, then one wobble roll; the Shot itself rolls nothing, whatever its
         // result. The next Shot's values are queued right after, so any extra roll would shift the next pose and wobble.
         [TestCase(50.0, 50.0, true)]     // Save
