@@ -37,6 +37,16 @@ namespace HockeyGame.Core.Tests
             return _answer(x, y);
         }
 
+        /// <summary>Every Gaps question Round asked, in order (NetPoint unused), with its run of cells.</summary>
+        public readonly List<(Ask ask, int firstCell, int cellCount)> GapAsks = new List<(Ask, int, int)>();
+
+        /// <summary>A Gap at each cell of the run whose centre has no gear already in the way (the same answers as Reach).</summary>
+        public NetFaceGaps Gaps(SetUp setUp, AttackSide side, double secondsSinceWindowOpened, RinkPoint shotStart, int firstCell, int cellCount)
+        {
+            GapAsks.Add((new Ask(setUp, side, secondsSinceWindowOpened, shotStart, default), firstCell, cellCount));
+            return NetFaceGaps.Where((x, y) => !_answer(x, y).InTheWay, firstCell, cellCount);
+        }
+
         public readonly struct Ask
         {
             public readonly SetUp SetUp;

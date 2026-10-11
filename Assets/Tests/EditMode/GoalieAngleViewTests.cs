@@ -63,7 +63,7 @@ namespace HockeyGame.Core.Tests
                 for (int frame = 0; frame < 60 * 80 && round.Phase != RoundPhase.RoundOver; frame++)
                 {
                     round.Tick(Frame);
-                    view.Show(true, round.GoaliePose, false);
+                    view.Show(true, round.GoaliePose);
                     bool shoot = round.Phase == RoundPhase.ShootingWindow && round.PhaseSecondsElapsed > 0.5;
                     if (shoot) round.SubmitShot(70, 60, 100, false);
                     effects.Update(round, Frame);

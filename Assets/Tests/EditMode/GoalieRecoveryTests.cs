@@ -32,7 +32,7 @@ namespace HockeyGame.Core.Tests
         {
             character = new GoalieCharacter(_parent.transform);
             var view = new GoalieView(_parent.transform, character);
-            view.Show(true, GoaliePose.MiddleStandUp, false);
+            view.Show(true, GoaliePose.MiddleStandUp);
             view.Face(facing, facing);
             view.SetProgress(0f);
             return view;
@@ -249,7 +249,7 @@ namespace HockeyGame.Core.Tests
                 var round = new Round(ScriptedRandom.Forcing(AttackSide.Middle), new RoundSettings(), FakeReach.InTheWay(), 0);
                 round.StartRound();
                 round.Tick(3.7);
-                view.Show(true, round.GoaliePose, false);
+                view.Show(true, round.GoaliePose);
                 view.Face(0f, 0f);
                 view.SetProgress(0f);
                 round.SubmitShot(88, 82, 100, false);
@@ -311,7 +311,7 @@ namespace HockeyGame.Core.Tests
                 for (int frame = 0; frame < 60 * 80 && !(round.Phase == RoundPhase.RoundOver && afterHold >= 1.5f); frame++)
                 {
                     round.Tick(Frame);
-                    view.Show(true, round.GoaliePose, false);
+                    view.Show(true, round.GoaliePose);
                     if (round.Phase == RoundPhase.ShootingWindow && round.PhaseSecondsElapsed > 0.5 && shot < shots.Length)
                     {
                         round.SubmitShot(shots[shot].Item1, shots[shot].Item2, 100, false);

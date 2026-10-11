@@ -93,7 +93,7 @@ namespace HockeyGame.Core.Tests
             Vector3 puckStart = cam.position + cam.forward * (float)Breakaway.PuckAheadMetres - cam.up * (float)Breakaway.PuckBelowMetres; // as ShotEffects
             if (Vector3.Distance(puckStart, new Vector3((float)shotStart.X, (float)shotStart.Y, (float)shotStart.Z)) > 0.02f)
                 return "the race's shot start " + shotStart + " is not this eye's puck " + puckStart.ToString("F3");
-            view.Show(true, round.GoaliePose, false);
+            view.Show(true, round.GoaliePose);
             view.Face(facing, facing);
             view.SetProgress(0f);
             round.SubmitShot(x, y, kmh, false);

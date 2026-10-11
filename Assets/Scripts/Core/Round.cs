@@ -92,6 +92,19 @@ namespace HockeyGame.Core
         public ShotRace? LastRace { get; private set; }
 
         /// <summary>
+        /// The Gaps a puck can fit through now, in the shooting window (the goalie-reach port, asked as a Shot now would be:
+        /// this Set-up and Attack Side, from where the shooter has skated to); None outside it. Rolls nothing, changes nothing.
+        /// </summary>
+        public NetFaceGaps GapsNow() => GapsNow(0, NetFaceGaps.Cells);
+
+        /// <summary>As GapsNow(), measuring only the run of cells from firstCell (cellCount long); the rest are not Gaps.</summary>
+        public NetFaceGaps GapsNow(int firstCell, int cellCount)
+        {
+            if (Phase != RoundPhase.ShootingWindow) return NetFaceGaps.None;
+            return _reach.Gaps(SetUp, AttackSide, _phaseElapsed, Breakaway.ShotStart(AttackSide, _phaseElapsed, _settings), firstCell, cellCount);
+        }
+
+        /// <summary>
         /// False while a delayed result is still hidden (see DelayResult); true otherwise. The scene shows the
         /// result text and plays the result sound only once this is true.
         /// </summary>

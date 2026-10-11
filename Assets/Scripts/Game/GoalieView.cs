@@ -5,7 +5,8 @@ using UnityEngine.Rendering;
 namespace HockeyGame
 {
     /// <summary>
-    /// The goalie: the rigged goalie character when there is one, otherwise the block goalie, plus the Easy mode glow.
+    /// The goalie: the rigged goalie character when there is one, otherwise the block goalie, plus the Easy mode glow on the
+    /// Gaps (ShowGaps: one glow cell per Net Face cell of NetFaceGaps).
     /// All six Goalie Poses are built once as blocks from the pose table (Covered Zone = block filling the Zone,
     /// Contested Zone = smaller block, Open Zone = nothing); showing a pose enables its group and disables the rest.
     /// The blocks stay in the scene as the rules reference; with the character they are not drawn. The character never shows
@@ -25,13 +26,16 @@ namespace HockeyGame
         static readonly Color GoalieColour = new Color(0.15f, 0.25f, 0.6f);
         static readonly Color GlowColour = new Color(0.3f, 1f, 0.3f);
 
+        const float GlowFraction = 0.96f; // a glow cell's share of its Net Face cell, so neighbouring Gaps show as cells
+
         readonly GameObject[] _blocks = new GameObject[6];
-        readonly GameObject[] _glows = new GameObject[6];
-        readonly Material _glow; // shared by every glow cube
+        readonly GameObject _gapGlow;                                                   // Easy mode: one glow cell per Net Face cell
+        readonly GameObject[] _gapCells = new GameObject[NetFaceGaps.Columns * NetFaceGaps.Rows];
+        readonly Material _glow; // shared by every glow cell
         readonly System.Collections.Generic.List<SetBlock>[] _setBlocks = new System.Collections.Generic.List<SetBlock>[6];
         float _set = 1f;
         float _ready, _target; // facing (degrees): turned so far in the Ready Stance; squared up to the shooter
-        bool _glowOn;
+        NetFaceGaps _gaps = NetFaceGaps.None; // what the glow shows (ShowGaps)
         int _shown = -1;
         bool _visible;
         readonly GoalieCharacter _character; // null or without a model: the blocks are drawn
@@ -56,8 +60,6 @@ namespace HockeyGame
                 int i = (int)pose;
                 _blocks[i] = new GameObject("Goalie " + pose);
                 _blocks[i].transform.SetParent(parent);
-                _glows[i] = new GameObject("Glow " + pose);
-                _glows[i].transform.SetParent(parent);
                 _setBlocks[i] = new System.Collections.Generic.List<SetBlock>();
 
                 for (int column = 0; column < 3; column++)
@@ -89,12 +91,24 @@ namespace HockeyGame
                                 var settle = Block(_blocks[i].transform, column, row, n.MinX, n.MinY, n.MaxX, n.MaxY, BlockDepth, BlockZ, GoalieColour, null);
                                 settle.name += " (setting)";
                                 _setBlocks[i].Add(new SetBlock(settle, n, GoaliePoseBlend.OpenTarget(column, row)));
-                                NetFaceMapping.ZoneRectangle(column, row, 0.96f, out float a, out float b, out float c, out float d);
-                                Block(_glows[i].transform, column, row, a, b, c, d, 0.02f, GlowZ, GlowColour, _glow);
                             }
                             break;
                     }
                 }
+            }
+            _gapGlow = new GameObject("Gap glow");
+            _gapGlow.transform.SetParent(parent);
+            for (int column = 0; column < NetFaceGaps.Columns; column++)
+            for (int row = 0; row < NetFaceGaps.Rows; row++)
+            {
+                NetFaceGaps.Cell(column, row, out double minX, out double minY, out double maxX, out double maxY);
+                NetFaceMapping.ToMetres(minX, minY, out double left, out double bottom);
+                NetFaceMapping.ToMetres(maxX, maxY, out double right, out double top);
+                var cell = RinkBuilder.Cube(_gapGlow.transform, "Gap " + column + "," + row,
+                    new Vector3((float)(left + right) / 2f, (float)(bottom + top) / 2f, GlowZ),
+                    new Vector3((float)(right - left) * GlowFraction, (float)(top - bottom) * GlowFraction, 0.02f), GlowColour);
+                cell.GetComponent<Renderer>().sharedMaterial = _glow;
+                _gapCells[NetFaceGaps.Index(column, row)] = cell;
             }
             if (_character != null)
                 foreach (GameObject group in _blocks)
@@ -115,7 +129,8 @@ namespace HockeyGame
         }
 
         /// <summary>
-        /// Before the Shot the goalie's Ready Stance (or the neutral blocks) stands in front of the Open Zones, so the glow
+        /// Before the Shot the goalie's Ready Stance (or the neutral blocks) stands in front of some Gaps seen from the shooter's
+        /// eye (the Gaps are measured from the puck, below and ahead of it), so the glow
         /// draws over it (no depth test); once the goalie reacts it is depth-tested again, so the flying puck stays in front.
         /// </summary>
         void SetGlowDepth()
@@ -253,23 +268,40 @@ namespace HockeyGame
             public SetBlock(GameObject cube, GoaliePoseBlend.Shape neutral, GoaliePoseBlend.Shape pose) { Cube = cube; Neutral = neutral; Pose = pose; }
         }
 
-        /// <summary>Show the goalie in the given pose (or hide it when visible is false) and set the Easy mode glow.</summary>
-        public void Show(bool visible, GoaliePose pose, bool easyMode)
+        /// <summary>Show the goalie in the given pose (or hide it, and the Easy mode glow, when visible is false).</summary>
+        public void Show(bool visible, GoaliePose pose)
         {
-            if (visible == _visible && (int)pose == _shown && easyMode == _glowOn) return;
+            if (visible == _visible && (int)pose == _shown) return;
             _visible = visible;
             _shown = (int)pose;
-            _glowOn = easyMode;
             Apply();
+        }
+
+        /// <summary>
+        /// Easy mode: glow these Gaps on the Net Face, each Gap's cell (while the goalie is shown); NetFaceGaps.None glows
+        /// nothing. A hint only (RoundDriver passes the Round's Gaps while EasyGlow.Shows).
+        /// </summary>
+        public void ShowGaps(NetFaceGaps gaps)
+        {
+            gaps = gaps ?? NetFaceGaps.None;
+            if (ReferenceEquals(gaps, _gaps)) return;
+            _gaps = gaps;
+            ApplyGaps();
+        }
+
+        void ApplyGaps()
+        {
+            _gapGlow.SetActive(_visible && _gaps.Count > 0);
+            for (int column = 0; column < NetFaceGaps.Columns; column++)
+            for (int row = 0; row < NetFaceGaps.Rows; row++)
+                _gapCells[NetFaceGaps.Index(column, row)].SetActive(_gaps.IsGap(column, row));
         }
 
         void Apply()
         {
             for (int i = 0; i < _blocks.Length; i++)
-            {
                 _blocks[i].SetActive(_visible && i == _shown);
-                _glows[i].SetActive(_visible && _glowOn && i == _shown);
-            }
+            ApplyGaps();
             if (_character == null) return;
             _character.Show(_visible);
             if (_visible) _character.Prepare(); // measured now, at the Round start, not on the Shot

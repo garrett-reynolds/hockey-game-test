@@ -4,7 +4,8 @@ namespace HockeyGame.Core
 {
     /// <summary>
     /// The goalie-reach port: how the goalie's body, set in a Set-up, gets gear into the puck's line. Round asks it once per
-    /// Shot on the Net Face. The real port measures the goalie character (Game layer); tests use a fake with fixed answers.
+    /// Shot on the Net Face, and for the Gaps Easy mode glows. The real port measures the goalie character (Game layer); tests
+    /// use a fake with fixed answers.
     /// </summary>
     public interface IGoalieReach
     {
@@ -14,6 +15,14 @@ namespace HockeyGame.Core
         /// quickest, and how long that gear's move takes (from the end of the Reaction Time).
         /// </summary>
         GoalieReachAnswer Reach(SetUp setUp, AttackSide side, double secondsSinceWindowOpened, RinkPoint shotStart, RinkPoint netPoint);
+
+        /// <summary>
+        /// The Gaps a puck from shotStart can fit through, with the goalie in this Set-up for this Attack Side,
+        /// secondsSinceWindowOpened into the shooting window: each Net Face cell whose centre Reach would find no gear already
+        /// in the way of (for Easy mode; the same body and spot as Reach, so the glow and the race agree). Only the run of cells
+        /// from firstCell (cellCount long, NetFaceGaps.Index order) is measured; the rest come back as not Gaps.
+        /// </summary>
+        NetFaceGaps Gaps(SetUp setUp, AttackSide side, double secondsSinceWindowOpened, RinkPoint shotStart, int firstCell, int cellCount);
     }
 
     /// <summary>The goalie-reach port's answer for one Shot.</summary>

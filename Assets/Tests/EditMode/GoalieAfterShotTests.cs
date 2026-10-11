@@ -26,7 +26,7 @@ namespace HockeyGame.Core.Tests
         {
             character = new GoalieCharacter(_parent.transform);
             var view = new GoalieView(_parent.transform, character);
-            view.Show(true, GoaliePose.MiddleStandUp, false);
+            view.Show(true, GoaliePose.MiddleStandUp);
             view.Face(0f, 0f);
             view.SetProgress(0f);
             Snapshot[character] = Mask(character).InverseTransformDirection(Vector3.back); // the Ready Stance looks square on
@@ -205,7 +205,7 @@ namespace HockeyGame.Core.Tests
                 var round = new Round(ScriptedRandom.Forcing(GoaliePoses.SideOf(pose)), new RoundSettings(), FakeReach.Saving((sx, sy) => sy < 50), 0); // low saved, high scored
                 round.StartRound();
                 round.Tick(3.7);
-                view.Show(true, round.GoaliePose, false);
+                view.Show(true, round.GoaliePose);
                 view.Face(0f, 0f);
                 view.SetProgress(0f);
                 Snapshot[character] = Mask(character).InverseTransformDirection(Vector3.back);

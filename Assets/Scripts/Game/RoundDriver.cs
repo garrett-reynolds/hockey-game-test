@@ -26,6 +26,7 @@ namespace HockeyGame
         SaveData _save;
         SettingsScreen _settingsScreen; // made fresh each time F2 opens it (port list refreshed); null when closed
         GoalieView _goalie; // the goalie character, or the blocks with no model or the forceGoalieBlocks developer flag
+        readonly EasyGlow _easyGlow = new EasyGlow(); // the Gaps Easy mode glows, a few cells measured each frame
         ShotEffects _effects;
         UsbShotSource _usb; // real Shots from the electronics
         RoundSound _sound; // reads tick on/off, master volume and mute from _save each frame
@@ -67,11 +68,12 @@ namespace HockeyGame
             var mouse = Mouse.current;
 
             // The goalie character stands in the net on the start and end screens too, alive in the Ready Stance (#44); the block
-            // goalie shows only for the Shot (SkateIn to ResultHold). The Easy glow shows only for the Shot: it would give away
-            // the next Goalie Pose.
+            // goalie shows only for the Shot (SkateIn to ResultHold). Easy mode glows the Gaps from when he is set until the Shot
+            // (EasyGlow), a hint only: the Round's Gaps, from the same goalie-reach port as the race.
             var phaseNow = _round.Phase;
             bool inShot = phaseNow != RoundPhase.Idle && phaseNow != RoundPhase.RoundOver;
-            _goalie.Show(inShot || _goalie.HasCharacter, _round.GoaliePose, _save.EasyMode && inShot);
+            _goalie.Show(inShot || _goalie.HasCharacter, _round.GoaliePose);
+            _goalie.ShowGaps(_easyGlow.Update(_save.EasyMode, _round));
             _effects.Update(_round, Time.unscaledDeltaTime);
             _sound.Update(_round, _effects.PuckArrivedThisFrame, Time.unscaledDeltaTime, _effects.ContactSound);
 

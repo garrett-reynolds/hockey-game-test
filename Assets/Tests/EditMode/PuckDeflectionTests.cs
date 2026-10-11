@@ -59,7 +59,7 @@ namespace HockeyGame.Core.Tests
             var round = new Round(ScriptedRandom.Forcing(GoaliePoses.SideOf(pose)), new RoundSettings(), FakeReach.InTheWay(), 0); // every Shot on the Net Face saved
             round.StartRound();
             round.Tick(3.7);
-            view.Show(true, pose, false);
+            view.Show(true, pose);
             view.Face(facing, facing);
             Assert.AreEqual(GoaliePoses.SideOf(pose), round.AttackSide);
             round.SubmitShot(x, y, kmh, false);
@@ -232,7 +232,7 @@ namespace HockeyGame.Core.Tests
                     var round = new Round(ScriptedRandom.Forcing(GoaliePoses.SideOf(pose)), new RoundSettings(), FakeReach.InTheWay(), 0); // every Shot on the Net Face saved
                     round.StartRound();
                     round.Tick(3.7);
-                    view.Show(true, pose, false);
+                    view.Show(true, pose);
                     float facing = GoalieCharacter.FacingToward(_camera.transform.position);
                     view.Face(facing, facing);
                     round.SubmitShot(x, y, 100, false);

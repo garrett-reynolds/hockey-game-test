@@ -420,6 +420,55 @@ namespace HockeyGame
             gearMetres = pushMetres = 0f;
             inTheWay = false;
             if (!Present) return false;
+            float gear = 0f, push = 0f;
+            bool blocked = false;
+            bool reaches = InReadyStanceAt(spot, facing, () =>
+            {
+                blocked = Touches(from, to);
+                Vector3 readyHips = Bone(HumanBodyBones.Hips).position;
+                var start = new Dictionary<string, Vector3>();
+                foreach (var kv in _gearShapes) start[kv.Key] = GearPoint(kv.Key);
+
+                Reach(reaction, from, to, facing);
+                string piece = ReactionPiece;
+                bool touches = piece != null && Touches(from, to, OnePiece(piece)); // its own gear, not whatever else ended up on the line
+                push = Mathf.Abs(_model.localPosition.x - _ready.ModelPosition.x);
+                gear = piece != null && start.TryGetValue(piece, out Vector3 was)
+                    ? Vector3.Distance(was, GearPoint(piece))
+                    : Vector3.Distance(readyHips, Bone(HumanBodyBones.Hips).position);
+                return touches;
+            });
+            gearMetres = gear;
+            pushMetres = push;
+            inTheWay = blocked;
+            return reaches;
+        }
+
+        /// <summary>
+        /// For the Gaps: whether a puck flying from `from` to each point of `to` meets his gear or body already, in the Ready
+        /// Stance standing at spot (rink space, on the ice) at this facing: MeasureReach's inTheWay, for many points at once.
+        /// Without a model nothing is in the way. Everything shown and the last React are left as they were.
+        /// </summary>
+        public void MeasureInTheWay(Vector3 spot, float facing, Vector3 from, Vector3[] to, bool[] inTheWay)
+        {
+            if (!Present)
+            {
+                for (int i = 0; i < inTheWay.Length; i++) inTheWay[i] = false;
+                return;
+            }
+            InReadyStanceAt(spot, facing, () =>
+            {
+                for (int i = 0; i < to.Length; i++) inTheWay[i] = Touches(from, to[i]);
+                return true;
+            });
+        }
+
+        /// <summary>
+        /// Runs measure with the goalie in the Ready Stance standing at spot at this facing (his gear and body placed there), then
+        /// puts back everything shown and the last React.
+        /// </summary>
+        T InReadyStanceAt<T>(Vector3 spot, float facing, Func<T> measure)
+        {
             Prepare();
             Snapshot shown = Take(), kept = _reaction;
             string keptPiece = ReactionPiece;
@@ -434,19 +483,7 @@ namespace HockeyGame
                 Put(_ready);
                 PlaceRoot(facing);
                 Finish(null, _readyBody);
-                inTheWay = Touches(from, to);
-                Vector3 readyHips = Bone(HumanBodyBones.Hips).position;
-                var start = new Dictionary<string, Vector3>();
-                foreach (var kv in _gearShapes) start[kv.Key] = GearPoint(kv.Key);
-
-                Reach(reaction, from, to, facing);
-                string piece = ReactionPiece;
-                bool touches = piece != null && Touches(from, to, OnePiece(piece)); // its own gear, not whatever else ended up on the line
-                pushMetres = Mathf.Abs(_model.localPosition.x - _ready.ModelPosition.x);
-                gearMetres = piece != null && start.TryGetValue(piece, out Vector3 was)
-                    ? Vector3.Distance(was, GearPoint(piece))
-                    : Vector3.Distance(readyHips, Bone(HumanBodyBones.Hips).position);
-                return touches;
+                return measure();
             }
             finally
             {
