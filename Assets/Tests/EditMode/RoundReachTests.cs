@@ -1,0 +1,244 @@
+using HockeyGame.Core;
+using NUnit.Framework;
+
+namespace HockeyGame.Core.Tests
+{
+    /// <summary>Reach in time on the Round seam: ScriptedRandom and a fake goalie-reach port, each test with its own RoundSettings.</summary>
+    public class RoundReachTests
+    {
+        const double Tol = 1e-9;
+
+        /// <summary>Settings with a fixed Reaction Time (no wobble).</summary>
+        static RoundSettings Fixed(double reactionSeconds = 0.12) =>
+            new RoundSettings { ReactionSeconds = reactionSeconds, ReactionWobbleSeconds = 0 };
+
+        /// <summary>A Round on a forced pose (MiddleStandUp: a middle attack), in its shooting window, windowSeconds in.</summary>
+        static Round InWindow(IGoalieReach reach, RoundSettings settings, double windowSeconds = 1.0, ScriptedRandom random = null)
+        {
+            var round = new Round(random ?? ScriptedRandom.Forcing(GoaliePose.MiddleStandUp), settings, reach, 0);
+            round.StartRound();
+            round.Tick(settings.SkateInSeconds + settings.SlowDownSeconds + windowSeconds);
+            Assert.AreEqual(RoundPhase.ShootingWindow, round.Phase);
+            return round;
+        }
+
+        /// <summary>The Flight Time of a Shot at (x, y) and this speed, 1 s into the window (nothing reaches it).</summary>
+        static double FlightOf(double x, double y, double kmh)
+        {
+            var round = InWindow(FakeReach.NeverReaches(), Fixed());
+            round.SubmitShot(x, y, kmh, false);
+            return round.LastRace.Value.FlightSeconds;
+        }
+
+        [Test]
+        public void The_starting_numbers_are_in_RoundSettings()
+        {
+            var settings = new RoundSettings();
+            Assert.AreEqual(0.12, settings.ReactionSeconds, Tol);
+            Assert.AreEqual(0.04, settings.ReactionWobbleSeconds, Tol);
+            Assert.AreEqual(8.0, settings.HandMetresPerSecond, Tol);
+            Assert.AreEqual(6.0, settings.LegMetresPerSecond, Tol);
+            Assert.AreEqual(4.0, settings.PushMetresPerSecond, Tol);
+            Assert.AreEqual(0.6, settings.MaxPushMetres, Tol);
+            Assert.AreEqual(0.6, settings.NormalDepthMetres, Tol);
+        }
+
+        [Test]
+        public void A_Shot_is_saved_when_the_Reach_Time_equals_the_Flight_Time_and_scores_when_it_is_any_longer()
+        {
+            double flight = FlightOf(70, 60, 100);
+            // Reaction Time 0, so the Reach Time is exactly the move time.
+            var atTheEdge = InWindow(new FakeReach(GoalieReachAnswer.Reaches(SaveReaction.Glove, flight)), Fixed(0));
+            atTheEdge.SubmitShot(70, 60, 100, false);
+            Assert.AreEqual(atTheEdge.LastRace.Value.FlightSeconds, atTheEdge.LastRace.Value.ReachSeconds);
+            Assert.AreEqual(ShotResultKind.Save, atTheEdge.LastResult.Value.Kind);
+
+            var justLate = InWindow(new FakeReach(GoalieReachAnswer.Reaches(SaveReaction.Glove, flight + 1e-6)), Fixed(0));
+            justLate.SubmitShot(70, 60, 100, false);
+            Assert.AreEqual(ShotResultKind.Goal, justLate.LastResult.Value.Kind);
+            Assert.AreEqual(1, justLate.Goals);
+        }
+
+        [Test]
+        public void The_Reach_Time_is_the_Reaction_Time_plus_the_move_and_the_Late_Margin_is_Reach_minus_Flight()
+        {
+            var round = InWindow(new FakeReach(GoalieReachAnswer.Reaches(SaveReaction.Pads, 0.25)), Fixed(0.12));
+            round.SubmitShot(20, 10, 90, false);
+            ShotRace race = round.LastRace.Value;
+            Assert.AreEqual(0.12, race.ReactionSeconds, Tol);
+            Assert.AreEqual(0.25, race.MoveSeconds, Tol);
+            Assert.AreEqual(0.37, race.ReachSeconds, Tol);
+            Assert.AreEqual(race.ReachSeconds - race.FlightSeconds, race.LateMarginSeconds, Tol);
+            Assert.AreEqual(race.LateMarginSeconds <= 0 ? ShotResultKind.Save : ShotResultKind.Goal, round.LastResult.Value.Kind);
+        }
+
+        [TestCase(120.0)]
+        [TestCase(250.0)]
+        public void A_Shot_into_gear_already_in_the_way_is_a_Save_at_top_speed(double kmh)
+        {
+            var round = InWindow(FakeReach.InTheWay(), Fixed(0.12), windowSeconds: 2.9); // drifted in close: the shortest flights
+            round.SubmitShot(50, 50, kmh, false);
+            ShotRace race = round.LastRace.Value;
+            Assert.IsTrue(race.InTheWay);
+            Assert.AreEqual(0, race.ReachSeconds, Tol);
+            Assert.Less(race.FlightSeconds, 0.12, "the Reaction Time alone would lose this race");
+            Assert.AreEqual(ShotResultKind.Save, round.LastResult.Value.Kind);
+        }
+
+        [Test]
+        public void The_same_Net_Face_point_is_a_Save_on_a_slow_Shot_and_a_Goal_on_a_fast_one_when_the_margin_is_close()
+        {
+            // Reach Time 0.12 + 0.18 = 0.30 s.
+            var reach = new FakeReach(GoalieReachAnswer.Reaches(SaveReaction.Glove, 0.18));
+            var slow = InWindow(reach, Fixed(0.12));
+            slow.SubmitShot(85, 80, 30, false);
+            var fast = InWindow(reach, Fixed(0.12));
+            fast.SubmitShot(85, 80, 110, false);
+
+            Assert.Greater(slow.LastRace.Value.FlightSeconds, 0.30);
+            Assert.Less(fast.LastRace.Value.FlightSeconds, 0.30);
+            Assert.AreEqual(ShotResultKind.Save, slow.LastResult.Value.Kind);
+            Assert.AreEqual(ShotResultKind.Goal, fast.LastResult.Value.Kind);
+        }
+
+        [TestCase(150.0, 50.0)]   // wide
+        [TestCase(-1.0, 50.0)]    // left post
+        [TestCase(101.0, 50.0)]   // right post
+        [TestCase(50.0, 101.0)]   // crossbar
+        public void Miss_and_Frame_Hit_ignore_the_goalie(double x, double y)
+        {
+            foreach (FakeReach reach in new[] { FakeReach.InTheWay(), FakeReach.NeverReaches() })
+            {
+                var round = InWindow(reach, Fixed());
+                round.SubmitShot(x, y, 100, false);
+                Assert.AreEqual(ShotResultKind.Miss, round.LastResult.Value.Kind);
+                Assert.AreEqual(0, reach.Asks.Count, "the goalie-reach port is not asked");
+                Assert.IsNull(round.LastRace);
+            }
+        }
+
+        [Test]
+        public void The_port_is_asked_about_the_Clean_Set_up_the_Attack_Side_the_window_time_the_shot_start_and_the_Net_Face_point()
+        {
+            var settings = Fixed();
+            var reach = FakeReach.NeverReaches();
+            var round = InWindow(reach, settings, windowSeconds: 1.25, random: ScriptedRandom.Forcing(GoaliePose.LeftPostHug));
+            round.SubmitShot(30, 70, 100, false);
+
+            Assert.AreEqual(1, reach.Asks.Count);
+            FakeReach.Ask ask = reach.Asks[0];
+            Assert.AreEqual(SetUp.Clean, ask.SetUp);
+            Assert.AreEqual(SetUp.Clean, round.SetUp);
+            Assert.AreEqual(AttackSide.Left, ask.Side);
+            Assert.AreEqual(1.25, ask.SecondsSinceWindowOpened, 1e-6);
+            RinkPoint start = Breakaway.ShotStart(AttackSide.Left, 1.25, settings);
+            Assert.AreEqual(0, RinkPoint.Distance(start, ask.ShotStart), 1e-6);
+            Assert.AreEqual(0, RinkPoint.Distance(RinkPoint.OnNetFace(30, 70), ask.NetPoint), 1e-9);
+        }
+
+        [Test]
+        public void The_Flight_Time_runs_from_the_shot_start_to_where_the_puck_passes_the_goalie_at_his_depth()
+        {
+            var settings = Fixed();
+            var round = InWindow(FakeReach.NeverReaches(), settings, windowSeconds: 0.5);
+            round.SubmitShot(80, 30, 90, false);
+
+            RinkPoint start = Breakaway.ShotStart(AttackSide.Middle, 0.5, settings);
+            RinkPoint passing = RinkPoint.AtDepth(start, RinkPoint.OnNetFace(80, 30), -settings.NormalDepthMetres);
+            Assert.AreEqual(-0.6, passing.Z, 1e-9);
+            Assert.AreEqual(ShotFlight.Seconds(RinkPoint.Distance(start, passing), 90), round.LastRace.Value.FlightSeconds, 1e-9);
+            Assert.Less(round.LastRace.Value.FlightSeconds, ShotFlight.Seconds(RinkPoint.Distance(start, RinkPoint.OnNetFace(80, 30)), 90));
+        }
+
+        [Test]
+        public void The_Save_Reaction_is_the_Shot_points_when_gear_is_already_in_the_way()
+        {
+            // The port says the pads would win a race, but the glove-side high point's own reaction shows.
+            var round = InWindow(new FakeReach(GoalieReachAnswer.AlreadyInTheWay(SaveReaction.Pads)), Fixed());
+            round.SubmitShot(90, 85, 100, false);
+            Assert.AreEqual(SaveReactions.For(90, 85), round.LastRace.Value.SaveReaction);
+            Assert.AreEqual(SaveReaction.Glove, round.LastRace.Value.SaveReaction);
+        }
+
+        [TestCase(0.01, ShotResultKind.Save)]
+        [TestCase(5.0, ShotResultKind.Goal)]
+        public void Otherwise_the_Save_Reaction_is_the_quickest_gear_in_the_race_on_a_Save_and_on_a_Goal(double move, ShotResultKind kind)
+        {
+            var round = InWindow(new FakeReach(GoalieReachAnswer.Reaches(SaveReaction.Stick, move)), Fixed());
+            round.SubmitShot(90, 85, 100, false);
+            Assert.AreEqual(kind, round.LastResult.Value.Kind);
+            Assert.AreEqual(SaveReaction.Stick, round.LastRace.Value.SaveReaction);
+        }
+
+        [Test]
+        public void When_no_gear_can_reach_it_is_a_Goal_showing_the_Shot_points_reaction()
+        {
+            var round = InWindow(FakeReach.NeverReaches(), Fixed());
+            round.SubmitShot(10, 20, 60, false);
+            Assert.AreEqual(ShotResultKind.Goal, round.LastResult.Value.Kind);
+            Assert.AreEqual(SaveReactions.For(10, 20), round.LastRace.Value.SaveReaction);
+            Assert.IsTrue(double.IsPositiveInfinity(round.LastRace.Value.ReachSeconds));
+        }
+
+        [TestCase(0.0, 0.08)]
+        [TestCase(0.5, 0.12)]
+        [TestCase(0.75, 0.14)]
+        public void The_Reaction_Time_wobbles_by_up_to_0_04_s_from_one_roll_after_the_pose_pick(double roll, double expected)
+        {
+            var settings = new RoundSettings { ReactionSeconds = 0.12, ReactionWobbleSeconds = 0.04 };
+            var random = new ScriptedRandom(ScriptedRandom.AlternatingButterflies(), ScriptedRandom.ShotValues(GoaliePose.RightPostHug, roll));
+            var round = InWindow(new FakeReach(GoalieReachAnswer.Reaches(SaveReaction.Blocker, 0.1)), settings, random: random);
+            Assert.AreEqual(GoaliePose.RightPostHug, round.GoaliePose);
+            Assert.AreEqual(expected, round.ReactionSeconds, Tol);
+            round.SubmitShot(20, 80, 100, false);
+            Assert.AreEqual(expected, round.LastRace.Value.ReactionSeconds, Tol);
+            Assert.AreEqual(expected + 0.1, round.LastRace.Value.ReachSeconds, Tol);
+        }
+
+        // Roll order: each Shot start takes the pose pick, then one wobble roll; the Shot itself rolls nothing, whatever its
+        // result. The next Shot's values are queued right after, so any extra roll would shift the next pose and wobble.
+        [TestCase(50.0, 50.0, true)]     // Save
+        [TestCase(50.0, 50.0, false)]    // Goal
+        [TestCase(150.0, 50.0, false)]   // Miss
+        [TestCase(-1.0, 50.0, false)]    // Frame Hit
+        public void Each_Shot_takes_one_wobble_roll_at_its_start_and_none_for_its_result(double x, double y, bool saved)
+        {
+            var settings = new RoundSettings { ReactionSeconds = 0.12, ReactionWobbleSeconds = 0.04 };
+            var values = new System.Collections.Generic.List<double>(ScriptedRandom.ShotValues(GoaliePose.LeftPostHug, 0.0));
+            values.AddRange(ScriptedRandom.ShotValues(GoaliePose.MiddleStandUp, 0.75));
+            var random = new ScriptedRandom(ScriptedRandom.AlternatingButterflies(), values.ToArray());
+            var reach = saved ? FakeReach.InTheWay() : FakeReach.NeverReaches();
+            var round = InWindow(reach, settings, random: random);
+            Assert.AreEqual(0.08, round.ReactionSeconds, Tol);
+            round.SubmitShot(x, y, 100, false);
+            round.Tick(settings.ResultHoldSeconds);
+            Assert.AreEqual(2, round.ShotNumber);
+            Assert.AreEqual(GoaliePose.MiddleStandUp, round.GoaliePose);
+            Assert.AreEqual(0.14, round.ReactionSeconds, Tol);
+        }
+
+        [Test]
+        public void TooLate_takes_no_roll_beyond_the_Shot_start()
+        {
+            var settings = new RoundSettings { ReactionSeconds = 0.12, ReactionWobbleSeconds = 0.04 };
+            var round = InWindow(FakeReach.InTheWay(), settings, random: ScriptedRandom.Picking(GoaliePose.LeftPostHug, GoaliePose.MiddleStandUp));
+            round.Tick(settings.ShootingWindowSeconds);
+            Assert.AreEqual(ShotResultKind.TooLate, round.LastResult.Value.Kind);
+            Assert.IsNull(round.LastRace);
+            round.Tick(settings.ResultHoldSeconds);
+            Assert.AreEqual(GoaliePose.MiddleStandUp, round.GoaliePose);
+        }
+
+        [Test]
+        public void The_race_is_cleared_when_the_next_Shot_starts()
+        {
+            var settings = Fixed();
+            var round = InWindow(FakeReach.InTheWay(), settings);
+            round.SubmitShot(50, 50, 100, false);
+            Assert.IsNotNull(round.LastRace);
+            round.Tick(settings.ResultHoldSeconds);
+            Assert.AreEqual(RoundPhase.SkateIn, round.Phase);
+            Assert.IsNull(round.LastRace);
+        }
+    }
+}

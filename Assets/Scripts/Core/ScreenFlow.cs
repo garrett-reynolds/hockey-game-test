@@ -26,13 +26,18 @@ namespace HockeyGame.Core
     public sealed class ScreenFlow
     {
         private readonly SaveData _save;
-        private readonly RoundSettings _settings = new RoundSettings();
+        private readonly RoundSettings _settings;
 
-        public ScreenFlow(IRandomSource random, SaveData save)
+        /// <summary>
+        /// reach: the goalie-reach port the Round decides Shots with. settings: the Round's settings object (made here when null);
+        /// pass it when the port needs the same settings (the real port reads the gear speeds from it).
+        /// </summary>
+        public ScreenFlow(IRandomSource random, SaveData save, IGoalieReach reach, RoundSettings settings = null)
         {
             _save = save;
+            _settings = settings ?? new RoundSettings();
             _save.ApplyTo(_settings);
-            Round = new Round(random, _settings, save.BestScore);
+            Round = new Round(random, _settings, reach, save.BestScore);
         }
 
         /// <summary>Raised when a Round beats the best score, after SaveData.BestScore is updated. Save then.</summary>

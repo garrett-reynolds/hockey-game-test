@@ -108,6 +108,59 @@ namespace HockeyGame.Core
         /// <summary>Drift toward the net, capped so the camera stops ClosestDrift metres from the net.</summary>
         public static double CappedDrift(double drift, double distance) => Math.Max(0, Math.Min(drift, distance - ClosestDrift));
 
+        /// <summary>Game seconds that pass in the first realSeconds of a phase (TimeScale summed up: the slow-down eases into slow time).</summary>
+        public static double GameSeconds(RoundPhase phase, double realSeconds)
+        {
+            realSeconds = Math.Max(0, realSeconds);
+            switch (phase)
+            {
+                case RoundPhase.SlowDown:
+                    double ramp = Math.Min(realSeconds, SlowRampSeconds);
+                    double s = ramp / SlowRampSeconds;
+                    double eased = s + (1 - s) * (1 - s) * (1 - s) / 3.0 - 1.0 / 3.0; // EaseOut summed from 0 to s
+                    return ramp + (SlowTimeScale - 1.0) * SlowRampSeconds * eased + (realSeconds - ramp) * SlowTimeScale;
+                case RoundPhase.ShootingWindow:
+                    return realSeconds * SlowTimeScale;
+                default:
+                    return realSeconds;
+            }
+        }
+
+        /// <summary>
+        /// How far the shooter has drifted on toward the net past the skate-in's stop (metres, not capped): the skate speed over
+        /// the game seconds of the slow-down so far (slowDownSeconds, real) and of the shooting window so far (windowSeconds, real).
+        /// </summary>
+        public static double Drift(AttackSide side, double slowDownSeconds, double windowSeconds, RoundSettings settings) =>
+            SkateSpeed(side, settings) * (GameSeconds(RoundPhase.SlowDown, Math.Min(slowDownSeconds, settings.SlowDownSeconds))
+                                          + GameSeconds(RoundPhase.ShootingWindow, windowSeconds));
+
+        /// <summary>The puck starts this far ahead of the shooter's eye, toward the net centre, and this far below it (camera-up).</summary>
+        public const double PuckAheadMetres = 1.0, PuckBelowMetres = 0.35;
+
+        /// <summary>
+        /// Where the puck starts on a Shot taken windowSeconds (real) into the shooting window: just below the shooter's eye
+        /// (as ShotEffects starts it), the eye at the skate-in's stop drifted on toward the net, looking at the Net Face centre.
+        /// Leaves out the stride bob and roll (a few centimetres).
+        /// </summary>
+        public static RinkPoint ShotStart(AttackSide side, double windowSeconds, RoundSettings settings)
+        {
+            SkatePoint(side, 1.0, out double x, out double distance);
+            double toNet = Math.Sqrt(x * x + distance * distance);
+            double along = CappedDrift(Drift(side, settings.SlowDownSeconds, windowSeconds, settings), toNet);
+            double eyeX = x - x / toNet * along, eyeZ = -distance + distance / toNet * along, eyeY = EyeHeight;
+
+            // Looking at the Net Face centre (as Transform.LookAt): forward, then right = up x forward, then camera-up = forward x right.
+            double fx = -eyeX, fy = NetFrame.FaceHeightMetres / 2.0 - eyeY, fz = -eyeZ;
+            double f = Math.Sqrt(fx * fx + fy * fy + fz * fz);
+            fx /= f; fy /= f; fz /= f;
+            double rx = fz, rz = -fx, r = Math.Sqrt(rx * rx + rz * rz);
+            rx /= r; rz /= r;
+            double ux = fy * rz, uy = fz * rx - fx * rz, uz = -fy * rx;
+            return new RinkPoint(eyeX + fx * PuckAheadMetres - ux * PuckBelowMetres,
+                eyeY + fy * PuckAheadMetres - uy * PuckBelowMetres,
+                eyeZ + fz * PuckAheadMetres - uz * PuckBelowMetres);
+        }
+
         private static double EaseOut(double t) => 1 - (1 - t) * (1 - t);
     }
 }

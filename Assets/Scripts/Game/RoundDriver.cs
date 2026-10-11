@@ -40,11 +40,13 @@ namespace HockeyGame
             RinkBuilder.Build(out _camera);
             _save = SaveStore.Current;
             Transform rink = GameObject.Find("Rink").transform;
-            _goalie = new GoalieView(rink, _save.ForceGoalieBlocks ? null : new GoalieCharacter(rink));
+            GoalieCharacter character = _save.ForceGoalieBlocks ? null : new GoalieCharacter(rink);
+            _goalie = new GoalieView(rink, character);
             _effects = new ShotEffects(rink, _camera, null, _goalie);
             _netFacePlane = new Plane(Vector3.back, Vector3.zero); // Net Face plane: z = 0
             _testShotsOn = _save.TestShotOnAtStart;
-            _flow = new ScreenFlow(new SystemRandomSource(), _save);
+            var settings = new RoundSettings(); // shared: the Round runs on it, the goalie-reach port reads the gear speeds from it
+            _flow = new ScreenFlow(new SystemRandomSource(), _save, new GoalieCharacterReach(character, settings), settings);
             _flow.BestScoreChanged += SaveStore.Save;
             _round = _flow.Round;
             _sound = new RoundSound(_camera.gameObject, _save, _round.Settings);

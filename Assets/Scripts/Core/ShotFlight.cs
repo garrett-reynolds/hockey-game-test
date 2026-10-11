@@ -2,7 +2,7 @@ using System;
 
 namespace HockeyGame.Core
 {
-    /// <summary>How long the on-screen puck takes to fly to the Net Face. The Round does not use this.</summary>
+    /// <summary>How long a puck takes to fly a distance: the on-screen puck to the Net Face, and the Round's Flight Time to the goalie.</summary>
     public static class ShotFlight
     {
         /// <summary>

@@ -80,8 +80,11 @@ namespace HockeyGame
             if (phase == RoundPhase.SkateIn) _gameTime = (float)phaseSeconds;
             else _gameTime += dt;
             AttackSide side = _round.AttackSide;
-            if (phase == RoundPhase.SlowDown || phase == RoundPhase.ShootingWindow)
-                _drift += dt * (float)Breakaway.SkateSpeed(side, _round.Settings);
+            // The drift on toward the net, from the same numbers the Round starts the puck from (Breakaway.ShotStart); it holds from the Shot on.
+            if (phase == RoundPhase.SlowDown)
+                _drift = (float)Breakaway.Drift(side, phaseSeconds, 0, _round.Settings);
+            else if (phase == RoundPhase.ShootingWindow)
+                _drift = (float)Breakaway.Drift(side, _round.Settings.SlowDownSeconds, phaseSeconds, _round.Settings);
 
             double u = phase == RoundPhase.SkateIn ? Breakaway.SkateProgress(phaseSeconds, _round.Settings) : 1.0;
             Breakaway.SkatePoint(side, u, out double x, out double distance);

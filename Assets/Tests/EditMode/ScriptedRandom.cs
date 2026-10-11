@@ -29,6 +29,9 @@ namespace HockeyGame.Core.Tests
             return value;
         }
 
+        /// <summary>The Reaction Time wobble roll that leaves the Reaction Time at RoundSettings.ReactionSeconds.</summary>
+        public const double NoWobble = 0.5;
+
         /// <summary>The two values that make Round pick this pose (side = (int)(v*3), index = (int)(v*2)).</summary>
         public static double[] PickValues(GoaliePose pose)
         {
@@ -37,38 +40,31 @@ namespace HockeyGame.Core.Tests
             return new[] { (side + 0.5) / 3.0, (index + 0.5) / 2.0 };
         }
 
-        /// <summary>Alternates LeftButterfly and RightButterfly: a Shot at (50, 90) is Open in both.</summary>
-        public static double[] AlternatingButterflies()
+        /// <summary>The values one Shot start takes, in Round's roll order: the pose pick, then the Reaction Time wobble.</summary>
+        public static double[] ShotValues(GoaliePose pose, double wobble = NoWobble)
         {
-            var left = PickValues(GoaliePose.LeftButterfly);
-            var right = PickValues(GoaliePose.RightButterfly);
-            return new[] { left[0], left[1], right[0], right[1] };
+            var values = new List<double>(PickValues(pose)) { wobble };
+            return values.ToArray();
         }
 
-        /// <summary>Queue: the pick values (side, then pose) for each given pose in order. Then the alternating fallback.</summary>
+        /// <summary>Alternates LeftButterfly and RightButterfly Shots (no wobble), so the pose never repeats.</summary>
+        public static double[] AlternatingButterflies()
+        {
+            var values = new List<double>(ShotValues(GoaliePose.LeftButterfly));
+            values.AddRange(ShotValues(GoaliePose.RightButterfly));
+            return values.ToArray();
+        }
+
+        /// <summary>Queue: the Shot start values (pose, no wobble) for each given pose in order. Then the alternating fallback.</summary>
         public static ScriptedRandom Picking(params GoaliePose[] poses)
         {
             var values = new List<double>();
             foreach (var pose in poses)
-                values.AddRange(PickValues(pose));
+                values.AddRange(ShotValues(pose));
             return new ScriptedRandom(AlternatingButterflies(), values.ToArray());
         }
 
-        /// <summary>Forces the first pose, then queues the rolls, then the alternating fallback.</summary>
-        public static ScriptedRandom Forcing(GoaliePose pose, params double[] rolls)
-        {
-            var values = new List<double>(PickValues(pose));
-            values.AddRange(rolls);
-            return new ScriptedRandom(AlternatingButterflies(), values.ToArray());
-        }
-
-        /// <summary>Forces the first pose, then the rolls, then the second pose's pick values, then the alternating fallback.</summary>
-        public static ScriptedRandom ForcingThen(GoaliePose first, double[] rolls, GoaliePose second)
-        {
-            var values = new List<double>(PickValues(first));
-            values.AddRange(rolls);
-            values.AddRange(PickValues(second));
-            return new ScriptedRandom(AlternatingButterflies(), values.ToArray());
-        }
+        /// <summary>Forces the first Shot's pose (no wobble), then the alternating fallback.</summary>
+        public static ScriptedRandom Forcing(GoaliePose pose) => Picking(pose);
     }
 }

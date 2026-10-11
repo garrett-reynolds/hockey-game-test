@@ -70,7 +70,10 @@ namespace HockeyGame.Core.Tests
             var view = new GoalieView(_rink.transform, character);
             var effects = new ShotEffects(_rink.transform, _camera.GetComponent<Camera>(), null, view);
             Transform puck = _rink.transform.Find("Puck");
-            var round = new Round(ScriptedRandom.Forcing(pose), new RoundSettings(), 0);
+            // The result as the pose's Zones gave it (Covered saved, the rest scored), so the goalie stands as before: this test is about
+            // the puck meeting or missing the gear, not the race. Until the goalie moves to his Set-up spot (#64) and the pose goes (#69).
+            var reach = FakeReach.Saving((sx, sy) => GoaliePoses.CoverAt(pose, Zones.Column(sx), Zones.Row(sy)) == ZoneCover.Covered);
+            var round = new Round(ScriptedRandom.Forcing(pose), new RoundSettings(), reach, 0);
             round.StartRound();
             round.Tick(3.7);
             float facing = GoalieCharacter.FacingToward(eye);

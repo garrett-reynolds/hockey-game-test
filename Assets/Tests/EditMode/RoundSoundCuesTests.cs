@@ -11,7 +11,8 @@ namespace HockeyGame.Core.Tests
 
         private static Round StartedRound(int best = 0)
         {
-            var round = new Round(new ScriptedRandom(ScriptedRandom.AlternatingButterflies()), new RoundSettings(), best);
+            // Saved below half height, scored above it (the race itself: RoundReachTests).
+            var round = new Round(new ScriptedRandom(ScriptedRandom.AlternatingButterflies()), new RoundSettings(), FakeReach.Saving((x, y) => y < 50), best);
             round.StartRound();
             return round;
         }
@@ -78,7 +79,7 @@ namespace HockeyGame.Core.Tests
             var round = StartedRound();
             var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.8);
-            round.SubmitShot(50, 90, 100, false);        // Open Zone for butterflies
+            round.SubmitShot(50, 90, 100, false);        // high: a Goal
             round.DelayResult(0.5);                      // the scene holds the result while the puck flies
             var beforeArrival = Run(round, cues, 0.2);
             Assert.IsFalse(beforeArrival.Contains(SoundCue.GoalImpact));
@@ -95,7 +96,7 @@ namespace HockeyGame.Core.Tests
             var round = StartedRound();
             var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.8);
-            round.SubmitShot(20, 10, 100, false);        // Covered bottom row: a pad save
+            round.SubmitShot(20, 10, 100, false);        // low: a pad save
             round.DelayResult(0.5);
             cues.Update(round, false);
             CollectionAssert.AreEquivalent(new[] { SoundCue.SaveImpact, SoundCue.Groan }, cues.Update(round, true));
@@ -113,7 +114,7 @@ namespace HockeyGame.Core.Tests
             CollectionAssert.AreEquivalent(new[] { SoundCue.MissImpact, SoundCue.Groan }, cues.Update(round, true));
         }
 
-        // What the puck visibly hits (ShotEffects) can differ from the gear the Zone names: the stick or a skate in front
+        // What the puck visibly hits (ShotEffects) can differ from the gear the Shot point names: the stick or a skate in front
         // of the pads, or gear in front of the frame. The sound follows the puck; the result does not change.
         [Test]
         public void A_save_the_puck_makes_on_the_stick_sounds_like_the_stick_not_the_pad()
@@ -121,7 +122,7 @@ namespace HockeyGame.Core.Tests
             var round = StartedRound();
             var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.8);
-            round.SubmitShot(50, 10, 100, false);        // Covered bottom row: a pad save by its Zone
+            round.SubmitShot(50, 10, 100, false);        // low: a pad save by its point
             round.DelayResult(0.5);
             cues.Update(round, false, SoundCue.BlockerHit); // the Shot frame: the puck will meet the stick
             CollectionAssert.AreEquivalent(new[] { SoundCue.BlockerHit, SoundCue.Groan }, cues.Update(round, true));
@@ -182,10 +183,10 @@ namespace HockeyGame.Core.Tests
             CollectionAssert.AreEquivalent(new[] { SoundCue.PostPing, SoundCue.Groan }, heard);
         }
 
-        // MiddleStandUp covers the top and middle rows; its bottom row is Contested, Open, Contested.
+        // Gear already in the way everywhere: every Shot on the Net Face is saved, showing (and sounding) its point's Save Reaction.
         private static Round StandUpRound()
         {
-            var round = new Round(ScriptedRandom.Picking(GoaliePose.MiddleStandUp), new RoundSettings(), 0);
+            var round = new Round(ScriptedRandom.Picking(GoaliePose.MiddleStandUp), new RoundSettings(), FakeReach.InTheWay(), 0);
             round.StartRound();
             return round;
         }
@@ -318,7 +319,7 @@ namespace HockeyGame.Core.Tests
         {
             var round = new Round(ScriptedRandom.Picking(
                 GoaliePoses.PosesOf(AttackSide.Left)[0], GoaliePoses.PosesOf(AttackSide.Middle)[0],
-                GoaliePoses.PosesOf(AttackSide.Right)[0]), new RoundSettings(), 0);
+                GoaliePoses.PosesOf(AttackSide.Right)[0]), new RoundSettings(), FakeReach.NeverReaches(), 0);
             round.StartRound();
             var cues = new RoundSoundCues(new SaveData());
             var sides = new HashSet<AttackSide>();
@@ -363,7 +364,7 @@ namespace HockeyGame.Core.Tests
 
             var round = new Round(ScriptedRandom.Picking(
                 GoaliePoses.PosesOf(AttackSide.Left)[0], GoaliePoses.PosesOf(AttackSide.Middle)[0],
-                GoaliePoses.PosesOf(AttackSide.Right)[0]), new RoundSettings(), 0);
+                GoaliePoses.PosesOf(AttackSide.Right)[0]), new RoundSettings(), FakeReach.NeverReaches(), 0);
             round.StartRound();
             var cues = new RoundSoundCues(new SaveData());
             var sides = new HashSet<AttackSide>();

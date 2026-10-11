@@ -6,10 +6,9 @@ namespace HockeyGame.Core.Tests
     public class ScreenFlowTests
     {
         private static ScreenFlow NewFlow(SaveData save = null) =>
-            new ScreenFlow(new ScriptedRandom(ScriptedRandom.AlternatingButterflies()), save ?? new SaveData());
+            new ScreenFlow(new ScriptedRandom(ScriptedRandom.AlternatingButterflies()), save ?? new SaveData(), FakeReach.NeverReaches());
 
-        // Starts a Round and plays all 6 Shots: the first `goals` score (top middle is Open in both
-        // butterflies), the rest miss. Ends on the tick that finishes Shot 6's hold.
+        // Starts a Round and plays all 6 Shots: the first `goals` score (no gear ever reaches), the rest miss. Ends on the tick that finishes Shot 6's hold.
         private static void PlayRound(ScreenFlow flow, int goals)
         {
             flow.Press();
@@ -173,12 +172,14 @@ namespace HockeyGame.Core.Tests
         {
             var save = new SaveData();
             var flow = NewFlow(save);
-            save.ContestedLowChance = 1; // default chance would give a Save with this roll (0.83)
+            save.ContestedLowChance = 1;
             save.ContestedTopChance = 1;
+            save.TopSpeedKmh = 90;
+            Assert.AreNotEqual(1, flow.Round.Settings.ContestedLowChance);
             flow.Press();
-            flow.Tick(3.7);
-            flow.SubmitShot(50, 50, 100, false); // middle Zone: Contested in both butterflies
-            Assert.AreEqual(ShotResultKind.Goal, flow.Round.LastResult.Value.Kind);
+            Assert.AreEqual(1, flow.Round.Settings.ContestedLowChance);
+            Assert.AreEqual(1, flow.Round.Settings.ContestedTopChance);
+            Assert.AreEqual(90, flow.Round.Settings.TopSpeedKmh);
         }
 
         [Test]
@@ -269,6 +270,14 @@ namespace HockeyGame.Core.Tests
             flow.Press();
             Assert.AreEqual(FlowScreen.Playing, flow.Screen);
             Assert.AreEqual(0, flow.Round.BestScore);
+        }
+
+        [Test]
+        public void The_Round_runs_on_the_settings_object_it_is_given_so_the_goalie_reach_port_can_share_it()
+        {
+            var settings = new RoundSettings();
+            var flow = new ScreenFlow(new ScriptedRandom(ScriptedRandom.AlternatingButterflies()), new SaveData(), FakeReach.NeverReaches(), settings);
+            Assert.AreSame(settings, flow.Round.Settings);
         }
     }
 }

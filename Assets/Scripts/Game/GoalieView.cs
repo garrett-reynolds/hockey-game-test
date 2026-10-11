@@ -250,18 +250,18 @@ namespace HockeyGame
 
         /// <summary>
         /// On the Shot: the goalie character's reaction to this result, the puck flying from `from` (world space) to the
-        /// Shot's Net Face point. A Save gets the Save Reaction of its point (SaveReactions), its gear reaching the puck's
-        /// line; a Goal or a Miss gets a reach that stays off the puck (what follows: Watch). Built at the facing the reaction ends at; shown
-        /// by SetProgress. Nothing for no Shot or no character shown.
+        /// Shot's Net Face point. A Save gets the Save Reaction to show (the Round's race: reaction; with none, the Shot point's,
+        /// SaveReactions), its gear reaching the puck's line; a Goal or a Miss gets a reach that stays off the puck (what follows:
+        /// Watch). Built at the facing the reaction ends at; shown by SetProgress. Nothing for no Shot or no character shown.
         /// </summary>
-        public void React(ShotResult result, Vector3 from)
+        public void React(ShotResult result, Vector3 from, SaveReaction? reaction = null)
         {
             _reacted = false;
             _carried = null;
             if (_character == null || !_visible || !result.HasShot) return;
             NetFaceMapping.ToMetres(result.X, result.Y, out double right, out double up);
             var netPoint = new Vector3((float)right, (float)up, 0f);
-            _character.React(SaveReactions.For(result.X, result.Y), from, netPoint, PosedFacing(), result.Kind == ShotResultKind.Save);
+            _character.React(reaction ?? SaveReactions.For(result.X, result.Y), from, netPoint, PosedFacing(), result.Kind == ShotResultKind.Save);
             _reacted = true;
             _gesture = AfterShot.GestureFor(result.Kind, result.X, result.Y);
             _sinceArrival = _sinceNetting = -1f;

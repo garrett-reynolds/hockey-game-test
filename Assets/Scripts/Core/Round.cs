@@ -6,11 +6,16 @@ namespace HockeyGame.Core
     /// <summary>
     /// A Round of 6 Shots. Pure logic: time only enters through Tick(realSeconds).
     /// <para>
+    /// A Shot on the Net Face is decided by Reach in time: a Save when the goalie's Reach Time is no longer than the puck's
+    /// Flight Time, otherwise a Goal (see ShotRace). The goalie-reach port says how his body, in the Shot's Set-up, gets gear
+    /// into the puck's line. A Shot off the Net Face (a Frame Hit too) is a Miss: the goalie does not decide it.
+    /// </para>
+    /// <para>
     /// Random call order (public contract): when a Shot starts, per pose pick try, Next() for the Attack Side
     /// (side = (int)(Next() * 3)), then Next() for the pose (index = (int)(Next() * 2)). A try that repeats the
     /// previous Shot's pose is retried, up to 10 tries; if all 10 repeat it, the next pose in GoaliePose enum
-    /// order (wrapping) is used. Then one Next() per Contested Shot (Goal when roll is below the chance); none for
-    /// Open, Covered, Miss or TooLate.
+    /// order (wrapping) is used. Then one Next() for the Reaction Time wobble: ReactionSeconds + ReactionWobbleSeconds *
+    /// (2 * Next() - 1). Nothing else rolls: not the Shot's result, a Miss or TooLate.
     /// </para>
     /// </summary>
     public sealed class Round
@@ -19,21 +24,23 @@ namespace HockeyGame.Core
 
         private readonly IRandomSource _random;
         private readonly RoundSettings _settings;
+        private readonly IGoalieReach _reach;
         private readonly List<ShotResultKind> _results = new List<ShotResultKind>();
         private const int MaxPickTries = 10;
         private double _phaseElapsed;
         private double _resultDelay;
         private GoaliePose? _previousPose;
 
-        public Round(IRandomSource random, RoundSettings settings, int bestScore)
+        public Round(IRandomSource random, RoundSettings settings, IGoalieReach reach, int bestScore)
         {
             _random = random;
             _settings = settings;
+            _reach = reach;
             BestScore = bestScore;
             Phase = RoundPhase.Idle;
         }
 
-        /// <summary>The tunable values this Round runs on (phase lengths, Contested chances).</summary>
+        /// <summary>The tunable values this Round runs on (phase lengths, the goalie's Reaction Time and gear speeds).</summary>
         public RoundSettings Settings => _settings;
 
         public RoundPhase Phase { get; private set; }
@@ -62,11 +69,20 @@ namespace HockeyGame.Core
         /// <summary>Best score so far; changes only when beaten at RoundOver.</summary>
         public int BestScore { get; private set; }
 
-        /// <summary>Attack Side of the current Shot's Goalie Pose.</summary>
+        /// <summary>Attack Side of the current Shot (from its Goalie Pose until that goes).</summary>
         public AttackSide AttackSide => GoaliePoses.SideOf(GoaliePose);
 
-        /// <summary>Goalie Pose for the current Shot; chosen when the Shot starts.</summary>
+        /// <summary>Goalie Pose for the current Shot; chosen when the Shot starts. It no longer decides the Shot's result.</summary>
         public GoaliePose GoaliePose { get; private set; }
+
+        /// <summary>The goalie's Set-up for the current Shot.</summary>
+        public SetUp SetUp { get; private set; }
+
+        /// <summary>The goalie's Reaction Time for the current Shot (seconds), rolled when the Shot starts.</summary>
+        public double ReactionSeconds { get; private set; }
+
+        /// <summary>The race that decided the current Shot (Reach in time); null until a Shot on the Net Face.</summary>
+        public ShotRace? LastRace { get; private set; }
 
         /// <summary>
         /// False while a delayed result is still hidden (see DelayResult); true otherwise. The scene shows the
@@ -102,7 +118,7 @@ namespace HockeyGame.Core
             IsNewBest = false;
             LastResult = null;
             ShotNumber = 1;
-            PickGoaliePose();
+            StartShot();
             EnterPhase(RoundPhase.SkateIn);
         }
 
@@ -113,7 +129,13 @@ namespace HockeyGame.Core
                 return;
 
             bool onNetFace = x >= 0 && x <= 100 && y >= 0 && y <= 100;
-            var kind = onNetFace ? ResolveOnNetFace(x, y, speedKmh) : ShotResultKind.Miss;
+            ShotResultKind kind = ShotResultKind.Miss;
+            if (onNetFace)
+            {
+                ShotRace race = Race(x, y, speedKmh);
+                LastRace = race;
+                kind = race.IsSave ? ShotResultKind.Save : ShotResultKind.Goal;
+            }
             Finish(new ShotResult(kind, true, x, y, speedKmh, isTestShot));
         }
 
@@ -155,7 +177,7 @@ namespace HockeyGame.Core
                     else
                     {
                         ShotNumber++;
-                        PickGoaliePose();
+                        StartShot();
                         LastResult = null;
                         EnterPhase(RoundPhase.SkateIn);
                     }
@@ -163,18 +185,32 @@ namespace HockeyGame.Core
             }
         }
 
-        private ShotResultKind ResolveOnNetFace(double x, double y, double speedKmh)
+        /// <summary>
+        /// Reach in time for a Shot at Net Face point (x, y), now in the shooting window. The puck starts where the shooter has
+        /// skated to (Breakaway.ShotStart); its Flight Time runs to where it passes the goalie, at the depth of his Set-up spot.
+        /// </summary>
+        private ShotRace Race(double x, double y, double speedKmh)
         {
-            switch (GoaliePoses.CoverAt(GoaliePose, Zones.Column(x), Zones.Row(y)))
-            {
-                case ZoneCover.Open:
-                    return ShotResultKind.Goal;
-                case ZoneCover.Covered:
-                    return ShotResultKind.Save;
-                default:
-                    double chance = GoaliePoses.ContestedChance(speedKmh, _settings);
-                    return _random.Next() < chance ? ShotResultKind.Goal : ShotResultKind.Save;
-            }
+            double sinceWindowOpened = _phaseElapsed;
+            RinkPoint from = Breakaway.ShotStart(AttackSide, sinceWindowOpened, _settings);
+            RinkPoint netPoint = RinkPoint.OnNetFace(x, y);
+            RinkPoint spot = SetUps.Spot(SetUp, AttackSide, sinceWindowOpened, from, _settings);
+            double flight = ShotFlight.Seconds(RinkPoint.Distance(from, RinkPoint.AtDepth(from, netPoint, spot.Z)), speedKmh);
+
+            GoalieReachAnswer answer = _reach.Reach(SetUp, AttackSide, sinceWindowOpened, from, netPoint);
+            double move = answer.InTheWay ? 0 : answer.MoveSeconds;
+            double reach = answer.InTheWay ? 0 : ReactionSeconds + move;
+            SaveReaction shown = answer.InTheWay || !answer.QuickestGear.HasValue ? SaveReactions.For(x, y) : answer.QuickestGear.Value;
+            return new ShotRace(SetUp, AttackSide, ReactionSeconds, move, reach, flight, answer.InTheWay, shown);
+        }
+
+        /// <summary>A new Shot: its Goalie Pose (and so Attack Side), its Set-up and its Reaction Time, in the roll order.</summary>
+        private void StartShot()
+        {
+            PickGoaliePose();
+            SetUp = SetUp.Clean;
+            ReactionSeconds = _settings.ReactionSeconds + _settings.ReactionWobbleSeconds * (2 * _random.Next() - 1);
+            LastRace = null;
         }
 
         private void PickGoaliePose()

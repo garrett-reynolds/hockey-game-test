@@ -142,7 +142,7 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void Round_reports_real_seconds_spent_in_the_current_phase()
         {
-            var round = new Round(new ScriptedRandom(ScriptedRandom.AlternatingButterflies()), new RoundSettings(), 0);
+            var round = new Round(new ScriptedRandom(ScriptedRandom.AlternatingButterflies()), new RoundSettings(), FakeReach.NeverReaches(), 0);
             round.StartRound();
             round.Tick(1.0);
             Assert.AreEqual(1.0, round.PhaseSecondsElapsed, Tol);
@@ -164,8 +164,47 @@ namespace HockeyGame.Core.Tests
         public void Round_reports_the_settings_it_runs_on()
         {
             var settings = new RoundSettings { SkateInSeconds = 4 };
-            var round = new Round(new ScriptedRandom(ScriptedRandom.AlternatingButterflies()), settings, 0);
+            var round = new Round(new ScriptedRandom(ScriptedRandom.AlternatingButterflies()), settings, FakeReach.NeverReaches(), 0);
             Assert.AreSame(settings, round.Settings);
+        }
+
+        [Test]
+        public void Game_seconds_of_the_slow_down_ease_from_real_time_into_the_slow_time_scale()
+        {
+            Assert.AreEqual(0.0, Breakaway.GameSeconds(RoundPhase.SlowDown, 0), Tol);
+            // The ramp: 0.35 s eased from 1x to 0.25x is 0.35 - 0.75 * 0.35 * 2/3 = 0.175 game seconds; then a quarter of real time.
+            Assert.AreEqual(0.175, Breakaway.GameSeconds(RoundPhase.SlowDown, Breakaway.SlowRampSeconds), Tol);
+            Assert.AreEqual(0.175 + 0.85 * 0.25, Breakaway.GameSeconds(RoundPhase.SlowDown, 1.2), Tol);
+            Assert.AreEqual(0.5, Breakaway.GameSeconds(RoundPhase.ShootingWindow, 2.0), Tol);
+            Assert.AreEqual(1.5, Breakaway.GameSeconds(RoundPhase.SkateIn, 1.5), Tol);
+
+            // The same as summing TimeScale frame by frame.
+            double summed = 0, dt = 1e-5;
+            for (double t = 0; t < 0.2; t += dt) summed += Breakaway.TimeScale(RoundPhase.SlowDown, t + dt / 2) * dt;
+            Assert.AreEqual(summed, Breakaway.GameSeconds(RoundPhase.SlowDown, 0.2), 1e-4);
+        }
+
+        [Test]
+        public void The_drift_is_the_skate_speed_over_the_game_seconds_of_the_slow_down_and_the_window()
+        {
+            double speed = Breakaway.SkateSpeed(AttackSide.Right, Defaults);
+            Assert.AreEqual(speed * 0.175, Breakaway.Drift(AttackSide.Right, 0.35, 0, Defaults), Tol);
+            Assert.AreEqual(speed * (0.3875 + 0.25), Breakaway.Drift(AttackSide.Right, 1.2, 1.0, Defaults), Tol);
+            Assert.AreEqual(speed * 0.3875, Breakaway.Drift(AttackSide.Right, 5.0, 0, Defaults), Tol, "the slow-down ends at its length");
+        }
+
+        [Test]
+        public void The_shot_start_drifts_in_through_the_window_and_stops_3_m_from_the_net()
+        {
+            RinkPoint opening = Breakaway.ShotStart(AttackSide.Middle, 0, Defaults);
+            RinkPoint later = Breakaway.ShotStart(AttackSide.Middle, 1.0, Defaults);
+            RinkPoint last = Breakaway.ShotStart(AttackSide.Middle, 3.0, Defaults);
+            double eyeOut = Breakaway.StopDistance - Breakaway.Drift(AttackSide.Middle, 1.2, 0, Defaults);
+            Assert.AreEqual(-eyeOut + 0.9, opening.Z, 0.1, "about a metre ahead of the eye");
+            Assert.Greater(later.Z, opening.Z);
+            Assert.AreEqual(-Breakaway.ClosestDrift + 0.9, last.Z, 0.1);
+            Assert.AreEqual(0, opening.X, Tol);
+            Assert.Less(opening.Y, Breakaway.EyeHeight - 0.3);
         }
     }
 }

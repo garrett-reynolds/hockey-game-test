@@ -102,8 +102,11 @@ namespace HockeyGame
             hips.y = 0f;
             Quaternion turn = Quaternion.AngleAxis(facing, Vector3.up);
             root.localRotation = turn;
-            root.localPosition = new Vector3(0f, 0f, StandZ) + hips - turn * hips;
+            root.localPosition = _spot + hips - turn * hips;
         }
+
+        /// <summary>Where the goalie stands in the crease (rink space, on the ice): centred on the net, StandZ out. MeasureReach moves it for a while.</summary>
+        Vector3 _spot = new Vector3(0f, 0f, StandZ);
 
         /// <summary>
         /// The facing (GoalieTurn) that squares the goalie up to a shooter at this point (rink space: Net Face at z = 0,
@@ -393,9 +396,65 @@ namespace HockeyGame
             root.localRotation = rootRotation;
         }
 
+        /// <summary>
+        /// Measures a Save Reaction for the race (Reach in time) without keeping or showing it: the goalie in the Ready Stance
+        /// standing at spot (rink space, on the ice) at this facing, the puck flying from `from` to `to`. inTheWay: his gear or
+        /// body already meets the puck's line in the Ready Stance. True when the reaction puts gear on the puck's line;
+        /// gearMetres: how far that gear travels from the Ready Stance (the body: the hips); pushMetres: how far the whole goalie
+        /// pushes across. Everything shown and the last React are left as they were.
+        /// </summary>
+        public bool MeasureReach(SaveReaction reaction, Vector3 spot, Vector3 from, Vector3 to, float facing,
+            out float gearMetres, out float pushMetres, out bool inTheWay)
+        {
+            gearMetres = pushMetres = 0f;
+            inTheWay = false;
+            if (!Present) return false;
+            Prepare();
+            Snapshot shown = Take(), kept = _reaction;
+            string keptPiece = ReactionPiece;
+            var keptPlaced = new List<(PuckObstacles, Matrix4x4)>(_placed);
+            var keptPlacedGear = new Dictionary<string, Matrix4x4>(_placedGear);
+            Transform root = Root.transform;
+            Vector3 rootPosition = root.localPosition, keptSpot = _spot;
+            Quaternion rootRotation = root.localRotation;
+            try
+            {
+                _spot = new Vector3(spot.x, 0f, spot.z);
+                Put(_ready);
+                PlaceRoot(facing);
+                Finish(null, _readyBody);
+                inTheWay = Touches(from, to);
+                Vector3 readyHips = Bone(HumanBodyBones.Hips).position;
+                var start = new Dictionary<string, Vector3>();
+                foreach (var kv in _gearShapes) start[kv.Key] = GearPoint(kv.Key);
+
+                Reach(reaction, from, to, facing);
+                bool touches = Touches(from, to);
+                string piece = ReactionPiece;
+                pushMetres = Mathf.Abs(_model.localPosition.x - _ready.ModelPosition.x);
+                gearMetres = piece != null && start.TryGetValue(piece, out Vector3 was)
+                    ? Vector3.Distance(was, GearPoint(piece))
+                    : Vector3.Distance(readyHips, Bone(HumanBodyBones.Hips).position);
+                return touches;
+            }
+            finally
+            {
+                _spot = keptSpot;
+                _reaction = kept;
+                ReactionPiece = keptPiece;
+                _placed.Clear();
+                _placed.AddRange(keptPlaced);
+                _placedGear.Clear();
+                foreach (var kv in keptPlacedGear) _placedGear[kv.Key] = kv.Value;
+                Put(shown);
+                root.localPosition = rootPosition;
+                root.localRotation = rootRotation;
+            }
+        }
+
         void Reach(SaveReaction reaction, Vector3 from, Vector3 to, float facing)
         {
-            bool butterfly = reaction == SaveReaction.Pads && LineAt(from, to, StandZ - 0.25f).y < ButterflyBelow; // at the pads' depth
+            bool butterfly = reaction == SaveReaction.Pads && LineAt(from, to, _spot.z - 0.25f).y < ButterflyBelow; // at the pads' depth
             Put(butterfly ? _butterfly : _ready);
             PlaceRoot(facing);
             string piece;

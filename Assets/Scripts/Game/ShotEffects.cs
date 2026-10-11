@@ -142,7 +142,7 @@ namespace HockeyGame
             }
             if (isNew)
             {
-                Play(round.LastResult.Value);
+                Play(round.LastResult.Value, round.LastRace?.SaveReaction);
                 if (_stage == Stage.Flying) round.DelayResult(_flightSeconds);
                 // The puck starts where it is on the Shot frame, with the Round's result-hold clock at 0, whichever way the
                 // Shot came in (a USB Shot before this call, a Test Shot after it): its flight keeps time with the goalie's
@@ -152,23 +152,26 @@ namespace HockeyGame
             Step(realSeconds);
         }
 
-        void Play(ShotResult result)
+        SoundCue _saveSound; // the save sound of the Shot's Save Reaction (Play)
+
+        void Play(ShotResult result, SaveReaction? reaction)
         {
             Clear();
             _result = result;
+            _saveSound = SaveReactions.Sound(reaction ?? SaveReactions.For(result.X, result.Y)); // the gear the race put on the puck's line
             _clock = 0f;
             _arrivedAt = _nettedAt = -1f;
             if (!result.HasShot) return; // Too Late: no puck
 
             Transform cam = _camera.transform;
-            _start = cam.position + cam.forward * 1.0f - cam.up * 0.35f;
+            _start = cam.position + cam.forward * (float)Breakaway.PuckAheadMetres - cam.up * (float)Breakaway.PuckBelowMetres; // as Breakaway.ShotStart
             NetFaceMapping.ToMetres(result.X, result.Y, out double right, out double up);
             const float FrameFrontZ = -NetBuilder.Post / 2f - PuckThickness / 2f; // puck centre touching the front of a post or the crossbar
             float z = result.Kind == ShotResultKind.Save ? SaveZ
                 : NetFrame.At(result.X, result.Y) != FrameHit.None ? FrameFrontZ : 0f; // a Frame Hit stops on the frame's face
             _target = new Vector3((float)right, (float)up, z);
             _netPoint = new Vector3((float)right, (float)up, 0f);
-            _goalie?.React(result, _start); // the goalie character's Save Reaction (or reach) to where this Shot goes
+            _goalie?.React(result, _start, reaction); // the goalie character's Save Reaction from the race (or reach) to where this Shot goes
             bool onGoalie = false; // a save on the goalie character stops on its reaction's gear, with no save block
             if (result.Kind == ShotResultKind.Save && _goalie != null && _goalie.SaveStop(_start, _netPoint, PuckThickness, out Vector3 stop))
             {
@@ -186,7 +189,7 @@ namespace HockeyGame
             }
             bool onLine = false;
             bool frameHit = result.Kind != ShotResultKind.Save && _obstacles != null;
-            if (((onGoalie && RoundSoundCues.SaveContact(result.X, result.Y) != SoundCue.GloveCatch) || frameHit)
+            if (((onGoalie && _saveSound != SoundCue.GloveCatch) || frameHit)
                 && _obstacles.Cast(_start, _target, PuckThickness / 2f, out Vector3 first, out _contactNormal, out _contactSurface, frameHit ? GoalieGear : LineGear))
             {
                 // A Frame Hit the goalie's gear is in front of: it knocks off that gear, still a Miss. (A Miss reach keeps off
@@ -328,7 +331,7 @@ namespace HockeyGame
         {
             if (result.Kind == ShotResultKind.Save)
             {
-                SoundCue contact = RoundSoundCues.SaveContact(result.X, result.Y);
+                SoundCue contact = _saveSound;
                 if (_onGoalie && _goalie.SaveSurface(_obstacles, _target, out _contactNormal, out _contactSurface)) return;
                 // The save block: its face is square to the shooter; the gear it stands for decides the feel.
                 _contactNormal = Vector3.back;

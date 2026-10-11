@@ -32,12 +32,9 @@ namespace HockeyGame.Core.Tests
             GoaliePose.MiddleStandUp, GoaliePose.RightPostHug, GoaliePose.RightButterfly
         };
 
-        // A point in the middle of a Zone.
-        private static double Centre(int index) => 100.0 / 6 + index * (100.0 / 3);
-
         private static Round RoundInWindow(IRandomSource random)
         {
-            var round = new Round(random, new RoundSettings(), 0);
+            var round = new Round(random, new RoundSettings(), FakeReach.NeverReaches(), 0);
             round.StartRound();
             round.Tick(3.7);
             return round;
@@ -109,29 +106,7 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(expected, GoaliePoses.ContestedChance(speed, new RoundSettings()), 1e-9);
         }
 
-        // ---- Through Round ----
-
-        [Test]
-        public void A_Shot_in_every_Open_Zone_scores_and_in_every_Covered_Zone_is_saved_for_every_pose()
-        {
-            foreach (var pose in AllPoses)
-                for (int column = 0; column < 3; column++)
-                    for (int row = 0; row < 3; row++)
-                    {
-                        var cover = ExpectedCover(Expected[pose], column, row);
-                        if (cover == ZoneCover.Contested)
-                            continue;
-                        foreach (double speed in new[] { 0.0, 60.0, 120.0 })
-                        {
-                            var round = RoundInWindow(ScriptedRandom.Forcing(pose));
-                            Assert.AreEqual(pose, round.GoaliePose);
-                            round.SubmitShot(Centre(column), Centre(row), speed, false);
-                            var expected = cover == ZoneCover.Open ? ShotResultKind.Goal : ShotResultKind.Save;
-                            Assert.AreEqual(expected, round.LastResult.Value.Kind,
-                                pose + " column " + column + " row " + row + " speed " + speed);
-                        }
-                    }
-        }
+        // ---- Through Round: the pose pick (it no longer decides the result: Reach in time does, see RoundReachTests) ----
 
         [Test]
         public void Round_reports_the_forced_pose_and_its_Attack_Side()
@@ -144,50 +119,10 @@ namespace HockeyGame.Core.Tests
             }
         }
 
-        // LeftButterfly column 1 row 1 is Contested; at 60 km/h the chance is 0.675.
-        [TestCase(0.674, ShotResultKind.Goal)]
-        [TestCase(0.676, ShotResultKind.Save)]
-        public void A_Contested_Shot_scores_when_the_roll_is_below_the_chance(double roll, ShotResultKind expected)
-        {
-            var round = RoundInWindow(ScriptedRandom.Forcing(GoaliePose.LeftButterfly, roll));
-            Assert.AreEqual(GoaliePose.LeftButterfly, round.GoaliePose);
-            round.SubmitShot(50, 50, 60, false);
-            Assert.AreEqual(expected, round.LastResult.Value.Kind);
-        }
-
-        // Random call order: one roll for a Contested Shot, none for Open, Covered or Miss. The next
-        // Shot's pick values are queued right after, so a wrong roll count would shift the next pose.
-        [TestCase(50.0, 50.0, ShotResultKind.Save, 1)]   // Contested, roll 0.9 -> Save
-        [TestCase(50.0, 90.0, ShotResultKind.Goal, 0)]   // Open
-        [TestCase(10.0, 10.0, ShotResultKind.Save, 0)]   // Covered
-        [TestCase(150.0, 50.0, ShotResultKind.Miss, 0)]  // off the Net Face
-        public void Rolls_are_used_only_by_Contested_Shots(double x, double y, ShotResultKind expected, int rolls)
-        {
-            var queued = new double[rolls];
-            for (int i = 0; i < rolls; i++)
-                queued[i] = 0.9;
-            var round = RoundInWindow(ScriptedRandom.ForcingThen(GoaliePose.LeftButterfly, queued, GoaliePose.MiddleStandUp));
-            Assert.AreEqual(GoaliePose.LeftButterfly, round.GoaliePose);
-            round.SubmitShot(x, y, 100, false);
-            Assert.AreEqual(expected, round.LastResult.Value.Kind);
-            round.Tick(2.5);
-            Assert.AreEqual(GoaliePose.MiddleStandUp, round.GoaliePose);
-        }
-
-        [Test]
-        public void TooLate_uses_no_roll()
-        {
-            var round = RoundInWindow(ScriptedRandom.ForcingThen(GoaliePose.LeftButterfly, new double[0], GoaliePose.MiddleStandUp));
-            round.Tick(3.0);
-            Assert.AreEqual(ShotResultKind.TooLate, round.LastResult.Value.Kind);
-            round.Tick(2.5);
-            Assert.AreEqual(GoaliePose.MiddleStandUp, round.GoaliePose);
-        }
-
         [Test]
         public void The_pose_is_picked_per_Shot_and_stays_the_same_through_the_Shot()
         {
-            var round = new Round(ScriptedRandom.Picking(GoaliePose.RightPostHug, GoaliePose.MiddleButterfly), new RoundSettings(), 0);
+            var round = new Round(ScriptedRandom.Picking(GoaliePose.RightPostHug, GoaliePose.MiddleButterfly), new RoundSettings(), FakeReach.NeverReaches(), 0);
             round.StartRound();
             Assert.AreEqual(GoaliePose.RightPostHug, round.GoaliePose);
             round.Tick(9.0);
@@ -200,9 +135,12 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void A_repeat_of_the_previous_pose_is_picked_again()
         {
-            var round = new Round(
-                ScriptedRandom.Picking(GoaliePose.LeftPostHug, GoaliePose.LeftPostHug, GoaliePose.RightButterfly),
-                new RoundSettings(), 0);
+            // Shot 1: LeftPostHug and its wobble. Shot 2: a try that repeats it, then RightButterfly and its wobble.
+            var values = new List<double>(ScriptedRandom.ShotValues(GoaliePose.LeftPostHug));
+            values.AddRange(ScriptedRandom.PickValues(GoaliePose.LeftPostHug));
+            values.AddRange(ScriptedRandom.ShotValues(GoaliePose.RightButterfly));
+            var round = new Round(new ScriptedRandom(ScriptedRandom.AlternatingButterflies(), values.ToArray()),
+                new RoundSettings(), FakeReach.NeverReaches(), 0);
             round.StartRound();
             Assert.AreEqual(GoaliePose.LeftPostHug, round.GoaliePose);
             round.Tick(9.3);
@@ -213,7 +151,9 @@ namespace HockeyGame.Core.Tests
         [TestCase(GoaliePose.RightButterfly, GoaliePose.LeftPostHug)] // wraps
         public void A_source_that_only_repeats_the_previous_pose_moves_to_the_next_pose_in_order(GoaliePose stuck, GoaliePose next)
         {
-            var round = new Round(new ScriptedRandom(ScriptedRandom.PickValues(stuck)), new RoundSettings(), 0);
+            // The first Shot's pick and wobble, then a source that only ever gives the stuck pose's pick values.
+            var round = new Round(new ScriptedRandom(ScriptedRandom.PickValues(stuck), ScriptedRandom.ShotValues(stuck)), new RoundSettings(),
+                FakeReach.NeverReaches(), 0);
             round.StartRound();
             Assert.AreEqual(stuck, round.GoaliePose); // first Shot: any pose
             round.Tick(9.3);
@@ -224,7 +164,8 @@ namespace HockeyGame.Core.Tests
         public void The_first_Shot_of_a_new_Round_has_no_previous_pose()
         {
             var pose = GoaliePose.LeftPostHug;
-            var round = new Round(new ScriptedRandom(ScriptedRandom.PickValues(pose)), new RoundSettings(), 0);
+            // 0.1 picks it every time (side (int)(0.1 * 3) = 0, index (int)(0.1 * 2) = 0), whatever the rolls in between.
+            var round = new Round(new ScriptedRandom(new[] { 0.1 }), new RoundSettings(), FakeReach.NeverReaches(), 0);
             round.StartRound();
             Assert.AreEqual(pose, round.GoaliePose);
             round.Tick(1000);
@@ -246,7 +187,7 @@ namespace HockeyGame.Core.Tests
             int shots = 0;
             for (int seed = 1; seed <= 120; seed++)
             {
-                var round = new Round(new SeededRandom(seed), new RoundSettings(), 0);
+                var round = new Round(new SeededRandom(seed), new RoundSettings(), FakeReach.NeverReaches(), 0);
                 round.StartRound();
                 GoaliePose? previous = null;
                 for (int shot = 1; shot <= Round.ShotsPerRound; shot++)
