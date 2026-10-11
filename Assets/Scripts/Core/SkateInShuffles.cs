@@ -44,7 +44,7 @@ namespace HockeyGame.Core
                 if (_t < 1)
                 {
                     _t = Math.Min(1, _t + dt / Math.Max(0.01, settings.ShuffleSeconds));
-                    double e = _t * _t * (3 - 2 * _t);
+                    double e = Numbers.SmoothStep01(_t);
                     _x = _from + (angle.X - _from) * e; // pushes on to where the angle has got to
                 }
                 if (!shuffles && _t >= 1) _following = true;

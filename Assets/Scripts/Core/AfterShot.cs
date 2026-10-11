@@ -125,10 +125,6 @@ namespace HockeyGame.Core
         public static bool IsGoal(AfterShotGesture gesture) => gesture == AfterShotGesture.Slump || gesture == AfterShotGesture.StickSlap;
 
         /// <summary>0 before from, 1 after to, eased in and out between (smoothstep). The goalie's gestures use it too.</summary>
-        public static double Ramp(double t, double from, double to)
-        {
-            double u = Numbers.Clamp01((t - from) / (to - from));
-            return u * u * (3 - 2 * u);
-        }
+        public static double Ramp(double t, double from, double to) => Numbers.SmoothStep01((t - from) / (to - from));
     }
 }

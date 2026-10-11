@@ -20,9 +20,9 @@ namespace HockeyGame.Core
         {
             switch (phase)
             {
-                case RoundPhase.SlowDown: return Ease(phaseSeconds / settings.SlowDownSeconds);
+                case RoundPhase.SlowDown: return Numbers.SmoothStep01(phaseSeconds / settings.SlowDownSeconds);
                 case RoundPhase.ShootingWindow: return 1;
-                case RoundPhase.ResultHold: return 1 - Ease(phaseSeconds / settings.ResultHoldSeconds);
+                case RoundPhase.ResultHold: return 1 - Numbers.SmoothStep01(phaseSeconds / settings.ResultHoldSeconds);
                 default: return 0;
             }
         }
@@ -35,10 +35,10 @@ namespace HockeyGame.Core
         {
             switch (phase)
             {
-                case RoundPhase.SkateIn: return Ease(phaseSeconds / FindPuckSeconds);
+                case RoundPhase.SkateIn: return Numbers.SmoothStep01(phaseSeconds / FindPuckSeconds);
                 case RoundPhase.SlowDown:
                 case RoundPhase.ShootingWindow: return 1;
-                case RoundPhase.ResultHold: return 1 - Ease(phaseSeconds / settings.ResultHoldSeconds);
+                case RoundPhase.ResultHold: return 1 - Numbers.SmoothStep01(phaseSeconds / settings.ResultHoldSeconds);
                 default: return 0;
             }
         }
@@ -54,11 +54,5 @@ namespace HockeyGame.Core
         /// <summary>How much lower he sits (metres): SetDropMetres once set. 0 with StillOnceSet off.</summary>
         public static double DropMetres(double settled, double set, RoundSettings settings) =>
             settings.StillOnceSet ? settings.SetDropMetres * Numbers.Clamp01(settled) * (1 - Numbers.Clamp01(set)) : 0;
-
-        static double Ease(double t)
-        {
-            t = Numbers.Clamp01(t);
-            return t * t * (3 - 2 * t);
-        }
     }
 }

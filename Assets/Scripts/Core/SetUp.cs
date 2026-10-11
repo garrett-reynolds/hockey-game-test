@@ -122,8 +122,7 @@ namespace HockeyGame.Core
                     return OnTheAngle(puck, settings);
                 case RoundPhase.SlowDown:
                     RinkPoint angle = OnTheAngle(puck, settings), set = Spot(setUp, side, 0, puck, settings);
-                    double t = Numbers.Clamp01(phaseSeconds / settings.SlowDownSeconds);
-                    t = t * t * (3 - 2 * t);
+                    double t = Numbers.SmoothStep01(phaseSeconds / settings.SlowDownSeconds);
                     return new RinkPoint(angle.X + (set.X - angle.X) * t, 0, angle.Z + (set.Z - angle.Z) * t);
                 default:
                     return Spot(setUp, side, phaseSeconds, puck, settings);
