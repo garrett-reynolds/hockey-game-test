@@ -210,6 +210,23 @@ namespace HockeyGame.Core.Tests
             CollectionAssert.AreEquivalent(new[] { SoundCue.BlockerHit, SoundCue.Groan }, heard);
         }
 
+        // With no contact reported, a raced Save sounds like the gear that won the race, not the Shot point's gear.
+        [Test]
+        public void A_raced_Save_sounds_like_the_gear_that_won_the_race()
+        {
+            var round = new Round(ScriptedRandom.Picking(AttackSide.Middle), new RoundSettings(),
+                new FakeReach(GoalieReachAnswer.Reaches(SaveReaction.Glove, 0)), 0);
+            round.StartRound();
+            var cues = new RoundSoundCues(new SaveData());
+            Run(round, cues, 3.8);
+            round.SubmitShot(15, 85, 45, false); // high on the left: a blocker by the Shot point; slow, so the glove gets there
+            Assert.IsTrue(round.LastRace.Value.IsSave);
+            Assert.AreEqual(SaveReaction.Glove, round.LastRace.Value.SaveReaction);
+            round.DelayResult(0.5);
+            cues.Update(round, false);
+            CollectionAssert.AreEquivalent(new[] { SoundCue.GloveCatch, SoundCue.Groan }, cues.Update(round, true));
+        }
+
         // The sound is the Save Reaction's gear (SaveReactions): pads low, the body in the middle, the stick along the ice
         // through the middle, else the blocker on the shooter's left and the glove on the right.
         [TestCase(55, 85, SoundCue.GloveCatch, TestName = "Top centre, right of middle: glove")]

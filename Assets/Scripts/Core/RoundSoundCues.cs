@@ -66,6 +66,7 @@ namespace HockeyGame.Core
         private readonly ShotResultWatch _newResult = new ShotResultWatch();
         private ShotResult? _pendingImpact;
         private SoundCue? _pendingContact;
+        private SoundCue _pendingSaveSound;
 
         /// <summary>Reads the tick on/off setting from save each frame, so a settings change applies at once.</summary>
         public RoundSoundCues(SaveData save)
@@ -114,8 +115,11 @@ namespace HockeyGame.Core
                 }
                 else
                 {
-                    _pendingImpact = round.LastResult.Value;
+                    ShotResult result = round.LastResult.Value;
+                    _pendingImpact = result;
                     _pendingContact = null;
+                    // The race's Save Reaction (the gear that won it), taken now: the next Shot clears LastRace.
+                    _pendingSaveSound = SaveReactions.Sound(round.LastRace?.SaveReaction ?? SaveReactions.For(result.X, result.Y));
                 }
             }
             if (_pendingImpact.HasValue && contact.HasValue) _pendingContact = contact;
@@ -160,7 +164,7 @@ namespace HockeyGame.Core
                     _cues.Add(SoundCue.Cheer);
                     break;
                 case ShotResultKind.Save:
-                    _cues.Add(_pendingContact ?? SaveContact(result.X, result.Y));
+                    _cues.Add(_pendingContact ?? _pendingSaveSound);
                     _cues.Add(SoundCue.Groan);
                     break;
                 default:
