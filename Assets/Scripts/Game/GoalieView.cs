@@ -277,9 +277,10 @@ namespace HockeyGame
         /// Margin) gets that gear reaching the puck's line too: it gets there too late, after the puck has passed (Breakaway.GoalieSet,
         /// #63). A Miss, or a Goal no gear could reach, gets a reach that stays off the puck (what follows: Watch). Built at the
         /// facing the reaction ends at; shown by SetProgress. Nothing for no Shot or no character shown.
+        /// reaction: null for none. lateMarginSeconds: infinity when no gear was timed. lateMarginLimitSeconds: the Round's
+        /// RoundSettings.LateMarginLimitSeconds, which picks the Annoyed Gesture on a Goal; required, so it is never silently 0.
         /// </summary>
-        public void React(ShotResult result, Vector3 from, SaveReaction? reaction = null, double lateMarginSeconds = double.PositiveInfinity,
-            double lateMarginLimitSeconds = 0)
+        public void React(ShotResult result, Vector3 from, SaveReaction? reaction, double lateMarginSeconds, double lateMarginLimitSeconds)
         {
             _reacted = false;
             _carried = null;

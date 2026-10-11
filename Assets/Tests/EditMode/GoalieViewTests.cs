@@ -7,6 +7,9 @@ namespace HockeyGame.Core.Tests
 {
     public class GoalieViewTests
     {
+        /// <summary>The Late Margin limit the Round passes (RoundSettings.LateMarginLimitSeconds).</summary>
+        static readonly double LateMarginLimit = new RoundSettings().LateMarginLimitSeconds;
+
         GameObject _parent;
 
         [SetUp]
@@ -176,7 +179,7 @@ namespace HockeyGame.Core.Tests
                 (85.0, 30.0, GearPiece.LeftPad), (50.0, 5.0, GearPiece.Stick), (50.0, 55.0, GearPiece.Body) })
             {
                 view.SetProgress(0f);
-                view.React(Result(ShotResultKind.Save, x, y), from);
+                view.React(Result(ShotResultKind.Save, x, y), from, null, double.PositiveInfinity, LateMarginLimit);
                 Assert.AreEqual(piece, view.ReactionPiece, "(" + x + ", " + y + ")");
             }
         }
@@ -191,7 +194,7 @@ namespace HockeyGame.Core.Tests
             view.Show(true);
             Transform hand = character.Bone(HumanBodyBones.LeftHand), referenceHand = reference.Bone(HumanBodyBones.LeftHand);
 
-            view.React(Result(ShotResultKind.Save, 90, 80), new Vector3(0f, 1.15f, -9f)); // the Shot frame: a glove save
+            view.React(Result(ShotResultKind.Save, 90, 80), new Vector3(0f, 1.15f, -9f), null, double.PositiveInfinity, LateMarginLimit); // the Shot frame: a glove save
             view.SetProgress(0f);
             Assert.AreEqual(0f, Vector3.Distance(referenceHand.position, hand.position), 0.001f, "still in the Ready Stance on the Shot frame");
 
@@ -207,7 +210,7 @@ namespace HockeyGame.Core.Tests
             Assert.Greater(part, 0.01f);
             Assert.Less(part, Vector3.Distance(referenceHand.position, reached) - 0.01f, "half way, part of the way there");
 
-            view.React(new ShotResult(ShotResultKind.Miss, false, 0, 0, 0, false), Vector3.zero); // too late: no Shot
+            view.React(new ShotResult(ShotResultKind.Miss, false, 0, 0, 0, false), Vector3.zero, null, double.PositiveInfinity, LateMarginLimit); // too late: no Shot
             Assert.IsNull(view.ReactionPiece);
             Object.DestroyImmediate(reference.Root.transform.parent.gameObject);
         }
@@ -239,7 +242,7 @@ namespace HockeyGame.Core.Tests
                     string piece = Gear(x, y);
                     Vector3 net = NetPoint(x, y);
                     view.SetProgress(0f);
-                    view.React(Result(ShotResultKind.Save, x, y), from);
+                    view.React(Result(ShotResultKind.Save, x, y), from, null, double.PositiveInfinity, LateMarginLimit);
                     if (view.ReactionPiece != piece) { failures.Add(where + "reacts with " + view.ReactionPiece + ", not " + piece); continue; }
                     if (!view.SaveStop(from, net, PuckMotion.Thickness, out Vector3 stop)) { failures.Add(where + "no stop"); continue; }
                     if (Vector3.Cross(stop - from, (net - from).normalized).magnitude > 0.001f) failures.Add(where + "the stop is off the puck's line");
@@ -282,7 +285,7 @@ namespace HockeyGame.Core.Tests
                     bool inside = x >= 0 && x <= 100 && y <= 100;
                     shots++;
                     view.SetProgress(0f);
-                    view.React(Result(inside ? ShotResultKind.Goal : ShotResultKind.Miss, x, y), from);
+                    view.React(Result(inside ? ShotResultKind.Goal : ShotResultKind.Miss, x, y), from, null, double.PositiveInfinity, LateMarginLimit);
                     Assert.IsNull(view.ReactionPiece);
                     view.SetProgress(1f);
                     if (GoalieTriangles.PuckTouches(GoalieTriangles.Of(character), from, NetPoint(x, y)))
@@ -302,7 +305,7 @@ namespace HockeyGame.Core.Tests
             view.Show(true);
 
             view.Face(0f, 0f);
-            view.React(Result(ShotResultKind.Save, 83, 82), from);
+            view.React(Result(ShotResultKind.Save, 83, 82), from, null, double.PositiveInfinity, LateMarginLimit);
             Assert.IsTrue(view.SaveStop(from, net, PuckMotion.Thickness, out Vector3 straight));
 
             // The Shot frame: the goalie has shuffled to 15 degrees, the shooter is at 17.4; nothing has moved yet.
@@ -310,7 +313,7 @@ namespace HockeyGame.Core.Tests
             view.SetProgress(0f);
             Transform hips = character.Bone(HumanBodyBones.Hips);
             Quaternion shown = hips.rotation;
-            view.React(Result(ShotResultKind.Save, 83, 82), from);
+            view.React(Result(ShotResultKind.Save, 83, 82), from, null, double.PositiveInfinity, LateMarginLimit);
             Assert.IsTrue(view.SaveStop(from, net, PuckMotion.Thickness, out Vector3 onShot));
             Assert.Greater(Vector3.Distance(straight, onShot), 0.01f, "the turn moves the catcher");
             Assert.AreEqual(0f, Quaternion.Angle(shown, hips.rotation), 0.01f, "still shown in the Ready Stance at 15 degrees");
@@ -326,7 +329,7 @@ namespace HockeyGame.Core.Tests
 
             var blocks = new GoalieView(_parent.transform);
             blocks.Show(true);
-            blocks.React(Result(ShotResultKind.Save, 83, 82), from);
+            blocks.React(Result(ShotResultKind.Save, 83, 82), from, null, double.PositiveInfinity, LateMarginLimit);
             Assert.IsFalse(blocks.SaveStop(from, net, PuckMotion.Thickness, out _), "the goalie block keeps the save block");
         }
     }

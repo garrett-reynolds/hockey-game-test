@@ -14,6 +14,8 @@ namespace HockeyGame.Core.Tests
     public class GoalieRecoveryTests
     {
         GameObject _parent;
+        /// <summary>The Late Margin limit the Round passes (RoundSettings.LateMarginLimitSeconds).</summary>
+        static readonly double LateMarginLimit = new RoundSettings().LateMarginLimitSeconds;
         static readonly Vector3 Eye = new Vector3(0f, 1.5f, -7.5f);
         static readonly Vector3 From = Eye + Vector3.down * 0.35f; // where ShotEffects starts the puck
         const float Frame = 1f / 60f;
@@ -148,7 +150,7 @@ namespace HockeyGame.Core.Tests
                 GoalieView view = Make(out GoalieCharacter character);
                 view.Live(0f);
                 view.SetProgress(0f);
-                view.React(Result(ShotResultKind.Save, x, y), From);
+                view.React(Result(ShotResultKind.Save, x, y), From, null, double.PositiveInfinity, LateMarginLimit);
                 Assert.IsTrue(view.SaveStop(From, NetPoint(x, y), 0.0254f, out stopA));
                 view.SetProgress(1f);
                 posedA = Points(character);
@@ -158,7 +160,7 @@ namespace HockeyGame.Core.Tests
                 GoalieView view = Make(out GoalieCharacter character);
                 view.Live(5.3f); // mid breath, weight to one side
                 view.SetProgress(0f);
-                view.React(Result(ShotResultKind.Save, x, y), From);
+                view.React(Result(ShotResultKind.Save, x, y), From, null, double.PositiveInfinity, LateMarginLimit);
                 Assert.IsTrue(view.SaveStop(From, NetPoint(x, y), 0.0254f, out stopB));
                 view.SetProgress(1f);
                 posedB = Points(character);
@@ -180,7 +182,7 @@ namespace HockeyGame.Core.Tests
         {
             GoalieView view = Make(out GoalieCharacter character);
             Vector3[] stance = Points(character);
-            view.React(Result(kind, x, y), From);
+            view.React(Result(kind, x, y), From, null, double.PositiveInfinity, LateMarginLimit);
             Vector3 puck = kind == ShotResultKind.Goal ? NetPoint(x, y) + Vector3.forward * 0.6f : NetPoint(x, y) + Vector3.back * 1.5f;
             float furthest = 0f, worstStep = 0f, atEnd = 0f;
             int worstPoint = 0, endPoint = 0;
@@ -217,7 +219,7 @@ namespace HockeyGame.Core.Tests
             foreach (var (x, piece, least) in new[] { (88.0, GearPiece.Catcher, 0.06f), (12.0, GearPiece.Blocker, 0.05f) })
             {
                 GoalieView view = Make(out GoalieCharacter character);
-                view.React(Result(ShotResultKind.Save, x, 82), From);
+                view.React(Result(ShotResultKind.Save, x, 82), From, null, double.PositiveInfinity, LateMarginLimit);
                 view.Watch(NetPoint(x, 82), 0.1f, -1f);
                 view.SetProgress(1f);
                 Assert.IsTrue(character.GearBounds(piece, out Bounds at));

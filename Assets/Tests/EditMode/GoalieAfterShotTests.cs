@@ -13,6 +13,8 @@ namespace HockeyGame.Core.Tests
     public class GoalieAfterShotTests
     {
         GameObject _parent;
+        /// <summary>The Late Margin limit the Round passes (RoundSettings.LateMarginLimitSeconds).</summary>
+        static readonly double LateMarginLimit = new RoundSettings().LateMarginLimitSeconds;
         static readonly Vector3 Eye = new Vector3(0f, 1.5f, -7.5f);
         static readonly Vector3 From = Eye + Vector3.down * 0.35f; // where ShotEffects starts the puck
 
@@ -94,7 +96,7 @@ namespace HockeyGame.Core.Tests
             {
                 GoalieView view = Make(out GoalieCharacter character);
                 Vector3 net = NetPoint(x, 85);
-                view.React(Result(ShotResultKind.Goal, x, 85), From);
+                view.React(Result(ShotResultKind.Goal, x, 85), From, null, double.PositiveInfinity, LateMarginLimit);
                 At(view, net, -1f);
                 Assert.Less(Mathf.Abs(Yaw(character)), 25f, x + ": the reach still looks out toward the shooter");
                 At(view, net + Vector3.forward * 0.6f, 0.2f, -1f);
@@ -297,7 +299,7 @@ namespace HockeyGame.Core.Tests
         public void On_a_pad_save_the_head_follows_the_rebounding_puck_and_only_the_head_moves()
         {
             GoalieView view = Make(out GoalieCharacter character);
-            view.React(Result(ShotResultKind.Save, 15, 12), From);
+            view.React(Result(ShotResultKind.Save, 15, 12), From, null, double.PositiveInfinity, LateMarginLimit);
             Vector3 contact = NetPoint(15, 12) + Vector3.back * 0.7f;
             At(view, contact, -1f);
             Vector3[] gear = GearCentres(character);
@@ -318,7 +320,7 @@ namespace HockeyGame.Core.Tests
         public void On_a_miss_the_head_follows_the_puck_going_by_then_shows_relief(double x, double y)
         {
             GoalieView view = Make(out GoalieCharacter character);
-            view.React(Result(ShotResultKind.Miss, x, y), From);
+            view.React(Result(ShotResultKind.Miss, x, y), From, null, double.PositiveInfinity, LateMarginLimit);
             Assert.AreEqual(AfterShotGesture.Relief, view.Gesture);
             float side = x > 50 ? 1f : -1f;
             At(view, NetPoint(x, y), -1f);
