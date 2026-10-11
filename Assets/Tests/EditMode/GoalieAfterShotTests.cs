@@ -202,7 +202,7 @@ namespace HockeyGame.Core.Tests
                 var view = new GoalieView(_parent.transform, character);
                 var effects = new ShotEffects(_parent.transform, camera.GetComponent<Camera>(), null, view);
                 Transform puck = _parent.transform.Find("Puck");
-                var round = new Round(ScriptedRandom.Forcing(pose), new RoundSettings(), FakeReach.Saving((sx, sy) => sy < 50), 0); // low saved, high scored
+                var round = new Round(ScriptedRandom.Forcing(GoaliePoses.SideOf(pose)), new RoundSettings(), FakeReach.Saving((sx, sy) => sy < 50), 0); // low saved, high scored
                 round.StartRound();
                 round.Tick(3.7);
                 view.Show(true, round.GoaliePose, false);

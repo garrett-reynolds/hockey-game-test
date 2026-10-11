@@ -6,7 +6,7 @@ namespace HockeyGame.Core.Tests
     public class ScreenFlowTests
     {
         private static ScreenFlow NewFlow(SaveData save = null) =>
-            new ScreenFlow(new ScriptedRandom(ScriptedRandom.AlternatingButterflies()), save ?? new SaveData(), FakeReach.NeverReaches());
+            new ScreenFlow(ScriptedRandom.Halves(), save ?? new SaveData(), FakeReach.NeverReaches());
 
         // Starts a Round and plays all 6 Shots: the first `goals` score (no gear ever reaches), the rest miss. Ends on the tick that finishes Shot 6's hold.
         private static void PlayRound(ScreenFlow flow, int goals)
@@ -276,7 +276,7 @@ namespace HockeyGame.Core.Tests
         public void The_Round_runs_on_the_settings_object_it_is_given_so_the_goalie_reach_port_can_share_it()
         {
             var settings = new RoundSettings();
-            var flow = new ScreenFlow(new ScriptedRandom(ScriptedRandom.AlternatingButterflies()), new SaveData(), FakeReach.NeverReaches(), settings);
+            var flow = new ScreenFlow(ScriptedRandom.Halves(), new SaveData(), FakeReach.NeverReaches(), settings);
             Assert.AreSame(settings, flow.Round.Settings);
         }
     }

@@ -35,7 +35,7 @@ namespace HockeyGame.Core.Tests
             for (int y = 5; y <= 95; y += 15)
             {
                 double windowSeconds = eyeName == "near" ? 2.9 : 0.0;
-                var round = new Round(ScriptedRandom.Forcing(GoaliePoses.PosesOf(side)[0]), settings, new GoalieCharacterReach(character, settings), 0);
+                var round = new Round(ScriptedRandom.Forcing(side), settings, new GoalieCharacterReach(character, settings), 0);
                 round.StartRound();
                 round.Tick(settings.SkateInSeconds + settings.SlowDownSeconds + windowSeconds);
                 view.Show(true, round.GoaliePose, false);

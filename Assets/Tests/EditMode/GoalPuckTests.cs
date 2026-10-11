@@ -35,7 +35,7 @@ namespace HockeyGame.Core.Tests
             var effects = new ShotEffects(_rink.transform, _camera.GetComponent<Camera>());
             Transform netting = NetBuilder.FindNetting(_rink.transform);
             Transform puck = _rink.transform.Find("Puck");
-            var round = new Round(new ScriptedRandom(ScriptedRandom.AlternatingButterflies()), new RoundSettings(), FakeReach.NeverReaches(), 0);
+            var round = new Round(ScriptedRandom.Halves(), new RoundSettings(), FakeReach.NeverReaches(), 0);
             round.StartRound();
             round.Tick(3.7);
             round.SubmitShot(x, y, 100, false);

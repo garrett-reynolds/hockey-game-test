@@ -84,7 +84,7 @@ namespace HockeyGame.Core.Tests
             // The real race (Reach in time) on the goalie standing on his Set-up spot (#64).
             goal = false;
             var settings = new RoundSettings { ReactionSeconds = reactionSeconds, ReactionWobbleSeconds = 0 };
-            var round = new Round(ScriptedRandom.Forcing(pose), settings, new GoalieCharacterReach(character, settings), 0);
+            var round = new Round(ScriptedRandom.Forcing(GoaliePoses.SideOf(pose)), settings, new GoalieCharacterReach(character, settings), 0);
             round.StartRound();
             round.Tick(settings.SkateInSeconds + settings.SlowDownSeconds + windowSeconds);
             RinkPoint shotStart = Breakaway.ShotStart(round.AttackSide, windowSeconds, settings);

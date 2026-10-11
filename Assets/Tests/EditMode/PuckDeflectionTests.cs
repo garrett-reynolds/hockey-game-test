@@ -56,12 +56,12 @@ namespace HockeyGame.Core.Tests
             var view = new GoalieView(_rink.transform, character);
             var effects = new ShotEffects(_rink.transform, _camera.GetComponent<Camera>(), null, view);
             Transform puck = _rink.transform.Find("Puck");
-            var round = new Round(ScriptedRandom.Forcing(pose), new RoundSettings(), FakeReach.InTheWay(), 0); // every Shot on the Net Face saved
+            var round = new Round(ScriptedRandom.Forcing(GoaliePoses.SideOf(pose)), new RoundSettings(), FakeReach.InTheWay(), 0); // every Shot on the Net Face saved
             round.StartRound();
             round.Tick(3.7);
-            view.Show(true, round.GoaliePose, false);
+            view.Show(true, pose, false);
             view.Face(facing, facing);
-            Assert.AreEqual(pose, round.GoaliePose);
+            Assert.AreEqual(GoaliePoses.SideOf(pose), round.AttackSide);
             round.SubmitShot(x, y, kmh, false);
             var run = new Run { Kind = round.LastResult.Value.Kind };
             bool arrived = false;
@@ -229,10 +229,10 @@ namespace HockeyGame.Core.Tests
                     NetBuilder.Build(_rink.transform);
                     var view = new GoalieView(_rink.transform, new GoalieCharacter(_rink.transform));
                     var effects = new ShotEffects(_rink.transform, _camera.GetComponent<Camera>(), null, view);
-                    var round = new Round(ScriptedRandom.Forcing(pose), new RoundSettings(), FakeReach.InTheWay(), 0); // every Shot on the Net Face saved
+                    var round = new Round(ScriptedRandom.Forcing(GoaliePoses.SideOf(pose)), new RoundSettings(), FakeReach.InTheWay(), 0); // every Shot on the Net Face saved
                     round.StartRound();
                     round.Tick(3.7);
-                    view.Show(true, round.GoaliePose, false);
+                    view.Show(true, pose, false);
                     float facing = GoalieCharacter.FacingToward(_camera.transform.position);
                     view.Face(facing, facing);
                     round.SubmitShot(x, y, 100, false);
@@ -298,7 +298,7 @@ namespace HockeyGame.Core.Tests
             NetBuilder.Build(_rink.transform);
             var effects = new ShotEffects(_rink.transform, _camera.GetComponent<Camera>());
             Transform puck = _rink.transform.Find("Puck");
-            var round = new Round(ScriptedRandom.Forcing(GoaliePose.MiddleStandUp), new RoundSettings(), FakeReach.InTheWay(), 0);
+            var round = new Round(ScriptedRandom.Forcing(AttackSide.Middle), new RoundSettings(), FakeReach.InTheWay(), 0);
             round.StartRound();
             round.Tick(3.7);
             round.SubmitShot(50, 50, 30, false); // slow, so the flight lasts

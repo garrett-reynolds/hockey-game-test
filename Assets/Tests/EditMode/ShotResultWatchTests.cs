@@ -6,7 +6,7 @@ namespace HockeyGame.Core.Tests
     {
         private static Round StartedRound()
         {
-            var round = new Round(new ScriptedRandom(ScriptedRandom.AlternatingButterflies()), new RoundSettings(), FakeReach.NeverReaches(), 0);
+            var round = new Round(ScriptedRandom.Halves(), new RoundSettings(), FakeReach.NeverReaches(), 0);
             round.StartRound();
             return round;
         }

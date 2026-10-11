@@ -246,7 +246,7 @@ namespace HockeyGame.Core.Tests
                 var view = new GoalieView(_parent.transform, character);
                 var effects = new ShotEffects(_parent.transform, camera.GetComponent<Camera>(), null, view);
                 Transform puck = _parent.transform.Find("Puck");
-                var round = new Round(ScriptedRandom.Forcing(GoaliePose.MiddleStandUp), new RoundSettings(), FakeReach.InTheWay(), 0);
+                var round = new Round(ScriptedRandom.Forcing(AttackSide.Middle), new RoundSettings(), FakeReach.InTheWay(), 0);
                 round.StartRound();
                 round.Tick(3.7);
                 view.Show(true, round.GoaliePose, false);
@@ -294,8 +294,8 @@ namespace HockeyGame.Core.Tests
                 var character = new GoalieCharacter(_parent.transform);
                 var view = new GoalieView(_parent.transform, character);
                 var effects = new ShotEffects(_parent.transform, camera, null, view);
-                var round = new Round(ScriptedRandom.Picking(GoaliePose.LeftButterfly, GoaliePose.MiddleStandUp, GoaliePose.RightButterfly,
-                    GoaliePose.LeftPostHug, GoaliePose.MiddleButterfly, GoaliePose.RightPostHug), new RoundSettings(),
+                var round = new Round(ScriptedRandom.Picking(AttackSide.Left, AttackSide.Middle, AttackSide.Right,
+                    AttackSide.Left, AttackSide.Middle, AttackSide.Right), new RoundSettings(),
                     FakeReach.Saving((x, y) => !((x == 88 && y == 82) || (x == 15 && y == 85))), 0); // two Goals, three Saves, a Miss
                 var breakaway = driver.AddComponent<BreakawayView>();
                 breakaway.Init(round, camera, view);

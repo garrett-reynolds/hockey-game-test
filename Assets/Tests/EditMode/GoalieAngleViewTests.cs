@@ -46,15 +46,17 @@ namespace HockeyGame.Core.Tests
                 Assume.That(character.Present, "needs the goalie model");
                 var view = new GoalieView(_parent.transform, character);
                 var effects = new ShotEffects(_parent.transform, camera, null, view);
-                var round = new Round(ScriptedRandom.Picking(GoaliePose.LeftButterfly, GoaliePose.MiddleStandUp, GoaliePose.RightButterfly,
-                    GoaliePose.LeftPostHug, GoaliePose.MiddleButterfly, GoaliePose.RightPostHug), settings, FakeReach.NeverReaches(), 0);
+                // Shots 1-3 (left, middle, right) are Clean, Depth (centred on a middle attack too) and Clean; 4-6 are dealt mistakes.
+                var round = new Round(ScriptedRandom.Dealing(new[] { AttackSide.Left, AttackSide.Middle, AttackSide.Right,
+                    AttackSide.Left, AttackSide.Middle, AttackSide.Right }, new[] { HockeyGame.Core.SetUp.Clean, HockeyGame.Core.SetUp.Depth, HockeyGame.Core.SetUp.Clean }),
+                    settings, FakeReach.NeverReaches(), 0);
                 var breakaway = driver.AddComponent<BreakawayView>();
                 breakaway.Init(round, camera, view);
 
                 var failures = new List<string>();
                 var hipsAtWindow = new Dictionary<AttackSide, float>();
-                double worstOffLine = 0, worstFacing = 0;
-                string offWhere = "";
+                double worstOffLine = 0, worstFacing = 0, worstMistakeFacing = 0;
+                string offWhere = "", facingWhere = "";
                 int shots = 0, windows = 0, skateChecks = 0;
                 RoundPhase last = RoundPhase.Idle;
                 round.StartRound();
@@ -79,12 +81,15 @@ namespace HockeyGame.Core.Tests
                     RoundPhase phase = round.Phase;
                     AttackSide side = round.AttackSide;
                     double seconds = round.PhaseSecondsElapsed;
-                    if (phase == RoundPhase.SkateIn && seconds >= 0.5 * settings.SkateInSeconds || phase == RoundPhase.SlowDown)
+                    // On the angle through the second half of the skate-in; through the slow-down too in a Clean Set-up (a mistake
+                    // settles off it then, onto the Set-up spot checked as the window opens). After a Depth he is still easing the last
+                    // millimetre back out early in the second half of the skate-in, so the depth holds to 1 mm.
+                    if (phase == RoundPhase.SkateIn && seconds >= 0.5 * settings.SkateInSeconds || phase == RoundPhase.SlowDown && round.SetUp == HockeyGame.Core.SetUp.Clean)
                     {
                         RinkPoint puck = Breakaway.Puck(side, phase, seconds, settings);
                         double off = OffTheLine(view.ShownSpot, puck);
                         if (off > worstOffLine) { worstOffLine = off; offWhere = side + " " + phase + " " + seconds.ToString("F2") + " s: spot " + view.ShownSpot.ToString("F3") + ", puck " + puck; }
-                        if (Math.Abs(view.ShownSpot.z + 0.6f) > 1e-4f) failures.Add(phase + " " + seconds.ToString("F2") + ": depth " + view.ShownSpot.z);
+                        if (Math.Abs(view.ShownSpot.z + 0.6f) > 1e-3f) failures.Add(phase + " " + seconds.ToString("F2") + ": depth " + view.ShownSpot.z);
                         skateChecks++;
                     }
                     if (phase == RoundPhase.ShootingWindow && last != RoundPhase.ShootingWindow)
@@ -92,22 +97,26 @@ namespace HockeyGame.Core.Tests
                         windows++;
                         RinkPoint spot = SetUps.Spot(round.SetUp, side, seconds, Breakaway.ShotStart(side, seconds, settings), settings);
                         if (Distance(view.ShownSpot, spot) > 1e-5f) failures.Add(side + ": at the window " + view.ShownSpot + ", Set-up spot " + spot);
-                        hipsAtWindow[side] = character.Bone(HumanBodyBones.Hips).position.x;
+                        if (!hipsAtWindow.ContainsKey(side)) hipsAtWindow[side] = character.Bone(HumanBodyBones.Hips).position.x; // Shots 1-3
                     }
                     if (phase == RoundPhase.ShootingWindow)
                     {
                         RinkPoint puck = Breakaway.ShotStart(side, seconds, settings);
                         RinkPoint spot = new RinkPoint(view.ShownSpot.x, 0, view.ShownSpot.z);
-                        worstFacing = Math.Max(worstFacing, Math.Abs(view.ShownFacing - SetUps.Facing(spot, puck)));
+                        double facingOff = Math.Abs(view.ShownFacing - SetUps.Facing(spot, puck));
+                        if (round.SetUp.IsMistake) // he moved across into it (in slow motion) or still slides: his turn trails a little
+                            worstMistakeFacing = Math.Max(worstMistakeFacing, facingOff);
+                        else if (facingOff > worstFacing) { worstFacing = facingOff; facingWhere = side + " " + round.SetUp + " " + seconds.ToString("F2") + " s"; }
                     }
                     last = phase;
                 }
-                TestContext.Out.WriteLine("worst off the angle line " + worstOffLine.ToString("F4") + " m over " + skateChecks + " frames; worst facing " + worstFacing.ToString("F2") + " deg");
+                TestContext.Out.WriteLine("worst off the angle line " + worstOffLine.ToString("F4") + " m over " + skateChecks + " frames; worst facing " + worstFacing.ToString("F2") + " deg (" + worstMistakeFacing.ToString("F2") + " deg in a mistake)");
                 Assert.AreEqual(6, shots, "six Shots");
                 Assert.AreEqual(6, windows, "six windows");
                 Assert.IsEmpty(failures, string.Join("\n", failures));
                 Assert.Less(worstOffLine, 0.01, "on the angle line through the second half of the skate-in and the slow-down: " + offWhere);
-                Assert.Less(worstFacing, 0.5, "squared up to the puck in the window");
+                Assert.Less(worstFacing, 0.5, "squared up to the puck in the window: " + facingWhere);
+                Assert.Less(worstMistakeFacing, 2.0, "nearly squared up in a Set-up Mistake");
                 Assert.Greater(hipsAtWindow[AttackSide.Right] - hipsAtWindow[AttackSide.Left], 0.25f, "his body is across to the left on a left attack, to the right on a right one");
                 Assert.Less(Math.Abs(hipsAtWindow[AttackSide.Middle] - (hipsAtWindow[AttackSide.Left] + hipsAtWindow[AttackSide.Right]) / 2f), 0.05f, "centred on a middle attack");
             }

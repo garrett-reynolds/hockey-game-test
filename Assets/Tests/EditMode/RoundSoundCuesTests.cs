@@ -12,7 +12,7 @@ namespace HockeyGame.Core.Tests
         private static Round StartedRound(int best = 0)
         {
             // Saved below half height, scored above it (the race itself: RoundReachTests).
-            var round = new Round(new ScriptedRandom(ScriptedRandom.AlternatingButterflies()), new RoundSettings(), FakeReach.Saving((x, y) => y < 50), best);
+            var round = new Round(ScriptedRandom.Halves(), new RoundSettings(), FakeReach.Saving((x, y) => y < 50), best);
             round.StartRound();
             return round;
         }
@@ -186,7 +186,7 @@ namespace HockeyGame.Core.Tests
         // Gear already in the way everywhere: every Shot on the Net Face is saved, showing (and sounding) its point's Save Reaction.
         private static Round StandUpRound()
         {
-            var round = new Round(ScriptedRandom.Picking(GoaliePose.MiddleStandUp), new RoundSettings(), FakeReach.InTheWay(), 0);
+            var round = new Round(ScriptedRandom.Picking(AttackSide.Middle), new RoundSettings(), FakeReach.InTheWay(), 0);
             round.StartRound();
             return round;
         }
@@ -317,9 +317,7 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void The_hockey_stop_starts_and_stops_once_for_every_skate_in_from_every_Attack_Side()
         {
-            var round = new Round(ScriptedRandom.Picking(
-                GoaliePoses.PosesOf(AttackSide.Left)[0], GoaliePoses.PosesOf(AttackSide.Middle)[0],
-                GoaliePoses.PosesOf(AttackSide.Right)[0]), new RoundSettings(), FakeReach.NeverReaches(), 0);
+            var round = new Round(ScriptedRandom.Picking(AttackSide.Left, AttackSide.Middle, AttackSide.Right), new RoundSettings(), FakeReach.NeverReaches(), 0);
             round.StartRound();
             var cues = new RoundSoundCues(new SaveData());
             var sides = new HashSet<AttackSide>();
@@ -362,9 +360,7 @@ namespace HockeyGame.Core.Tests
             var expectedTimes = new[] { 0.471, 1.100, 1.728 };
             var expectedSides = new[] { SoundCue.StrideLeft, SoundCue.StrideRight, SoundCue.StrideLeft };
 
-            var round = new Round(ScriptedRandom.Picking(
-                GoaliePoses.PosesOf(AttackSide.Left)[0], GoaliePoses.PosesOf(AttackSide.Middle)[0],
-                GoaliePoses.PosesOf(AttackSide.Right)[0]), new RoundSettings(), FakeReach.NeverReaches(), 0);
+            var round = new Round(ScriptedRandom.Picking(AttackSide.Left, AttackSide.Middle, AttackSide.Right), new RoundSettings(), FakeReach.NeverReaches(), 0);
             round.StartRound();
             var cues = new RoundSoundCues(new SaveData());
             var sides = new HashSet<AttackSide>();

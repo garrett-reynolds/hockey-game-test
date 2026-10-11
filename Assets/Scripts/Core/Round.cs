@@ -11,11 +11,18 @@ namespace HockeyGame.Core
     /// into the puck's line. A Shot off the Net Face (a Frame Hit too) is a Miss: the goalie does not decide it.
     /// </para>
     /// <para>
-    /// Random call order (public contract): when a Shot starts, per pose pick try, Next() for the Attack Side
-    /// (side = (int)(Next() * 3)), then Next() for the pose (index = (int)(Next() * 2)). A try that repeats the
-    /// previous Shot's pose is retried, up to 10 tries; if all 10 repeat it, the next pose in GoaliePose enum
-    /// order (wrapping) is used. Then one Next() for the Reaction Time wobble: ReactionSeconds + ReactionWobbleSeconds *
-    /// (2 * Next() - 1). Nothing else rolls: not the Shot's result, a Miss or TooLate.
+    /// Random call order (public contract), all on the one IRandomSource:
+    /// 1. When a Round starts, the Set-up deck (RoundDecks.SetUps): one Next() for the 4th Set-up Mistake's type (Cheat,
+    ///    Depth, Late Settle by (int)(Next() * 3)), then 5 shuffle rolls on Cheat, Depth, Late Settle, the 4th, Clean,
+    ///    Clean: for card i = 0 to 4, one Next(), and card i swaps with card i + (int)(Next() * (6 - i)). Shot n gets
+    ///    card n - 1.
+    /// 2. Then the Attack Sides (RoundDecks.AttackSides): the same 5 shuffle rolls on Left, Left, Middle, Middle, Right,
+    ///    Right. Shot n gets side n - 1.
+    /// 3. When each Shot starts (Shot 1 right after 2): one Next() for the post side, the left post when Next() &lt; 0.5,
+    ///    else the right. It is rolled for every Shot; a Cheat sets toward that post and a Late Settle is still coming
+    ///    across from it (on a middle attack too); a Clean Set-up and a Depth do not use it.
+    /// 4. Then one Next() for the Reaction Time wobble: ReactionSeconds + ReactionWobbleSeconds * (2 * Next() - 1).
+    /// Nothing else rolls: not the Shot's result, a Miss or TooLate.
     /// </para>
     /// </summary>
     public sealed class Round
@@ -26,10 +33,10 @@ namespace HockeyGame.Core
         private readonly RoundSettings _settings;
         private readonly IGoalieReach _reach;
         private readonly List<ShotResultKind> _results = new List<ShotResultKind>();
-        private const int MaxPickTries = 10;
         private double _phaseElapsed;
         private double _resultDelay;
-        private GoaliePose? _previousPose;
+        private SetUpKind[] _setUps = new SetUpKind[ShotsPerRound];
+        private AttackSide[] _sides = new AttackSide[ShotsPerRound];
 
         public Round(IRandomSource random, RoundSettings settings, IGoalieReach reach, int bestScore)
         {
@@ -69,13 +76,13 @@ namespace HockeyGame.Core
         /// <summary>Best score so far; changes only when beaten at RoundOver.</summary>
         public int BestScore { get; private set; }
 
-        /// <summary>Attack Side of the current Shot (from its Goalie Pose until that goes).</summary>
-        public AttackSide AttackSide => GoaliePoses.SideOf(GoaliePose);
+        /// <summary>Attack Side of the current Shot, from the Round's shuffled pick (left, middle and right twice each).</summary>
+        public AttackSide AttackSide { get; private set; }
 
-        /// <summary>Goalie Pose for the current Shot; chosen when the Shot starts. It no longer decides the Shot's result.</summary>
-        public GoaliePose GoaliePose { get; private set; }
+        /// <summary>Goalie Pose for the current Shot: the first pose of its Attack Side. It decides nothing; it goes with the Zones.</summary>
+        public GoaliePose GoaliePose => GoaliePoses.PosesOf(AttackSide)[0];
 
-        /// <summary>The goalie's Set-up for the current Shot.</summary>
+        /// <summary>The goalie's Set-up for the current Shot, from the Round's Set-up deck and the Shot's post side.</summary>
         public SetUp SetUp { get; private set; }
 
         /// <summary>The goalie's Reaction Time for the current Shot (seconds), rolled when the Shot starts.</summary>
@@ -112,7 +119,8 @@ namespace HockeyGame.Core
 
         public void StartRound()
         {
-            _previousPose = null;
+            _setUps = RoundDecks.SetUps(_random);
+            _sides = RoundDecks.AttackSides(_random);
             _results.Clear();
             Goals = 0;
             IsNewBest = false;
@@ -204,36 +212,14 @@ namespace HockeyGame.Core
             return new ShotRace(SetUp, AttackSide, ReactionSeconds, move, reach, flight, answer.InTheWay, shown, from, spot);
         }
 
-        /// <summary>A new Shot: its Goalie Pose (and so Attack Side), its Set-up and its Reaction Time, in the roll order.</summary>
+        /// <summary>A new Shot: its Attack Side and Set-up from the Round's shuffles, its post side and its Reaction Time, in the roll order.</summary>
         private void StartShot()
         {
-            PickGoaliePose();
-            SetUp = SetUp.Clean;
+            AttackSide = _sides[ShotNumber - 1];
+            Post post = _random.Next() < 0.5 ? Post.Left : Post.Right;
+            SetUp = SetUp.Of(_setUps[ShotNumber - 1], post);
             ReactionSeconds = _settings.ReactionSeconds + _settings.ReactionWobbleSeconds * (2 * _random.Next() - 1);
             LastRace = null;
-        }
-
-        private void PickGoaliePose()
-        {
-            for (int attempt = 0; attempt < MaxPickTries; attempt++)
-            {
-                int side = Math.Min((int)(_random.Next() * 3), 2);
-                int index = Math.Min((int)(_random.Next() * GoaliePoses.PosesPerSide), GoaliePoses.PosesPerSide - 1);
-                GoaliePose candidate = GoaliePoses.PosesOf((AttackSide)side)[index];
-                if (_previousPose == null || candidate != _previousPose.Value)
-                {
-                    SetPose(candidate);
-                    return;
-                }
-            }
-            int poseCount = Enum.GetValues(typeof(GoaliePose)).Length;
-            SetPose((GoaliePose)(((int)_previousPose.Value + 1) % poseCount));
-        }
-
-        private void SetPose(GoaliePose pose)
-        {
-            GoaliePose = pose;
-            _previousPose = pose;
         }
 
         private void Finish(ShotResult result)

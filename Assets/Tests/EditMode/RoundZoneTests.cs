@@ -106,102 +106,17 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(expected, GoaliePoses.ContestedChance(speed, new RoundSettings()), 1e-9);
         }
 
-        // ---- Through Round: the pose pick (it no longer decides the result: Reach in time does, see RoundReachTests) ----
+        // ---- Through Round: the Goalie Pose now only follows the Attack Side (the 2-2-2 pick, see RoundDecksTests) until it goes ----
 
         [Test]
-        public void Round_reports_the_forced_pose_and_its_Attack_Side()
+        public void Round_shows_the_first_pose_of_the_Shot_s_Attack_Side()
         {
-            foreach (var pose in AllPoses)
+            foreach (AttackSide side in new[] { AttackSide.Left, AttackSide.Middle, AttackSide.Right })
             {
-                var round = RoundInWindow(ScriptedRandom.Forcing(pose));
-                Assert.AreEqual(pose, round.GoaliePose);
-                Assert.AreEqual(GoaliePoses.SideOf(pose), round.AttackSide);
+                var round = RoundInWindow(ScriptedRandom.Forcing(side));
+                Assert.AreEqual(side, round.AttackSide);
+                Assert.AreEqual(GoaliePoses.PosesOf(side)[0], round.GoaliePose);
             }
-        }
-
-        [Test]
-        public void The_pose_is_picked_per_Shot_and_stays_the_same_through_the_Shot()
-        {
-            var round = new Round(ScriptedRandom.Picking(GoaliePose.RightPostHug, GoaliePose.MiddleButterfly), new RoundSettings(), FakeReach.NeverReaches(), 0);
-            round.StartRound();
-            Assert.AreEqual(GoaliePose.RightPostHug, round.GoaliePose);
-            round.Tick(9.0);
-            Assert.AreEqual(GoaliePose.RightPostHug, round.GoaliePose);
-            round.Tick(0.3);
-            Assert.AreEqual(2, round.ShotNumber);
-            Assert.AreEqual(GoaliePose.MiddleButterfly, round.GoaliePose);
-        }
-
-        [Test]
-        public void A_repeat_of_the_previous_pose_is_picked_again()
-        {
-            // Shot 1: LeftPostHug and its wobble. Shot 2: a try that repeats it, then RightButterfly and its wobble.
-            var values = new List<double>(ScriptedRandom.ShotValues(GoaliePose.LeftPostHug));
-            values.AddRange(ScriptedRandom.PickValues(GoaliePose.LeftPostHug));
-            values.AddRange(ScriptedRandom.ShotValues(GoaliePose.RightButterfly));
-            var round = new Round(new ScriptedRandom(ScriptedRandom.AlternatingButterflies(), values.ToArray()),
-                new RoundSettings(), FakeReach.NeverReaches(), 0);
-            round.StartRound();
-            Assert.AreEqual(GoaliePose.LeftPostHug, round.GoaliePose);
-            round.Tick(9.3);
-            Assert.AreEqual(GoaliePose.RightButterfly, round.GoaliePose);
-        }
-
-        [TestCase(GoaliePose.MiddleStandUp, GoaliePose.RightPostHug)]
-        [TestCase(GoaliePose.RightButterfly, GoaliePose.LeftPostHug)] // wraps
-        public void A_source_that_only_repeats_the_previous_pose_moves_to_the_next_pose_in_order(GoaliePose stuck, GoaliePose next)
-        {
-            // The first Shot's pick and wobble, then a source that only ever gives the stuck pose's pick values.
-            var round = new Round(new ScriptedRandom(ScriptedRandom.PickValues(stuck), ScriptedRandom.ShotValues(stuck)), new RoundSettings(),
-                FakeReach.NeverReaches(), 0);
-            round.StartRound();
-            Assert.AreEqual(stuck, round.GoaliePose); // first Shot: any pose
-            round.Tick(9.3);
-            Assert.AreEqual(next, round.GoaliePose);
-        }
-
-        [Test]
-        public void The_first_Shot_of_a_new_Round_has_no_previous_pose()
-        {
-            var pose = GoaliePose.LeftPostHug;
-            // 0.1 picks it every time (side (int)(0.1 * 3) = 0, index (int)(0.1 * 2) = 0), whatever the rolls in between.
-            var round = new Round(new ScriptedRandom(new[] { 0.1 }), new RoundSettings(), FakeReach.NeverReaches(), 0);
-            round.StartRound();
-            Assert.AreEqual(pose, round.GoaliePose);
-            round.Tick(1000);
-            round.StartRound();
-            Assert.AreEqual(pose, round.GoaliePose);
-        }
-
-        private sealed class SeededRandom : IRandomSource
-        {
-            private readonly Random _random;
-            public SeededRandom(int seed) { _random = new Random(seed); }
-            public double Next() => _random.NextDouble();
-        }
-
-        [Test]
-        public void With_a_seeded_source_the_same_pose_never_comes_twice_in_a_row_and_every_pose_appears()
-        {
-            var seen = new HashSet<GoaliePose>();
-            int shots = 0;
-            for (int seed = 1; seed <= 120; seed++)
-            {
-                var round = new Round(new SeededRandom(seed), new RoundSettings(), FakeReach.NeverReaches(), 0);
-                round.StartRound();
-                GoaliePose? previous = null;
-                for (int shot = 1; shot <= Round.ShotsPerRound; shot++)
-                {
-                    if (previous != null)
-                        Assert.AreNotEqual(previous.Value, round.GoaliePose, "seed " + seed + " shot " + shot);
-                    seen.Add(round.GoaliePose);
-                    previous = round.GoaliePose;
-                    shots++;
-                    round.Tick(9.3);
-                }
-            }
-            Assert.GreaterOrEqual(shots, 600);
-            Assert.AreEqual(6, seen.Count);
         }
     }
 }

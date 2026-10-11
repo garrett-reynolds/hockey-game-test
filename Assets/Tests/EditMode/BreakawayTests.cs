@@ -219,7 +219,7 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void Round_reports_real_seconds_spent_in_the_current_phase()
         {
-            var round = new Round(new ScriptedRandom(ScriptedRandom.AlternatingButterflies()), new RoundSettings(), FakeReach.NeverReaches(), 0);
+            var round = new Round(ScriptedRandom.Halves(), new RoundSettings(), FakeReach.NeverReaches(), 0);
             round.StartRound();
             round.Tick(1.0);
             Assert.AreEqual(1.0, round.PhaseSecondsElapsed, Tol);
@@ -241,7 +241,7 @@ namespace HockeyGame.Core.Tests
         public void Round_reports_the_settings_it_runs_on()
         {
             var settings = new RoundSettings { SkateInSeconds = 4 };
-            var round = new Round(new ScriptedRandom(ScriptedRandom.AlternatingButterflies()), settings, FakeReach.NeverReaches(), 0);
+            var round = new Round(ScriptedRandom.Halves(), settings, FakeReach.NeverReaches(), 0);
             Assert.AreSame(settings, round.Settings);
         }
 

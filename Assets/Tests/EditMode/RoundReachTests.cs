@@ -12,10 +12,10 @@ namespace HockeyGame.Core.Tests
         static RoundSettings Fixed(double reactionSeconds = 0.12) =>
             new RoundSettings { ReactionSeconds = reactionSeconds, ReactionWobbleSeconds = 0 };
 
-        /// <summary>A Round on a forced pose (MiddleStandUp: a middle attack), in its shooting window, windowSeconds in.</summary>
+        /// <summary>A Round with a Clean Set-up on a middle attack (unless random says otherwise), in its shooting window, windowSeconds in.</summary>
         static Round InWindow(IGoalieReach reach, RoundSettings settings, double windowSeconds = 1.0, ScriptedRandom random = null)
         {
-            var round = new Round(random ?? ScriptedRandom.Forcing(GoaliePose.MiddleStandUp), settings, reach, 0);
+            var round = new Round(random ?? ScriptedRandom.Forcing(AttackSide.Middle), settings, reach, 0);
             round.StartRound();
             round.Tick(settings.SkateInSeconds + settings.SlowDownSeconds + windowSeconds);
             Assert.AreEqual(RoundPhase.ShootingWindow, round.Phase);
@@ -122,7 +122,7 @@ namespace HockeyGame.Core.Tests
         {
             var settings = Fixed();
             var reach = FakeReach.NeverReaches();
-            var round = InWindow(reach, settings, windowSeconds: 1.25, random: ScriptedRandom.Forcing(GoaliePose.LeftPostHug));
+            var round = InWindow(reach, settings, windowSeconds: 1.25, random: ScriptedRandom.Forcing(AttackSide.Left));
             round.SubmitShot(30, 70, 100, false);
 
             Assert.AreEqual(1, reach.Asks.Count);
@@ -141,7 +141,7 @@ namespace HockeyGame.Core.Tests
         {
             var settings = Fixed();
             var reach = FakeReach.NeverReaches();
-            var round = InWindow(reach, settings, windowSeconds: 1.25, random: ScriptedRandom.Forcing(GoaliePose.RightPostHug));
+            var round = InWindow(reach, settings, windowSeconds: 1.25, random: ScriptedRandom.Forcing(AttackSide.Right));
             round.SubmitShot(60, 40, 100, false);
 
             FakeReach.Ask ask = reach.Asks[0];
@@ -199,12 +199,12 @@ namespace HockeyGame.Core.Tests
         [TestCase(0.0, 0.08)]
         [TestCase(0.5, 0.12)]
         [TestCase(0.75, 0.14)]
-        public void The_Reaction_Time_wobbles_by_up_to_0_04_s_from_one_roll_after_the_pose_pick(double roll, double expected)
+        public void The_Reaction_Time_wobbles_by_up_to_0_04_s_from_one_roll_after_the_post_side(double roll, double expected)
         {
             var settings = new RoundSettings { ReactionSeconds = 0.12, ReactionWobbleSeconds = 0.04 };
-            var random = new ScriptedRandom(ScriptedRandom.AlternatingButterflies(), ScriptedRandom.ShotValues(GoaliePose.RightPostHug, roll));
+            var random = ScriptedRandom.Forcing(AttackSide.Right, wobble: roll);
             var round = InWindow(new FakeReach(GoalieReachAnswer.Reaches(SaveReaction.Blocker, 0.1)), settings, random: random);
-            Assert.AreEqual(GoaliePose.RightPostHug, round.GoaliePose);
+            Assert.AreEqual(AttackSide.Right, round.AttackSide);
             Assert.AreEqual(expected, round.ReactionSeconds, Tol);
             round.SubmitShot(20, 80, 100, false);
             Assert.AreEqual(expected, round.LastRace.Value.ReactionSeconds, Tol);
@@ -216,7 +216,7 @@ namespace HockeyGame.Core.Tests
         public void The_goalie_starts_his_move_after_the_Reaction_Time_the_Round_rolled(double roll, double rolled)
         {
             var settings = new RoundSettings { ReactionSeconds = 0.12, ReactionWobbleSeconds = 0.04 };
-            var random = new ScriptedRandom(ScriptedRandom.AlternatingButterflies(), ScriptedRandom.ShotValues(GoaliePose.RightPostHug, roll));
+            var random = ScriptedRandom.Forcing(AttackSide.Right, wobble: roll);
             var round = InWindow(new FakeReach(GoalieReachAnswer.Reaches(SaveReaction.Blocker, 0.1)), settings, random: random);
             round.SubmitShot(20, 80, 100, false);
             ShotRace race = round.LastRace.Value;
@@ -225,25 +225,27 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(1.0, Breakaway.GoalieSet(RoundPhase.ResultHold, rolled + 0.1, true, race.FlightSeconds, race), Tol, "there at the Reach Time");
         }
 
-        // Roll order: each Shot start takes the pose pick, then one wobble roll; the Shot itself rolls nothing, whatever its
-        // result. The next Shot's values are queued right after, so any extra roll would shift the next pose and wobble.
+        // Roll order: each Shot start takes the post side, then one wobble roll; the Shot itself rolls nothing, whatever its
+        // result. The next Shot's values are queued right after, so any extra roll would shift the next post side and wobble.
         [TestCase(50.0, 50.0, true)]     // Save
         [TestCase(50.0, 50.0, false)]    // Goal
         [TestCase(150.0, 50.0, false)]   // Miss
         [TestCase(-1.0, 50.0, false)]    // Frame Hit
-        public void Each_Shot_takes_one_wobble_roll_at_its_start_and_none_for_its_result(double x, double y, bool saved)
+        public void Each_Shot_takes_a_post_side_and_a_wobble_roll_at_its_start_and_none_for_its_result(double x, double y, bool saved)
         {
             var settings = new RoundSettings { ReactionSeconds = 0.12, ReactionWobbleSeconds = 0.04 };
-            var values = new System.Collections.Generic.List<double>(ScriptedRandom.ShotValues(GoaliePose.LeftPostHug, 0.0));
-            values.AddRange(ScriptedRandom.ShotValues(GoaliePose.MiddleStandUp, 0.75));
-            var random = new ScriptedRandom(ScriptedRandom.AlternatingButterflies(), values.ToArray());
+            var values = new System.Collections.Generic.List<double>(ScriptedRandom.DeckValues(SetUpKind.Clean, SetUpKind.Cheat));
+            values.AddRange(ScriptedRandom.SideValues(AttackSide.Left, AttackSide.Middle));
+            values.AddRange(new[] { ScriptedRandom.PostValue(Post.Left), 0.0, ScriptedRandom.PostValue(Post.Right), 0.75 });
+            var random = new ScriptedRandom(new[] { 0.5 }, values.ToArray());
             var reach = saved ? FakeReach.InTheWay() : FakeReach.NeverReaches();
             var round = InWindow(reach, settings, random: random);
             Assert.AreEqual(0.08, round.ReactionSeconds, Tol);
             round.SubmitShot(x, y, 100, false);
             round.Tick(settings.ResultHoldSeconds);
             Assert.AreEqual(2, round.ShotNumber);
-            Assert.AreEqual(GoaliePose.MiddleStandUp, round.GoaliePose);
+            Assert.AreEqual(AttackSide.Middle, round.AttackSide);
+            Assert.AreEqual(SetUp.Cheat(Post.Right), round.SetUp);
             Assert.AreEqual(0.14, round.ReactionSeconds, Tol);
         }
 
@@ -251,12 +253,12 @@ namespace HockeyGame.Core.Tests
         public void TooLate_takes_no_roll_beyond_the_Shot_start()
         {
             var settings = new RoundSettings { ReactionSeconds = 0.12, ReactionWobbleSeconds = 0.04 };
-            var round = InWindow(FakeReach.InTheWay(), settings, random: ScriptedRandom.Picking(GoaliePose.LeftPostHug, GoaliePose.MiddleStandUp));
+            var round = InWindow(FakeReach.InTheWay(), settings, random: ScriptedRandom.Picking(AttackSide.Left, AttackSide.Middle));
             round.Tick(settings.ShootingWindowSeconds);
             Assert.AreEqual(ShotResultKind.TooLate, round.LastResult.Value.Kind);
             Assert.IsNull(round.LastRace);
             round.Tick(settings.ResultHoldSeconds);
-            Assert.AreEqual(GoaliePose.MiddleStandUp, round.GoaliePose);
+            Assert.AreEqual(AttackSide.Middle, round.AttackSide);
         }
 
         [Test]

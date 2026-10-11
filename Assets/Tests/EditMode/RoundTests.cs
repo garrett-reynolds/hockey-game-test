@@ -7,7 +7,7 @@ namespace HockeyGame.Core.Tests
     {
         // No gear ever reaches: every Shot on the Net Face is a Goal (the race itself: RoundReachTests).
         private static Round NewRound(int best = 0) =>
-            new Round(new ScriptedRandom(ScriptedRandom.AlternatingButterflies()), new RoundSettings(), FakeReach.NeverReaches(), best);
+            new Round(ScriptedRandom.Halves(), new RoundSettings(), FakeReach.NeverReaches(), best);
 
         private static Round StartedRound(int best = 0)
         {
