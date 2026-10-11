@@ -115,6 +115,21 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void A_gear_wins_the_race_only_when_its_own_piece_reaches_the_puck_s_line()
+        {
+            // The high blocker-side corner: the stick (held in the blocker hand) must not win it because the hand is on the line.
+            GoalieCharacterReach port = Port(out _);
+            foreach (AttackSide side in new[] { AttackSide.Left, AttackSide.Middle, AttackSide.Right })
+            {
+                RinkPoint start = Breakaway.ShotStart(side, 0, Defaults);
+                GoalieReachAnswer answer = port.Reach(SetUp.Clean, side, 0, start, RinkPoint.OnNetFace(1, 99));
+                Assert.AreNotEqual(SaveReaction.Stick, answer.QuickestGear, side + ": " + answer);
+                if (!answer.InTheWay && answer.QuickestGear.HasValue)
+                    Assert.IsTrue(SaveReactions.IsHand(answer.QuickestGear.Value) || answer.QuickestGear == SaveReaction.Body, side + ": " + answer);
+            }
+        }
+
+        [Test]
         public void Measuring_the_race_leaves_the_goalie_as_he_was_shown()
         {
             GoalieCharacterReach port = Port(out GoalieCharacter character);

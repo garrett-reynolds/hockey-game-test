@@ -429,8 +429,8 @@ namespace HockeyGame
                 foreach (var kv in _gearShapes) start[kv.Key] = GearPoint(kv.Key);
 
                 Reach(reaction, from, to, facing);
-                bool touches = Touches(from, to);
                 string piece = ReactionPiece;
+                bool touches = piece != null && Touches(from, to, OnePiece(piece)); // its own gear, not whatever else ended up on the line
                 pushMetres = Mathf.Abs(_model.localPosition.x - _ready.ModelPosition.x);
                 gearMetres = piece != null && start.TryGetValue(piece, out Vector3 was)
                     ? Vector3.Distance(was, GearPoint(piece))
@@ -613,12 +613,15 @@ namespace HockeyGame
         /// True when the puck, flying from `from` to `to`, would meet any of the last reaction's gear or body: its middle or
         /// any edge (it flies face on, PuckMotion.Diameter across).
         /// </summary>
-        public bool Touches(Vector3 from, Vector3 to)
+        public bool Touches(Vector3 from, Vector3 to) => Touches(from, to, null);
+
+        /// <summary>As Touches, only for these pieces (GearPiece; the body and clothes are GearPiece.Body); null: everything.</summary>
+        bool Touches(Vector3 from, Vector3 to, string[] pieces)
         {
             PuckObstacles obstacles = Placed();
             from = NearGoalie(from, to);
             foreach (Vector3 edge in PuckEdges)
-                if (obstacles.Cast(from + edge, to + edge, PuckMotion.Thickness / 2f, out _, out _, out _)) return true;
+                if (obstacles.Cast(from + edge, to + edge, PuckMotion.Thickness / 2f, out _, out _, out _, pieces)) return true;
             return false;
         }
 
