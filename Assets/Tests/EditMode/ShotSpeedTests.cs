@@ -43,25 +43,33 @@ namespace HockeyGame.Core.Tests
         public void At_200_kmh_a_save_meets_the_gear_and_a_goal_or_miss_passes_clear_of_all_gear_from_every_Attack_Side(bool usb)
         {
             var failures = new List<string>();
-            int saves = 0, clear = 0;
+            int saves = 0, clear = 0, inTheWay = 0;
+            var goalsBySide = new Dictionary<AttackSide, int>();
             foreach (AttackSide side in new[] { AttackSide.Left, AttackSide.Middle, AttackSide.Right })
             foreach (var (eyeName, eye) in ShooterEyes.Of(side))
-            foreach (GoaliePose pose in GoaliePoses.PosesOf(side))
             foreach (var (x, y) in Spots)
+            foreach (double reaction in new[] { 0.0, 0.12 }) // no Reaction Time (some Shots saved in the race), and today's (real Goals)
             {
                 TearDown();
                 SetUp();
-                string where = side + " " + eyeName + " " + pose + " (" + x + ", " + y + ") ";
-                string failure = Shoot(eye, pose, x, y, 200, usb, ref saves, ref clear);
+                GoaliePose pose = GoaliePoses.PosesOf(side)[0]; // picks the Attack Side only: the real race decides the Shot
+                string where = side + " " + eyeName + " (" + x + ", " + y + ") reaction " + reaction + " s ";
+                // The Round's shot start is this eye's puck: the window opening, or drifted in as close as it goes (2.9 s in).
+                double windowSeconds = eyeName == "near" ? 2.9 : 0.0;
+                string failure = Shoot(eye, windowSeconds, reaction, pose, x, y, 200, usb, ref saves, ref clear, ref inTheWay, out bool goal);
                 if (failure != null) failures.Add(where + failure);
+                if (goal) goalsBySide[side] = (goalsBySide.TryGetValue(side, out int g) ? g : 0) + 1;
             }
-            Assert.IsEmpty(failures, failures.Count + " of " + (saves + clear + failures.Count) + ":\n" + string.Join("\n", failures));
-            Assert.Greater(saves, 0, "some saves");
-            Assert.Greater(clear, 0, "some goals or misses");
+            TestContext.Out.WriteLine(saves + " race-won saves, " + clear + " goals or misses clear of the gear, " + inTheWay + " in-the-way saves not checked (#63)");
+            Assert.IsEmpty(failures, failures.Count + " of " + (saves + clear + inTheWay + failures.Count) + ":\n" + string.Join("\n", failures));
+            Assert.Greater(saves, 0, "some saves won in the race");
+            foreach (AttackSide side in new[] { AttackSide.Left, AttackSide.Middle, AttackSide.Right })
+                Assert.IsTrue(goalsBySide.TryGetValue(side, out int goals) && goals > 0, side + ": some real Goals (gear not in the way, the race lost)");
         }
 
         /// <summary>One Shot played through to the puck's arrival. Null when it meets the gear (a save) or passes clear of it.</summary>
-        string Shoot(Vector3 eye, GoaliePose pose, double x, double y, double kmh, bool usb, ref int saves, ref int clear)
+        string Shoot(Vector3 eye, double windowSeconds, double reactionSeconds, GoaliePose pose, double x, double y, double kmh, bool usb, ref int saves, ref int clear,
+            ref int inTheWay, out bool goal)
         {
             NetBuilder.Build(_rink.transform);
             _camera.transform.position = eye;
@@ -70,18 +78,27 @@ namespace HockeyGame.Core.Tests
             var view = new GoalieView(_rink.transform, character);
             var effects = new ShotEffects(_rink.transform, _camera.GetComponent<Camera>(), null, view);
             Transform puck = _rink.transform.Find("Puck");
-            // The result as the pose's Zones gave it (Covered saved, the rest scored), so the goalie stands as before: this test is about
-            // the puck meeting or missing the gear, not the race. Until the goalie moves to his Set-up spot (#64) and the pose goes (#69).
-            var reach = FakeReach.Saving((sx, sy) => GoaliePoses.CoverAt(pose, Zones.Column(sx), Zones.Row(sy)) == ZoneCover.Covered);
-            var round = new Round(ScriptedRandom.Forcing(pose), new RoundSettings(), reach, 0);
+            // The real race (Reach in time) on the goalie standing on his Set-up spot (#64).
+            goal = false;
+            var settings = new RoundSettings { ReactionSeconds = reactionSeconds, ReactionWobbleSeconds = 0 };
+            var round = new Round(ScriptedRandom.Forcing(pose), settings, new GoalieCharacterReach(character, settings), 0);
             round.StartRound();
-            round.Tick(3.7);
-            float facing = GoalieCharacter.FacingToward(eye);
+            round.Tick(settings.SkateInSeconds + settings.SlowDownSeconds + windowSeconds);
+            RinkPoint shotStart = Breakaway.ShotStart(round.AttackSide, windowSeconds, settings);
+            float facing = (float)SetUps.Facing(SetUps.Spot(round.SetUp, round.AttackSide, windowSeconds, shotStart, settings), shotStart);
+            Transform cam = _camera.transform;
+            Vector3 puckStart = cam.position + cam.forward * (float)Breakaway.PuckAheadMetres - cam.up * (float)Breakaway.PuckBelowMetres; // as ShotEffects
+            if (Vector3.Distance(puckStart, new Vector3((float)shotStart.X, (float)shotStart.Y, (float)shotStart.Z)) > 0.02f)
+                return "the race's shot start " + shotStart + " is not this eye's puck " + puckStart.ToString("F3");
             view.Show(true, round.GoaliePose, false);
             view.Face(facing, facing);
             view.SetProgress(0f);
             round.SubmitShot(x, y, kmh, false);
             ShotResultKind kind = round.LastResult.Value.Kind;
+            goal = kind == ShotResultKind.Goal;
+            // A Save with gear already in the way shows the Shot point's Save Reaction, which can move the gear off the puck's
+            // line: #63 owns that, so only Saves won in the race are checked here.
+            if (kind == ShotResultKind.Save && round.LastRace.Value.InTheWay) { inTheWay++; return null; }
             // The Shot frame (the Round has ticked already): the puck starts and the Round learns its flight.
             effects.Update(round, usb ? Frame : 0f);
             view.SetProgress((float)Breakaway.GoalieSet(round.Phase, round.PhaseSecondsElapsed, true, round.ResultDelaySeconds));

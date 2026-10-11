@@ -26,7 +26,8 @@ namespace HockeyGame
         const float OffGearSpeed = 1f; // m/s: a puck that lands on top of gear slides off it at least this fast
         const float RestingSpeed = 0.3f; // m/s into a surface: slower than this it slides along it instead of bouncing
         const int WedgedSteps = 36;      // 0.15 s held fast in a crease of the gear: it stays there (or drops off, off the ice)
-        const float OffIceHeight = 0.01f; // m: wedged with its lowest point higher than this, it is on the gear, off the ice
+        const float OffIceHeight = 0.002f; // m: wedged with its lowest point higher than this, it is on the gear, off the ice (a puck
+                                           // on its edge leaning on the stick blade, its rim a centimetre up, drops off too)
         int _wedged;
         /// <summary>km/h: the Shot speed each surface's Min..Max rebound speeds are set for. A faster or slower Shot comes off
         /// as much faster or slower (#46).</summary>
