@@ -31,7 +31,7 @@ namespace HockeyGame.Core.Tests
         {
             var skin = ScriptableObject.CreateInstance<TeamSkin>();
             skin.name = "test";
-            skin.Rail = C(200, 10, 10);
+            skin.Rail = C(150, 30, 160); // a purple well clear of every reserved colour
             skin.KickPlate = C(10, 200, 10);
             skin.Seats = C(150, 120, 10);
             skin.RibbonEdgesOn = true;
@@ -57,7 +57,6 @@ namespace HockeyGame.Core.Tests
             TeamSkin league = TeamSkin.League;
             Assert.IsNotNull(league);
             Assert.AreEqual(league, TeamSkin.Load(SaveData.LeagueSkin));
-            Assert.AreEqual(TeamSkin.LeagueName, SaveData.LeagueSkin);
 
             Assert.AreEqual("centre-ice-all-star-hockey", league.CentreIceLogo, "the All-Star Hockey mark");
             Assert.IsNotNull(Resources.Load<Texture2D>(RinkAds.ArtFolder + "/" + league.CentreIceLogo));
@@ -72,8 +71,8 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(new Color(0.05f, 0.08f, 0.18f, 0.85f), league.ScoreBoxBack);
             Assert.AreEqual(Color.white, league.ScoreBoxText);
             // Today's sounds: the horn file and the chant (its placeholder until a file is dropped in); no goal song yet.
-            Assert.AreEqual(SoundFiles.GoalHorn, league.GoalHorn);
-            Assert.AreEqual(SoundFiles.Chant, league.Chant);
+            Assert.AreEqual("goal-horn", league.GoalHorn);
+            Assert.AreEqual("chant", league.Chant);
             Assert.IsEmpty(league.GoalSong);
         }
 
@@ -85,6 +84,53 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(Part(boards, RinkBoards.RailPart).sharedMaterial.color, TeamSkin.League.Rail, "rail");
             Assert.AreEqual(Part(boards, RinkBoards.KickPlatePart).sharedMaterial.color, TeamSkin.League.KickPlate, "kick plate");
             Assert.AreEqual(Part(arena, ArenaStands.SeatsPart).sharedMaterial.color, TeamSkin.League.Seats, "seats");
+        }
+
+        [Test]
+        public void A_blank_skin_name_plays_the_League_Skin_with_no_warning()
+        {
+            Assert.AreEqual(TeamSkin.League, TeamSkin.Load(""));
+            Assert.AreEqual(TeamSkin.League, TeamSkin.Load(null));
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [Test]
+        public void A_skin_with_a_post_red_rail_loads_with_the_League_rail_instead()
+        {
+            TeamSkin skin = TestSkin();
+            skin.Rail = Color.red;                                // the posts' red
+            skin.HomeJersey = new Color32(13, 13, 13, 255);       // puck black, on the near fans
+            skin.VideoBoardWords = new Color32(77, 255, 77, 255); // the Easy mode glow green
+            TeamSkin loaded = null;
+            try
+            {
+                LogAssert.Expect(LogType.Warning, new System.Text.RegularExpressions.Regex("reserved colour.*Rail.*HomeJersey.*VideoBoardWords"));
+                loaded = TeamSkin.Guard(skin);
+                AreClose(TeamSkin.League.Rail, loaded.Rail, "rail");
+                Assert.AreEqual(TeamSkin.League.HomeJerseyColour, loaded.HomeJerseyColour, "jersey");
+                AreClose(TeamSkin.League.VideoBoardWords, loaded.VideoBoardWords, "Video Board words");
+                // The rest of the skin stays, and the skin asset itself is not changed.
+                AreClose(skin.KickPlate, loaded.KickPlate, "kick plate");
+                Assert.AreEqual(skin.CentreIceLogo, loaded.CentreIceLogo);
+                Assert.AreEqual(Color.red, skin.Rail);
+            }
+            finally
+            {
+                if (loaded != null && loaded != skin) Object.DestroyImmediate(loaded);
+                Object.DestroyImmediate(skin);
+            }
+        }
+
+        [Test]
+        public void The_League_Skin_and_a_safe_skin_load_unchanged()
+        {
+            // The League Skin is today's accepted look: kept as it is, though its rail is near the goalie's blue and its
+            // dark frame near puck black.
+            Assert.AreSame(TeamSkin.League, TeamSkin.Guard(TeamSkin.League));
+            TeamSkin skin = TestSkin();
+            try { Assert.AreSame(skin, TeamSkin.Guard(skin)); }
+            finally { Object.DestroyImmediate(skin); }
+            LogAssert.NoUnexpectedReceived();
         }
 
         [Test]
@@ -160,6 +206,36 @@ namespace HockeyGame.Core.Tests
             }
         }
 
+        /// <summary>The Round's sounds play the skin's horn, goal song and chant files.</summary>
+        static void AssertSounds(TeamSkin skin)
+        {
+            var listener = new GameObject("Listener");
+            var made = new List<AudioClip>();
+            AudioClip File(string name)
+            {
+                var clip = AudioClip.Create(name, 10, 1, 44100, false);
+                made.Add(clip);
+                return clip;
+            }
+            try
+            {
+                var league = new RoundSound(listener, new SaveData(), new RoundSettings(), new SeededRandom(1), null, File);
+                Assert.AreEqual(TeamSkin.League.GoalHorn, league.GoalHornClip.name);
+                Assert.AreEqual(TeamSkin.League.Chant, league.ChantClip.name);
+                Assert.IsNull(league.GoalSongClip, "the League Skin has no goal song");
+
+                var team = new RoundSound(listener, new SaveData(), new RoundSettings(), new SeededRandom(1), skin, File);
+                Assert.AreEqual(skin.GoalHorn, team.GoalHornClip.name);
+                Assert.AreEqual(skin.Chant, team.ChantClip.name);
+                Assert.AreEqual(skin.GoalSong, team.GoalSongClip.name);
+            }
+            finally
+            {
+                Object.DestroyImmediate(listener);
+                foreach (AudioClip c in made) Object.DestroyImmediate(c);
+            }
+        }
+
         [Test]
         public void Swapping_the_skin_changes_only_the_skin_parts()
         {
@@ -187,6 +263,9 @@ namespace HockeyGame.Core.Tests
                 AreClose(skin.VideoBoardBack, team.BoardBack, "board back");
                 AreClose(TeamSkin.League.VideoBoardFrame, league.Frame, "League frame");
                 AreClose(skin.VideoBoardFrame, team.Frame, "frame");
+                Assert.AreEqual((TeamSkin.League.ScoreBoxBack, TeamSkin.League.ScoreBoxText), RoundDriver.ScoreBoxColours(null));
+                Assert.AreEqual((skin.ScoreBoxBack, skin.ScoreBoxText), RoundDriver.ScoreBoxColours(skin));
+                AssertSounds(skin);
 
                 // The fixed parts do not.
                 Assert.AreEqual(league.AdPanels, team.AdPanels, "the brands' board ads, soft grey in the Calm Area");
@@ -209,7 +288,7 @@ namespace HockeyGame.Core.Tests
                 "VideoBoardBack", "VideoBoardWords", "VideoBoardFrame", "VideoBoardFrameLit", "ScoreBoxBack", "ScoreBoxText",
                 "GoalHorn", "GoalSong", "Chant"
             };
-            string[] fields = typeof(TeamSkin).GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+            string[] fields = typeof(TeamSkin).GetFields(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
                 .Select(f => f.Name).ToArray();
             Assert.That(fields, Is.EquivalentTo(parts), "a new skin field must be a skin part, never a fixed one");
         }

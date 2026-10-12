@@ -11,8 +11,8 @@ namespace HockeyGame.Core.Tests
         private static readonly CrowdState[] States = (CrowdState[])Enum.GetValues(typeof(CrowdState));
         private static readonly FanSeat[] Seats = CrowdSeats.All();
         private static readonly int[][] Neighbours = CrowdSeats.Neighbours(Seats);
-        /// <summary>The League Skin's home jersey (TeamSkinTests checks the skin holds it).</summary>
-        private static readonly ArenaColour HomeJersey = new ArenaColour(112, 30, 46);
+        /// <summary>The League Skin's home jersey.</summary>
+        private static readonly ArenaColour HomeJersey = TeamSkin.League.HomeJerseyColour;
         private static readonly FanLook[] Looks = CrowdLooks.Make(Seats, Neighbours, new Random(95), HomeJersey);
 
         private const double ZNear = RinkLayout.NearCornerZ, ZFar = RinkLayout.FarCornerZ;
@@ -191,11 +191,14 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void No_crowd_colour_is_a_reserved_colour()
         {
-            var colours = new List<ArenaColour> { HomeJersey, CrowdLooks.Pants, CrowdLooks.Shoes };
+            var colours = new List<ArenaColour> { CrowdLooks.Pants, CrowdLooks.Shoes };
+            // Every Team Skin's home jersey (and home caps): the near fans wear them in the Calm Area.
+            TeamSkin[] skins = UnityEngine.Resources.LoadAll<TeamSkin>(TeamSkin.Folder);
+            Assert.That(skins, Is.Not.Empty);
+            foreach (TeamSkin skin in skins) colours.AddRange(CrowdLooks.Caps(skin.HomeJerseyColour));
             colours.AddRange(CrowdLooks.DarkPlain);
             colours.AddRange(CrowdLooks.Skins);
             colours.AddRange(CrowdLooks.Hairs);
-            colours.AddRange(CrowdLooks.Caps(HomeJersey));
             colours.AddRange(Looks.Select(l => l.Hair).Distinct());
             colours.Add(CrowdLooks.FlatTone);
             foreach (ArenaColour c in colours)

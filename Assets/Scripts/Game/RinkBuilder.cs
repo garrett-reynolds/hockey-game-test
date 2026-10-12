@@ -17,7 +17,7 @@ namespace HockeyGame
 
         public static Transform Build(out Camera camera, TeamSkin skin = null)
         {
-            skin = TeamSkin.OrLeague(skin);
+            skin = TeamSkin.Guard(skin); // the Calm Area rules: no reserved colours from a skin
             var root = new GameObject("Rink").transform;
 
             RinkIce.Build(root);

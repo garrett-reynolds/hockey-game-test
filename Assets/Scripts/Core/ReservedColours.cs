@@ -22,6 +22,14 @@ namespace HockeyGame.Core
         /// <summary>The least distance (Distance) a Calm Area colour keeps from every reserved colour.</summary>
         public const double MinDistance = 40;
 
+        /// <summary>True when colour keeps at least MinDistance from every reserved colour, so it may show in the Calm Area.</summary>
+        public static bool IsSafe(ArenaColour colour)
+        {
+            foreach (ArenaColour reserved in All)
+                if (Distance(colour, reserved) < MinDistance) return false;
+            return true;
+        }
+
         /// <summary>Straight-line distance between two colours in 0..255 RGB.</summary>
         public static double Distance(ArenaColour a, ArenaColour b)
         {

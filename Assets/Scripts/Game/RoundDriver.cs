@@ -264,11 +264,19 @@ namespace HockeyGame
             _small = new GUIStyle(GUI.skin.label) { fontSize = 18 };
             _big.normal.textColor = _mid.normal.textColor = _small.normal.textColor = Color.white;
             var back = new Texture2D(1, 1);
-            back.SetPixel(0, 0, _skin.ScoreBoxBack);
+            (Color boxBack, Color boxText) = ScoreBoxColours(_skin);
+            back.SetPixel(0, 0, boxBack);
             back.Apply();
             _scoreBox = new GUIStyle(GUI.skin.label) { fontSize = 22, alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
             _scoreBox.normal.background = back;
-            _scoreBox.normal.textColor = _skin.ScoreBoxText;
+            _scoreBox.normal.textColor = boxText;
+        }
+
+        /// <summary>The Score Box's background and words colours: the skin's (null: the League Skin's).</summary>
+        public static (Color Back, Color Text) ScoreBoxColours(TeamSkin skin)
+        {
+            skin = TeamSkin.OrLeague(skin);
+            return (skin.ScoreBoxBack, skin.ScoreBoxText);
         }
     }
 }
