@@ -39,7 +39,7 @@ namespace HockeyGame.Core.Tests
             round.StartRound();
             round.Tick(3.7);
             round.SubmitShot(x, y, 100, false);
-            Assert.AreEqual(ShotResultKind.Goal, round.LastResult.Value.Kind);
+            Assert.AreEqual(ShotResultKind.Goal, ScriptedShot.Result(round).Kind);
 
             float deepest = float.NegativeInfinity;
             for (float t = 0f; t < 2f; t += Frame)

@@ -6,9 +6,10 @@ namespace HockeyGame.Core
     /// <summary>
     /// A Round of 6 Shots. Pure logic: time only enters through Tick(realSeconds).
     /// <para>
-    /// A Shot on the Net Face is decided by Reach in time: a Save when the goalie's Reach Time is no longer than the puck's
+    /// A Shot on the Net Face is raced by Reach in time: a Save when the goalie's Reach Time is no longer than the puck's
     /// Flight Time, otherwise a Goal (see ShotRace). The goalie-reach port says how his body, in the Shot's Set-up, gets gear
-    /// into the puck's line. A Shot off the Net Face (a Frame Hit too) is a Miss: the goalie does not decide it.
+    /// into the puck's line. The race drives how he moves, but the Round takes the Shot's result only at the Whistle
+    /// (Whistle, WhistleRule): SubmitShot records the Shot and the Round waits.
     /// </para>
     /// <para>
     /// Random call order (public contract), all on the one IRandomSource:
@@ -34,7 +35,7 @@ namespace HockeyGame.Core
         private readonly IGoalieReach _reach;
         private readonly List<ShotResultKind> _results = new List<ShotResultKind>();
         private double _phaseElapsed;
-        private double _resultDelay;
+        private double _resultDelay; // real seconds from the Shot to its Whistle
         private SetUpKind[] _setUps = new SetUpKind[ShotsPerRound];
         private AttackSide[] _sides = new AttackSide[ShotsPerRound];
 
@@ -85,7 +86,7 @@ namespace HockeyGame.Core
         /// <summary>The goalie's Reaction Time for the current Shot (seconds), rolled when the Shot starts.</summary>
         public double ReactionSeconds { get; private set; }
 
-        /// <summary>The race that decided the current Shot (Reach in time); null until a Shot on the Net Face.</summary>
+        /// <summary>The goalie's race against the current Shot (Reach in time), run when it is submitted; null until a Shot on the Net Face. It drives how he moves; the Whistle gives the result.</summary>
         public ShotRace? LastRace { get; private set; }
 
         /// <summary>
@@ -102,23 +103,22 @@ namespace HockeyGame.Core
         }
 
         /// <summary>
-        /// False while a delayed result is still hidden (see DelayResult); true otherwise. The scene shows the
-        /// result text and plays the result sound only once this is true.
+        /// False from the Shot until the Whistle (the Shot is in flight and has no result yet); true otherwise. The scene shows
+        /// the result text and plays the result sound only once this is true.
         /// </summary>
-        public bool ResultShowing => Phase != RoundPhase.ResultHold || _phaseElapsed >= _resultDelay;
+        public bool ResultShowing => Phase != RoundPhase.ResultHold || !AwaitingWhistle;
 
-        /// <summary>Real seconds the current result is held back (see DelayResult): the on-screen puck flight, 0 if none.</summary>
+        /// <summary>True from a Shot on the clock until the game reports its Whistle (Whistle). The result hold has not started.</summary>
+        public bool AwaitingWhistle { get; private set; }
+
+        /// <summary>Real seconds from the Shot to its Whistle (the puck's flight, today); 0 until the Whistle.</summary>
         public double ResultDelaySeconds => _resultDelay;
 
-        /// <summary>
-        /// Holds back the current result for this many real seconds (the on-screen puck flight), then holds it
-        /// for the normal ResultHoldSeconds. Only in ResultHold; later calls replace the delay.
-        /// </summary>
-        public void DelayResult(double seconds)
-        {
-            if (Phase == RoundPhase.ResultHold)
-                _resultDelay = Math.Max(0, seconds);
-        }
+        /// <summary>The Shot just submitted (where it went, how fast); null until one is, and after a Too Late. Its result comes at the Whistle.</summary>
+        public SubmittedShot? LastShot { get; private set; }
+
+        /// <summary>How many Shots this Round has had submitted (Too Late is none).</summary>
+        public int ShotsSubmitted { get; private set; }
 
         /// <summary>Starts a Round against the given best score (for example after a reset on the settings screen).</summary>
         public void StartRound(int bestScore)
@@ -135,26 +135,43 @@ namespace HockeyGame.Core
             Goals = 0;
             IsNewBest = false;
             LastResult = null;
+            ShotsSubmitted = 0;
             ShotNumber = 1;
             StartShot();
             EnterPhase(RoundPhase.SkateIn);
         }
 
-        /// <summary>Submit a Shot. Counts only as the first one in the shooting window.</summary>
+        /// <summary>
+        /// Submit a Shot. Counts only as the first one in the shooting window. The Round records the Shot and runs the goalie's
+        /// race (it drives how he moves), then waits for the Whistle: the result comes from Whistle, not from here.
+        /// </summary>
         public void SubmitShot(double x, double y, double speedKmh, bool isTestShot)
         {
             if (Phase != RoundPhase.ShootingWindow)
                 return;
 
             bool onNetFace = x >= 0 && x <= 100 && y >= 0 && y <= 100;
-            ShotResultKind kind = ShotResultKind.Miss;
             if (onNetFace)
-            {
-                ShotRace race = Race(x, y, speedKmh);
-                LastRace = race;
-                kind = race.IsSave ? ShotResultKind.Save : ShotResultKind.Goal;
-            }
-            Finish(new ShotResult(kind, true, x, y, speedKmh, isTestShot));
+                LastRace = Race(x, y, speedKmh);
+            LastShot = new SubmittedShot(x, y, speedKmh, isTestShot);
+            ShotsSubmitted++;
+            EnterPhase(RoundPhase.ResultHold);
+            AwaitingWhistle = true;
+        }
+
+        /// <summary>
+        /// The game reports the Whistle with the Shot's result (Goal, Save or Miss). The Round records it and holds it
+        /// ResultHoldSeconds from now. Counts only while waiting for a Whistle: a later call changes nothing.
+        /// </summary>
+        public void Whistle(ShotResultKind kind)
+        {
+            if (!AwaitingWhistle)
+                return;
+
+            SubmittedShot shot = LastShot.Value;
+            AwaitingWhistle = false;
+            _resultDelay = _phaseElapsed;
+            Record(new ShotResult(kind, true, shot.X, shot.Y, shot.SpeedKmh, shot.IsTestShot));
         }
 
         /// <summary>Advance by real seconds. Large steps carry across phase boundaries.</summary>
@@ -215,15 +232,22 @@ namespace HockeyGame.Core
             SetUp = SetUp.Of(_setUps[ShotNumber - 1], post);
             ReactionSeconds = _settings.ReactionSeconds + _settings.ReactionWobbleSeconds * (2 * _random.Next() - 1);
             LastRace = null;
+            LastShot = null;
         }
 
+        /// <summary>A result with no Whistle to wait for (Too Late): recorded now, held from now.</summary>
         private void Finish(ShotResult result)
+        {
+            EnterPhase(RoundPhase.ResultHold);
+            Record(result);
+        }
+
+        private void Record(ShotResult result)
         {
             LastResult = result;
             _results.Add(result.Kind);
             if (result.Kind == ShotResultKind.Goal)
                 Goals++;
-            EnterPhase(RoundPhase.ResultHold);
         }
 
         private void EndRound()
@@ -241,6 +265,7 @@ namespace HockeyGame.Core
             Phase = phase;
             _phaseElapsed = 0;
             _resultDelay = 0;
+            AwaitingWhistle = false;
         }
 
         private double PhaseLength(RoundPhase phase)
@@ -250,7 +275,7 @@ namespace HockeyGame.Core
                 case RoundPhase.SkateIn: return _settings.SkateInSeconds;
                 case RoundPhase.SlowDown: return _settings.SlowDownSeconds;
                 case RoundPhase.ShootingWindow: return _settings.ShootingWindowSeconds;
-                default: return _resultDelay + _settings.ResultHoldSeconds;
+                default: return AwaitingWhistle ? double.PositiveInfinity : _resultDelay + _settings.ResultHoldSeconds;
             }
         }
     }

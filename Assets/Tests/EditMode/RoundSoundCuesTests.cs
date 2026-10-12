@@ -80,7 +80,6 @@ namespace HockeyGame.Core.Tests
             var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.8);
             round.SubmitShot(50, 90, 100, false);        // high: a Goal
-            round.DelayResult(0.5);                      // the scene holds the result while the puck flies
             var beforeArrival = Run(round, cues, 0.2);
             Assert.IsFalse(beforeArrival.Contains(SoundCue.GoalImpact));
             Assert.IsFalse(beforeArrival.Contains(SoundCue.Cheer));
@@ -97,7 +96,6 @@ namespace HockeyGame.Core.Tests
             var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.8);
             round.SubmitShot(20, 10, 100, false);        // low: a pad save
-            round.DelayResult(0.5);
             cues.Update(round, false);
             CollectionAssert.AreEquivalent(new[] { SoundCue.SaveImpact, SoundCue.Groan }, cues.Update(round, true));
         }
@@ -109,7 +107,6 @@ namespace HockeyGame.Core.Tests
             var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.8);
             round.SubmitShot(150, 90, 100, false);       // off the Net Face
-            round.DelayResult(0.5);
             cues.Update(round, false);
             CollectionAssert.AreEquivalent(new[] { SoundCue.MissImpact, SoundCue.Groan }, cues.Update(round, true));
         }
@@ -123,9 +120,9 @@ namespace HockeyGame.Core.Tests
             var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.8);
             round.SubmitShot(50, 10, 100, false);        // low: a pad save by its point
-            round.DelayResult(0.5);
             cues.Update(round, false, SoundCue.BlockerHit); // the Shot frame: the puck will meet the stick
             CollectionAssert.AreEquivalent(new[] { SoundCue.BlockerHit, SoundCue.Groan }, cues.Update(round, true));
+            round.WhistleNow();
             Assert.AreEqual(ShotResultKind.Save, round.LastResult.Value.Kind);
         }
 
@@ -136,9 +133,9 @@ namespace HockeyGame.Core.Tests
             var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.8);
             round.SubmitShot(-2, 50, 100, false);        // on the left post
-            round.DelayResult(0.5);
             cues.Update(round, false, SoundCue.SaveImpact);
             CollectionAssert.AreEquivalent(new[] { SoundCue.SaveImpact, SoundCue.Groan }, cues.Update(round, true, SoundCue.SaveImpact));
+            round.WhistleNow();
             Assert.AreEqual(ShotResultKind.Miss, round.LastResult.Value.Kind);
         }
 
@@ -149,7 +146,6 @@ namespace HockeyGame.Core.Tests
             var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.8);
             round.SubmitShot(-2, 50, 100, false);
-            round.DelayResult(0.5);
             cues.Update(round, false, null);
             CollectionAssert.AreEquivalent(new[] { SoundCue.PostPing, SoundCue.Groan }, cues.Update(round, true, null));
         }
@@ -160,7 +156,6 @@ namespace HockeyGame.Core.Tests
             var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.8);
             round.SubmitShot(x, y, 100, false);
-            round.DelayResult(0.5);
             cues.Update(round, false);
             return new List<SoundCue>(cues.Update(round, true));
         }
@@ -171,6 +166,7 @@ namespace HockeyGame.Core.Tests
             var round = StartedRound();
             var heard = ArrivalCues(round, -2, 50);      // 2 units left of the opening: inside the post's thickness
             CollectionAssert.AreEquivalent(new[] { SoundCue.PostPing, SoundCue.Groan }, heard);
+            round.WhistleNow();
             Assert.AreEqual(ShotResultKind.Miss, round.LastResult.Value.Kind);
         }
 
@@ -197,6 +193,7 @@ namespace HockeyGame.Core.Tests
         {
             var round = StandUpRound();
             var heard = ArrivalCues(round, 85, 85);
+            round.WhistleNow();
             Assert.AreEqual(ShotResultKind.Save, round.LastResult.Value.Kind);
             CollectionAssert.AreEquivalent(new[] { SoundCue.GloveCatch, SoundCue.Groan }, heard);
         }
@@ -206,6 +203,7 @@ namespace HockeyGame.Core.Tests
         {
             var round = StandUpRound();
             var heard = ArrivalCues(round, 15, 85);
+            round.WhistleNow();
             Assert.AreEqual(ShotResultKind.Save, round.LastResult.Value.Kind);
             CollectionAssert.AreEquivalent(new[] { SoundCue.BlockerHit, SoundCue.Groan }, heard);
         }
@@ -222,7 +220,6 @@ namespace HockeyGame.Core.Tests
             round.SubmitShot(15, 85, 45, false); // high on the left: a blocker by the Shot point; slow, so the glove gets there
             Assert.IsTrue(round.LastRace.Value.IsSave);
             Assert.AreEqual(SaveReaction.Glove, round.LastRace.Value.SaveReaction);
-            round.DelayResult(0.5);
             cues.Update(round, false);
             CollectionAssert.AreEquivalent(new[] { SoundCue.GloveCatch, SoundCue.Groan }, cues.Update(round, true));
         }
@@ -241,6 +238,7 @@ namespace HockeyGame.Core.Tests
         {
             var round = StandUpRound();
             var heard = ArrivalCues(round, x, y);
+            round.WhistleNow();
             Assert.AreEqual(ShotResultKind.Save, round.LastResult.Value.Kind);
             CollectionAssert.AreEquivalent(new[] { expected, SoundCue.Groan }, heard);
         }
@@ -257,18 +255,18 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void Slow_Shot_result_sound_waits_for_the_landing_even_when_the_arrival_is_missed()
+        public void Slow_Shot_result_sound_waits_for_the_Whistle_even_when_the_arrival_is_missed()
         {
             var round = StartedRound();
             var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.8);
             round.SubmitShot(20, 10, 10, false);         // very slow: the puck flies 2.9 s
-            round.DelayResult(2.9);
             var inFlight = Run(round, cues, 2.8);
             Assert.IsFalse(inFlight.Contains(SoundCue.SaveImpact));
             Assert.IsFalse(inFlight.Contains(SoundCue.Groan));
 
-            var landed = Run(round, cues, 0.3);          // no arrival frame seen: the result showing still plays it
+            round.Whistle(ScriptedShot.Result(round).Kind); // the puck lands
+            var landed = Run(round, cues, 0.1);          // no arrival frame seen: the result showing still plays it
             CollectionAssert.IsSubsetOf(new[] { SoundCue.SaveImpact, SoundCue.Groan }, landed);
             Assert.AreEqual(1, landed.FindAll(c => c == SoundCue.SaveImpact).Count);
         }
@@ -279,7 +277,7 @@ namespace HockeyGame.Core.Tests
             for (int i = 0; i < Round.ShotsPerRound; i++)
             {
                 heard.AddRange(Run(round, cues, 3.8));
-                round.SubmitShot(i < goals ? 50 : 150, 90, 100, false);
+                round.SubmitShotAndWhistle(i < goals ? 50 : 150, 90, 100, false);
                 heard.AddRange(Run(round, cues, 2.6, puckArrived: true));
             }
             return heard;
@@ -356,7 +354,7 @@ namespace HockeyGame.Core.Tests
             for (int i = 0; i < Round.ShotsPerRound; i++)
             {
                 Watch(3.8, false);
-                round.SubmitShot(150, 90, 100, false);
+                round.SubmitShotAndWhistle(150, 90, 100, false);
                 Watch(2.6, true);
             }
 
@@ -412,7 +410,7 @@ namespace HockeyGame.Core.Tests
 
                 var rest = Run(round, cues, 3.0);         // slow-down and shooting window: no strides
                 Assert.IsFalse(rest.Contains(SoundCue.StrideLeft) || rest.Contains(SoundCue.StrideRight));
-                round.SubmitShot(150, 90, 100, false);
+                round.SubmitShotAndWhistle(150, 90, 100, false);
                 while (round.Phase != RoundPhase.SkateIn && round.Phase != RoundPhase.RoundOver)
                 {
                     round.Tick(Frame);

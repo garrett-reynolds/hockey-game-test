@@ -96,7 +96,7 @@ namespace HockeyGame.Core.Tests
             view.Face(facing, facing);
             view.SetProgress(0f);
             round.SubmitShot(x, y, kmh, false);
-            ShotResultKind kind = round.LastResult.Value.Kind;
+            ShotResultKind kind = ScriptedShot.Result(round).Kind;
             goal = kind == ShotResultKind.Goal;
             // A Save with gear already in the way shows the Shot point's Save Reaction, still with gear on the puck's line.
             bool blocked = kind == ShotResultKind.Save && round.LastRace.Value.InTheWay;
@@ -104,18 +104,18 @@ namespace HockeyGame.Core.Tests
             bool lateGear = kind == ShotResultKind.Goal && !double.IsPositiveInfinity(round.LastRace.Value.MoveSeconds); // some gear reaches, too late
             // The Shot frame (the Round has ticked already): the puck starts and the Round learns its flight.
             effects.Update(round, usb ? Frame : 0f);
-            view.SetProgress((float)Breakaway.GoalieSet(round.Phase, round.PhaseSecondsElapsed, true, round.ResultDelaySeconds, round.LastRace));
+            view.SetProgress((float)Breakaway.GoalieSet(round.Phase, round.PhaseSecondsElapsed, true, effects.FlightSeconds, round.LastRace));
             Vector3 last = puck.position;
             float flown = 0f;
             for (int i = 0; i < 120; i++)
             {
                 // The last frame ends just as the puck gets there, so it shows the puck at its contact, before any rebound.
-                float left = (float)round.ResultDelaySeconds - flown;
+                float left = (float)effects.FlightSeconds - flown;
                 float dt = left > Frame ? Frame : left + 1e-5f;
                 flown += dt;
                 round.Tick(dt);
                 effects.Update(round, dt);
-                float set = (float)Breakaway.GoalieSet(round.Phase, round.PhaseSecondsElapsed, true, round.ResultDelaySeconds, round.LastRace);
+                float set = (float)Breakaway.GoalieSet(round.Phase, round.PhaseSecondsElapsed, true, effects.FlightSeconds, round.LastRace);
                 view.SetProgress(set);
                 Vector3 now = puck.position;
                 // A Goal: the race was lost, so his gear is still on its way when the puck passes him (at his spot's depth).

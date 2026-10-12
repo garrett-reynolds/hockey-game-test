@@ -85,8 +85,8 @@ namespace HockeyGame
                 (float)BeforeTheShot.Settled(phase, phaseSeconds, settings), settings);
 
             // On the Shot he moves as the Round's race timed him (Reach in time): what is seen agrees with the result (#63).
-            float set = (float)Breakaway.GoalieSet(phase, phaseSeconds, _round.LastResult.HasValue && _round.LastResult.Value.HasShot,
-                _round.ResultDelaySeconds, _round.LastRace);
+            float set = (float)Breakaway.GoalieSet(phase, phaseSeconds, _round.LastShot.HasValue,
+                _round.AwaitingWhistle ? double.PositiveInfinity : _round.ResultDelaySeconds, _round.LastRace); // the flight is not known before the Whistle
             if (phase == RoundPhase.Idle || phase == RoundPhase.RoundOver)
             {
                 _goalie.Face((float)_turn.Shown, (float)_turn.Shown); // keeps facing the last shooter

@@ -106,25 +106,25 @@ namespace HockeyGame.Core
             }
 
             // A pending impact never outlives its result hold: leaving ResultHold plays it (above).
-            if (_newResult.TakeNew(round))
+            bool newShot = _newResult.TakeNewShot(round);
+            bool newResult = _newResult.TakeNew(round);
+            if (newResult && round.LastResult.Value.Kind == ShotResultKind.TooLate)
             {
-                if (round.LastResult.Value.Kind == ShotResultKind.TooLate)
-                {
-                    _cues.Add(SoundCue.Buzzer);
-                    _cues.Add(SoundCue.Groan);
-                }
-                else
-                {
-                    ShotResult result = round.LastResult.Value;
-                    _pendingImpact = result;
-                    _pendingContact = null;
-                    // The race's Save Reaction (the gear that won it), taken now: the next Shot clears LastRace.
-                    _pendingSaveSound = SaveReactions.Sound(round.LastRace?.SaveReaction ?? SaveReactions.For(result.X, result.Y));
-                }
+                _cues.Add(SoundCue.Buzzer);
+                _cues.Add(SoundCue.Groan);
+            }
+            else if (newShot)
+            {
+                // Today's result for the Shot (ScriptedShot), as the scripted puck will land it at the Whistle.
+                ShotResult result = ScriptedShot.Result(round);
+                _pendingImpact = result;
+                _pendingContact = null;
+                // The race's Save Reaction (the gear that won it), taken now: the next Shot clears LastRace.
+                _pendingSaveSound = SaveReactions.Sound(round.LastRace?.SaveReaction ?? SaveReactions.For(result.X, result.Y));
             }
             if (_pendingImpact.HasValue && contact.HasValue) _pendingContact = contact;
 
-            // The result shows when the puck lands (Round.DelayResult), so a missed arrival frame still plays it then.
+            // The result shows at the Whistle, when the puck lands (Round.Whistle), so a missed arrival frame still plays it then.
             if (_pendingImpact.HasValue && (puckArrived || (phase == RoundPhase.ResultHold && round.ResultShowing)))
                 PlayPendingImpact();
 

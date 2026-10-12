@@ -19,6 +19,7 @@ namespace HockeyGame.Core.Tests
                     flow.SubmitShot(50, 90, 100, false);
                 else
                     flow.SubmitShot(-10, 50, 100, false);
+                flow.Round.WhistleNow();
                 flow.Tick(2.5);
             }
         }
@@ -196,6 +197,7 @@ namespace HockeyGame.Core.Tests
             flow.Tick(3.7);
             Assert.AreEqual(RoundPhase.ShootingWindow, flow.Round.Phase);
             flow.SubmitShot(50, 90, 100, false);
+            flow.Round.WhistleNow();
             Assert.AreEqual(ShotResultKind.Goal, flow.Round.LastResult.Value.Kind);
             Assert.AreEqual(1, flow.Round.Results.Count);
         }

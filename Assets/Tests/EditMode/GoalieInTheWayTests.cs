@@ -39,7 +39,7 @@ namespace HockeyGame.Core.Tests
                 round.StartRound();
                 round.Tick(settings.SkateInSeconds + settings.SlowDownSeconds + windowSeconds);
                 view.Show(true);
-                round.SubmitShot(x, y, 100, false);
+                round.SubmitShotAndWhistle(x, y, 100, false);
                 ShotRace race = round.LastRace.Value;
                 if (!race.InTheWay) continue;
                 Vector3 from = new Vector3((float)race.ShotStart.X, (float)race.ShotStart.Y, (float)race.ShotStart.Z);

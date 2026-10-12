@@ -286,7 +286,7 @@ namespace HockeyGame.Core.Tests
                         ShotRace race = round.LastRace.Value;
                         played.Shots.Add(race.SetUp + " " + race.AttackSide + ": spot " + R(race.Spot) + ", start " + R(race.ShotStart)
                             + ", reach " + race.ReachSeconds.ToString("R") + " (move " + race.MoveSeconds.ToString("R") + ", " + race.SaveReaction
-                            + (race.InTheWay ? ", in the way" : "") + "), flight " + race.FlightSeconds.ToString("R") + ": " + round.LastResult.Value.Kind);
+                            + (race.InTheWay ? ", in the way" : "") + "), flight " + race.FlightSeconds.ToString("R") + ": " + ScriptedShot.Result(round).Kind);
                         Vector3 spot = view.ShownSpot;
                         if (Math.Abs(spot.x - race.Spot.X) > 1e-5 || Math.Abs(spot.z - race.Spot.Z) > 1e-5)
                             played.Failures.Add("Shot " + shot + ": reacts from " + spot.ToString("F4") + ", race " + race.Spot);

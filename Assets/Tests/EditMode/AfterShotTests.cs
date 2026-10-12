@@ -141,7 +141,7 @@ namespace HockeyGame.Core.Tests
         [TestCase(AfterShotGesture.None, -1.0)]
         public void After_every_result_the_goalie_is_back_in_the_Ready_Stance_before_the_result_hold_ends(AfterShotGesture g, double netting)
         {
-            // The result hold runs 2.5 s after the puck gets there (Round.DelayResult); the netting is met at the latest 0.5 s in.
+            // The result hold runs 2.5 s after the puck gets there (Round.Whistle); the netting is met at the latest 0.5 s in.
             Assert.AreEqual(2.5, new RoundSettings().ResultHoldSeconds);
             AfterShotMoment m = AfterShot.At(g, 2.4, netting < 0 ? -1 : 2.4 - netting);
             Assert.AreEqual(1, m.Recover, 1e-9, "recovered by 2.4 s");

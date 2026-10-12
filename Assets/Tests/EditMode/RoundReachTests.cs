@@ -26,7 +26,7 @@ namespace HockeyGame.Core.Tests
         static double FlightOf(double x, double y, double kmh)
         {
             var round = InWindow(FakeReach.NeverReaches(), Fixed());
-            round.SubmitShot(x, y, kmh, false);
+            round.SubmitShotAndWhistle(x, y, kmh, false);
             return round.LastRace.Value.FlightSeconds;
         }
 
@@ -49,12 +49,12 @@ namespace HockeyGame.Core.Tests
             double flight = FlightOf(70, 60, 100);
             // Reaction Time 0, so the Reach Time is exactly the move time.
             var atTheEdge = InWindow(new FakeReach(GoalieReachAnswer.Reaches(SaveReaction.Glove, flight)), Fixed(0));
-            atTheEdge.SubmitShot(70, 60, 100, false);
+            atTheEdge.SubmitShotAndWhistle(70, 60, 100, false);
             Assert.AreEqual(atTheEdge.LastRace.Value.FlightSeconds, atTheEdge.LastRace.Value.ReachSeconds);
             Assert.AreEqual(ShotResultKind.Save, atTheEdge.LastResult.Value.Kind);
 
             var justLate = InWindow(new FakeReach(GoalieReachAnswer.Reaches(SaveReaction.Glove, flight + 1e-6)), Fixed(0));
-            justLate.SubmitShot(70, 60, 100, false);
+            justLate.SubmitShotAndWhistle(70, 60, 100, false);
             Assert.AreEqual(ShotResultKind.Goal, justLate.LastResult.Value.Kind);
             Assert.AreEqual(1, justLate.Goals);
         }
@@ -63,7 +63,7 @@ namespace HockeyGame.Core.Tests
         public void The_Reach_Time_is_the_Reaction_Time_plus_the_move_and_the_Late_Margin_is_Reach_minus_Flight()
         {
             var round = InWindow(new FakeReach(GoalieReachAnswer.Reaches(SaveReaction.Pads, 0.25)), Fixed(0.12));
-            round.SubmitShot(20, 10, 90, false);
+            round.SubmitShotAndWhistle(20, 10, 90, false);
             ShotRace race = round.LastRace.Value;
             Assert.AreEqual(0.12, race.ReactionSeconds, Tol);
             Assert.AreEqual(0.25, race.MoveSeconds, Tol);
@@ -77,7 +77,7 @@ namespace HockeyGame.Core.Tests
         public void A_Shot_into_gear_already_in_the_way_is_a_Save_at_top_speed(double kmh)
         {
             var round = InWindow(FakeReach.InTheWay(), Fixed(0.12), windowSeconds: 2.9); // drifted in close: the shortest flights
-            round.SubmitShot(50, 50, kmh, false);
+            round.SubmitShotAndWhistle(50, 50, kmh, false);
             ShotRace race = round.LastRace.Value;
             Assert.IsTrue(race.InTheWay);
             Assert.AreEqual(0, race.ReachSeconds, Tol);
@@ -91,9 +91,9 @@ namespace HockeyGame.Core.Tests
             // Reach Time 0.12 + 0.18 = 0.30 s.
             var reach = new FakeReach(GoalieReachAnswer.Reaches(SaveReaction.Glove, 0.18));
             var slow = InWindow(reach, Fixed(0.12));
-            slow.SubmitShot(85, 80, 30, false);
+            slow.SubmitShotAndWhistle(85, 80, 30, false);
             var fast = InWindow(reach, Fixed(0.12));
-            fast.SubmitShot(85, 80, 110, false);
+            fast.SubmitShotAndWhistle(85, 80, 110, false);
 
             Assert.Greater(slow.LastRace.Value.FlightSeconds, 0.30);
             Assert.Less(fast.LastRace.Value.FlightSeconds, 0.30);
@@ -110,7 +110,7 @@ namespace HockeyGame.Core.Tests
             foreach (FakeReach reach in new[] { FakeReach.InTheWay(), FakeReach.NeverReaches() })
             {
                 var round = InWindow(reach, Fixed());
-                round.SubmitShot(x, y, 100, false);
+                round.SubmitShotAndWhistle(x, y, 100, false);
                 Assert.AreEqual(ShotResultKind.Miss, round.LastResult.Value.Kind);
                 Assert.AreEqual(0, reach.Asks.Count, "the goalie-reach port is not asked");
                 Assert.IsNull(round.LastRace);
@@ -123,7 +123,7 @@ namespace HockeyGame.Core.Tests
             var settings = Fixed();
             var reach = FakeReach.NeverReaches();
             var round = InWindow(reach, settings, windowSeconds: 1.25, random: ScriptedRandom.Forcing(AttackSide.Left));
-            round.SubmitShot(30, 70, 100, false);
+            round.SubmitShotAndWhistle(30, 70, 100, false);
 
             Assert.AreEqual(1, reach.Asks.Count);
             FakeReach.Ask ask = reach.Asks[0];
@@ -142,7 +142,7 @@ namespace HockeyGame.Core.Tests
             var settings = Fixed();
             var reach = FakeReach.NeverReaches();
             var round = InWindow(reach, settings, windowSeconds: 1.25, random: ScriptedRandom.Forcing(AttackSide.Right));
-            round.SubmitShot(60, 40, 100, false);
+            round.SubmitShotAndWhistle(60, 40, 100, false);
 
             FakeReach.Ask ask = reach.Asks[0];
             ShotRace race = round.LastRace.Value;
@@ -157,7 +157,7 @@ namespace HockeyGame.Core.Tests
         {
             var settings = Fixed();
             var round = InWindow(FakeReach.NeverReaches(), settings, windowSeconds: 0.5);
-            round.SubmitShot(80, 30, 90, false);
+            round.SubmitShotAndWhistle(80, 30, 90, false);
 
             RinkPoint start = Breakaway.ShotStart(AttackSide.Middle, 0.5, settings);
             RinkPoint passing = RinkPoint.AtDepth(start, RinkPoint.OnNetFace(80, 30), -settings.NormalDepthMetres);
@@ -171,7 +171,7 @@ namespace HockeyGame.Core.Tests
         {
             // The port says the pads would win a race, but the glove-side high point's own reaction shows.
             var round = InWindow(new FakeReach(GoalieReachAnswer.AlreadyInTheWay(SaveReaction.Pads)), Fixed());
-            round.SubmitShot(90, 85, 100, false);
+            round.SubmitShotAndWhistle(90, 85, 100, false);
             Assert.AreEqual(SaveReactions.For(90, 85), round.LastRace.Value.SaveReaction);
             Assert.AreEqual(SaveReaction.Glove, round.LastRace.Value.SaveReaction);
         }
@@ -181,7 +181,7 @@ namespace HockeyGame.Core.Tests
         public void Otherwise_the_Save_Reaction_is_the_quickest_gear_in_the_race_on_a_Save_and_on_a_Goal(double move, ShotResultKind kind)
         {
             var round = InWindow(new FakeReach(GoalieReachAnswer.Reaches(SaveReaction.Stick, move)), Fixed());
-            round.SubmitShot(90, 85, 100, false);
+            round.SubmitShotAndWhistle(90, 85, 100, false);
             Assert.AreEqual(kind, round.LastResult.Value.Kind);
             Assert.AreEqual(SaveReaction.Stick, round.LastRace.Value.SaveReaction);
         }
@@ -190,7 +190,7 @@ namespace HockeyGame.Core.Tests
         public void When_no_gear_can_reach_it_is_a_Goal_showing_the_Shot_points_reaction()
         {
             var round = InWindow(FakeReach.NeverReaches(), Fixed());
-            round.SubmitShot(10, 20, 60, false);
+            round.SubmitShotAndWhistle(10, 20, 60, false);
             Assert.AreEqual(ShotResultKind.Goal, round.LastResult.Value.Kind);
             Assert.AreEqual(SaveReactions.For(10, 20), round.LastRace.Value.SaveReaction);
             Assert.IsTrue(double.IsPositiveInfinity(round.LastRace.Value.ReachSeconds));
@@ -206,7 +206,7 @@ namespace HockeyGame.Core.Tests
             var round = InWindow(new FakeReach(GoalieReachAnswer.Reaches(SaveReaction.Blocker, 0.1)), settings, random: random);
             Assert.AreEqual(AttackSide.Right, round.AttackSide);
             Assert.AreEqual(expected, round.ReactionSeconds, Tol);
-            round.SubmitShot(20, 80, 100, false);
+            round.SubmitShotAndWhistle(20, 80, 100, false);
             Assert.AreEqual(expected, round.LastRace.Value.ReactionSeconds, Tol);
             Assert.AreEqual(expected + 0.1, round.LastRace.Value.ReachSeconds, Tol);
         }
@@ -218,7 +218,7 @@ namespace HockeyGame.Core.Tests
             var settings = new RoundSettings { ReactionSeconds = 0.12, ReactionWobbleSeconds = 0.04 };
             var random = ScriptedRandom.Forcing(AttackSide.Right, wobble: roll);
             var round = InWindow(new FakeReach(GoalieReachAnswer.Reaches(SaveReaction.Blocker, 0.1)), settings, random: random);
-            round.SubmitShot(20, 80, 100, false);
+            round.SubmitShotAndWhistle(20, 80, 100, false);
             ShotRace race = round.LastRace.Value;
             Assert.AreEqual(0.0, Breakaway.GoalieSet(RoundPhase.ResultHold, rolled - 0.005, true, race.FlightSeconds, race), Tol, "still before it");
             Assert.Greater(Breakaway.GoalieSet(RoundPhase.ResultHold, rolled + 0.005, true, race.FlightSeconds, race), 0.0, "moving after it");
@@ -241,7 +241,7 @@ namespace HockeyGame.Core.Tests
             var reach = saved ? FakeReach.InTheWay() : FakeReach.NeverReaches();
             var round = InWindow(reach, settings, random: random);
             Assert.AreEqual(0.08, round.ReactionSeconds, Tol);
-            round.SubmitShot(x, y, 100, false);
+            round.SubmitShotAndWhistle(x, y, 100, false);
             round.Tick(settings.ResultHoldSeconds);
             Assert.AreEqual(2, round.ShotNumber);
             Assert.AreEqual(AttackSide.Middle, round.AttackSide);
@@ -266,7 +266,7 @@ namespace HockeyGame.Core.Tests
         {
             var settings = Fixed();
             var round = InWindow(FakeReach.InTheWay(), settings);
-            round.SubmitShot(50, 50, 100, false);
+            round.SubmitShotAndWhistle(50, 50, 100, false);
             Assert.IsNotNull(round.LastRace);
             round.Tick(settings.ResultHoldSeconds);
             Assert.AreEqual(RoundPhase.SkateIn, round.Phase);
@@ -282,7 +282,7 @@ namespace HockeyGame.Core.Tests
             var round = InWindow(reach, settings, 1.7, ScriptedRandom.Forcing(AttackSide.Left));
             double since = round.PhaseSecondsElapsed;
             ShotRace preview = ShotRace.At(round.SetUp, round.AttackSide, since, 22, 64, 120, round.ReactionSeconds, reach, settings);
-            round.SubmitShot(22, 64, 120, false);
+            round.SubmitShotAndWhistle(22, 64, 120, false);
             ShotRace race = round.LastRace.Value;
             Assert.AreEqual(race.FlightSeconds, preview.FlightSeconds, Tol);
             Assert.AreEqual(race.ReachSeconds, preview.ReachSeconds, Tol);

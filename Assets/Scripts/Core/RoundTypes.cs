@@ -38,4 +38,21 @@ namespace HockeyGame.Core
             IsTestShot = isTestShot;
         }
     }
+
+    /// <summary>A Shot as submitted: where it went on the Net Face (x, y; off it is a wide Shot), how fast, and whether it was a Test Shot. It has no result until the Whistle.</summary>
+    public readonly struct SubmittedShot
+    {
+        public double X { get; }
+        public double Y { get; }
+        public double SpeedKmh { get; }
+        public bool IsTestShot { get; }
+
+        public SubmittedShot(double x, double y, double speedKmh, bool isTestShot)
+        {
+            X = x;
+            Y = y;
+            SpeedKmh = speedKmh;
+            IsTestShot = isTestShot;
+        }
+    }
 }

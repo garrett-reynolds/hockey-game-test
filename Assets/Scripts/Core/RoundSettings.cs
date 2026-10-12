@@ -9,6 +9,12 @@ namespace HockeyGame.Core
         public double ShootingWindowSeconds = 3.0;
         public double ResultHoldSeconds = 2.5;
 
+        // The Whistle (WhistleRule), named starting values to tune: a Shot goes dead once the puck is slower than
+        // WhistleVerySlowMetresPerSecond for WhistleDeadSeconds in a row, and the Whistle goes at the latest WhistleCapSeconds after it.
+        public double WhistleDeadSeconds = 0.3;
+        public double WhistleCapSeconds = 3.0;
+        public double WhistleVerySlowMetresPerSecond = 0.3;
+
         // Reach in time: the goalie's Reaction Time is ReactionSeconds, plus or minus up to ReactionWobbleSeconds at random per Shot.
         public double ReactionSeconds = 0.12;
         public double ReactionWobbleSeconds = 0.04;

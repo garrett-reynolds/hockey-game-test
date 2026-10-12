@@ -63,14 +63,14 @@ namespace HockeyGame.Core.Tests
             view.Face(facing, facing);
             Assert.AreEqual(side, round.AttackSide);
             round.SubmitShot(x, y, kmh, false);
-            var run = new Run { Kind = round.LastResult.Value.Kind };
+            var run = new Run { Kind = ScriptedShot.Result(round).Kind };
             bool arrived = false;
             float flown = 0f;
             for (int i = 0; i < 1000 && round.Phase == RoundPhase.ResultHold; i++)
             {
                 view.SetProgress(1f);
                 // The frame the puck gets there ends just as it does, so Contact is where it met the gear, before any rebound.
-                float left = (float)round.ResultDelaySeconds - flown;
+                float left = (float)effects.FlightSeconds - flown;
                 float dt = !arrived && i > 0 && left < Frame ? left + 1e-5f : Frame;
                 if (i > 0) flown += dt; // the puck starts on the Shot frame without moving
                 effects.Update(round, dt);
@@ -238,7 +238,7 @@ namespace HockeyGame.Core.Tests
                     round.SubmitShot(x, y, 100, false);
                     effects.Update(round, Frame); // the Shot frame: the contact is known from here
                     string where = side + " (" + x.ToString("F1") + ", " + y.ToString("F1") + ")" + (close ? " from 3 m" : "");
-                    Assert.AreEqual(ShotResultKind.Miss, round.LastResult.Value.Kind, where);
+                    Assert.AreEqual(ShotResultKind.Miss, ScriptedShot.Result(round).Kind, where);
                     Assert.AreEqual(PuckSurface.Frame, effects.ContactSurface, where);
                     Assert.AreEqual(SoundCue.PostPing, effects.ContactSound, where);
                     frameHits++;

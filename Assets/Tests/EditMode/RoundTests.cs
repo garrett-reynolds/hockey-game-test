@@ -29,7 +29,7 @@ namespace HockeyGame.Core.Tests
             round.Tick(3.7);
             if (shoot)
             {
-                round.SubmitShot(x, y, 100, false);
+                round.SubmitShotAndWhistle(x, y, 100, false);
                 round.Tick(2.5);
             }
             else
@@ -43,7 +43,7 @@ namespace HockeyGame.Core.Tests
         {
             var round = NewRound();
             round.Tick(10);
-            round.SubmitShot(50, 50, 100, false);
+            round.SubmitShotAndWhistle(50, 50, 100, false);
             Assert.AreEqual(RoundPhase.Idle, round.Phase);
             Assert.AreEqual(0, round.Results.Count);
         }
@@ -96,7 +96,7 @@ namespace HockeyGame.Core.Tests
             var round = StartedRound();
             Assert.AreEqual(0, round.WindowSecondsLeft);
             round.Tick(3.7);
-            round.SubmitShot(50, 50, 100, false);
+            round.SubmitShotAndWhistle(50, 50, 100, false);
             Assert.AreEqual(0, round.WindowSecondsLeft);
         }
 
@@ -118,7 +118,7 @@ namespace HockeyGame.Core.Tests
         public void Shot_during_skate_in_is_ignored()
         {
             var round = StartedRound();
-            round.SubmitShot(50, 50, 100, false);
+            round.SubmitShotAndWhistle(50, 50, 100, false);
             Assert.AreEqual(RoundPhase.SkateIn, round.Phase);
             Assert.AreEqual(0, round.Results.Count);
         }
@@ -128,7 +128,7 @@ namespace HockeyGame.Core.Tests
         {
             var round = StartedRound();
             round.Tick(3.0);
-            round.SubmitShot(50, 50, 100, false);
+            round.SubmitShotAndWhistle(50, 50, 100, false);
             Assert.AreEqual(RoundPhase.SlowDown, round.Phase);
             Assert.AreEqual(0, round.Results.Count);
         }
@@ -137,8 +137,8 @@ namespace HockeyGame.Core.Tests
         public void Shot_during_the_hold_is_ignored()
         {
             var round = InWindow();
-            round.SubmitShot(50, 50, 100, false);
-            round.SubmitShot(0, 0, 100, false);
+            round.SubmitShotAndWhistle(50, 50, 100, false);
+            round.SubmitShotAndWhistle(0, 0, 100, false);
             Assert.AreEqual(1, round.Results.Count);
             Assert.AreEqual(50, round.LastResult.Value.X);
         }
@@ -148,7 +148,7 @@ namespace HockeyGame.Core.Tests
         {
             var round = InWindow();
             round.Tick(1.0);
-            round.SubmitShot(60, 80, 95, false);
+            round.SubmitShotAndWhistle(60, 80, 95, false);
             Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
             var result = round.LastResult.Value;
             Assert.AreEqual(ShotResultKind.Goal, result.Kind);
@@ -162,9 +162,9 @@ namespace HockeyGame.Core.Tests
         public void Second_Shot_real_or_Test_is_ignored()
         {
             var round = InWindow();
-            round.SubmitShot(10, 10, 80, false);
-            round.SubmitShot(500, 500, 80, false);
-            round.SubmitShot(90, 90, 80, true);
+            round.SubmitShotAndWhistle(10, 10, 80, false);
+            round.SubmitShotAndWhistle(500, 500, 80, false);
+            round.SubmitShotAndWhistle(90, 90, 80, true);
             Assert.AreEqual(1, round.Results.Count);
             Assert.AreEqual(10, round.LastResult.Value.X);
         }
@@ -173,9 +173,9 @@ namespace HockeyGame.Core.Tests
         public void A_Test_Shot_counts_as_the_first_Shot_in_the_window()
         {
             var round = InWindow();
-            round.SubmitShot(50, 90, 80, true);
+            round.SubmitShotAndWhistle(50, 90, 80, true);
             Assert.AreEqual(ShotResultKind.Goal, round.LastResult.Value.Kind);
-            round.SubmitShot(0, 0, 80, false);
+            round.SubmitShotAndWhistle(0, 0, 80, false);
             Assert.AreEqual(1, round.Results.Count);
         }
 
@@ -206,7 +206,7 @@ namespace HockeyGame.Core.Tests
         public void Shot_outside_0_to_100_is_a_Miss(double x, double y)
         {
             var round = InWindow();
-            round.SubmitShot(x, y, 100, false);
+            round.SubmitShotAndWhistle(x, y, 100, false);
             Assert.AreEqual(ShotResultKind.Miss, round.LastResult.Value.Kind);
             Assert.AreEqual(0, round.Goals);
         }
@@ -219,7 +219,7 @@ namespace HockeyGame.Core.Tests
         public void Shot_on_the_Net_Face_including_edges_is_not_a_Miss(double x, double y)
         {
             var round = InWindow();
-            round.SubmitShot(x, y, 100, false);
+            round.SubmitShotAndWhistle(x, y, 100, false);
             Assert.AreNotEqual(ShotResultKind.Miss, round.LastResult.Value.Kind);
             Assert.AreEqual(1, round.Results.Count);
         }
@@ -250,7 +250,7 @@ namespace HockeyGame.Core.Tests
                 Assert.AreEqual(i + 1, round.ShotNumber);
             }
             round.Tick(3.7);
-            round.SubmitShot(50, 50, 100, false);
+            round.SubmitShotAndWhistle(50, 50, 100, false);
             Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
             round.Tick(2.49);
             Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
@@ -259,7 +259,7 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(6, round.Results.Count);
             Assert.AreEqual(6, round.ShotNumber);
             round.Tick(100);
-            round.SubmitShot(50, 50, 100, false);
+            round.SubmitShotAndWhistle(50, 50, 100, false);
             Assert.AreEqual(RoundPhase.RoundOver, round.Phase);
             Assert.AreEqual(6, round.Results.Count);
         }
@@ -341,13 +341,71 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(0, round.BestScore);
         }
 
+        // ---- The Whistle: the Round takes its result when the game reports it, not at submit ----
+
         [Test]
-        public void A_delayed_result_holds_for_the_delay_plus_the_normal_hold()
+        public void A_Shot_has_no_result_until_the_Whistle()
         {
             var round = InWindow();
-            round.SubmitShot(50, 90, 10, false);
-            round.DelayResult(2.9);                    // the puck flies for 2.9 s
-            round.Tick(2.9 + 2.4);
+            round.SubmitShot(50, 90, 100, false);
+            Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
+            Assert.IsTrue(round.AwaitingWhistle);
+            Assert.IsFalse(round.ResultShowing);
+            Assert.IsFalse(round.LastResult.HasValue);
+            Assert.AreEqual(0, round.Results.Count);
+            Assert.AreEqual(0, round.Goals);
+            Assert.AreEqual(50, round.LastShot.Value.X);
+            Assert.AreEqual(1, round.ShotsSubmitted);
+        }
+
+        [Test]
+        public void The_Round_waits_as_long_as_the_Whistle_takes()
+        {
+            var round = InWindow();
+            round.SubmitShot(50, 90, 100, false);
+            round.Tick(30);
+            Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
+            Assert.AreEqual(1, round.ShotNumber);
+            Assert.IsFalse(round.LastResult.HasValue);
+        }
+
+        [Test]
+        public void The_Whistle_records_the_result_and_the_Shot_with_it()
+        {
+            var round = InWindow();
+            round.SubmitShot(50, 90, 120, true);
+            round.Whistle(ShotResultKind.Goal);
+            Assert.IsFalse(round.AwaitingWhistle);
+            Assert.IsTrue(round.ResultShowing);
+            ShotResult result = round.LastResult.Value;
+            Assert.AreEqual(ShotResultKind.Goal, result.Kind);
+            Assert.IsTrue(result.HasShot);
+            Assert.AreEqual(50, result.X);
+            Assert.AreEqual(90, result.Y);
+            Assert.AreEqual(120, result.SpeedKmh);
+            Assert.IsTrue(result.IsTestShot);
+            Assert.AreEqual(1, round.Goals);
+            CollectionAssert.AreEqual(new[] { ShotResultKind.Goal }, round.Results);
+        }
+
+        [Test]
+        public void The_Whistle_gives_whatever_result_the_game_reports()
+        {
+            var round = InWindow();
+            round.SubmitShot(50, 90, 100, false);
+            round.Whistle(ShotResultKind.Save);
+            Assert.AreEqual(ShotResultKind.Save, round.LastResult.Value.Kind);
+            Assert.AreEqual(0, round.Goals);
+        }
+
+        [Test]
+        public void The_result_is_held_2_5_seconds_after_the_Whistle_not_after_the_Shot()
+        {
+            var round = InWindow();
+            round.SubmitShot(50, 90, 100, false);
+            round.Tick(2.9);                           // the puck flies for 2.9 s
+            round.Whistle(ShotResultKind.Goal);
+            round.Tick(2.4);
             Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
             round.Tick(0.2);
             Assert.AreEqual(RoundPhase.SkateIn, round.Phase);
@@ -355,22 +413,22 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void A_delayed_result_shows_only_once_the_delay_has_passed()
-        {
-            var round = InWindow();
-            round.SubmitShot(50, 90, 10, false);
-            round.DelayResult(2.9);
-            round.Tick(2.8);
-            Assert.IsFalse(round.ResultShowing);
-            round.Tick(0.2);
-            Assert.IsTrue(round.ResultShowing);
-        }
-
-        [Test]
-        public void A_result_with_no_delay_shows_at_once_and_holds_2_5_seconds()
+        public void The_result_shows_from_the_Whistle_and_the_time_to_it_is_kept()
         {
             var round = InWindow();
             round.SubmitShot(50, 90, 100, false);
+            round.Tick(0.4);
+            Assert.IsFalse(round.ResultShowing);
+            round.Whistle(ShotResultKind.Goal);
+            Assert.IsTrue(round.ResultShowing);
+            Assert.AreEqual(0.4, round.ResultDelaySeconds, 1e-9);
+        }
+
+        [Test]
+        public void A_Whistle_at_once_holds_2_5_seconds()
+        {
+            var round = InWindow();
+            round.SubmitShotAndWhistle(50, 90, 100, false);
             Assert.IsTrue(round.ResultShowing);
             round.Tick(2.4);
             Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
@@ -379,16 +437,97 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void DelayResult_does_nothing_outside_the_result_hold_and_does_not_carry_to_the_next_Shot()
+        public void A_Test_Shot_takes_its_result_at_the_Whistle_too()
         {
             var round = InWindow();
-            round.DelayResult(5);                      // shooting window: ignored
+            round.SubmitShot(50, 90, 100, true);
+            Assert.IsFalse(round.LastResult.HasValue);
+            round.Tick(0.5);
+            round.Whistle(ShotResultKind.Miss);
+            Assert.IsTrue(round.LastResult.Value.IsTestShot);
+            round.Tick(2.4);
+            Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
+            round.Tick(0.2);
+            Assert.AreEqual(RoundPhase.SkateIn, round.Phase);
+        }
+
+        [Test]
+        public void A_Whistle_with_no_Shot_waiting_changes_nothing()
+        {
+            var round = InWindow();
+            round.Whistle(ShotResultKind.Goal);        // shooting window: no Shot yet
+            Assert.IsFalse(round.LastResult.HasValue);
             round.SubmitShot(50, 90, 100, false);
+            round.Whistle(ShotResultKind.Save);
+            round.Whistle(ShotResultKind.Goal);        // too late to change it
+            Assert.AreEqual(ShotResultKind.Save, round.LastResult.Value.Kind);
+            Assert.AreEqual(1, round.Results.Count);
+            Assert.AreEqual(0, round.Goals);
+        }
+
+        [Test]
+        public void No_Shot_in_time_is_still_an_immediate_Miss_with_no_Whistle_to_wait_for()
+        {
+            var round = InWindow();
+            round.Tick(3.0);
+            Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
+            Assert.IsFalse(round.AwaitingWhistle);
             Assert.IsTrue(round.ResultShowing);
-            round.DelayResult(1);
-            round.Tick(1 + 2.5 + 3.7);                 // hold ends, next Shot's window opens
+            Assert.AreEqual(ShotResultKind.TooLate, round.LastResult.Value.Kind);
+            Assert.IsFalse(round.LastShot.HasValue);
+            round.Whistle(ShotResultKind.Goal);
+            Assert.AreEqual(ShotResultKind.TooLate, round.LastResult.Value.Kind);
+            round.Tick(2.4);
+            Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
+            round.Tick(0.2);
+            Assert.AreEqual(RoundPhase.SkateIn, round.Phase);
+        }
+
+        [Test]
+        public void The_Whistle_does_not_carry_to_the_next_Shot()
+        {
+            var round = InWindow();
+            round.SubmitShotAndWhistle(50, 90, 100, false);
+            round.Tick(2.5 + 3.7);                     // hold ends, next Shot's window opens
+            Assert.AreEqual(RoundPhase.ShootingWindow, round.Phase);
+            Assert.IsFalse(round.AwaitingWhistle);
+            Assert.IsFalse(round.LastShot.HasValue);
             round.SubmitShot(50, 90, 100, false);
-            Assert.IsTrue(round.ResultShowing);
+            Assert.IsFalse(round.ResultShowing);
+            Assert.AreEqual(1, round.Results.Count);
+        }
+
+        [Test]
+        public void A_Shot_still_runs_the_goalie_race_at_submit()
+        {
+            var round = InWindow();
+            round.SubmitShot(50, 90, 100, false);
+            Assert.IsTrue(round.LastRace.HasValue);
+        }
+
+        [Test]
+        public void A_Shot_off_the_Net_Face_has_no_race_and_waits_for_its_Whistle()
+        {
+            var round = InWindow();
+            round.SubmitShot(-10, 50, 100, false);
+            Assert.IsFalse(round.LastRace.HasValue);
+            Assert.IsFalse(round.LastResult.HasValue);
+            round.Whistle(ShotResultKind.Miss);
+            Assert.AreEqual(ShotResultKind.Miss, round.LastResult.Value.Kind);
+        }
+
+        [Test]
+        public void The_goalie_recovery_finishes_inside_the_hold()
+        {
+            var round = InWindow();
+            round.SubmitShot(50, 90, 100, false);
+            round.Tick(0.4);
+            round.Whistle(ShotResultKind.Goal);
+            Assert.Less(AfterShot.RecoveredBy, round.Settings.ResultHoldSeconds);
+            round.Tick(AfterShot.RecoveredBy);
+            Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
+            round.Tick(round.Settings.ResultHoldSeconds - AfterShot.RecoveredBy + 0.01);
+            Assert.AreEqual(RoundPhase.SkateIn, round.Phase);
         }
     }
 }

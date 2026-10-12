@@ -9,7 +9,7 @@ namespace HockeyGame
     /// (time from ShotFlight), spinning flat, then Goal (into the net, the netting bulges and the puck drops, red goal light), Save (on the goalie character's gear, or a goalie block slides
     /// to the spot; the puck deflects off the surface it hit, or the catching glove holds it), Miss (the puck flies on past the net, or
     /// deflects off a post or the crossbar) or Too Late (no puck). The deflection is PuckMotion (see #38).
-    /// Watches the Round and tells it how long the flight takes (Round.DelayResult). Uses real (unscaled) time. No colliders.
+    /// Watches the Round and sounds its Whistle when the flight ends (Round.Whistle). Uses real (unscaled) time. No colliders.
     /// </summary>
     public sealed class ShotEffects
     {
@@ -128,30 +128,36 @@ namespace HockeyGame
         }
 
         /// <summary>
-        /// Call once per frame with real seconds. Starts effects when the Round records a new Shot result, and
-        /// delays the Round's result by the puck flight so the hold runs its full length after the puck lands.
+        /// Call once per frame with real seconds. Starts effects when the Round is given a Shot (or a Too Late), and sounds the
+        /// Round's Whistle when the scripted puck lands, with today's result (ScriptedShot), so the hold runs its full length
+        /// after the puck lands.
         /// </summary>
         public void Update(Round round, float realSeconds)
         {
             PuckArrivedThisFrame = false;
-            bool isNew = _newResult.TakeNew(round);
+            bool newShot = _newResult.TakeNewShot(round);
+            bool newResult = _newResult.TakeNew(round);
             if (round.Phase != RoundPhase.ResultHold)
             {
                 if (_stage != Stage.None || _net.Moving || _glove.activeSelf) Clear();
                 return;
             }
+            bool isNew = newShot || (newResult && !round.LastResult.Value.HasShot); // a Whistle's result is not new: its Shot is playing
             if (isNew)
             {
                 if (round.LastRace.HasValue) _goalie?.StandFor(round.LastRace.Value); // he reacts from where the race measured him
-                Play(round.LastResult.Value, round.LastRace, round.Settings.LateMarginLimitSeconds);
-                if (_stage == Stage.Flying) round.DelayResult(_flightSeconds);
+                Play(newShot ? ScriptedShot.Result(round) : round.LastResult.Value, round.LastRace, round.Settings.LateMarginLimitSeconds);
                 // The puck starts where it is on the Shot frame, with the Round's result-hold clock at 0, whichever way the
                 // Shot came in (a USB Shot before this call, a Test Shot after it): its flight keeps time with the goalie's
                 // move, which runs on the same clock as the race timed it (Breakaway.GoalieSet, #63).
                 realSeconds = 0f;
             }
             Step(realSeconds);
+            if (PuckArrivedThisFrame && round.AwaitingWhistle) round.Whistle(_result.Kind); // the scripted flight's Whistle: today's result
         }
+
+        /// <summary>How long the scripted puck flies from the Shot to the net or the gear (seconds); set when the Shot starts it.</summary>
+        public float FlightSeconds => _flightSeconds;
 
         SoundCue _saveSound; // the save sound of the Shot's Save Reaction (Play)
 

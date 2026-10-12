@@ -99,7 +99,7 @@ namespace HockeyGame.Core.Tests
             var settings = Fixed();
             var reach = FakeReach.NeverReaches();
             var round = InWindow(reach, settings, AttackSide.Right, SetUp.LateSettle(Post.Left), windowSeconds);
-            round.SubmitShot(40, 60, 100, false);
+            round.SubmitShotAndWhistle(40, 60, 100, false);
 
             FakeReach.Ask ask = reach.Asks.Single();
             Assert.AreEqual(SetUp.LateSettle(Post.Left), ask.SetUp);
@@ -116,8 +116,8 @@ namespace HockeyGame.Core.Tests
             var settings = Fixed();
             var clean = InWindow(FakeReach.NeverReaches(), settings, AttackSide.Middle, SetUp.Clean, 1.0);
             var depth = InWindow(FakeReach.NeverReaches(), settings, AttackSide.Middle, SetUp.Depth, 1.0);
-            clean.SubmitShot(50, 50, 100, false);
-            depth.SubmitShot(50, 50, 100, false);
+            clean.SubmitShotAndWhistle(50, 50, 100, false);
+            depth.SubmitShotAndWhistle(50, 50, 100, false);
             Assert.AreEqual(-0.1, depth.LastRace.Value.Spot.Z, 1e-9);
             Assert.Greater(depth.LastRace.Value.FlightSeconds, clean.LastRace.Value.FlightSeconds);
         }

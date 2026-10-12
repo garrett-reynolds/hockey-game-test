@@ -255,7 +255,7 @@ namespace HockeyGame.Core.Tests
                 view.Face(0f, 0f);
                 view.SetProgress(0f);
                 round.SubmitShot(88, 82, 100, false);
-                Assert.AreEqual(ShotResultKind.Save, round.LastResult.Value.Kind);
+                Assert.AreEqual(ShotResultKind.Save, ScriptedShot.Result(round).Kind);
                 bool arrived = false;
                 float since = 0f, worst = 0f, gloveMoved = 0f;
                 Vector3 offset = Vector3.zero, gloveAt = Vector3.zero;
@@ -265,7 +265,7 @@ namespace HockeyGame.Core.Tests
                     round.Tick(Frame);
                     if (round.Phase != RoundPhase.ResultHold) break;
                     arrived |= effects.PuckArrivedThisFrame;
-                    view.SetProgress((float)Breakaway.GoalieSet(round.Phase, round.PhaseSecondsElapsed, true, round.ResultDelaySeconds, round.LastRace));
+                    view.SetProgress((float)Breakaway.GoalieSet(round.Phase, round.PhaseSecondsElapsed, true, effects.FlightSeconds, round.LastRace));
                     if (!arrived) continue;
                     since += Frame;
                     Assert.IsTrue(character.GearBounds(GearPiece.Catcher, out Bounds glove));

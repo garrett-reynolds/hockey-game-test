@@ -166,6 +166,7 @@ namespace HockeyGame.Editor
                     }
                     SetUp setUp = round.SetUp;
                     round.SubmitShot(x, y, speed, false);
+                    round.Whistle(ScriptedShot.Result(round).Kind); // no puck here: the Whistle with today's result
                     Count(tally, setUp, speed, round.LastResult.Value.Kind);
                     round.Tick(settings.ResultHoldSeconds);
                 }

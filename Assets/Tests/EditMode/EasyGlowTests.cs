@@ -118,7 +118,7 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(0, round.GapsNow().Count, "slowing down");
             round.Tick(Defaults.SlowDownSeconds);
             Assert.AreEqual(RoundPhase.ShootingWindow, round.Phase);
-            round.SubmitShot(50, 50, 100, false);
+            round.SubmitShotAndWhistle(50, 50, 100, false);
             Assert.AreEqual(0, round.GapsNow().Count, "after the Shot");
             Assert.IsEmpty(reach.GapAsks);
         }
@@ -134,7 +134,7 @@ namespace HockeyGame.Core.Tests
                 round.StartRound();
                 round.Tick(settings.SkateInSeconds + settings.SlowDownSeconds + 1.2);
                 if (askForGaps) for (int i = 0; i < 5; i++) round.GapsNow();
-                round.SubmitShot(70, 80, 120, false);
+                round.SubmitShotAndWhistle(70, 80, 120, false);
                 ShotRace race = round.LastRace.Value;
                 round.Tick(settings.ResultHoldSeconds + 0.001);
                 nextReaction = round.ReactionSeconds;
@@ -190,7 +190,7 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(0, reach.GapAsks[updates].firstCell, "the next sweep starts again from the bottom");
 
             Assert.AreEqual(0, glow.Update(false, round).Count, "Easy mode off");
-            round.SubmitShot(50, 80, 100, false);
+            round.SubmitShotAndWhistle(50, 80, 100, false);
             int asked = reach.GapAsks.Count;
             Assert.AreEqual(0, glow.Update(true, round).Count, "off at the Shot");
             Assert.AreEqual(asked, reach.GapAsks.Count, "nothing measured once the glow is off");
