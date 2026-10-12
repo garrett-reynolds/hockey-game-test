@@ -11,9 +11,9 @@
 #   players' benches. Outer box: the outline + 0.2 m, y 0 to the end glass top. The "Glass" part is made see-through by
 #   the game.
 #   arena.obj: a dark floor round the boards, two tiers of seats full of fans (crowd.png on the riser faces) all round the
-#   bowl, an LED ribbon board between the tiers ("Ribbon", made to glow by the game), a back wall and a roof at 24 m.
+#   bowl, an LED ribbon board between the tiers ("Ribbon", made to glow by the game), a back wall and a roof at ROOF_HEIGHT (30 m).
 #   Near centre ice the stands step back BENCH_DEPTH for the two empty players' benches (one side) and the two empty
-#   penalty boxes (the other). Outer box: the outline + 31.2 m all round, y 0 to 24.
+#   penalty boxes (the other). Outer box: the outline + 31.2 m all round, y 0 to ROOF_HEIGHT.
 # Everything here is made from scratch for Hockey Game Test (no outside source). CC0.
 import math, os, random, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # finds vector3.py even when run with -I
@@ -31,7 +31,7 @@ PANEL = 1.5                                 # glass panel width along straight b
 POST = 0.05                                 # stanchion width
 REACH = 31.0                                # arena outer box = boards outer box + REACH all round
 OUTER = T + REACH                           # outer wall's offset from the rink outline
-ROOF = 24.0
+ROOF = layout.ROOF_HEIGHT
 CROWD_TILE = 8.0                            # metres of seats per crowd.png repeat
 
 CX = HW - R                                 # corner centres at (+-CX, EZ - R) and (+-CX, NZ + R)

@@ -236,16 +236,25 @@ namespace HockeyGame.Core
             new IceLogoSpot(IceLogoKind.NeutralZoneRound, EndZoneDotX, Mirror(NearNeutralDotZ - 2.4), 2.0, 2.0),
         };
 
-        // ---------- Video Board and Centre Board ----------
-        /// <summary>The Video Board's middle: hung from the roof behind the near net. About 11 x 6 m.</summary>
-        public static readonly RinkPoint VideoBoard = new RinkPoint(0, 14.5, 22.0);
+        // ---------- Video Board, Centre Board and roof ----------
+        /// <summary>
+        /// The Video Board's middle: hung from the roof behind the near net, 11 x 6 m, tilted toward the player. The spec's
+        /// estimate (14.5 m up, 22 m behind the Net Face) shows its bottom edge in the top of the view early in the shooting
+        /// window, so it hangs higher and nearer: on screen in the skate-in, off the top of the view from goalie set to the Shot
+        /// at every Attack Side (VideoBoardsTests checks it from the player's eye). Its top stays under the light banks (20 m).
+        /// </summary>
+        public static readonly RinkPoint VideoBoard = new RinkPoint(0, 16.0, 16.0);
         public const double VideoBoardWidth = 11.0, VideoBoardHeight = 6.0;
         /// <summary>How far the Video Board leans forward: it faces the shooter's eye at the start of the skate-in.</summary>
         public static readonly double VideoBoardTiltDegrees =
-            Math.Atan2(14.5 - Breakaway.EyeHeight, 22.0 + Breakaway.StartDistance) * 180 / Math.PI;
+            Math.Atan2(VideoBoard.Y - Breakaway.EyeHeight, VideoBoard.Z + Breakaway.StartDistance) * 180 / Math.PI;
 
         /// <summary>The Centre Board's middle (over centre ice): four screens about 11 x 6.5 m, bottom about 20 m up.</summary>
         public const double CentreBoardScreenWidth = 11.0, CentreBoardScreenHeight = 6.5, CentreBoardBottom = 20.0;
         public static readonly RinkPoint CentreBoard = new RinkPoint(0, CentreBoardBottom + CentreBoardScreenHeight / 2, CentreLineZ);
+        public const double CentreBoardTop = CentreBoardBottom + CentreBoardScreenHeight;
+
+        /// <summary>The roof's height above the ice: high enough that the Centre Board hangs under it with room (NHL arenas are well over 30 m inside).</summary>
+        public const double RoofHeight = 30.0;
     }
 }

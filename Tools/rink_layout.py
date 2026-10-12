@@ -19,6 +19,9 @@ KICK_PLATE_TOP = 0.20
 END_GLASS_TOP = 3.51
 SIDE_GLASS_TOP = 2.90
 
+# The arena's roof (metres above the ice): the Centre Board hangs under it.
+ROOF_HEIGHT = 30.0
+
 # The ice sheet: a square centred on the centre line.
 ICE_SIZE = 64.4
 ICE_CENTRE_Z = -27.13

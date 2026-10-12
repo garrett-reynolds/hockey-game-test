@@ -1,4 +1,5 @@
 using System;
+using HockeyGame.Core;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -15,8 +16,8 @@ namespace HockeyGame
     {
         /// <summary>How far the arena reaches past the boards' outer box on every side (metres).</summary>
         public const float Reach = 31f;
-        /// <summary>Height of the roof above the ice (metres).</summary>
-        public const float RoofHeight = 24f;
+        /// <summary>Height of the roof above the ice (metres), from the Rink Layout.</summary>
+        public const float RoofHeight = (float)RinkLayout.RoofHeight;
         /// <summary>Name of the glowing LED ribbon board part in the arena model.</summary>
         public const string GlowPart = "Ribbon";
         /// <summary>How much of its own colour each non-glowing part shows: the stands sit in the dark, the ice is lit.</summary>

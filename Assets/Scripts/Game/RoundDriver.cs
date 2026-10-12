@@ -19,8 +19,6 @@ namespace HockeyGame
             public double Next() { return _random.NextDouble(); }
         }
 
-        const string GameName = "HOCKEY GAME";
-
         ScreenFlow _flow;
         Round _round; // the flow's one Round; each start reuses it
         SaveData _save;
@@ -32,6 +30,7 @@ namespace HockeyGame
         RoundSound _sound; // reads tick on/off, master volume and mute from _save each frame
         Camera _camera;
         RibbonBoards _ribbons; // follow the Arena Show
+        VideoBoards _boards;   // follow the Arena Show
         Plane _netFacePlane;
         bool _testShotsOn;
         int _testShotSpeedKmh = TestShotSpeed.DefaultKmh;
@@ -48,6 +47,7 @@ namespace HockeyGame
             _save = SaveStore.Current;
             Transform rink = GameObject.Find("Rink").transform;
             _ribbons = rink.GetComponentInChildren<RibbonBoards>();
+            _boards = rink.GetComponentInChildren<VideoBoards>();
             GoalieCharacter character = _save.ForceGoalieBlocks ? null : new GoalieCharacter(rink);
             _goalie = new GoalieView(rink, character);
             _effects = new ShotEffects(rink, _camera, null, _goalie);
@@ -83,7 +83,9 @@ namespace HockeyGame
             _goalie.ShowGaps(_easyGlow.Update(_save.EasyMode, _round));
             _effects.Update(_round, Time.unscaledDeltaTime);
             _sound.Update(_round, _effects.PuckArrivedThisFrame, Time.unscaledDeltaTime, _effects.ContactSound);
-            _ribbons.Show(ArenaShow.From(_flow), Time.unscaledTimeAsDouble); // the arena follows the Arena Show
+            ArenaState arena = ArenaShow.From(_flow); // the arena follows the Arena Show
+            _ribbons.Show(arena, Time.unscaledTimeAsDouble);
+            _boards.Show(arena, Time.unscaledTimeAsDouble);
 
             bool playing = _flow.Screen == FlowScreen.Playing;
             bool pressed = false; // key or click outside a Round: at most one Press per frame
@@ -192,7 +194,7 @@ namespace HockeyGame
             switch (_flow.Screen)
             {
                 case FlowScreen.Start:
-                    GUI.Label(new Rect(0, h * 0.2f, w, 60), GameName, _big);
+                    GUI.Label(new Rect(0, h * 0.2f, w, 60), ArenaShow.GameName, _big);
                     GUI.Label(new Rect(0, h * 0.2f + 70, w, 40), "Best score: " + _save.BestScore + " / " + Round.ShotsPerRound, _mid);
                     GUI.Label(new Rect(0, h * 0.2f + 120, w, 40), "Shoot or press any key", _mid);
                     GUI.Label(new Rect(0, h * 0.2f + 170, w, 40), _usb.StatusText, _mid);
