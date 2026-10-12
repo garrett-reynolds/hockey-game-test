@@ -30,7 +30,7 @@ namespace HockeyGame.Core.Tests
             if (shoot)
             {
                 round.SubmitShot(x, y, 100, false);
-                round.Tick(2.5);
+                round.Tick(round.ResultHoldLength); // 4.5 s with a Replay, 2.5 s without
             }
             else
             {
@@ -252,7 +252,7 @@ namespace HockeyGame.Core.Tests
             round.Tick(3.7);
             round.SubmitShot(50, 50, 100, false);
             Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
-            round.Tick(2.49);
+            round.Tick(round.ResultHoldLength - 0.01);
             Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
             round.Tick(0.02);
             Assert.AreEqual(RoundPhase.RoundOver, round.Phase);
@@ -342,12 +342,12 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void A_delayed_result_holds_for_the_delay_plus_the_normal_hold()
+        public void A_delayed_result_holds_for_the_delay_plus_its_hold()
         {
             var round = InWindow();
-            round.SubmitShot(50, 90, 10, false);
+            round.SubmitShot(50, 90, 10, false);       // a Goal: 4.5 s with its Replay
             round.DelayResult(2.9);                    // the puck flies for 2.9 s
-            round.Tick(2.9 + 2.4);
+            round.Tick(2.9 + 4.4);
             Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
             round.Tick(0.2);
             Assert.AreEqual(RoundPhase.SkateIn, round.Phase);
@@ -370,7 +370,7 @@ namespace HockeyGame.Core.Tests
         public void A_result_with_no_delay_shows_at_once_and_holds_2_5_seconds()
         {
             var round = InWindow();
-            round.SubmitShot(50, 90, 100, false);
+            round.SubmitShot(150, 50, 100, false);     // a Wide Miss: no Replay
             Assert.IsTrue(round.ResultShowing);
             round.Tick(2.4);
             Assert.AreEqual(RoundPhase.ResultHold, round.Phase);

@@ -206,6 +206,10 @@ namespace HockeyGame.Core
         public VideoBoardWords VideoBoardWords { get; }
         public GoalShowLights GoalShow { get; }
         public CameraMode Camera { get; }
+        /// <summary>How far the shooter's camera has turned up to the Video Board: 0 on the net, 1 on the board (the Replay).</summary>
+        public double CameraLookUp { get; }
+        /// <summary>Seconds into the Replay (0..ReplayTiming.ShowSeconds) while Camera is Replay; 0 otherwise.</summary>
+        public double ReplaySeconds { get; }
         public bool Chant { get; }
         /// <summary>The Calm Area rules (still, soft and dim behind the near net): on from goalie set to the Shot.</summary>
         public bool CalmAreaRules { get; }
@@ -215,8 +219,8 @@ namespace HockeyGame.Core
         private readonly CrowdState _calmCrowd, _nearCrowd, _farCrowd;
 
         public ArenaState(VideoBoardContent videoBoard, VideoBoardWords videoBoardWords, RibbonBoard ribbon, RibbonBoard calmRibbon, CrowdState calmCrowd,
-                          CrowdState nearCrowd, CrowdState farCrowd, GoalShowLights goalShow, CameraMode camera, bool chant,
-                          bool calmAreaRules, ScoreBox scoreBox)
+                          CrowdState nearCrowd, CrowdState farCrowd, GoalShowLights goalShow, CameraMode camera, double cameraLookUp,
+                          double replaySeconds, bool chant, bool calmAreaRules, ScoreBox scoreBox)
         {
             VideoBoard = videoBoard;
             VideoBoardWords = videoBoardWords;
@@ -227,6 +231,8 @@ namespace HockeyGame.Core
             _farCrowd = farCrowd;
             GoalShow = goalShow;
             Camera = camera;
+            CameraLookUp = cameraLookUp;
+            ReplaySeconds = replaySeconds;
             Chant = chant;
             CalmAreaRules = calmAreaRules;
             ScoreBox = scoreBox;
@@ -243,8 +249,8 @@ namespace HockeyGame.Core
     /// answers what each arena part does: the Video Board, the Ribbon Boards, the crowd in each zone, the Goal Show lights,
     /// the camera, the chant, the Calm Area rules and the Score Box. Like RoundSoundCues it holds no rules of the Round.
     /// The goalie is set when the shooting window opens (EasyGlow): the Calm Area rules hold for the whole window, so a Late
-    /// Settle keeps them a little early. The Replay timing (camera look up and back) waits for the Replay ticket (#91): the
-    /// camera stays on the net.
+    /// Settle keeps them a little early. After a Goal, a Save or a Frame Hit the camera stays on the net, looks up at the
+    /// Video Board, which plays the Replay, and looks back down (ReplayTiming); after a Wide Miss or Too late it stays on the net.
     /// </summary>
     public static class ArenaShow
     {
@@ -326,7 +332,11 @@ namespace HockeyGame.Core
             CrowdState near = CrowdFor(input.Phase, result);
             bool chant = input.Phase == RoundPhase.Idle || input.Phase == RoundPhase.RoundOver;
             int goalsShown = input.Goals - (goalInFlight ? 1 : 0);
-            VideoBoardContent board = VideoBoardFor(input.Phase, result, input.IsNewBest);
+            // The Replay's part of the hold counts from when the puck lands, like the Goal Show.
+            bool replayHold = ReplayTiming.Follows(result);
+            double landed = input.PhaseSeconds - input.ResultDelaySeconds;
+            CameraMode camera = replayHold ? ReplayTiming.CameraAt(landed) : CameraMode.OnNet;
+            VideoBoardContent board = camera == CameraMode.Replay ? VideoBoardContent.Replay : VideoBoardFor(input.Phase, result, input.IsNewBest);
 
             return new ArenaState(
                 board,
@@ -337,7 +347,9 @@ namespace HockeyGame.Core
                 near,
                 result == ArenaResult.Save || result == ArenaResult.FrameHitPost || result == ArenaResult.FrameHitBar ? CrowdState.Sit : near,
                 LightsFor(input.Phase, result, input.IsNewBest, input.PhaseSeconds, input.ResultDelaySeconds),
-                CameraMode.OnNet,
+                camera,
+                replayHold ? ReplayTiming.LookUpAt(landed) : 0,
+                camera == CameraMode.Replay ? ReplayTiming.ShowSecondsAt(landed) : 0,
                 chant,
                 calm,
                 new ScoreBox(input.Phase != RoundPhase.Idle, ScoreText(goalsShown, input.ShotNumber)));
@@ -377,7 +389,7 @@ namespace HockeyGame.Core
             {
                 case VideoBoardContent.StartCard: return new VideoBoardWords(GameName, "BEST SCORE " + best + "\nSHOOT TO PLAY");
                 case VideoBoardContent.Goal: return new VideoBoardWords("GOAL!", score);
-                case VideoBoardContent.Replay: return new VideoBoardWords("REPLAY", score); // the Replay picture comes with #91
+                case VideoBoardContent.Replay: return new VideoBoardWords("REPLAY", score); // the Replay picture covers it while the Replay plays
                 case VideoBoardContent.Final: return new VideoBoardWords("FINAL SCORE", goalsOf + "\nBEST " + best);
                 case VideoBoardContent.NewBest: return new VideoBoardWords("NEW BEST!", goalsOf);
                 case VideoBoardContent.AdSlide: return new VideoBoardWords("", "");

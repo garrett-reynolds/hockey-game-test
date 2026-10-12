@@ -32,6 +32,7 @@ namespace HockeyGame
         RinkPoint _puckOnStick;  // the puck his head follows before the Shot (#70)
         float _lastTarget;       // the facing that squares him up to the puck, as last worked out
         float _life;       // the goalie's Stance Life clock: real seconds, never reset, so it never jumps
+        float _lookUp;     // how far the camera turns up to the Video Board for the Replay (the Arena Show's), 0..1
 
         public void Init(Round round, Camera shooterCamera, GoalieView goalie)
         {
@@ -44,6 +45,9 @@ namespace HockeyGame
             _steps = new SkateInShuffles(_shuffle.Shown);
             _goalie.Stand(ToVector(_shuffle.Shown));
         }
+
+        /// <summary>How far the camera turns up to the Video Board this frame (ArenaState.CameraLookUp): 0 on the net, 1 on the board.</summary>
+        public void LookUp(double amount) => _lookUp = (float)amount;
 
         void LateUpdate()
         {
@@ -107,6 +111,7 @@ namespace HockeyGame
             double u = phase == RoundPhase.SkateIn ? Breakaway.SkateProgress(phaseSeconds, _round.Settings) : 1.0;
             Breakaway.SkatePoint(side, u, out double x, out double distance);
             PlaceCamera((float)x, (float)distance);
+            LookUpTo(_camera.transform, ReplayLookTarget, _lookUp); // the Replay: up at the Video Board and back
 
             // The goalie plays the angle (SetUps.Approach): he shuffles across on the line from the puck to the net centre through
             // the skate-in, settles into his Set-up through the slow-down, and stands on his Set-up spot through the window. He
@@ -164,6 +169,20 @@ namespace HockeyGame
             camera.LookAt(NetCentre);
             float rollDegrees = (float)Breakaway.Roll(gameSeconds) * Mathf.Rad2Deg;
             camera.Rotate(0f, 0f, rollDegrees, Space.Self);
+        }
+
+        /// <summary>
+        /// Where the camera looks for the Replay: 7 m above the Video Board's centre, so the whole board shows with the
+        /// net and the goalie (who plays the Replay back) kept below the view from every Attack Side.
+        /// </summary>
+        public static readonly Vector3 ReplayLookTarget =
+            new Vector3((float)RinkLayout.VideoBoard.X, (float)RinkLayout.VideoBoard.Y + 7f, (float)RinkLayout.VideoBoard.Z);
+
+        /// <summary>Turns the camera from where it looks (the net) toward target (the Video Board's centre) by amount (0..1).</summary>
+        public static void LookUpTo(Transform camera, Vector3 target, float amount)
+        {
+            if (amount <= 0f) return;
+            camera.rotation = Quaternion.Slerp(camera.rotation, Quaternion.LookRotation(target - camera.position), Mathf.Clamp01(amount));
         }
 
         /// <summary>The slow-down's grey, high-contrast, vignetted look: a global Volume under parent, weight 0 (off). The picture test uses it too.</summary>

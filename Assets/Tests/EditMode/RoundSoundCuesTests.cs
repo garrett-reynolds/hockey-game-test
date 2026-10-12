@@ -280,7 +280,7 @@ namespace HockeyGame.Core.Tests
             {
                 heard.AddRange(Run(round, cues, 3.8));
                 round.SubmitShot(i < goals ? 50 : 150, 90, 100, false);
-                heard.AddRange(Run(round, cues, 2.6, puckArrived: true));
+                heard.AddRange(Run(round, cues, round.ResultHoldLength + 0.1, puckArrived: true));
             }
             return heard;
         }
