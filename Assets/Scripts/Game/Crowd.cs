@@ -45,6 +45,8 @@ namespace HockeyGame
             public Vector4 Skin;  // rgb (linear), zone
             public Vector4 Hair;  // rgb (linear; or the cap), height
             public Vector4 Look;  // body shape, hair style, waves (1) or not (0), 0
+            public Vector4 Pants; // rgb (linear), 0
+            public Vector4 Shoes; // rgb (linear), 0
         }
 
         /// <summary>A slice of the fan buffer drawn in one call: one body at one level, one part of the bowl.</summary>
@@ -61,7 +63,6 @@ namespace HockeyGame
             ZoneLightId = Shader.PropertyToID("_ZoneLight"), ZoneContrastId = Shader.PropertyToID("_ZoneContrast"),
             FlatToneId = Shader.PropertyToID("_FlatTone"), CrowdToWorldId = Shader.PropertyToID("_CrowdToWorld"),
             FanStartId = Shader.PropertyToID("_FanStart"), OhSpreadId = Shader.PropertyToID("_OhSpread"),
-            PantsId = Shader.PropertyToID("_Pants"), ShoesId = Shader.PropertyToID("_Shoes"),
             CardsId = Shader.PropertyToID("_Cards"), CardSizeId = Shader.PropertyToID("_CardSize"),
             CardSeatedTopId = Shader.PropertyToID("_CardSeatedTop");
 
@@ -205,7 +206,9 @@ namespace HockeyGame
                     Shirt = Linear(l.Shirt, (float)l.Phase),
                     Skin = Linear(l.Skin, (int)s.Zone),
                     Hair = Linear(l.Hair, (float)l.Height),
-                    Look = new Vector4(type.Shape, l.HairStyle, l.Waves ? 1 : 0, 0)
+                    Look = new Vector4(type.Shape, l.HairStyle, l.Waves ? 1 : 0, 0),
+                    Pants = Linear(l.Pants, 0),
+                    Shoes = Linear(l.Shoes, 0)
                 };
                 int key = SliceKey(s, l);
                 if (key != lastKey)
@@ -241,8 +244,6 @@ namespace HockeyGame
         {
             m.SetVectorArray(ClipInfoId, clipInfo);
             m.SetFloat(OhSpreadId, (float)CrowdMotion.OhSpreadSeconds);
-            m.SetColor(PantsId, ((Color)RibbonBoards.ColourOf(CrowdLooks.Pants)).linear);
-            m.SetColor(ShoesId, ((Color)RibbonBoards.ColourOf(CrowdLooks.Shoes)).linear);
             m.SetColor(FlatToneId, ((Color)RibbonBoards.ColourOf(CrowdLooks.FlatTone)).linear);
             return m;
         }

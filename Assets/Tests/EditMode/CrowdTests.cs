@@ -160,24 +160,32 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void Fans_get_a_random_phase_and_about_four_in_ten_wear_the_home_jersey()
+        public void Fans_get_a_random_phase_and_about_a_third_wear_the_home_jersey()
         {
             Assert.That(Looks.All(l => l.Phase >= 0 && l.Phase < 1));
             Assert.That(Looks.Select(l => Math.Round(l.Phase, 2)).Distinct().Count(), Is.GreaterThan(90));
             double home = Looks.Count(l => l.Shirt.Equals(HomeJersey)) / (double)Looks.Length;
             Assert.That(home, Is.EqualTo(CrowdLooks.HomeShare).Within(0.03));
-            Assert.That(CrowdLooks.HomeShare, Is.EqualTo(0.4));
+            Assert.That(CrowdLooks.HomeShare, Is.InRange(0.3, 0.35));
         }
 
         [Test]
-        public void The_rest_wear_dark_plain_clothes_darker_than_the_home_jersey()
+        public void The_rest_wear_plain_shirts_in_many_colours_light_and_dark()
         {
-            foreach (FanLook look in Looks.Where(l => !l.Shirt.Equals(HomeJersey)))
-            {
-                Assert.That(CrowdLooks.DarkPlain, Does.Contain(look.Shirt));
-                ArenaColour home = HomeJersey;
-                Assert.That(look.Shirt.R + look.Shirt.G + look.Shirt.B, Is.LessThan(home.R + home.G + home.B));
-            }
+            var others = Looks.Where(l => !l.Shirt.Equals(HomeJersey)).ToList();
+            foreach (FanLook look in others) Assert.That(CrowdLooks.Shirts, Does.Contain(look.Shirt));
+            Assert.That(others.Select(l => l.Shirt).Distinct().Count(), Is.GreaterThanOrEqualTo(15), "shirt colours");
+            Assert.That(others.Count(l => l.Shirt.R + l.Shirt.G + l.Shirt.B > 450), Is.GreaterThan(others.Count / 10), "light shirts");
+            Assert.That(others.Count(l => l.Shirt.R + l.Shirt.G + l.Shirt.B < 200), Is.GreaterThan(others.Count / 10), "dark shirts");
+        }
+
+        [Test]
+        public void Fans_wear_many_pants_and_shoes()
+        {
+            Assert.That(Looks.All(l => CrowdLooks.Pants.Contains(l.Pants) && CrowdLooks.Shoes.Contains(l.Shoes)));
+            Assert.That(Looks.Select(l => l.Pants).Distinct().Count(), Is.GreaterThanOrEqualTo(6), "pants colours");
+            Assert.That(Looks.Select(l => l.Shoes).Distinct().Count(), Is.GreaterThanOrEqualTo(4), "shoe colours");
+            Assert.That(Looks.Select(l => l.Hair).Distinct().Count(), Is.GreaterThanOrEqualTo(12), "hair and cap colours");
         }
 
         [Test]
@@ -191,19 +199,24 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void No_crowd_colour_is_a_reserved_colour()
         {
-            var colours = new List<ArenaColour> { CrowdLooks.Pants, CrowdLooks.Shoes };
+            var colours = new List<ArenaColour>();
             // Every Team Skin's home jersey (and home caps): the near fans wear them in the Calm Area.
             TeamSkin[] skins = UnityEngine.Resources.LoadAll<TeamSkin>(TeamSkin.Folder);
             Assert.That(skins, Is.Not.Empty);
             foreach (TeamSkin skin in skins) colours.AddRange(CrowdLooks.Caps(skin.HomeJerseyColour));
-            colours.AddRange(CrowdLooks.DarkPlain);
+            colours.AddRange(CrowdLooks.Shirts);
+            colours.AddRange(CrowdLooks.Pants);
+            colours.AddRange(CrowdLooks.Shoes);
             colours.AddRange(CrowdLooks.Skins);
             colours.AddRange(CrowdLooks.Hairs);
             colours.AddRange(Looks.Select(l => l.Hair).Distinct());
             colours.Add(CrowdLooks.FlatTone);
             foreach (ArenaColour c in colours)
+            {
+                Assert.That(ReservedColours.IsSafe(c), c + " is not safe");
                 foreach (ArenaColour r in ReservedColours.All)
                     Assert.That(ReservedColours.Distance(c, r), Is.GreaterThanOrEqualTo(ReservedColours.MinDistance), c + " near " + r);
+            }
         }
 
         [Test]

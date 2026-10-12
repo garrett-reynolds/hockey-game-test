@@ -19,6 +19,8 @@ struct Fan
     float4 skin;  // rgb, w zone
     float4 hair;  // rgb (hair or cap), w height
     float4 look;  // x body shape, y hair style, z waves (1) or not (0)
+    float4 pants; // rgb
+    float4 shoes; // rgb
 };
 StructuredBuffer<Fan> _Fans;
 float _FanStart;          // this draw's first fan in _Fans
@@ -29,7 +31,6 @@ float4 _ZoneLight;        // per ArenaZone: brightness (1 = as lit)
 float4 _ZoneContrast;     // per ArenaZone: how much of the fans' own colour and shading shows (1 = all)
 float4 _FlatTone;         // what low-contrast fans go toward
 float _Light, _OhSpread;
-float4 _Pants, _Shoes;
 
 Fan FanOf(uint svInstanceID)
 {
@@ -67,8 +68,8 @@ float3 FanColour(Fan f, uint region, uint zone)
 {
     uint style = (uint)(f.look.y + 0.5);
     float3 scalp = style == HAIR_BALD ? f.skin.rgb : f.hair.rgb;
-    float3 colour = region == 0 ? f.skin.rgb : region == 1 ? f.shirt.rgb : region == 2 ? _Pants.rgb
-                  : region == 3 ? _Shoes.rgb : scalp;
+    float3 colour = region == 0 ? f.skin.rgb : region == 1 ? f.shirt.rgb : region == 2 ? f.pants.rgb
+                  : region == 3 ? f.shoes.rgb : scalp;
     return FanTone(colour, zone);
 }
 
