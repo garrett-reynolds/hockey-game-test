@@ -57,14 +57,16 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(ModelFiles.Boards, asked);
 
             Bounds b = WorldBounds(boards);
-            // NHL rink: 85 ft wide, end boards 11 ft behind the goal line (the Net Face plane), boards 0.2 m thick.
-            Assert.AreEqual(-13.15f, b.min.x, 0.01f);
-            Assert.AreEqual(13.15f, b.max.x, 0.01f);
+            // NHL rink: 200 x 85 ft, end boards 11 ft behind each goal line (the near one is the Net Face plane), boards 0.2 m thick.
+            Assert.AreEqual(-13.155f, b.min.x, 0.01f);
+            Assert.AreEqual(13.155f, b.max.x, 0.01f);
             Assert.AreEqual(3.55f, b.max.z, 0.01f, "end boards 3.35 m behind the Net Face");
+            Assert.AreEqual(-57.81f, b.min.z, 0.01f, "far end boards 3.35 m behind the far goal line");
             Assert.AreEqual(0f, b.min.y, 0.01f, "standing on the ice");
             Assert.AreEqual(RinkBoards.GlassTop, b.max.y, 0.01f);
-            Assert.That(b.min.z, Is.LessThan(-22.5f), "the rink runs on behind the furthest skate-in start");
-            Assert.That(b.min.z, Is.GreaterThanOrEqualTo(-RinkIce.Size / 2f), "the rink stays on the ice sheet");
+            Assert.AreEqual(3.51f, RinkBoards.GlassTop, 0.01f, "8 ft of glass on 42 in boards at the ends");
+            Assert.That(b.min.z, Is.GreaterThanOrEqualTo(RinkIce.CentreZ - RinkIce.Size / 2f), "the rink stays on the ice sheet");
+            Assert.That(b.max.z, Is.LessThanOrEqualTo(RinkIce.CentreZ + RinkIce.Size / 2f), "the rink stays on the ice sheet");
         }
 
         [Test]

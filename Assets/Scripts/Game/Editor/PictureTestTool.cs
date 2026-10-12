@@ -46,8 +46,8 @@ namespace HockeyGame.Editor
         /// <summary>The goalie's Stance Life clock in every view, fixed.</summary>
         public const float LifeSeconds = 2f;
 
-        public const float CalmAreaHalfWidth = 4.27f; // half the back of the trapezoid (8.53 m)
-        public const float CalmAreaFrontZ = -1.9f;    // the crease front
+        public const float CalmAreaHalfWidth = (float)RinkLayout.CalmAreaHalfWidth; // half the back of the trapezoid (8.53 m)
+        public const float CalmAreaFrontZ = (float)RinkLayout.CalmAreaFrontZ;       // the crease front
         const float CalmAreaMaxClimb = 200f;          // metres: how far up the top of the view is looked for
 
         public const string BaselineFolder = "PictureTest/Baseline";

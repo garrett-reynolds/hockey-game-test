@@ -122,6 +122,47 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void The_ice_shows_the_full_rink_and_the_far_end_mirrors_the_near_end()
+        {
+            GameObject ice = RinkIce.Build(_rink.transform);
+            float far = (float)RinkLayout.FarGoalLineZ, centre = (float)RinkLayout.CentreLineZ;
+
+            Assert.IsTrue(IsRed(IceColourAt(ice, 5f, far)), "far goal line");
+            Assert.IsTrue(IsCreaseBlue(IceColourAt(ice, 0f, far + 0.9f)), "far crease, in front of the far net");
+            Assert.IsTrue(IsIce(IceColourAt(ice, 0f, far - 0.5f)), "no crease behind the far goal line");
+            Assert.IsTrue(IsBlueLine(IceColourAt(ice, 0f, (float)RinkLayout.FarBlueLineZ)), "far blue line");
+            Assert.IsTrue(IsRed(IceColourAt(ice, 2f, centre)), "centre red line");
+            Assert.IsTrue(IsBlueLine(IceColourAt(ice, 0f, centre + 4.57f)), "the centre circle is blue");
+            Assert.IsTrue(IsIce(IceColourAt(ice, 0f, centre + 3f)), "plain ice inside the centre circle");
+
+            // The trapezoid behind each net: 6.71 m wide at the goal line, 8.53 m at the end boards.
+            float TrapezoidX(float behind) => (float)(RinkLayout.TrapezoidGoalLineWidth / 2 +
+                (RinkLayout.TrapezoidEndBoardsWidth - RinkLayout.TrapezoidGoalLineWidth) / 2 * behind / RinkLayout.GoalLineFromEnd);
+            foreach (float goal in new[] { 0f, far })
+            {
+                float back = goal == 0f ? 1f : -1f; // toward this end's boards
+                Assert.IsTrue(IsRed(IceColourAt(ice, TrapezoidX(0.1f), goal + back * 0.1f)), "trapezoid line by the goal line");
+                Assert.IsTrue(IsRed(IceColourAt(ice, -TrapezoidX(3.3f), goal + back * 3.3f)), "trapezoid line by the end boards");
+                Assert.IsTrue(IsIce(IceColourAt(ice, TrapezoidX(0.1f) + 0.3f, goal + back * 0.1f)), "outside the trapezoid");
+            }
+            // End-zone faceoff circles at both ends.
+            foreach (float spot in new[] { (float)RinkLayout.NearEndZoneDotZ, (float)RinkLayout.Mirror(RinkLayout.NearEndZoneDotZ) })
+                Assert.IsTrue(IsRed(IceColourAt(ice, 6.71f, spot)), "end-zone spot");
+        }
+
+        [Test]
+        public void The_ice_sheet_is_centred_on_the_centre_line_and_runs_past_both_end_boards()
+        {
+            foreach (GameObject ice in new[] { RinkIce.Build(_rink.transform), RinkIce.Build(_rink.transform, name => null) })
+            {
+                Bounds b = WorldBounds(ice);
+                Assert.AreEqual((float)RinkLayout.CentreLineZ, b.center.z, 0.01f, ice.name);
+                Assert.That(b.min.z, Is.LessThan((float)RinkLayout.FarEndBoardsZ - 0.2f), "past the far end boards");
+                Assert.That(b.max.z, Is.GreaterThan((float)RinkLayout.NearEndBoardsZ + 0.2f), "past the near end boards");
+            }
+        }
+
+        [Test]
         public void The_ice_is_URP_Lit_with_a_full_size_mipmapped_markings_texture()
         {
             GameObject ice = RinkIce.Build(_rink.transform);

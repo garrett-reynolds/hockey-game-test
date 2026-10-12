@@ -5,8 +5,9 @@ using UnityEngine.Rendering;
 namespace HockeyGame
 {
     /// <summary>
-    /// The arena round the boards: stands full of fans, an LED ribbon board and a roof, from the arena model
-    /// (Assets/Resources/Models/arena.obj) when there is one, so the shooter never sees the edge of the world.
+    /// The arena round the whole rink: stands full of fans, the empty benches and penalty boxes, an LED ribbon board and a
+    /// roof, from the arena model (Assets/Resources/Models/arena.obj) when there is one, so the shooter never sees the edge
+    /// of the world.
     /// With no model the dark backdrop stays as it was. The arena casts no shadows (its roof would shade the ice), and
     /// the model's part named "Ribbon" glows in its own colour. The other parts are dimmed, so the lit ice pops.
     /// </summary>

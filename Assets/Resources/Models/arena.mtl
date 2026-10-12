@@ -16,6 +16,10 @@ newmtl Ribbon
 Kd 0.0212 0.1559 0.7913
 Ks 0.1 0.1 0.1
 Ns 20
+newmtl Bench
+Kd 0.0343 0.0395 0.0545
+Ks 0.1 0.1 0.1
+Ns 20
 newmtl Concrete
 Kd 0.0194 0.0212 0.0273
 Ks 0.1 0.1 0.1

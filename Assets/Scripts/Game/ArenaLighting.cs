@@ -1,3 +1,5 @@
+using System.Linq;
+using HockeyGame.Core;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -122,7 +124,9 @@ namespace HockeyGame
             banks.SetParent(rink, false);
             Material glow = Glow(new Color(0.2f, 0.2f, 0.2f), ArenaWhite * BankGlow);
             // A rig over the whole bowl, not just the ice: from the shooter's eye, the far banks are what the ice mirrors.
-            foreach (float z in new[] { -26f, -18f, -10f, -2f, 6f, 14f, 22f })
+            // The near half's rows, and their mirror over the far half of the full rink.
+            float[] near = { -26f, -18f, -10f, -2f, 6f, 14f, 22f };
+            foreach (float z in near.Concat(near.Select(z => (float)RinkLayout.Mirror(z))))
                 foreach (float x in new[] { -12f, -4f, 4f, 12f })
                 {
                     GameObject bank = RinkBuilder.Cube(banks, LightBank, new Vector3(x, BankHeight, z), new Vector3(5f, 0.3f, 1.4f), Color.white);
@@ -134,11 +138,17 @@ namespace HockeyGame
         }
 
         /// <summary>
-        /// What glossy surfaces (the ice, the glass) reflect: a cubemap of the arena seen from the middle of the rink at eye
+        /// What glossy surfaces (the ice, the glass) reflect: a cubemap of the arena seen from over the skate-in (ReflectionEyeZ) at eye
         /// height, rendered once, here, by a temporary camera, and used as the scene's reflection. It holds the stands,
         /// light banks, boards and net but not the goalie or puck (they move). Rendered in code, so it needs neither baked
         /// lighting nor Realtime Reflection Probes on in the Quality settings.
         /// </summary>
+        /// <summary>
+        /// Where along the rink the reflection cubemap is seen from: over the skate-in, the middle of the half rink the
+        /// shooter sees (the cubemap was taken here before the rink grew to full length, so the Calm Area keeps its look).
+        /// </summary>
+        public const float ReflectionEyeZ = -13.125f;
+
         static void AddReflections(Transform rink)
         {
             var cube = new RenderTexture(128, 128, 24, RenderTextureFormat.ARGBHalf)
@@ -150,7 +160,7 @@ namespace HockeyGame
             };
             var camera = new GameObject("Reflection Camera").AddComponent<Camera>();
             camera.transform.SetParent(rink, false);
-            camera.transform.position = new Vector3(0f, 1.5f, RinkBoards.Box.center.z);
+            camera.transform.position = new Vector3(0f, 1.5f, ReflectionEyeZ);
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = Backdrop;
             camera.nearClipPlane = 0.1f;

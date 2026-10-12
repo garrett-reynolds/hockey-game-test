@@ -1,17 +1,20 @@
 using System;
+using HockeyGame.Core;
 using UnityEngine;
 
 namespace HockeyGame
 {
     /// <summary>
-    /// The ice sheet: a square centred on the Net Face (x = 0, z = 0) with its top at y = 0, wide and long enough
-    /// for the 22 m skate-in from every Attack Side. Uses the ice model (Assets/Resources/Models/ice.obj, textured with
-    /// the rink lines and crease) when there is one, otherwise today's plain pale-blue plane.
+    /// The ice sheet: a square centred on the centre line (x = 0, z = RinkLayout.IceCentreZ) with its top at y = 0, past
+    /// the boards at both ends of the full rink. Uses the ice model (Assets/Resources/Models/ice.obj, textured with the rink
+    /// lines and creases) when there is one, otherwise a plain pale-blue plane.
     /// </summary>
     public static class RinkIce
     {
         /// <summary>Side of the ice square (metres).</summary>
-        public const float Size = 60f;
+        public const float Size = (float)RinkLayout.IceSize;
+        /// <summary>z of the middle of the ice square: the centre line (metres).</summary>
+        public const float CentreZ = (float)RinkLayout.IceCentreZ;
 
         /// <summary>Height an ice model with some thickness is fitted to (metres). The flat ice sheet keeps no height.</summary>
         const float Thickness = 0.05f;
@@ -29,6 +32,7 @@ namespace HockeyGame
         {
             var ice = new GameObject("Ice");
             ice.transform.SetParent(rink, false);
+            ice.transform.localPosition = new Vector3(0f, 0f, CentreZ);
 
             GameObject model = ModelFiles.Place(ice.transform, ModelFiles.Ice, Placeholder, findFile, new Vector3(Size, Thickness, Size));
             // FitTo centres the model on y = 0; a model with thickness is lifted so its top is at y = 0.
@@ -45,7 +49,7 @@ namespace HockeyGame
             return ice;
         }
 
-        /// <summary>Today's plain ice: a 60 m Unity plane.</summary>
+        /// <summary>Plain ice: a Unity plane, fitted to Size.</summary>
         static GameObject Placeholder()
         {
             var plane = GameObject.CreatePrimitive(PrimitiveType.Plane);
