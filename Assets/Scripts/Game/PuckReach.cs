@@ -30,6 +30,17 @@ namespace HockeyGame
         // Written on the main thread between physics steps (LookAhead); only read by OnModify, which runs during the step on any thread.
         readonly HashSet<EntityId> _reached = new HashSet<EntityId>();
         bool _looking;
+        // Goalie gear hit shapes (#111): written on the main thread between steps (GoalieHitShapes), only read by OnModify.
+        static readonly HashSet<EntityId> Gear = new HashSet<EntityId>();
+
+        /// <summary>
+        /// Never ignore a contact with this collider (a goalie gear hit shape). A puck deflected off one piece in a step is turned
+        /// onto another in the same step, which the sweep did not foresee: a still piece then let it through (2 of 102 Shots, #111).
+        /// </summary>
+        public static void KeepContactsWith(Collider gear) => Gear.Add(gear.GetEntityId());
+
+        /// <summary>Undoes KeepContactsWith.</summary>
+        public static void ForgetContactsWith(Collider gear) => Gear.Remove(gear.GetEntityId());
 
         /// <summary>Filters the contacts of puck's hit shapes (each must have hasModifiableContacts on, as PhysicsPuck.Make does).</summary>
         public PuckReach(Rigidbody puck)
@@ -66,7 +77,7 @@ namespace HockeyGame
                 EntityId other = puckFirst ? pair.otherColliderEntityId : pair.colliderEntityId;
                 Vector3 otherVelocity = puckFirst ? pair.otherBodyVelocity : pair.bodyVelocity;
                 Vector3 otherSpin = puckFirst ? pair.otherBodyAngularVelocity : pair.bodyAngularVelocity;
-                if (_reached.Contains(other) || otherVelocity.sqrMagnitude > Still * Still || otherSpin.sqrMagnitude > Still * Still) continue;
+                if (_reached.Contains(other) || Gear.Contains(other) || otherVelocity.sqrMagnitude > Still * Still || otherSpin.sqrMagnitude > Still * Still) continue;
                 for (int i = 0; i < pair.contactCount; i++)
                     if (pair.GetSeparation(i) > Slop) pair.IgnoreContact(i);
             }

@@ -27,14 +27,6 @@ namespace HockeyGame
             (HumanBodyBones.LeftUpperLeg, HumanBodyBones.LeftLowerLeg, 0.1f), (HumanBodyBones.RightUpperLeg, HumanBodyBones.RightLowerLeg, 0.1f),
         };
 
-        /// <summary>
-        /// How far (metres) each step's target is off the gear, up or down by turns. PuckReach (#114) ignores a contact the puck is
-        /// not foreseen to reach unless that thing is moving; but a puck glancing off one piece is turned onto another in the same
-        /// step, and a still piece (a stance held, a reaction done) would let it through. This keeps every piece moving as far as
-        /// contacts see (0.2 mm a step is 2.4 cm/s), and is far too small to see or to feel.
-        /// </summary>
-        const float Tremor = 0.0002f;
-
         /// <summary>The stick's blade is the part further than this (metres) from the shaft's line.</summary>
         const float BladeFrom = 0.07f;
         const float MinStickDepth = 0.04f;
@@ -53,7 +45,6 @@ namespace HockeyGame
         readonly List<Follower> _followers = new List<Follower>();
         readonly List<Collider> _colliders = new List<Collider>();
         readonly GameObject _root;
-        bool _tremorUp;
 
         /// <summary>The hit shapes' colliders, for a test to tell them apart from the rest.</summary>
         public IReadOnlyList<Collider> Colliders => _colliders;
@@ -109,11 +100,9 @@ namespace HockeyGame
         public void Move()
         {
             if (!_root.activeInHierarchy) return;
-            _tremorUp = !_tremorUp;
-            Vector3 tremor = Vector3.up * (_tremorUp ? Tremor : -Tremor);
             foreach (Follower f in _followers)
             {
-                f.Body.MovePosition(f.Position + tremor);
+                f.Body.MovePosition(f.Position);
                 f.Body.MoveRotation(f.Rotation);
             }
         }
@@ -125,7 +114,11 @@ namespace HockeyGame
             Physics.SyncTransforms();
         }
 
-        public void Dispose() => SceneObjects.DestroySafely(_root);
+        public void Dispose()
+        {
+            foreach (Collider c in _colliders) if (c != null) PuckReach.ForgetContactsWith(c);
+            SceneObjects.DestroySafely(_root);
+        }
 
         /// <summary>A kinematic body whose own origin is the middle of its one hit shape, which follows `follow` at that offset and turn.</summary>
         GameObject NewBody(string piece, Transform follow, Vector3 offset, Quaternion turn)
@@ -154,6 +147,7 @@ namespace HockeyGame
             collider.sharedMaterial = material;
             collider.providesContacts = true;
             _colliders.Add(collider);
+            PuckReach.KeepContactsWith(collider);
         }
 
         /// <summary>
