@@ -235,18 +235,102 @@ namespace HockeyGame.Core.Tests
             foreach (ArenaResult result in Results)
             foreach (bool newBest in new[] { false, true })
             {
-                // Count the light's off-to-on changes over 1 s, sampled every millisecond.
-                int flashes = 0;
-                bool was = At(phase, 0.0, result, newBest: newBest).GoalShow.Lit;
-                for (int ms = 1; ms <= 1000; ms++)
+                // The light at every millisecond of 6 s in this phase.
+                var lit = new bool[6001];
+                for (int ms = 0; ms < lit.Length; ms++)
                 {
                     GoalShowLights lights = At(phase, ms / 1000.0, result, newBest: newBest).GoalShow;
                     Assert.LessOrEqual(lights.FlashesPerSecond, ArenaShow.MaxFlashesPerSecond);
-                    if (lights.Lit && !was) flashes++;
-                    was = lights.Lit;
+                    lit[ms] = lights.Lit;
                 }
-                Assert.LessOrEqual(flashes, 3, phase + ", " + result + ", new best " + newBest);
+                AssertAtMost3FlashesInAnySecond(lit, phase + ", " + result + ", new best " + newBest);
             }
+        }
+
+        [Test]
+        public void A_last_Goal_into_the_new_best_show_never_flashes_faster_than_3_a_second()
+        {
+            // One timeline: the puck flies (hidden), the Goal Show for the whole result hold, then Round over with a new best.
+            foreach (double hold in new[] { 2.5, 2.3, 4.5 })
+            foreach (double delay in new[] { 0.0, 0.137, 0.5 })
+            {
+                int holdMs = (int)Math.Round((delay + hold) * 1000);
+                var lit = new bool[holdMs + 3000];
+                for (int ms = 0; ms < lit.Length; ms++)
+                    lit[ms] = ms < holdMs
+                        ? GoalHold(ms / 1000.0, delay).GoalShow.Lit
+                        : At(RoundPhase.RoundOver, (ms - holdMs) / 1000.0, ArenaResult.Goal, newBest: true).GoalShow.Lit;
+                AssertAtMost3FlashesInAnySecond(lit, "hold " + hold + " s, puck flight " + delay + " s");
+            }
+        }
+
+        [Test]
+        public void The_Goal_Show_is_the_same_on_every_Goal()
+        {
+            // However long the puck flew, whatever the score: the same lights at the same time after the puck lands.
+            var cases = new (double delay, int goals, int shot, bool newBest)[] { (0.137, 3, 4, true), (0.5, 6, 6, false), (0.31, 1, 2, false) };
+            for (int ms = 0; ms <= 2500; ms++)
+            {
+                GoalShowLights first = GoalHold(ms / 1000.0, 0.0, goals: 1, shot: 1).GoalShow;
+                if (ms == 0) Assert.IsTrue(first.Lit, "the roof lights start with the horn");
+                foreach (var c in cases)
+                {
+                    GoalShowLights other = GoalHold(c.delay + ms / 1000.0, c.delay, c.goals, c.shot, c.newBest).GoalShow;
+                    Assert.AreEqual(first, other, ms + " ms after the puck lands, " + c);
+                }
+            }
+        }
+
+        [Test]
+        public void No_Goal_Show_light_before_the_Shot_or_without_a_Goal_or_new_best()
+        {
+            foreach (RoundPhase phase in Phases)
+            foreach (ArenaResult result in Results)
+            foreach (bool newBest in new[] { false, true })
+            for (int ms = 0; ms <= 5000; ms += 7)
+            {
+                bool show = phase == RoundPhase.ResultHold && result == ArenaResult.Goal || phase == RoundPhase.RoundOver && newBest;
+                if (show) continue;
+                GoalShowLights lights = At(phase, ms / 1000.0, result, newBest: newBest).GoalShow;
+                string label = phase + ", " + result + ", new best " + newBest + ", " + ms + " ms";
+                Assert.IsFalse(lights.GoalLight, label);
+                Assert.IsFalse(lights.RoofPulse, label);
+                Assert.IsFalse(lights.Lit, label);
+            }
+            // While the Goal's puck is still flying, nothing lights yet.
+            Assert.AreEqual(new GoalShowLights(), GoalHold(0.2, 0.3).GoalShow);
+        }
+
+        [Test]
+        public void The_roof_lights_pulse_Goal_red_on_a_Goal_and_new_best_gold_at_a_new_best()
+        {
+            Assert.AreEqual(ArenaShow.GoalRed, Showing(ArenaResult.Goal).GoalShow.PulseColour);
+            Assert.AreEqual(ArenaShow.NewBestGold, At(RoundPhase.RoundOver, newBest: true).GoalShow.PulseColour);
+        }
+
+        /// <summary>A Goal's result hold, the puck flying (result hidden) for the first delay seconds.</summary>
+        private static ArenaState GoalHold(double seconds, double delay, int goals = 1, int shot = 1, bool newBest = false) =>
+            ArenaShow.At(new ArenaShowInput
+            {
+                Phase = RoundPhase.ResultHold,
+                PhaseSeconds = seconds,
+                Result = ArenaResult.Goal,
+                ResultHidden = seconds < delay,
+                ResultDelaySeconds = delay,
+                IsNewBest = newBest,
+                Goals = goals,
+                ShotNumber = shot
+            });
+
+        /// <summary>Counts the light's off-to-on changes (one sample a millisecond) in every 1 s window: never over 3.</summary>
+        private static void AssertAtMost3FlashesInAnySecond(bool[] litPerMs, string label)
+        {
+            var starts = new System.Collections.Generic.List<int>();
+            for (int ms = 1; ms < litPerMs.Length; ms++)
+                if (litPerMs[ms] && !litPerMs[ms - 1]) starts.Add(ms);
+            if (litPerMs.Length > 0 && litPerMs[0]) starts.Insert(0, 0);
+            for (int i = 0; i + 3 < starts.Count; i++)
+                Assert.GreaterOrEqual(starts[i + 3] - starts[i], 1000, label + ": 4 flashes in under 1 s from " + starts[i] + " ms");
         }
 
         [Test]

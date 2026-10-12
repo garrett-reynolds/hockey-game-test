@@ -32,7 +32,8 @@ namespace HockeyGame
         readonly Camera _camera;
         readonly GameObject _puck;
         readonly GameObject _glove;
-        readonly GoalLight _goalLight;
+        /// <summary>The red goal light above the net, built off. The Goal Show (Arena Show) turns it on and off, not the puck.</summary>
+        public GoalLight GoalLight { get; }
         readonly NetBulge _net;        // the netting catches a goal
         readonly bool _boards;         // a missed puck comes back off the end boards (only when there are boards)
         readonly GoalieView _goalie;   // with the goalie character shown, a save stops on its gear (no save block)
@@ -102,7 +103,7 @@ namespace HockeyGame
             _glove.transform.SetParent(rink, false);
             ModelFiles.Place(_glove.transform, ModelFiles.SaveGlove, PlaceholderSaveBlock, findFile, new Vector3(0.3f, 0.25f, GloveDepth));
 
-            _goalLight = new GoalLight(rink);
+            GoalLight = new GoalLight(rink);
 
             _net = new NetBulge(NetBuilder.FindNetting(rink));
 
@@ -308,7 +309,6 @@ namespace HockeyGame
             switch (_result.Kind)
             {
                 case ShotResultKind.Goal:
-                    SetGoalLight(true);
                     // Keep going into the net, kept inside the side panels and roof.
                     _velocity = new Vector3(0f, 0f, Mathf.Max(_velocity.magnitude * 0.5f, 3f));
                     var p = _puck.transform.position;
@@ -369,8 +369,6 @@ namespace HockeyGame
             }
         }
 
-        void SetGoalLight(bool on) => _goalLight.SetOn(on);
-
         void Clear()
         {
             _stage = Stage.None;
@@ -378,7 +376,6 @@ namespace HockeyGame
             _puck.SetActive(false);
             _goalie?.Carry(null);
             _glove.SetActive(false);
-            SetGoalLight(false);
             _net.Reset();
         }
     }
