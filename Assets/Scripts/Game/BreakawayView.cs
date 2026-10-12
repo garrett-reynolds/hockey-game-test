@@ -39,7 +39,7 @@ namespace HockeyGame
             _camera = shooterCamera;
             _goalie = goalie;
             _camera.GetUniversalAdditionalCameraData().renderPostProcessing = true;
-            _look = MakeLookVolume();
+            _look = MakeLookVolume(transform);
             _shuffle = new GoalieShuffle(new RinkPoint(0, 0, -round.Settings.NormalDepthMetres)); // centred, at his normal depth
             _steps = new SkateInShuffles(_shuffle.Shown);
             _goalie.Stand(ToVector(_shuffle.Shown));
@@ -145,23 +145,29 @@ namespace HockeyGame
         static Vector3 ToVector(RinkPoint p) => new Vector3((float)p.X, (float)p.Y, (float)p.Z);
 
         /// <summary>Places the camera: the shooter's eye on the skate-in at (x, distance out), drifted on toward the net.</summary>
-        void PlaceCamera(float x, float distance)
+        void PlaceCamera(float x, float distance) => PlaceShooterCamera(_camera.transform, x, distance, _drift, _gameTime);
+
+        /// <summary>
+        /// Places the shooter's camera: the eye on the skate-in at (x, distance out), drifted on toward the net by drift metres
+        /// (capped short of the net), with the stride bob and roll at gameSeconds. The picture test uses it too (PictureTestTool).
+        /// </summary>
+        public static void PlaceShooterCamera(Transform camera, float x, float distance, float drift, float gameSeconds)
         {
             // Unity: the Net Face is at z = 0 and the shooter stands at -z.
             var ground = new Vector3(x, 0f, -distance);
             var toNet = new Vector3(-x, 0f, distance);
-            float along = (float)Breakaway.CappedDrift(_drift, toNet.magnitude);
+            float along = (float)Breakaway.CappedDrift(drift, toNet.magnitude);
             ground += toNet.normalized * along;
 
-            float bob = (float)Breakaway.Bob(_gameTime);
-            var t = _camera.transform;
-            t.position = new Vector3(ground.x, (float)Breakaway.EyeHeight + bob, ground.z);
-            t.LookAt(NetCentre);
-            float rollDegrees = (float)Breakaway.Roll(_gameTime) * Mathf.Rad2Deg;
-            t.Rotate(0f, 0f, rollDegrees, Space.Self);
+            float bob = (float)Breakaway.Bob(gameSeconds);
+            camera.position = new Vector3(ground.x, (float)Breakaway.EyeHeight + bob, ground.z);
+            camera.LookAt(NetCentre);
+            float rollDegrees = (float)Breakaway.Roll(gameSeconds) * Mathf.Rad2Deg;
+            camera.Rotate(0f, 0f, rollDegrees, Space.Self);
         }
 
-        Volume MakeLookVolume()
+        /// <summary>The slow-down's grey, high-contrast, vignetted look: a global Volume under parent, weight 0 (off). The picture test uses it too.</summary>
+        public static Volume MakeLookVolume(Transform parent)
         {
             var profile = ScriptableObject.CreateInstance<VolumeProfile>();
             var colour = profile.Add<ColorAdjustments>(true);
@@ -173,7 +179,7 @@ namespace HockeyGame
             vignette.color.Override(Color.black);
 
             var volumeObject = new GameObject("Slow-mo Look");
-            volumeObject.transform.SetParent(transform);
+            volumeObject.transform.SetParent(parent);
             var volume = volumeObject.AddComponent<Volume>();
             volume.isGlobal = true;
             volume.priority = 10f;

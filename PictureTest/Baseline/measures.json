@@ -1,0 +1,48 @@
+{
+    "Width": 1280,
+    "Height": 720,
+    "Views": [
+        {
+            "View": "left-cheat-easy-on",
+            "Contrast": 0.2544518190594853,
+            "Edges": 0.043255651783227995,
+            "GapStandOut": 0.38142483448374065,
+            "GapCells": 19
+        },
+        {
+            "View": "left-cheat-easy-off",
+            "Contrast": 0.25500983845633224,
+            "Edges": 0.04791845553001135,
+            "GapStandOut": 0.25556425884154366,
+            "GapCells": 19
+        },
+        {
+            "View": "middle-depth-easy-on",
+            "Contrast": 0.25450048883910925,
+            "Edges": 0.044170717886009125,
+            "GapStandOut": 0.37754394985264633,
+            "GapCells": 22
+        },
+        {
+            "View": "middle-depth-easy-off",
+            "Contrast": 0.254216752288946,
+            "Edges": 0.05109471006252275,
+            "GapStandOut": 0.22264514714668976,
+            "GapCells": 22
+        },
+        {
+            "View": "right-late-settle-easy-on",
+            "Contrast": 0.254548179870177,
+            "Edges": 0.0456922096468826,
+            "GapStandOut": 0.3740481361464633,
+            "GapCells": 11
+        },
+        {
+            "View": "right-late-settle-easy-off",
+            "Contrast": 0.25485616553983453,
+            "Edges": 0.04926156036407113,
+            "GapStandOut": 0.26721854262475464,
+            "GapCells": 11
+        }
+    ]
+}

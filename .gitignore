@@ -111,3 +111,6 @@ InitTestScene*.unity*
 
 # Python (Tools/ scripts import Tools/vector3.py)
 __pycache__/
+
+# The picture test's latest run (#85); its baseline in PictureTest/Baseline is kept
+/PictureTest/Latest/
