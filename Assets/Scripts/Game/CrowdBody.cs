@@ -37,6 +37,8 @@ namespace HockeyGame
         public Texture2D Cards { get; private set; }
         /// <summary>The card's size in metres (width, height), its bottom on the floor under the hips.</summary>
         public Vector2 CardSize { get; private set; }
+        /// <summary>How much of the card's height the seated picture fills (0..1): a seated card is cut to it.</summary>
+        public float CardSeatedTop { get; private set; }
 
         public Clip ClipNamed(string name) => Array.Find(Clips, c => c.Name == name);
 
@@ -116,6 +118,11 @@ namespace HockeyGame
                     {
                         name = name + " cards", filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp
                     };
+                    int top = 0;
+                    for (int y = 0; y < h; y++)
+                        for (int x = 0; x < w; x++)
+                            if (pixels[y * w * cards + x] != 0) top = y + 1;
+                    body.CardSeatedTop = (float)top / h;
                     body.Cards.SetPixelData(pixels, 0);
                     body.Cards.Apply(false, true);
                 }

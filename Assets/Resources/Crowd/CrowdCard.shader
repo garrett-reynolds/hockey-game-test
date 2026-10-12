@@ -22,6 +22,7 @@ Shader "Hockey Game/Crowd Card"
 
         TEXTURE2D(_Cards);
         float4 _CardSize;      // x, y: the card in metres; z, w: one picture in pixels
+        float _CardSeatedTop;  // how much of the card's height the seated picture fills: a seated card is cut to it
         float4 _ClipInfo[5];   // per CrowdClip: first row, frames, frames per second, loops (the stand-cheer's length)
 
         struct Attributes
@@ -59,8 +60,9 @@ Shader "Hockey Game/Crowd Card"
             toCamera.y = 0;
             toCamera = normalize(toCamera + float3(1e-5, 0, 0));
             float3 right = float3(-toCamera.z, 0, toCamera.x);
+            float up = v.uv.y * (frame == 1 ? 1 : _CardSeatedTop);  // 0..1 of the card's full height
             float3 positionWS = seat + right * (v.uv.x - 0.5) * _CardSize.x * f.hair.w
-                              + float3(0, v.uv.y * _CardSize.y * f.hair.w + bounce, 0);
+                              + float3(0, up * _CardSize.y * f.hair.w + bounce, 0);
             o.positionCS = TransformWorldToHClip(positionWS);
             o.normalWS = toCamera;
             o.colourSkin = f.skin.rgb;
@@ -68,7 +70,7 @@ Shader "Hockey Game/Crowd Card"
             o.colourScalp = (uint)(f.look.y + 0.5) == HAIR_BALD ? f.skin.rgb : f.hair.rgb;
             o.dim = _Light * _ZoneLight[zone];
             o.contrast = _ZoneContrast[zone];
-            o.pixel = float2((v.uv.x + frame) * _CardSize.z, v.uv.y * _CardSize.w);
+            o.pixel = float2((v.uv.x + frame) * _CardSize.z, up * _CardSize.w);
             return o;
         }
 

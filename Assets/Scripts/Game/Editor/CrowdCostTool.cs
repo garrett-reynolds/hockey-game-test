@@ -28,7 +28,7 @@ namespace HockeyGame.Editor
     public static class CrowdCostTool
     {
         public const int Width = 1920, Height = 1080;
-        const int Frames = 60, Rounds = 7, WarmUp = 30;
+        const int Frames = 60, Rounds = 7, WarmUp = 30, SettleFrames = 2;
         const string RinkScene = "Assets/Scenes/Rink.unity";
 
         enum Mode { NoCrowd, Bodies, FarCards }
@@ -152,7 +152,7 @@ namespace HockeyGame.Editor
         }
 
         /// <summary>Mean ms per frame over frames renders, each waited for on the GPU (a read-back of the frame); each
-        /// frame's ms goes into each when given.</summary>
+        /// frame's ms after the first SettleFrames goes into each when given (for the slowest 1%).</summary>
         static double Time(Camera camera, RenderTexture target, Crowd crowd, Mode mode, int frames, List<double> each)
         {
             crowd.Drawn = mode != Mode.NoCrowd;
@@ -164,7 +164,7 @@ namespace HockeyGame.Editor
                 camera.Render();
                 AsyncGPUReadback.Request(target).WaitForCompletion();
                 double now = clock.Elapsed.TotalMilliseconds;
-                each?.Add(now - last);
+                if (i >= SettleFrames) each?.Add(now - last); // not the first frames after a mode switch
                 last = now;
             }
             return clock.Elapsed.TotalMilliseconds / frames;

@@ -62,7 +62,8 @@ namespace HockeyGame
             FlatToneId = Shader.PropertyToID("_FlatTone"), CrowdToWorldId = Shader.PropertyToID("_CrowdToWorld"),
             FanStartId = Shader.PropertyToID("_FanStart"), OhSpreadId = Shader.PropertyToID("_OhSpread"),
             PantsId = Shader.PropertyToID("_Pants"), ShoesId = Shader.PropertyToID("_Shoes"),
-            CardsId = Shader.PropertyToID("_Cards"), CardSizeId = Shader.PropertyToID("_CardSize");
+            CardsId = Shader.PropertyToID("_Cards"), CardSizeId = Shader.PropertyToID("_CardSize"),
+            CardSeatedTopId = Shader.PropertyToID("_CardSeatedTop");
 
         static readonly ArenaZone[] Zones = { ArenaZone.CalmArea, ArenaZone.Near, ArenaZone.Far };
 
@@ -164,6 +165,7 @@ namespace HockeyGame
                     _cardMaterials[g] = Configure(new Material(cardShader) { name = "Crowd cards " + BodyFiles[g / 2, g % 2] }, clipInfo);
                     _cardMaterials[g].SetTexture(CardsId, body.Cards);
                     _cardMaterials[g].SetVector(CardSizeId, new Vector4(body.CardSize.x, body.CardSize.y, body.Cards.width / 2f, body.Cards.height));
+                    _cardMaterials[g].SetFloat(CardSeatedTopId, body.CardSeatedTop);
                 }
             }
 

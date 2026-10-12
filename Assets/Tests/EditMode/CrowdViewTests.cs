@@ -35,6 +35,7 @@ namespace HockeyGame.Core.Tests
                         Assert.That(body.Clips.All(c => c.Seconds >= 0.5f && c.Seconds <= 8f), file);
                         Assert.That(body.Shapes, Is.EqualTo(3), file + ": regular, heavy and slim");
                         Assert.That(body.Cards != null, Is.EqualTo(level == 1), file + ": far bodies have card pictures");
+                        if (level == 1) Assert.That(body.CardSeatedTop, Is.InRange(0.45f, 0.8f), file + ": a seated card is cut to the seated fan");
                     }
                     finally { body?.Destroy(); }
                 }

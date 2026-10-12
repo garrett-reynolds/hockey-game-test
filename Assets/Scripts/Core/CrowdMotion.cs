@@ -29,12 +29,16 @@ namespace HockeyGame.Core
         bool _ohDone;
 
         public CrowdClip Clip { get; private set; } = CrowdClip.SitIdle;
-        /// <summary>Seconds played of Clip (wrapped to the clip for the loops).</summary>
+        /// <summary>Seconds played of Clip (wrapped at LoopPeriod for the loops).</summary>
         public double Clock { get; private set; }
         public CrowdClip FromClip { get; private set; } = CrowdClip.SitIdle;
         public double FromClock { get; private set; }
         /// <summary>How far Clip has faded in over FromClip (0..1; 1 = Clip alone).</summary>
         public double Blend { get; private set; } = 1;
+        /// <summary>Every loop clock wraps at this (seconds): the longest loop, which every loop fits a whole number of
+        /// times. One zone clock plays different loops for different fans (the fans who do not wave sit-idle on the wave's
+        /// clock), so wrapping at one clip's own length would jump the others.</summary>
+        public double LoopPeriod { get; }
 
         /// <param name="clipSeconds">Each clip's length (seconds), indexed by CrowdClip.</param>
         public CrowdMotion(double[] clipSeconds)
@@ -42,6 +46,14 @@ namespace HockeyGame.Core
             if (clipSeconds == null || clipSeconds.Length != Enum.GetValues(typeof(CrowdClip)).Length)
                 throw new ArgumentException("one length per CrowdClip", nameof(clipSeconds));
             _seconds = clipSeconds;
+            for (int c = 0; c < clipSeconds.Length; c++)
+                if (Loops((CrowdClip)c)) LoopPeriod = Math.Max(LoopPeriod, clipSeconds[c]);
+            for (int c = 0; c < clipSeconds.Length; c++)
+            {
+                double fits = LoopPeriod / clipSeconds[c];
+                if (Loops((CrowdClip)c) && Math.Abs(fits - Math.Round(fits)) > 1e-6)
+                    throw new ArgumentException((CrowdClip)c + " (" + clipSeconds[c] + " s) does not fit a whole number of times in " + LoopPeriod + " s", nameof(clipSeconds));
+            }
         }
 
         public static bool Loops(CrowdClip clip) => clip != CrowdClip.Oh;
@@ -105,7 +117,7 @@ namespace HockeyGame.Core
         double Advance(CrowdClip clip, double clock, double run)
         {
             double t = clock + run;
-            return Loops(clip) ? t % _seconds[(int)clip] : t;
+            return Loops(clip) ? t % LoopPeriod : t;
         }
     }
 }

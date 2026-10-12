@@ -328,11 +328,38 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void Loop_clocks_stay_within_the_clip()
+        public void Fans_who_do_not_wave_sit_on_smoothly_through_the_skate_in()
+        {
+            // The zone's one clock drives the wave and, for the fans who do not wave, sit-idle: it must never jump in
+            // either clip's loop.
+            var m = new CrowdMotion(ClipSeconds);
+            m.Snap(CrowdState.Wave);
+            double sitIdle = ClipSeconds[(int)CrowdClip.SitIdle], wave = ClipSeconds[(int)CrowdClip.Wave];
+            double lastSit = 0, lastWave = 0;
+            for (int i = 0; i < 400; i++)
+            {
+                m.Step(CrowdState.Wave, 0.05);
+                double sit = m.Clock / sitIdle % 1, w = m.Clock / wave % 1;
+                double ds = (sit - lastSit + 1) % 1, dw = (w - lastWave + 1) % 1;
+                Assert.That(ds, Is.EqualTo(0.05 / sitIdle).Within(1e-6), "step " + i);
+                Assert.That(dw, Is.EqualTo(0.05 / wave).Within(1e-6), "step " + i);
+                lastSit = sit; lastWave = w;
+            }
+        }
+
+        [Test]
+        public void Every_loop_fits_a_whole_number_of_times_in_the_clock_period()
+        {
+            Assert.That(() => new CrowdMotion(new double[] { 4, 3, 2, 1.5, 1 }), Throws.ArgumentException);
+            Assert.That(new CrowdMotion(ClipSeconds).LoopPeriod, Is.EqualTo(4));
+        }
+
+        [Test]
+        public void Loop_clocks_stay_within_the_loop_period()
         {
             var m = new CrowdMotion(ClipSeconds);
             for (int i = 0; i < 2000; i++) m.Step(CrowdState.Clap, 0.05);
-            Assert.That(m.Clock, Is.InRange(0, ClipSeconds[(int)CrowdClip.Clap]));
+            Assert.That(m.Clock, Is.InRange(0, m.LoopPeriod));
         }
     }
 }
