@@ -152,11 +152,14 @@ namespace HockeyGame.Editor
                          " ms CPU; crowd under " + Ms(FrameBudget.CrowdGpuMs) + " ms GPU");
             s.AppendLine("- Verdict: " + (result.Within ? "within budget" : "OVER budget"));
             s.AppendLine();
-            s.AppendLine("| Moment | Frames | GPU slowest 1% ms | CPU slowest 1% ms | Crowd GPU ms | Verdict |");
-            s.AppendLine("|---|---|---|---|---|---|");
+            s.AppendLine("| Moment | Frames | GPU slowest 1% ms | CPU slowest 1% ms | Crowd GPU ms | Verdict | GPU median ms | CPU median ms |");
+            s.AppendLine("|---|---|---|---|---|---|---|---|");
             foreach (Moment m in result.Moments)
                 s.AppendLine("| " + m.Name + " | " + m.Frames + " | " + Ms(m.GpuSlowest1PctMs) + " | " + Ms(m.CpuSlowest1PctMs) +
-                             " | " + Ms(m.CrowdCostMs) + " | " + Verdict(m) + " |");
+                             " | " + Ms(m.CrowdCostMs) + " | " + Verdict(m) + " | " + Ms(m.GpuMedianMs) + " | " + Ms(m.CpuMedianMs) + " |");
+            s.AppendLine();
+            s.AppendLine("A slowest 1% many times its median means a few frames stalled (another program, shader loading, heat): close " +
+                         "other programs and run it again before cutting.");
             s.AppendLine();
             s.AppendLine("If over, cut in this order (never the Calm Area test or the goalie):");
             for (int i = 0; i < FrameBudget.CutOrder.Count; i++)
@@ -352,7 +355,9 @@ namespace HockeyGame.Editor
                     if (_replay.Showing) _replay.ReplayCamera.Render(); // the game's Replay camera draws before the shooter's (depth -1)
                     _camera.Render();
                     double renderMs = clock.Elapsed.TotalMilliseconds;
-                    AsyncGPUReadback.Request(_target).WaitForCompletion();
+                    // Waits for the GPU to finish the frame. One pixel only: a whole-picture read-back holds about 8 MB that is
+                    // not freed until the Editor's loop runs, so thousands of frames would run out of memory.
+                    AsyncGPUReadback.Request(_target, 0, 0, 1, 0, 1, 0, 1).WaitForCompletion();
                     cpu.Add(stepMs + renderMs);
                     gpu.Add(clock.Elapsed.TotalMilliseconds);
                 }

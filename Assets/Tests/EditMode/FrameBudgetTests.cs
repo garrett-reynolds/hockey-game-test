@@ -70,20 +70,20 @@ namespace HockeyGame.Core.Tests
             var result = new FrameBudgetTool.Result { Gpu = "Test GPU", Width = 1920, Height = 1080, Within = false };
             result.Moments.Add(new FrameBudgetTool.Moment
             {
-                Name = "skate-in", Frames = 600, GpuSlowest1PctMs = 9.5, CpuSlowest1PctMs = 3.25, CrowdCostMs = 1.0,
+                Name = "skate-in", Frames = 600, GpuSlowest1PctMs = 9.5, CpuSlowest1PctMs = 3.25, CrowdCostMs = 1.0, GpuMedianMs = 6.0, CpuMedianMs = 2.0,
                 GpuOver = false, CpuOver = false, CrowdOver = false
             });
             result.Moments.Add(new FrameBudgetTool.Moment
             {
-                Name = "Replay after a Goal", Frames = 900, GpuSlowest1PctMs = 14.0, CpuSlowest1PctMs = 4.0, CrowdCostMs = 2.5,
+                Name = "Replay after a Goal", Frames = 900, GpuSlowest1PctMs = 14.0, CpuSlowest1PctMs = 4.0, CrowdCostMs = 2.5, GpuMedianMs = 10.0, CpuMedianMs = 3.0,
                 GpuOver = true, CpuOver = false, CrowdOver = true
             });
 
             string text = FrameBudgetTool.Markdown(result);
 
             StringAssert.Contains("Test GPU", text);
-            StringAssert.Contains("| skate-in | 600 | 9.50 | 3.25 | 1.00 | within |", text);
-            StringAssert.Contains("| Replay after a Goal | 900 | 14.00 | 4.00 | 2.50 | over: GPU, crowd |", text);
+            StringAssert.Contains("| skate-in | 600 | 9.50 | 3.25 | 1.00 | within | 6.00 | 2.00 |", text);
+            StringAssert.Contains("| Replay after a Goal | 900 | 14.00 | 4.00 | 2.50 | over: GPU, crowd | 10.00 | 3.00 |", text);
             StringAssert.Contains("far fans", text);
         }
     }
