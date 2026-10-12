@@ -3,7 +3,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace HockeyGame
 {
-    /// <summary>Builds the full rink (ice, boards, arena), the net around the Net Face and the still far net, the arena lights and the fixed camera.</summary>
+    /// <summary>Builds the full rink (ice, boards, ads, arena), the net around the Net Face and the still far net, the arena lights and the fixed camera.</summary>
     public static class RinkBuilder
     {
         const float W = (float)NetFaceMapping.WidthMetres;
@@ -18,6 +18,7 @@ namespace HockeyGame
 
             RinkIce.Build(root);
             RinkBoards.Build(root);   // boards and glass round the rink (none without the model)
+            RinkAds.Build(root);      // board ads and ice logos
             ArenaStands.Build(root);  // stands and roof round the boards (none without the model)
 
             NetBuilder.Build(root); // the net around the Net Face, back at z = +NetDepth

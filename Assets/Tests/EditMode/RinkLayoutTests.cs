@@ -133,12 +133,26 @@ namespace HockeyGame.Core.Tests
         {
             RinkLayout.AdPanelSlot[] slots = RinkLayout.AdPanelSlots;
             Assert.AreEqual(RinkLayout.BoardsPerimeter, slots.Sum(s => s.Width), 0.01, "no gap round the boards");
+            for (int i = 0; i < slots.Length; i++)
+            {
+                RinkLayout.AdPanelSlot s = slots[i], next = slots[(i + 1) % slots.Length];
+                Assert.AreEqual(s.Width, s.ToS - s.FromS, 1e-9, s.ToString());
+                double gap = ((next.FromS - s.ToS) % RinkLayout.BoardsPerimeter + RinkLayout.BoardsPerimeter) % RinkLayout.BoardsPerimeter;
+                Assert.That(System.Math.Min(gap, RinkLayout.BoardsPerimeter - gap), Is.LessThan(1e-6), "each panel starts where the last one ends: " + s);
+            }
             Assert.That(slots.Count(s => s.Corner), Is.GreaterThanOrEqualTo(4 * 4), "corners included");
             Assert.That(slots.Count(s => s.Z < RinkLayout.FarGoalLineZ), Is.GreaterThan(0), "far end too");
+            Assert.IsFalse(slots.Any(s => s.Z < RinkLayout.FarGoalLineZ && s.CalmArea), "the far end panels are normal");
             foreach (RinkLayout.AdPanelSlot s in slots)
             {
-                bool behindNearNet = s.Z > RinkLayout.NearGoalLineZ && System.Math.Abs(s.X) <= RinkLayout.CalmAreaHalfWidth;
-                Assert.AreEqual(behindNearNet, s.CalmArea, s.ToString());
+                // Soft when any part of the panel (not just its middle) is in the Calm Area's bounds.
+                bool touchesCalmArea = false;
+                for (double d = s.FromS; d <= s.ToS; d += 0.01)
+                {
+                    RinkLayout.BoardPoint b = RinkLayout.OnBoards(d);
+                    touchesCalmArea |= b.Z >= RinkLayout.CalmAreaFrontZ && System.Math.Abs(b.X) <= RinkLayout.CalmAreaHalfWidth;
+                }
+                Assert.AreEqual(touchesCalmArea, s.CalmArea, s.ToString());
                 Assert.That(s.Width, Is.InRange(1.0, 3.5));
             }
             Assert.That(slots.Count(s => s.CalmArea), Is.GreaterThan(0));
@@ -147,7 +161,7 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void No_ice_logo_sits_in_an_end_zone_or_behind_a_goal_line()
         {
-            Assert.That(RinkLayout.IceLogoSpots.Length, Is.GreaterThanOrEqualTo(1 + 2 + 4));
+            Assert.That(RinkLayout.IceLogoSpots.Length, Is.GreaterThanOrEqualTo(1 + 4 + 4));
             foreach (RinkLayout.IceLogoSpot s in RinkLayout.IceLogoSpots)
             {
                 Assert.That(s.Z + s.Height / 2, Is.LessThan(RinkLayout.NearBlueLineZ - RinkLayout.WideLine / 2), s.ToString());
