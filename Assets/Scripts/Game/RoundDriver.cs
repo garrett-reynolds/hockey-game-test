@@ -38,6 +38,8 @@ namespace HockeyGame
 
         void Awake()
         {
+            FrameRate.Lock(); // 60 fps, VSync on (#85)
+            FrameReadout.AddTo(gameObject); // dev-only GPU and CPU ms (Editor and development builds)
             RinkBuilder.Build(out _camera);
             _save = SaveStore.Current;
             Transform rink = GameObject.Find("Rink").transform;
