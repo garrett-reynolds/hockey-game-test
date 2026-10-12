@@ -7,11 +7,6 @@ newmtl Wall
 Kd 0.0116 0.0130 0.0176
 Ks 0.1 0.1 0.1
 Ns 20
-newmtl Crowd
-Kd 1.0000 1.0000 1.0000
-Ks 0.1 0.1 0.1
-Ns 20
-map_Kd crowd.png
 newmtl Ribbon
 Kd 0.0212 0.1559 0.7913
 Ks 0.1 0.1 0.1

@@ -13,10 +13,13 @@ using Debug = UnityEngine.Debug;
 namespace HockeyGame.Editor
 {
     /// <summary>
-    /// Measures the 3D crowd's GPU cost (#94, the 2 ms crowd limit). It renders the shooter's view of the rink (the middle
-    /// skate-in point, at the Shot) at 1920 x 1080 many times without the crowd, with it, and with the stand drawn Copies
-    /// times over side by side (to guess a full crowd), waiting for the GPU after each frame. The crowd's cost is the
-    /// difference in frame time: the median of several rounds, each mode in turn so the machine's load hits all alike.
+    /// Measures the 3D crowd's GPU cost (the 2 ms crowd limit). It renders two views of the rink with every fan standing
+    /// and cheering (a Goal: the most moving, most covering pose) at 1920 x 1080 many times: without the crowd, with it
+    /// (far fans as the light body) and with the far fans as flat cards, waiting for the GPU after each frame. The crowd's
+    /// cost is the difference in frame time: the median of several rounds (each mode in turn, so the machine's load hits
+    /// all alike), and the slowest 1% of frames with the crowd against the slowest 1% without.
+    /// Views: "shooter" (the middle skate-in point at the Shot, toward the near net) and "up-ice" (from in front of the
+    /// near net, looking up the ice at the far end and both sides: most of the bowl, as a Replay might show it).
     /// Batch mode (rendering, no -nographics):
     ///   Unity.exe -batchmode -projectPath &lt;project&gt; -executeMethod HockeyGame.Editor.CrowdCostTool.RunFromCommandLine
     ///     -crowdCostResult &lt;file.json&gt; -logFile &lt;log&gt;
@@ -26,17 +29,28 @@ namespace HockeyGame.Editor
     {
         public const int Width = 1920, Height = 1080;
         const int Frames = 60, Rounds = 7, WarmUp = 30;
-        /// <summary>The full-crowd stand-in: the stand behind the near net drawn this many times (about 13,000 fans).</summary>
-        public const int FullCrowdCopies = 38;
         const string RinkScene = "Assets/Scenes/Rink.unity";
+
+        enum Mode { NoCrowd, Bodies, FarCards }
+
+        [Serializable]
+        public sealed class ViewCost
+        {
+            public string View;
+            public int FansDrawn;
+            public double NoCrowdMs, BodiesMs, FarCardsMs;
+            public double BodiesCostMs, FarCardsCostMs;
+            public double NoCrowdSlowest1PctMs, BodiesSlowest1PctMs, FarCardsSlowest1PctMs;
+            public double BodiesCostSlowest1PctMs, FarCardsCostSlowest1PctMs;
+            public List<double> BodiesCostRounds = new List<double>(), FarCardsCostRounds = new List<double>();
+        }
 
         [Serializable]
         public sealed class CrowdCost
         {
             public string Gpu;
-            public int Width, Height, Fans, FansPerTriangleMesh, FullCrowdFans;
-            public double NoCrowdMs, CrowdMs, FullCrowdMs, CrowdCostMs, FullCrowdCostMs, LinearFullCrowdCostMs;
-            public List<double> NoCrowdRounds = new List<double>(), CrowdRounds = new List<double>(), FullCrowdRounds = new List<double>();
+            public int Width, Height, Fans, NearFans, FarFans, NearTriangles, FarTriangles;
+            public List<ViewCost> Views = new List<ViewCost>();
         }
 
         public static void RunFromCommandLine()
@@ -77,35 +91,27 @@ namespace HockeyGame.Editor
                 target = new RenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
                 RinkBuilder.Build(out Camera camera);
                 Crowd crowd = GameObject.Find("Rink").GetComponentInChildren<Crowd>();
-                if (crowd == null) throw new InvalidOperationException("No crowd in the rink: the crowd body file or shader is missing.");
-                Breakaway.SkatePoint(AttackSide.Middle, 1.0, out double x, out double distance);
-                BreakawayView.PlaceShooterCamera(camera.transform, (float)x, (float)distance, 0f, 0f);
+                if (crowd == null) throw new InvalidOperationException("No crowd in the rink: a crowd body file or shader is missing.");
                 camera.targetTexture = target;
-                crowd.Show(ArenaShow.At(new ArenaShowInput { Phase = RoundPhase.SkateIn, ShotNumber = 1 }), 0.0);
+                crowd.Show(ArenaShow.At(new ArenaShowInput { Phase = RoundPhase.ResultHold, Result = ArenaResult.Goal, ShotNumber = 1 }), 0.0);
 
+                int near = Enumerable.Range(0, crowd.FanCount).Count(i => CrowdSeats.IsNearFan(crowd.SeatOf(i)));
                 var cost = new CrowdCost
                 {
                     Gpu = SystemInfo.graphicsDeviceName + " (" + SystemInfo.graphicsDeviceType + ")",
-                    Width = Width, Height = Height, Fans = crowd.FanCount,
-                    FansPerTriangleMesh = crowd.Body.Mesh.triangles.Length / 3,
-                    FullCrowdFans = crowd.FanCount * FullCrowdCopies
+                    Width = Width, Height = Height, Fans = crowd.FanCount, NearFans = near, FarFans = crowd.FanCount - near,
+                    NearTriangles = crowd.BodyOf(0, 0).Mesh.triangles.Length / 3,
+                    FarTriangles = crowd.BodyOf(0, 1).Mesh.triangles.Length / 3
                 };
-                Time(camera, target, crowd, false, 1, WarmUp);
-                Time(camera, target, crowd, true, FullCrowdCopies, WarmUp);
-                for (int round = 0; round < Rounds; round++)
-                {
-                    cost.NoCrowdRounds.Add(Time(camera, target, crowd, false, 1, Frames));
-                    cost.CrowdRounds.Add(Time(camera, target, crowd, true, 1, Frames));
-                    cost.FullCrowdRounds.Add(Time(camera, target, crowd, true, FullCrowdCopies, Frames));
-                }
-                cost.NoCrowdMs = Median(cost.NoCrowdRounds);
-                cost.CrowdMs = Median(cost.CrowdRounds);
-                cost.FullCrowdMs = Median(cost.FullCrowdRounds);
-                cost.CrowdCostMs = Median(cost.CrowdRounds.Zip(cost.NoCrowdRounds, (a, b) => a - b).ToList());
-                cost.FullCrowdCostMs = Median(cost.FullCrowdRounds.Zip(cost.NoCrowdRounds, (a, b) => a - b).ToList());
-                cost.LinearFullCrowdCostMs = cost.CrowdCostMs * FullCrowdCopies;
+
+                Breakaway.SkatePoint(AttackSide.Middle, 1.0, out double x, out double distance);
+                BreakawayView.PlaceShooterCamera(camera.transform, (float)x, (float)distance, 0f, 0f);
+                cost.Views.Add(MeasureView("shooter", camera, target, crowd));
+                camera.transform.SetPositionAndRotation(new Vector3(0f, 4f, 1f), Quaternion.Euler(8f, 180f, 0f));
+                cost.Views.Add(MeasureView("up-ice", camera, target, crowd));
+
                 crowd.Drawn = true;
-                crowd.Copies = 1;
+                crowd.FarCards = false;
                 return cost;
             }
             finally
@@ -119,18 +125,56 @@ namespace HockeyGame.Editor
             }
         }
 
-        /// <summary>Mean ms per frame over frames renders, each waited for on the GPU (a read-back of the frame).</summary>
-        static double Time(Camera camera, RenderTexture target, Crowd crowd, bool drawn, int copies, int frames)
+        static ViewCost MeasureView(string name, Camera camera, RenderTexture target, Crowd crowd)
         {
-            crowd.Drawn = drawn;
-            crowd.Copies = copies;
+            var modes = (Mode[])Enum.GetValues(typeof(Mode));
+            var frames = modes.ToDictionary(m => m, m => new List<double>());
+            var rounds = modes.ToDictionary(m => m, m => new List<double>());
+            foreach (Mode m in modes) Time(camera, target, crowd, m, WarmUp, null);
+            for (int round = 0; round < Rounds; round++)
+                foreach (Mode m in modes)
+                    rounds[m].Add(Time(camera, target, crowd, m, Frames, frames[m]));
+            Time(camera, target, crowd, Mode.Bodies, 1, null);
+            var v = new ViewCost
+            {
+                View = name, FansDrawn = crowd.LastDrawnFans,
+                NoCrowdMs = Median(rounds[Mode.NoCrowd]), BodiesMs = Median(rounds[Mode.Bodies]), FarCardsMs = Median(rounds[Mode.FarCards]),
+                NoCrowdSlowest1PctMs = Slowest1Pct(frames[Mode.NoCrowd]), BodiesSlowest1PctMs = Slowest1Pct(frames[Mode.Bodies]),
+                FarCardsSlowest1PctMs = Slowest1Pct(frames[Mode.FarCards]),
+                BodiesCostRounds = rounds[Mode.Bodies].Zip(rounds[Mode.NoCrowd], (a, b) => a - b).ToList(),
+                FarCardsCostRounds = rounds[Mode.FarCards].Zip(rounds[Mode.NoCrowd], (a, b) => a - b).ToList()
+            };
+            v.BodiesCostMs = Median(v.BodiesCostRounds);
+            v.FarCardsCostMs = Median(v.FarCardsCostRounds);
+            v.BodiesCostSlowest1PctMs = v.BodiesSlowest1PctMs - v.NoCrowdSlowest1PctMs;
+            v.FarCardsCostSlowest1PctMs = v.FarCardsSlowest1PctMs - v.NoCrowdSlowest1PctMs;
+            return v;
+        }
+
+        /// <summary>Mean ms per frame over frames renders, each waited for on the GPU (a read-back of the frame); each
+        /// frame's ms goes into each when given.</summary>
+        static double Time(Camera camera, RenderTexture target, Crowd crowd, Mode mode, int frames, List<double> each)
+        {
+            crowd.Drawn = mode != Mode.NoCrowd;
+            crowd.FarCards = mode == Mode.FarCards;
             var clock = Stopwatch.StartNew();
+            double last = 0;
             for (int i = 0; i < frames; i++)
             {
                 camera.Render();
                 AsyncGPUReadback.Request(target).WaitForCompletion();
+                double now = clock.Elapsed.TotalMilliseconds;
+                each?.Add(now - last);
+                last = now;
             }
             return clock.Elapsed.TotalMilliseconds / frames;
+        }
+
+        /// <summary>The mean of the slowest 1% of values (at least one).</summary>
+        static double Slowest1Pct(List<double> values)
+        {
+            List<double> sorted = values.OrderByDescending(v => v).ToList();
+            return sorted.Take(Math.Max(1, sorted.Count / 100)).Average();
         }
 
         static double Median(List<double> values)

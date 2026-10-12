@@ -119,6 +119,9 @@ namespace HockeyGame.Core
         public const double RibbonOffset = StandsFront + LowerRows * RowDepth;
         public const double RibbonBottom = StandsFrontHeight + LowerRows * LowerRise;
         public const double RibbonHeight = 1.2;
+        /// <summary>The upper tier above the Ribbon Board ring: rows of seats, each RowDepth deep and UpperRise higher than the one in front.</summary>
+        public const double UpperRise = 0.55;
+        public const int UpperRows = 13;
 
         // ---------- the board outline ----------
         /// <summary>A point on the inside face of the boards, with the unit normal (InX, InZ) pointing into the rink.</summary>

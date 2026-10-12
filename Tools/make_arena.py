@@ -1,6 +1,5 @@
-# Writes the rink boards and the arena around them as OBJ+MTL, in metres, Y up, plus the crowd texture crowd.png.
+# Writes the rink boards and the arena around them as OBJ+MTL, in metres, Y up.
 #   py -3 Tools/make_arena.py Assets/Resources/Models
-# Needs Pillow and numpy (pip install pillow numpy).
 #
 # The sizes come from the Rink Layout (Tools/rink_layout.py, a copy of RinkLayout.cs); the game fits each model's outer
 # box to RinkBoards.Box and ArenaStands.Box:
@@ -10,19 +9,16 @@
 #   (2.44 m high round the ends and corners, 1.83 m along the sides) with thin stanchions; no glass in front of the
 #   players' benches. Outer box: the outline + 0.2 m, y 0 to the end glass top. The "Glass" part is made see-through by
 #   the game.
-#   arena.obj: a dark floor round the boards, two tiers of seats full of fans (crowd.png on the riser faces) all round the
-#   bowl except the lower stand behind the near net (plain risers, "NearRisers": the game seats its 3D fans there), an
-#   LED ribbon board between the tiers ("Ribbon", made to glow by the game), a back wall and a roof at 24 m.
+#   arena.obj: a dark floor round the boards, two tiers of plain stepped seating all round the bowl (the game seats its
+#   3D fans there: Crowd.cs, CrowdSeats.cs), an LED ribbon board between the tiers ("Ribbon", made to glow by the game),
+#   a back wall and a roof at 24 m.
 #   Near centre ice the stands step back BENCH_DEPTH for the two empty players' benches (one side) and the two empty
 #   penalty boxes (the other). Outer box: the outline + 31.2 m all round, y 0 to 24.
 # Everything here is made from scratch for Hockey Game Test (no outside source). CC0.
-import math, os, random, sys
+import math, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # finds vector3.py even when run with -I
 from vector3 import cross, dot, sub
 import rink_layout as layout
-
-import numpy as np
-from PIL import Image, ImageDraw, ImageFilter
 
 HW, EZ, NZ, R = layout.HALF_WIDTH, layout.NEAR_END_BOARDS_Z, layout.FAR_END_BOARDS_Z, layout.CORNER_RADIUS
 T = 0.2                                     # boards thickness
@@ -33,7 +29,6 @@ POST = 0.05                                 # stanchion width
 REACH = 31.0                                # arena outer box = boards outer box + REACH all round
 OUTER = T + REACH                           # outer wall's offset from the rink outline
 ROOF = 24.0
-CROWD_TILE = 8.0                            # metres of seats per crowd.png repeat
 
 CX = HW - R                                 # corner centres at (+-CX, EZ - R) and (+-CX, NZ + R)
 ZE, ZN = EZ - R, NZ + R
@@ -111,14 +106,6 @@ def ring(offset):
     return pts
 
 
-def lengths(points):
-    """Distance along the closed ring to each point (and the full length at the end)."""
-    d = [0.0]
-    for i in range(len(points)):
-        d.append(d[-1] + math.dist(points[i], points[(i + 1) % len(points)]))
-    return d
-
-
 def tall_glass(x, z):
     """Higher glass round the ends and corners, lower along the straight sides."""
     return z > ZE or z < ZN
@@ -167,24 +154,16 @@ class Obj:
                     corners.append((cx + p[0] * hx, cy + p[1] * hy, cz + p[2] * hz))
                 self.poly(corners, tuple(n))
 
-    def wall(self, offset, y0, y1, inward=True, uv_v=None, u_shift=0.0, where=None):
-        """A vertical band round the whole outline at offset, from y0 to y1, facing the rink (or away).
-        With uv_v=(v0, v1) it is textured: u runs CROWD_TILE metres per repeat along the ring.
-        With where, only the pieces whose middle (x, z) it accepts."""
+    def wall(self, offset, y0, y1, inward=True):
+        """A vertical band round the whole outline at offset, from y0 to y1, facing the rink (or away)."""
         pts = ring(offset)
-        d = lengths(pts)
         for i in range(len(pts)):
             (x0, z0), (x1, z1) = pts[i], pts[(i + 1) % len(pts)]
             mx, mz = (x0 + x1) / 2, (z0 + z1) / 2
-            if where and not where(mx, mz): continue
             facing = (-(mx - centre_x(mx)), 0, -(mz - centre_z(mz)))
             if not inward: facing = (-facing[0], 0, -facing[2])
             quad = [(x0, y0, z0), (x1, y0, z1), (x1, y1, z1), (x0, y1, z0)]
-            uvs = None
-            if uv_v:
-                u0, u1 = (d[i] + u_shift) / CROWD_TILE, (d[i + 1] + u_shift) / CROWD_TILE
-                uvs = [(u0, uv_v[0]), (u1, uv_v[0]), (u1, uv_v[1]), (u0, uv_v[1])]
-            self.poly(quad, facing, uvs)
+            self.poly(quad, facing)
 
     def flat(self, off0, off1, y, up=True):
         """A horizontal band round the outline between two offsets, at height y, facing up (or down)."""
@@ -274,37 +253,28 @@ FRONT_H = layout.STANDS_FRONT_HEIGHT   # front wall height (above the boards, so
 ROW_D = layout.ROW_DEPTH
 LOWER_ROWS, LOWER_RISE = layout.LOWER_ROWS, layout.LOWER_RISE
 RIBBON_H = layout.RIBBON_HEIGHT        # the game's Ribbon Boards (RibbonBoards.cs) read the ring's place from the Rink Layout
-UPPER_ROWS, UPPER_RISE = 13, 0.55
-
-
-def behind_near_net(x, z):
-    """A piece of a stands ring on the near end straight, behind the near net (CrowdSeats.BehindNearNet's seats)."""
-    return z > EZ and abs(x) < CX
+UPPER_ROWS, UPPER_RISE = layout.UPPER_ROWS, layout.UPPER_RISE
 
 
 def arena(folder):
-    rnd = random.Random(25)
     o = Obj()
     o.part("Floor", "Floor"); o.flat(T, FRONT, 0.02)
     o.part("StandsFront", "Wall"); o.wall(FRONT, 0, FRONT_H)
 
     treads = []
     off, y = FRONT, FRONT_H
-    o.part("Crowd", "Crowd")
-    risers = []
+    o.part("Risers", "Wall")   # plain: the game seats its 3D fans on every tread (Crowd.cs)
     for i in range(LOWER_ROWS):
         treads.append((off, off + ROW_D, y))
         off += ROW_D
-        o.wall(off, y, y + LOWER_RISE, uv_v=(0, 1), u_shift=rnd.uniform(0, CROWD_TILE),
-               where=lambda x, z: not behind_near_net(x, z))
-        risers.append((off, y))
+        o.wall(off, y, y + LOWER_RISE)
         y += LOWER_RISE
     ribbon = (off, y)
     y += RIBBON_H
     for i in range(UPPER_ROWS):
         treads.append((off, off + ROW_D, y))
         off += ROW_D
-        o.wall(off, y, y + UPPER_RISE, uv_v=(0, 1), u_shift=rnd.uniform(0, CROWD_TILE))
+        o.wall(off, y, y + UPPER_RISE)
         y += UPPER_RISE
     assert off < OUTER, (off, OUTER)
     treads.append((off, OUTER, y))
@@ -316,10 +286,6 @@ def arena(folder):
         o.box((side * (HW + back - 0.25), 0.45 / 2, (a + b) / 2), (0.25, 0.45 / 2, (b - a) / 2 - 0.05))
         for zc in (a, b):
             o.box((side * (HW + (T + back) / 2), 0.6, zc), ((back - T) / 2, 0.6, 0.04))
-
-    # The lower stand behind the near net has the game's 3D fans (Crowd.cs) instead of the picture: plain risers there.
-    o.part("NearRisers", "Wall")
-    for r_off, r_y in risers: o.wall(r_off, r_y, r_y + LOWER_RISE, where=behind_near_net)
 
     o.part("Ribbon", "Ribbon"); o.wall(ribbon[0], ribbon[1], ribbon[1] + RIBBON_H)
     o.part("Aisles", "Concrete")
@@ -337,7 +303,6 @@ def arena(folder):
     n = o.write(folder, "arena", "Arena stands round the rink.", [
         ("Floor", (45, 47, 52), None),
         ("Wall", (28, 30, 36), None),
-        ("Crowd", (255, 255, 255), "crowd.png"),
         ("Ribbon", (40, 110, 230), None),
         ("Bench", (52, 56, 66), None),
         ("Concrete", (38, 40, 46), None),
@@ -346,45 +311,7 @@ def arena(folder):
     print(f"arena.obj written, {n} triangles")
 
 
-# ---------- crowd.png: one row of seated fans, CROWD_TILE metres wide, wrapping left to right ----------
-def crowd(folder):
-    rnd = random.Random(2025)
-    PX = 512                                          # pixels per metre while drawing
-    W, H = int(CROWD_TILE * PX), int(0.62 * PX)       # one riser's worth of people (heads and shoulders)
-    img = Image.new("RGB", (W, H), (30, 30, 36))
-    d = ImageDraw.Draw(img)
-    seat = 0.5 * PX
-    shirts = [(178, 24, 40)] * 8 + [(235, 235, 235)] * 3 + [(25, 30, 60)] * 3 + [(20, 20, 22)] * 2 + \
-             [(60, 90, 160), (210, 170, 40), (90, 90, 95), (140, 30, 50)]
-    skins = [(240, 200, 170), (220, 175, 140), (190, 140, 105), (150, 105, 75), (100, 70, 50)]
-    hairs = [(30, 22, 18), (60, 40, 25), (110, 80, 45), (200, 170, 110), (20, 20, 20), (140, 140, 140)]
-    n = int(CROWD_TILE / 0.5)
-    for k in range(n):
-        cx = (k + 0.5) * seat
-        # The seat back shows behind everyone (and alone where the seat is empty).
-        d.rounded_rectangle([cx - 0.21 * PX, 0.30 * H, cx + 0.21 * PX, H], 18, fill=(120, 20, 30))
-        if rnd.random() < 0.1: continue               # an empty seat
-        shift = rnd.uniform(-0.05, 0.05) * PX
-        top = rnd.uniform(0.12, 0.26) * H
-        shirt = tuple(min(255, int(c * rnd.uniform(0.85, 1.1))) for c in rnd.choice(shirts))
-        head_r = rnd.uniform(0.085, 0.1) * PX
-        skin, hair, cap = rnd.choice(skins), rnd.choice(hairs), rnd.random() < 0.15
-        for dx in (-W, 0, W):                         # wrapped copies, so the tile repeats seamlessly
-            x = cx + dx + shift
-            d.rounded_rectangle([x - 0.2 * PX, top + 1.7 * head_r, x + 0.2 * PX, H + 20], int(0.08 * PX), fill=shirt)
-            d.ellipse([x - head_r, top, x + head_r, top + 2.2 * head_r], fill=skin)
-            d.chord([x - head_r, top - 2, x + head_r, top + 1.6 * head_r], 180, 360, fill=hair)
-            if cap:
-                d.chord([x - head_r * 1.05, top - 6, x + head_r * 1.05, top + 1.3 * head_r], 180, 360, fill=shirt)
-    img = img.filter(ImageFilter.GaussianBlur(1.2))
-    a = np.asarray(img).astype(np.float32) * 0.85     # arenas keep the seats dimmer than the ice
-    img = Image.fromarray(np.clip(a, 0, 255).astype(np.uint8)).resize((2048, 256), Image.LANCZOS)
-    img.save(os.path.join(folder, "crowd.png"))
-    print("crowd.png written")
-
-
 if __name__ == "__main__":
     out = sys.argv[1]
     boards(out)
     arena(out)
-    crowd(out)
