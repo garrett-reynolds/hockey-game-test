@@ -338,10 +338,11 @@ namespace HockeyGame.Core
             double landed = input.PhaseSeconds - input.ResultDelaySeconds;
             CameraMode camera = replayHold ? ReplayTiming.CameraAt(landed) : CameraMode.OnNet;
             VideoBoardContent board = camera == CameraMode.Replay ? VideoBoardContent.Replay : VideoBoardFor(input.Phase, result, input.IsNewBest);
+            string score = ScoreText(goalsShown, input.ShotNumber); // built once: the Score Box and the Video Board share it
 
             return new ArenaState(
                 board,
-                WordsFor(board, input, goalsShown),
+                WordsFor(board, input, goalsShown, score),
                 ribbon,
                 calm ? CalmStill : ribbon,
                 calm ? CrowdState.Still : near,
@@ -353,12 +354,15 @@ namespace HockeyGame.Core
                 camera == CameraMode.Replay ? ReplayTiming.ShowSecondsAt(landed) : 0,
                 chant,
                 calm,
-                new ScoreBox(input.Phase != RoundPhase.Idle, ScoreText(goalsShown, input.ShotNumber)));
+                new ScoreBox(input.Phase != RoundPhase.Idle, score));
         }
 
         /// <summary>The Score Box's words, e.g. "GOALS 2 · SHOT 4 OF 6".</summary>
         public static string ScoreText(int goals, int shotNumber) =>
             "GOALS " + goals + " · SHOT " + shotNumber + " OF " + Round.ShotsPerRound;
+
+        private static string GoalsOf(int goalsShown) => goalsShown + " OF " + Round.ShotsPerRound + " GOALS";
+        private static string BestOf(ArenaShowInput input) => input.BestScore + " OF " + Round.ShotsPerRound;
 
         private static VideoBoardContent VideoBoardFor(RoundPhase phase, ArenaResult result, bool newBest)
         {
@@ -382,18 +386,16 @@ namespace HockeyGame.Core
             }
         }
 
-        private static VideoBoardWords WordsFor(VideoBoardContent board, ArenaShowInput input, int goalsShown)
+        // Each case builds only the words it shows: the show is worked out every frame.
+        private static VideoBoardWords WordsFor(VideoBoardContent board, ArenaShowInput input, int goalsShown, string score)
         {
-            string score = ScoreText(goalsShown, input.ShotNumber);
-            string goalsOf = goalsShown + " OF " + Round.ShotsPerRound + " GOALS";
-            string best = input.BestScore + " OF " + Round.ShotsPerRound;
             switch (board)
             {
-                case VideoBoardContent.StartCard: return new VideoBoardWords(GameName, "BEST SCORE " + best + "\nSHOOT TO PLAY");
+                case VideoBoardContent.StartCard: return new VideoBoardWords(GameName, "BEST SCORE " + BestOf(input) + "\nSHOOT TO PLAY");
                 case VideoBoardContent.Goal: return new VideoBoardWords("GOAL!", score);
                 case VideoBoardContent.Replay: return new VideoBoardWords("REPLAY", score); // the Replay picture covers it while the Replay plays
-                case VideoBoardContent.Final: return new VideoBoardWords("FINAL SCORE", goalsOf + "\nBEST " + best);
-                case VideoBoardContent.NewBest: return new VideoBoardWords("NEW BEST!", goalsOf);
+                case VideoBoardContent.Final: return new VideoBoardWords("FINAL SCORE", GoalsOf(goalsShown) + "\nBEST " + BestOf(input));
+                case VideoBoardContent.NewBest: return new VideoBoardWords("NEW BEST!", GoalsOf(goalsShown));
                 case VideoBoardContent.AdSlide:
                 case VideoBoardContent.CalmStill: return new VideoBoardWords("", "");
                 default: // the score, still, from the skate-in to the Shot

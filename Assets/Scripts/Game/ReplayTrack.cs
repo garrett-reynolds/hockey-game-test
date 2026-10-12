@@ -45,9 +45,28 @@ namespace HockeyGame
                 if (root != null) listed.Add(root);
             foreach (Transform root in roots)
                 if (root != null) Add(root, true, listed);
+            RefusePhysicsParts();
             _livePositions = new Vector3[_parts.Count];
             _liveRotations = new Quaternion[_parts.Count];
             _liveActive = new bool[_parts.Count];
+        }
+
+        /// <summary>
+        /// The track moves its parts by their transforms. A part with a Rigidbody belongs to Unity physics (ADR 0004), and
+        /// writing its transform would fight physics, so the track refuses it out loud: leave such a part out of the track
+        /// and play it back another way (for example, the puck's Rigidbody pose, kinematic for the Replay).
+        /// </summary>
+        void RefusePhysicsParts()
+        {
+            foreach (Transform part in _parts)
+            {
+                if (part.GetComponent<Rigidbody>() == null) continue;
+                string name = part.name;
+                _parts.Clear();
+                _world.Clear();
+                throw new System.InvalidOperationException("The Replay cannot move \"" + name + "\" by its transform: it has a " +
+                    "Rigidbody, so Unity physics moves it (ADR 0004). Leave it out of the ReplayTrack and replay its Rigidbody pose instead.");
+            }
         }
 
         void Add(Transform part, bool world, HashSet<Transform> listed)

@@ -111,16 +111,17 @@ namespace HockeyGame
 
         /// <summary>
         /// Call once per frame after the screen flow and ShotEffects update. puckArrived: ShotEffects.PuckArrivedThisFrame;
-        /// contact: ShotEffects.ContactSound (what the puck visibly hits; see RoundSoundCues.Update).
+        /// contact: ShotEffects.ContactSound (what the puck visibly hits; see RoundSoundCues.Update). show: this frame's Arena
+        /// Show (the Clap Chant follows it).
         /// </summary>
-        public void Update(ScreenFlow flow, bool puckArrived, float realSeconds, SoundCue? contact = null)
+        public void Update(ScreenFlow flow, ArenaState show, bool puckArrived, float realSeconds, SoundCue? contact = null)
         {
             AudioListener.volume = (float)RoundSoundCues.ListenerVolume(_save);
             Round round = flow.Round;
             RoundPhase phase = round.Phase;
             double phaseSeconds = round.PhaseSecondsElapsed;
 
-            foreach (SoundCue cue in _cues.Update(flow, puckArrived, realSeconds, contact))
+            foreach (SoundCue cue in _cues.Update(flow, show.Chant, puckArrived, realSeconds, contact))
             {
                 if (cue == SoundCue.Chant) { StartChant(); continue; }
                 if (cue == SoundCue.ChantEnd) { _chantTarget = 0f; continue; }

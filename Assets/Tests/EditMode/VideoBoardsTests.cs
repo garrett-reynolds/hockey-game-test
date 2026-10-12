@@ -447,5 +447,35 @@ namespace HockeyGame.Core.Tests
                 Object.DestroyImmediate(replay);
             }
         }
+
+        [Test]
+        public void Removing_the_Video_Boards_frees_the_materials_they_made_but_not_the_shown_picture()
+        {
+            VideoBoards boards = VideoBoards.Build(_rink.transform);
+            var replay = new Texture2D(4, 4);
+            try
+            {
+                var made = new System.Collections.Generic.HashSet<Material>();
+                void Collect()
+                {
+                    foreach (Renderer r in boards.GetComponentsInChildren<Renderer>())
+                        if (r.GetComponent<TextMesh>() == null) made.Add(r.sharedMaterial); // the words' font material is Unity's
+                }
+                Collect();
+                boards.Show(At(RoundPhase.ShootingWindow), 0.0); // the Calm Area's still picture
+                Collect();
+                boards.ShowPicture(replay);
+                Assert.That(made.Count, Is.GreaterThanOrEqualTo(4), "picture, still, frame and cable");
+
+                Object.DestroyImmediate(boards.gameObject);
+
+                foreach (Material m in made) Assert.IsTrue(m == null, m + " freed");
+                Assert.IsTrue(replay != null, "the Replay picture is the Replay's own");
+            }
+            finally
+            {
+                Object.DestroyImmediate(replay);
+            }
+        }
     }
 }

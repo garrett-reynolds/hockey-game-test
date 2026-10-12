@@ -52,6 +52,16 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void The_track_refuses_a_part_that_physics_moves_even_under_a_listed_part()
+        {
+            Glove.gameObject.AddComponent<Rigidbody>(); // moving it by its transform would fight Unity physics (ADR 0004)
+            var track = new ReplayTrack();
+            var refused = Assert.Throws<System.InvalidOperationException>(() => track.Begin(_goalie.transform, _puck.transform));
+            StringAssert.Contains("Glove", refused.Message);
+            Assert.AreEqual(0, track.PartCount, "nothing recorded");
+        }
+
+        [Test]
         public void The_Replay_shows_the_recorded_moment_blending_between_frames()
         {
             ReplayTrack track = Recorded();

@@ -18,6 +18,7 @@ namespace HockeyGame
     /// numbers: every size here comes from RinkLayout.
     /// </para>
     /// </summary>
+    [ExecuteAlways] // OnDestroy frees the materials in edit mode too (the editor tools and EditMode tests)
     public sealed class RibbonBoards : MonoBehaviour
     {
         /// <summary>How far the ribbon ring stands out from the inside of the boards (metres).</summary>
@@ -74,6 +75,14 @@ namespace HockeyGame
         public float TextScaleOn(int panel) => _panels[panel].Words.transform.localScale.x;
 
         public static Color ColourOf(ArenaColour c) => new Color32(c.R, c.G, c.B, 255);
+
+        /// <summary>Frees the materials the boards made: each panel's glow and the edge strips' (not the font's).</summary>
+        void OnDestroy()
+        {
+            foreach (Panel p in _panels)
+                if (p.Back != null) SceneObjects.DestroySafely(p.Back);
+            if (_edge != null) SceneObjects.DestroySafely(_edge);
+        }
 
         /// <summary>Adds the Ribbon Boards under rink, with the skin's edges (null: the League Skin's), and hides the arena
         /// model's own ribbon. They show ads until told otherwise.</summary>

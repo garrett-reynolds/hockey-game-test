@@ -13,6 +13,7 @@ namespace HockeyGame
     /// brand ad slides. Every screen shares one picture (one material), so the Centre Board always shows what the Video
     /// Board shows. ShowPicture puts a texture on every screen instead of the words (the Replay's render texture, #91).
     /// </summary>
+    [ExecuteAlways] // OnDestroy frees the materials in edit mode too (the editor tools and EditMode tests)
     public sealed class VideoBoards : MonoBehaviour
     {
         /// <summary>The dark frame round each screen (metres each side) and the boards' depth.</summary>
@@ -290,6 +291,13 @@ namespace HockeyGame
             var renderer = box.GetComponent<Renderer>();
             renderer.shadowCastingMode = ShadowCastingMode.Off;
             renderer.sharedMaterial = material;
+        }
+
+        /// <summary>Frees the materials the boards made (not the shown picture: the Replay owns it; not the font's).</summary>
+        void OnDestroy()
+        {
+            foreach (Material m in new[] { _picture, _frame, _cable, _stillPicture })
+                if (m != null) SceneObjects.DestroySafely(m);
         }
 
         void AddCable(Transform parent, Vector3 bottom)

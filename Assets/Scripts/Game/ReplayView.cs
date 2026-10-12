@@ -125,7 +125,9 @@ namespace HockeyGame
 
         void OnDestroy()
         {
-            if (Picture != null) Picture.Release();
+            if (Picture == null) return;
+            Picture.Release();
+            SceneObjects.DestroySafely(Picture);
         }
     }
 }

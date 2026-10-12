@@ -67,6 +67,22 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void The_readout_sits_in_the_bottom_right_corner_clear_of_the_Score_Box_on_any_screen()
+        {
+            Vector2[] screens = { new Vector2(1280, 720), new Vector2(1920, 1080), new Vector2(3840, 2160), new Vector2(1024, 768), new Vector2(800, 600) };
+            foreach (Vector2 s in screens)
+            {
+                Rect readout = FrameReadout.AreaOn(s.x, s.y);
+                Rect scoreBox = RoundDriver.ScoreBoxArea(s.x);
+                Assert.IsFalse(readout.Overlaps(scoreBox), "clear of the Score Box at " + s);
+                Assert.That(readout.xMax, Is.LessThanOrEqualTo(s.x), "on screen at " + s);
+                Assert.That(readout.yMax, Is.LessThanOrEqualTo(s.y), "on screen at " + s);
+                Assert.That(readout.xMin, Is.GreaterThan(s.x / 2f), "right half at " + s);
+                Assert.That(readout.yMin, Is.GreaterThan(s.y / 2f), "bottom half at " + s);
+            }
+        }
+
+        [Test]
         public void The_readout_says_n_a_when_a_time_is_not_measured()
         {
             Assert.AreEqual("CPU 4.2 ms   GPU n/a", FrameReadout.Text(4.24, 0));

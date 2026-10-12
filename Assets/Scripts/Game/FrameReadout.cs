@@ -5,7 +5,7 @@ namespace HockeyGame
 {
     /// <summary>
     /// The dev-only frame readout (#85): the GPU and CPU (main thread) milliseconds of a recent frame, from the
-    /// FrameTimingManager, in a screen corner. Only in the Editor and development builds (AddTo); a normal build has none.
+    /// FrameTimingManager, in the bottom-right screen corner (clear of the Score Box, top right). Only in the Editor and development builds (AddTo); a normal build has none.
     /// Times the platform does not measure (often the GPU in the Editor) show as n/a.
     /// </summary>
     public sealed class FrameReadout : MonoBehaviour
@@ -38,8 +38,11 @@ namespace HockeyGame
         void OnGUI()
         {
             if (_style == null)
-                _style = new GUIStyle(GUI.skin.label) { fontSize = 16, alignment = TextAnchor.UpperRight, normal = { textColor = Color.white } };
-            GUI.Label(new Rect(Screen.width - 330, 10, 320, 30), _text, _style);
+                _style = new GUIStyle(GUI.skin.label) { fontSize = 16, alignment = TextAnchor.LowerRight, normal = { textColor = Color.white } };
+            GUI.Label(AreaOn(Screen.width, Screen.height), _text, _style);
         }
+
+        /// <summary>Where the readout is drawn on a screen this size: the bottom-right corner, clear of the Score Box (top right).</summary>
+        public static Rect AreaOn(float width, float height) => new Rect(width - 330, height - 40, 320, 30);
     }
 }

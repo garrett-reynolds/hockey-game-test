@@ -31,7 +31,7 @@ namespace HockeyGame.Editor
     /// is from the render calls until the frame is back from the GPU (a read-back waited for), so it is an upper bound on the
     /// GPU's own time. The wait alone (after the render calls return) is also kept: near a lower bound. So the GPU time, and
     /// the crowd's cost, lie between the wait-only and the render-and-wait numbers. In the Editor's Play mode the dev readout
-    /// (FrameReadout) shows the FrameTimingManager's GPU and CPU ms.
+    /// (FrameReadout, in the bottom-right corner) shows the FrameTimingManager's GPU and CPU ms.
     /// The crowd cost is the median of the crowd-on Shots' mean GPU ms less that of the crowd-off Shots.
     /// </para>
     /// From the menu (Hockey Game/Frame Budget/Run) or batch mode (no -nographics: it must render):

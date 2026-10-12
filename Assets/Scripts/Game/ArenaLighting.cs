@@ -150,6 +150,7 @@ namespace HockeyGame
                 {
                     GameObject bank = RinkBuilder.Cube(banks, LightBank, new Vector3(x, BankHeight, ClearOfCentreBoard(x, z)), BankSize, Color.white);
                     var r = bank.GetComponent<Renderer>();
+                    SceneObjects.DestroySafely(r.sharedMaterial); // Cube's own painted copy: every bank shares the one glow
                     r.sharedMaterial = glow;
                     r.shadowCastingMode = ShadowCastingMode.Off;
                     r.receiveShadows = false;

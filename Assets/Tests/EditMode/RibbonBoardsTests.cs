@@ -18,6 +18,20 @@ namespace HockeyGame.Core.Tests
             ArenaShow.At(new ArenaShowInput { Phase = phase, PhaseSeconds = 1.0, Result = result, ShotNumber = 1 });
 
         [Test]
+        public void Removing_the_Ribbon_Boards_frees_the_materials_they_made()
+        {
+            RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
+            var made = new System.Collections.Generic.HashSet<Material>();
+            foreach (Renderer r in ribbons.GetComponentsInChildren<Renderer>())
+                if (r.GetComponent<TextMesh>() == null) made.Add(r.sharedMaterial); // the words' font material is Unity's
+            Assert.That(made.Count, Is.GreaterThan(30), "one glow per panel");
+
+            Object.DestroyImmediate(ribbons.gameObject);
+
+            foreach (Material m in made) Assert.IsTrue(m == null, m + " freed");
+        }
+
+        [Test]
         public void Ribbon_Boards_run_all_round_the_stands_on_the_arena_models_ribbon_ring()
         {
             RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);

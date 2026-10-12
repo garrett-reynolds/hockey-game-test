@@ -39,6 +39,8 @@ namespace HockeyGame
         bool _testShotsOn;
         int _testShotSpeedKmh = TestShotSpeed.DefaultKmh;
         GUIStyle _big, _mid, _small, _scoreBox;
+        Texture2D _scoreBoxBack; // made with the styles; freed in OnDestroy
+        ArenaState _show; // this frame's Arena Show, worked out once in Update and read by everything that frame, OnGUI too
         const float ScoreBoxWidth = 330f;
         TeamSkin _skin; // picked by the save file's teamSkin setting before the rink is built
 
@@ -92,8 +94,9 @@ namespace HockeyGame
             _goalie.Show(inShot || _goalie.HasCharacter);
             _goalie.ShowGaps(_easyGlow.Update(_save.EasyMode, _round));
             _effects.Update(_round, Time.unscaledDeltaTime);
-            _sound.Update(_flow, _effects.PuckArrivedThisFrame, Time.unscaledDeltaTime, _effects.ContactSound);
-            ArenaState show = ArenaShow.From(_flow); // the arena follows the Arena Show
+            _show = ArenaShow.From(_flow); // the arena follows the Arena Show: once a frame, for every part
+            ArenaState show = _show;
+            _sound.Update(_flow, show, _effects.PuckArrivedThisFrame, Time.unscaledDeltaTime, _effects.ContactSound);
             _ribbons.Show(show, Time.unscaledTimeAsDouble);
             _boards.Show(show, Time.unscaledTimeAsDouble);
             _effects.GoalLight.SetOn(show.GoalShow.GoalLight);
@@ -141,6 +144,7 @@ namespace HockeyGame
                     {
                         SubmitTestShot(mouse.position.ReadValue());
                         _effects.Update(_round, 0f); // start the puck now so the result stays hidden in this frame's OnGUI
+                        _show = ArenaShow.From(_flow); // only on a Shot frame: OnGUI shows the Round as it is now
                     }
                     else if (!playing)
                         pressed = true; // a click starts or leaves, even with Test Shots off
@@ -148,7 +152,10 @@ namespace HockeyGame
             }
 
             if (pressed)
+            {
                 _flow.Press();
+                _show = ArenaShow.From(_flow); // only on a Press frame: OnGUI shows the new screen's Score Box at once
+            }
         }
 
         void SubmitTestShot(Vector2 screenPosition)
@@ -171,9 +178,9 @@ namespace HockeyGame
             if (_flow.Screen != FlowScreen.Start) // the start screen shows no old Round
                 DrawDots(w);
 
-            ScoreBox scoreBox = ArenaShow.From(_flow).ScoreBox;
+            ScoreBox scoreBox = _show.ScoreBox; // this frame's, from Update
             if (scoreBox.Shown) // all Round, in the top-right corner like on TV
-                GUI.Label(new Rect(w - ScoreBoxWidth - 10f, 10f, ScoreBoxWidth, 44f), scoreBox.Text, _scoreBox);
+                GUI.Label(ScoreBoxArea(w), scoreBox.Text, _scoreBox);
 
             string testShots = _testShotsOn
                 ? "Test Shots: ON  (" + _testShotSpeedKmh + " km/h, wheel to change, F1 off)"
@@ -271,7 +278,7 @@ namespace HockeyGame
             _mid = new GUIStyle(GUI.skin.label) { fontSize = 26, alignment = TextAnchor.MiddleCenter };
             _small = new GUIStyle(GUI.skin.label) { fontSize = 18 };
             _big.normal.textColor = _mid.normal.textColor = _small.normal.textColor = Color.white;
-            var back = new Texture2D(1, 1);
+            var back = _scoreBoxBack = new Texture2D(1, 1);
             (Color boxBack, Color boxText) = ScoreBoxColours(_skin);
             back.SetPixel(0, 0, boxBack);
             back.Apply();
@@ -279,6 +286,14 @@ namespace HockeyGame
             _scoreBox.normal.background = back;
             _scoreBox.normal.textColor = boxText;
         }
+
+        void OnDestroy()
+        {
+            if (_scoreBoxBack != null) SceneObjects.DestroySafely(_scoreBoxBack);
+        }
+
+        /// <summary>Where the Score Box is drawn on a screen this wide: the top-right corner.</summary>
+        public static Rect ScoreBoxArea(float width) => new Rect(width - ScoreBoxWidth - 10f, 10f, ScoreBoxWidth, 44f);
 
         /// <summary>The Score Box's background and words colours: the skin's (null: the League Skin's).</summary>
         public static (Color Back, Color Text) ScoreBoxColours(TeamSkin skin)

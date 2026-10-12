@@ -143,7 +143,14 @@ namespace HockeyGame.Core
         /// As Update(round, puckArrived, contact), plus the Clap Chant, from the game's screen flow. realSeconds: real time
         /// since the last call. Needs the chant constructor.
         /// </summary>
-        public IReadOnlyList<SoundCue> Update(ScreenFlow flow, bool puckArrived, double realSeconds, SoundCue? contact = null)
+        public IReadOnlyList<SoundCue> Update(ScreenFlow flow, bool puckArrived, double realSeconds, SoundCue? contact = null) =>
+            Update(flow, ArenaShow.From(flow).Chant, puckArrived, realSeconds, contact);
+
+        /// <summary>
+        /// As Update(flow, puckArrived, realSeconds, contact), with the Clap Chant on when chant is: the frame's Arena Show
+        /// (ArenaState.Chant), worked out once by the caller and shared with the rest of the arena.
+        /// </summary>
+        public IReadOnlyList<SoundCue> Update(ScreenFlow flow, bool chant, bool puckArrived, double realSeconds, SoundCue? contact = null)
         {
             if (_chantRandom == null) throw new InvalidOperationException("The chant needs RoundSoundCues(save, chantRandom, cueSeconds).");
             _clock += realSeconds;
@@ -151,14 +158,14 @@ namespace HockeyGame.Core
             foreach (SoundCue cue in _cues)
                 if (cue == SoundCue.Cheer || cue == SoundCue.GoalImpact || cue == SoundCue.NewBestCheer)
                     _cheerEndsAt = Math.Max(_cheerEndsAt, _clock + _cueSeconds(cue));
-            UpdateChant(flow);
+            UpdateChant(flow, chant);
             return _cues;
         }
 
-        private void UpdateChant(ScreenFlow flow)
+        private void UpdateChant(ScreenFlow flow, bool chant)
         {
             const double Epsilon = 1e-6;
-            ChantMode mode = !ArenaShow.From(flow).Chant ? ChantMode.Off
+            ChantMode mode = !chant ? ChantMode.Off
                 : flow.Screen == FlowScreen.End ? ChantMode.Once
                 : ChantMode.Repeat;
             if (mode != _chantMode)

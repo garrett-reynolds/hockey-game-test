@@ -110,6 +110,22 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void The_light_banks_share_one_glow_and_leave_no_stray_material_per_bank()
+        {
+            var probe = GameObject.CreatePrimitive(PrimitiveType.Cube); // a bank starts as a plain cube
+            string plain = probe.GetComponent<Renderer>().sharedMaterial.name;
+            Object.DestroyImmediate(probe);
+            int Copies() => Resources.FindObjectsOfTypeAll<Material>().Count(m => m.name == plain);
+            int before = Copies();
+            ArenaLighting.Build(_rink.transform);
+            int made = Copies() - before;
+            Renderer[] banks = _rink.GetComponentsInChildren<Renderer>().Where(r => r.name == ArenaLighting.LightBank).ToArray();
+            Assert.That(banks.Length, Is.GreaterThan(20));
+            Assert.AreEqual(1, banks.Select(r => r.sharedMaterial).Distinct().Count(), "one shared glow");
+            Assert.That(made, Is.LessThan(banks.Length), "no plain cube material copied and dropped for each bank");
+        }
+
+        [Test]
         public void The_roof_lights_pulse_in_the_Goal_Show_colour_while_lit_and_come_back_exactly_after()
         {
             ArenaLighting.Build(_rink.transform);

@@ -126,6 +126,28 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void The_chant_follows_the_Arena_Show_it_is_handed_for_the_frame()
+        {
+            // RoundDriver works out the show once a frame and hands it on: the cues follow that show, not their own.
+            var rig = new Rig(new ScriptedRandom(new[] { 0.5 }, 0.0, 0.75));
+            var heard = new List<SoundCue>();
+            for (double t = 0; t < 20.0; t += Frame)
+            {
+                rig.Flow.Tick(Frame);
+                heard.AddRange(rig.Cues.Update(rig.Flow, false, false, Frame)); // a show with no chant
+            }
+            Assert.AreEqual(FlowScreen.Start, rig.Flow.Screen);
+            CollectionAssert.DoesNotContain(heard, SoundCue.Chant, "no chant when the show says none, even on the start screen");
+
+            for (double t = 0; t < 20.0; t += Frame)
+            {
+                rig.Flow.Tick(Frame);
+                heard.AddRange(rig.Cues.Update(rig.Flow, ArenaShow.From(rig.Flow).Chant, false, Frame));
+            }
+            CollectionAssert.Contains(heard, SoundCue.Chant, "the chant comes when the show says so");
+        }
+
+        [Test]
         public void No_chant_in_the_skate_in_or_anywhere_in_the_Round()
         {
             var rig = new Rig(new SeededRandom(3));
