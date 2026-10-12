@@ -205,6 +205,29 @@ namespace HockeyGame.Core.Tests
             Assert.IsTrue(rang, "the post rang");
         }
 
+        // Wide of the net and low (the boards) or high (the glass): the first wall sound of the Shot, from its physics contact.
+        // (Just wide of a post: wider Shots leave the camera's view first and the puck is hidden before it meets a wall.)
+        [TestCase(-30, 20, SoundCue.MissImpact, "Boards")]
+        [TestCase(130, 20, SoundCue.MissImpact, "Boards")]
+        [TestCase(-30, 150, SoundCue.GlassImpact, "Glass")]
+        [TestCase(130, 150, SoundCue.GlassImpact, "Glass")]
+        public void A_board_hit_sounds_the_boards_cue_and_a_glass_hit_the_glass_cue(double x, double y, SoundCue expected, string wall)
+        {
+            var effects = Effects();
+            var round = InWindow(FakeReach.NeverReaches());
+            Shoot(round, effects, x, y, 100);
+            var heard = new List<SoundCue>();
+            for (int i = 0; i < 3.0 / Step; i++)
+            {
+                Frame(round, effects);
+                if (effects.HitSound.HasValue) heard.Add(effects.HitSound.Value);
+            }
+            Assert.IsTrue(heard.Contains(expected), "heard " + string.Join(", ", heard) + "; touched " + effects.Shot.FirstTouched?.name + ", whistle " + effects.Shot.WhistleSeconds + " " + effects.Shot.Result + ", crossed " + effects.Shot.CrossedNetFace + ", active " + effects.Shot.Puck.gameObject.activeSelf + ", at " + effects.Shot.Puck.position);
+            Assert.IsFalse(heard.Contains(SoundCue.PostPing), "no post in the way");
+            StringAssert.Contains(wall, effects.Shot.FirstTouched.name);
+            Assert.AreEqual(ShotResultKind.Miss, effects.Shot.Result);
+        }
+
         GoalieView ShownGoalie()
         {
             var character = new GoalieCharacter(_root.transform);

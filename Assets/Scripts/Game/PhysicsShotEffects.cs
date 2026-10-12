@@ -10,7 +10,7 @@ namespace HockeyGame
     /// gives the Whistle rule the puck's facts, and at the Whistle it tells the Round the result (Round.Whistle).
     /// <para>
     /// The goalie's after-shot motion (AfterShot) starts from the Whistle, with the real result (GoalieView.Judge), so a
-    /// Miss shows Relief. The Annoyed Gesture waits for the puck to meet the netting (the catch). Post and crossbar hits sound from the physics contacts (HitSound). The goal light is
+    /// Miss shows Relief. The Annoyed Gesture waits for the puck to meet the netting (the catch). Post, crossbar, boards and glass hits sound from the physics contacts (HitSound). The goal light is
     /// built here with the rink's Shot parts, but the Arena Show drives it (GoalShow.GoalLight, from a GOAL!'s Whistle).
     /// </para>
     /// <para>
@@ -36,6 +36,12 @@ namespace HockeyGame
         /// <summary>At most one ping in this long (physics seconds): a puck rattling on the frame rings once.</summary>
         public const float PingGapSeconds = 0.1f;
 
+        /// <summary>A hit on the boards or glass pushes at least this hard (N s) to sound: not a puck rolling along them.</summary>
+        public const float WallImpact = 0.05f;
+
+        /// <summary>At most one board or glass sound in this long (physics seconds): a puck rattling in a corner sounds once.</summary>
+        public const float WallGapSeconds = 0.1f;
+
         readonly Transform _rink;
         readonly Camera _camera;
         readonly IRandomSource _random;
@@ -49,6 +55,7 @@ namespace HockeyGame
         float _clock;          // real seconds since the current Shot
         float _whistledAt = -1f, _nettedAt = -1f; // _clock at the Whistle and when the puck first met the catch (-1: not yet)
         double _lastPing = double.NegativeInfinity; // the Shot's physics seconds at its last ping
+        double _lastWall = double.NegativeInfinity; // ... and at its last board or glass sound
         SoundCue? _pendingHit; // a hit sound from the physics steps since the last frame
 
         /// <param name="random">Turns, tips and spins each puck at launch (PhysicsPuck.Launch).</param>
@@ -83,7 +90,7 @@ namespace HockeyGame
         /// </summary>
         public double CameraLookUp { get; set; }
 
-        /// <summary>The sound of a hit the puck made in the physics steps before this frame (a post or the crossbar: PostPing); null for none.</summary>
+        /// <summary>The sound of a hit the puck made in the physics steps before this frame (a post or the crossbar: PostPing; the boards: MissImpact; the glass: GlassImpact); null for none.</summary>
         public SoundCue? HitSound { get; private set; }
 
         /// <summary>
@@ -130,7 +137,7 @@ namespace HockeyGame
             _shotNumber = round.ShotsSubmitted;
             _clock = 0f;
             _whistledAt = _nettedAt = -1f;
-            _lastPing = double.NegativeInfinity;
+            _lastPing = _lastWall = double.NegativeInfinity;
 
             Shot = new PhysicsShot(_rink, _camera, round.Settings, _random, _findFile);
             Shot.Whistled += OnWhistled;
@@ -168,6 +175,14 @@ namespace HockeyGame
             if (other.sharedMaterial == ShotColliders.Catch)
             {
                 if (_nettedAt < 0f) _nettedAt = _clock; // the puck meets the netting
+                return;
+            }
+            bool boards = other.sharedMaterial == ShotColliders.Boards;
+            if (boards || other.sharedMaterial == ShotColliders.Glass)
+            {
+                if (impulse.magnitude < WallImpact || Shot.SecondsSinceShot - _lastWall < WallGapSeconds) return;
+                _lastWall = Shot.SecondsSinceShot;
+                _pendingHit = boards ? SoundCue.MissImpact : SoundCue.GlassImpact;
                 return;
             }
             if (other.sharedMaterial != ShotColliders.Frame || impulse.magnitude < PingImpulse) return;

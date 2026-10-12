@@ -11,7 +11,7 @@ namespace HockeyGame.Core
         Buzzer,
         GoalImpact,   // puck hits the net + goal horn
         SaveImpact,   // puck thuds on the goalie pad (or body)
-        MissImpact,   // puck clangs on the boards
+        MissImpact,   // puck clangs on the boards (a physics contact)
         Cheer,
         Groan,        // a Save: the home crowd groans
         Ooh,          // a Frame Hit (post or crossbar): the crowd's "ooh"
@@ -25,7 +25,8 @@ namespace HockeyGame.Core
         StrideLeft,   // a push of the camera's stride while it leans left: one stride sound, panned left
         StrideRight,  // a push of the camera's stride while it leans right: one stride sound, panned right
         Chant,        // start the Clap Chant ("Let's go!", clap-clap, clap-clap-clap) from its beginning
-        ChantEnd      // a Round starts while the chant plays: stop it (fade out, no click)
+        ChantEnd,     // a Round starts while the chant plays: stop it (fade out, no click)
+        GlassImpact   // puck bangs on the glass (a physics contact)
     }
 
     /// <summary>Slow-down audio for one frame: low-pass cutoff, pitch, heartbeat on/off.</summary>
@@ -228,7 +229,7 @@ namespace HockeyGame.Core
             if (hit.HasValue)
             {
                 _cues.Add(hit.Value);
-                _hitThisShot = true;
+                if (hit.Value == SoundCue.PostPing) _hitThisShot = true; // a board or glass hit does not earn the "ooh"
             }
             // A new result is a Too Late (at once) or a Shot's Whistle.
             if (_newResult.TakeNew(round)) PlayResult(round);
@@ -277,17 +278,9 @@ namespace HockeyGame.Core
                     _cues.Add(SoundCue.Groan);
                     break;
                 default:
-                    if (_hitThisShot)
-                    {
-                        // The puck rang off the frame (its ping played at the hit): the crowd's "ooh" at the Whistle.
-                        _cues.Add(SoundCue.Ooh);
-                    }
-                    else
-                    {
-                        // Until #110 (boards from physics contacts): a Miss that rang off nothing clangs on the boards at its Whistle.
-                        _cues.Add(SoundCue.MissImpact);
-                        _cues.Add(SoundCue.SmallGroan);
-                    }
+                    // The puck rang off the frame (its ping played at the hit): the crowd's "ooh" at the Whistle. Any other
+                    // Miss gets the small groan; the boards and glass sound at their own contacts (#110).
+                    _cues.Add(_hitThisShot ? SoundCue.Ooh : SoundCue.SmallGroan);
                     break;
             }
         }
