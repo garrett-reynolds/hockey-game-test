@@ -33,6 +33,7 @@ namespace HockeyGame
         Camera _camera;
         RibbonBoards _ribbons; // follow the Arena Show
         RoofLights _roofLights; // pulse in the Goal Show and the new-best show
+        Crowd _crowd; // follows the Arena Show (null without the crowd body file)
         Plane _netFacePlane;
         bool _testShotsOn;
         int _testShotSpeedKmh = TestShotSpeed.DefaultKmh;
@@ -50,6 +51,7 @@ namespace HockeyGame
             Transform rink = GameObject.Find("Rink").transform;
             _ribbons = rink.GetComponentInChildren<RibbonBoards>();
             _roofLights = new RoofLights(rink);
+            _crowd = rink.GetComponentInChildren<Crowd>();
             GoalieCharacter character = _save.ForceGoalieBlocks ? null : new GoalieCharacter(rink);
             _goalie = new GoalieView(rink, character);
             _effects = new ShotEffects(rink, _camera, null, _goalie);
@@ -89,6 +91,7 @@ namespace HockeyGame
             _ribbons.Show(show, Time.unscaledTimeAsDouble);
             _effects.GoalLight.SetOn(show.GoalShow.GoalLight);
             _roofLights.Show(show.GoalShow);
+            if (_crowd != null) _crowd.Show(show, Time.unscaledTimeAsDouble);
 
             bool playing = _flow.Screen == FlowScreen.Playing;
             bool pressed = false; // key or click outside a Round: at most one Press per frame
