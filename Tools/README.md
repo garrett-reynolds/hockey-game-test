@@ -23,10 +23,11 @@ Example: `py -3 Tools/make_arena.py Assets/Resources/Models`
 
 ## Blender 4.5 (headless)
 
-These run inside Blender 4.5 (`bpy`), not plain Python. Each needs a file Garrett supplied as input:
+These run inside Blender 4.5 (`bpy`), not plain Python. Each needs a downloaded or supplied file as input:
 
 | Script | Makes |
 |---|---|
+| `make_crowd.py` | a 3D crowd fan body and its clips (`Assets/Resources/Crowd/*.bytes`) from a Quaternius base character |
 | `make_lifelike_goalie.py` | `goalie-dressing.fbx` and its textures |
 | `make_supplied_net.py` | `net.fbx` |
 | `make_supplied_puck.py` | `puck.fbx` |

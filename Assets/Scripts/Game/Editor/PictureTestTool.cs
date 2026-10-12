@@ -250,12 +250,15 @@ namespace HockeyGame.Editor
             readonly IGoalieReach _reach;
             readonly Volume _look;
             readonly RibbonBoards _ribbons;
+            readonly Crowd _crowd;
 
             public Rig(RenderTexture target)
             {
                 RinkBuilder.Build(out Camera);
                 Transform rink = GameObject.Find("Rink").transform;
                 _ribbons = rink.GetComponentInChildren<RibbonBoards>();
+                _crowd = rink.GetComponentInChildren<Crowd>();
+                if (_crowd == null) throw new InvalidOperationException("The 3D crowd did not load: the picture test needs it.");
                 var character = new GoalieCharacter(rink);
                 if (!character.Present) throw new InvalidOperationException("The goalie model did not load: the picture test needs it.");
                 Goalie = new GoalieView(rink, character);
@@ -298,7 +301,9 @@ namespace HockeyGame.Editor
                 Goalie.SetProgress((float)Breakaway.GoalieSet(phase, t, false, 0));
 
                 // The arena as the Arena Show has it in the shooting window (the ads' clock fixed at 0).
-                _ribbons.Show(ArenaShow.At(new ArenaShowInput { Phase = phase, PhaseSeconds = t, ShotNumber = 1 }), 0.0);
+                ArenaState arena = ArenaShow.At(new ArenaShowInput { Phase = phase, PhaseSeconds = t, ShotNumber = 1 });
+                _ribbons.Show(arena, 0.0);
+                _crowd.Show(arena, 0.0); // the Calm Area's fans still and dim
                 return gaps;
             }
 

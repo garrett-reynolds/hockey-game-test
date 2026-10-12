@@ -11,7 +11,8 @@
 #   players' benches. Outer box: the outline + 0.2 m, y 0 to the end glass top. The "Glass" part is made see-through by
 #   the game.
 #   arena.obj: a dark floor round the boards, two tiers of seats full of fans (crowd.png on the riser faces) all round the
-#   bowl, an LED ribbon board between the tiers ("Ribbon", made to glow by the game), a back wall and a roof at 24 m.
+#   bowl except the lower stand behind the near net (plain risers, "NearRisers": the game seats its 3D fans there), an
+#   LED ribbon board between the tiers ("Ribbon", made to glow by the game), a back wall and a roof at 24 m.
 #   Near centre ice the stands step back BENCH_DEPTH for the two empty players' benches (one side) and the two empty
 #   penalty boxes (the other). Outer box: the outline + 31.2 m all round, y 0 to 24.
 # Everything here is made from scratch for Hockey Game Test (no outside source). CC0.
@@ -166,14 +167,16 @@ class Obj:
                     corners.append((cx + p[0] * hx, cy + p[1] * hy, cz + p[2] * hz))
                 self.poly(corners, tuple(n))
 
-    def wall(self, offset, y0, y1, inward=True, uv_v=None, u_shift=0.0):
+    def wall(self, offset, y0, y1, inward=True, uv_v=None, u_shift=0.0, where=None):
         """A vertical band round the whole outline at offset, from y0 to y1, facing the rink (or away).
-        With uv_v=(v0, v1) it is textured: u runs CROWD_TILE metres per repeat along the ring."""
+        With uv_v=(v0, v1) it is textured: u runs CROWD_TILE metres per repeat along the ring.
+        With where, only the pieces whose middle (x, z) it accepts."""
         pts = ring(offset)
         d = lengths(pts)
         for i in range(len(pts)):
             (x0, z0), (x1, z1) = pts[i], pts[(i + 1) % len(pts)]
             mx, mz = (x0 + x1) / 2, (z0 + z1) / 2
+            if where and not where(mx, mz): continue
             facing = (-(mx - centre_x(mx)), 0, -(mz - centre_z(mz)))
             if not inward: facing = (-facing[0], 0, -facing[2])
             quad = [(x0, y0, z0), (x1, y0, z1), (x1, y1, z1), (x0, y1, z0)]
@@ -274,6 +277,11 @@ RIBBON_H = layout.RIBBON_HEIGHT        # the game's Ribbon Boards (RibbonBoards.
 UPPER_ROWS, UPPER_RISE = 13, 0.55
 
 
+def behind_near_net(x, z):
+    """A piece of a stands ring on the near end straight, behind the near net (CrowdSeats.BehindNearNet's seats)."""
+    return z > EZ and abs(x) < CX
+
+
 def arena(folder):
     rnd = random.Random(25)
     o = Obj()
@@ -283,10 +291,13 @@ def arena(folder):
     treads = []
     off, y = FRONT, FRONT_H
     o.part("Crowd", "Crowd")
+    risers = []
     for i in range(LOWER_ROWS):
         treads.append((off, off + ROW_D, y))
         off += ROW_D
-        o.wall(off, y, y + LOWER_RISE, uv_v=(0, 1), u_shift=rnd.uniform(0, CROWD_TILE))
+        o.wall(off, y, y + LOWER_RISE, uv_v=(0, 1), u_shift=rnd.uniform(0, CROWD_TILE),
+               where=lambda x, z: not behind_near_net(x, z))
+        risers.append((off, y))
         y += LOWER_RISE
     ribbon = (off, y)
     y += RIBBON_H
@@ -305,6 +316,10 @@ def arena(folder):
         o.box((side * (HW + back - 0.25), 0.45 / 2, (a + b) / 2), (0.25, 0.45 / 2, (b - a) / 2 - 0.05))
         for zc in (a, b):
             o.box((side * (HW + (T + back) / 2), 0.6, zc), ((back - T) / 2, 0.6, 0.04))
+
+    # The lower stand behind the near net has the game's 3D fans (Crowd.cs) instead of the picture: plain risers there.
+    o.part("NearRisers", "Wall")
+    for r_off, r_y in risers: o.wall(r_off, r_y, r_y + LOWER_RISE, where=behind_near_net)
 
     o.part("Ribbon", "Ribbon"); o.wall(ribbon[0], ribbon[1], ribbon[1] + RIBBON_H)
     o.part("Aisles", "Concrete")

@@ -32,6 +32,7 @@ namespace HockeyGame
         RoundSound _sound; // reads tick on/off, master volume and mute from _save each frame
         Camera _camera;
         RibbonBoards _ribbons; // follow the Arena Show
+        Crowd _crowd; // follows the Arena Show (null without the crowd body file)
         Plane _netFacePlane;
         bool _testShotsOn;
         int _testShotSpeedKmh = TestShotSpeed.DefaultKmh;
@@ -48,6 +49,7 @@ namespace HockeyGame
             _save = SaveStore.Current;
             Transform rink = GameObject.Find("Rink").transform;
             _ribbons = rink.GetComponentInChildren<RibbonBoards>();
+            _crowd = rink.GetComponentInChildren<Crowd>();
             GoalieCharacter character = _save.ForceGoalieBlocks ? null : new GoalieCharacter(rink);
             _goalie = new GoalieView(rink, character);
             _effects = new ShotEffects(rink, _camera, null, _goalie);
@@ -83,7 +85,9 @@ namespace HockeyGame
             _goalie.ShowGaps(_easyGlow.Update(_save.EasyMode, _round));
             _effects.Update(_round, Time.unscaledDeltaTime);
             _sound.Update(_round, _effects.PuckArrivedThisFrame, Time.unscaledDeltaTime, _effects.ContactSound);
-            _ribbons.Show(ArenaShow.From(_flow), Time.unscaledTimeAsDouble); // the arena follows the Arena Show
+            ArenaState arena = ArenaShow.From(_flow); // the arena follows the Arena Show
+            _ribbons.Show(arena, Time.unscaledTimeAsDouble);
+            if (_crowd != null) _crowd.Show(arena, Time.unscaledTimeAsDouble);
 
             bool playing = _flow.Screen == FlowScreen.Playing;
             bool pressed = false; // key or click outside a Round: at most one Press per frame
