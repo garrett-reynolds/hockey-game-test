@@ -67,7 +67,10 @@ namespace HockeyGame
             public ArenaZone Zone;
             public Material Back;
             public TextMesh Words;
-            public string Shown; // what it shows now, so Show changes only what changed
+            // What it shows now, so Show changes only what changed (it runs every frame).
+            public string Text;
+            public Color Fore, Glow;
+            public float TextHeight = -1f;
         }
 
         readonly List<Panel> _panels = new List<Panel>();
@@ -136,10 +139,13 @@ namespace HockeyGame
 
         void Apply(Panel p, string text, Color fore, Color back, float glow, float height)
         {
-            string key = text + "|" + fore + "|" + back + "|" + height;
-            if (p.Shown == key) return;
-            p.Shown = key;
-            p.Back.SetColor(EmissionColour, back * glow);
+            Color light = back * glow;
+            if (p.Text == text && p.Fore == fore && p.Glow == light && p.TextHeight == height) return;
+            p.Text = text;
+            p.Fore = fore;
+            p.Glow = light;
+            p.TextHeight = height;
+            p.Back.SetColor(EmissionColour, light);
             p.Words.text = text;
             p.Words.color = fore;
             float scale = TextScale(text, height, p.Length * TextWidth);
