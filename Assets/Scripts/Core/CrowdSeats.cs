@@ -46,9 +46,11 @@ namespace HockeyGame.Core
         /// far fans (the lighter body, or flat cards).</summary>
         public static bool IsNearFan(FanSeat seat) => seat.Row < RinkLayout.LowerRows && seat.Z > RinkLayout.CentreLineZ;
 
-        /// <summary>Every seat, row by row from the lower tier's front row to the upper tier's back row; along each row
-        /// from behind the near net's left end round past +x, the far end and -x, so seats next in the list sit side by side.</summary>
-        public static FanSeat[] All() => Array.FindAll(AllIncludingHidden(), s => !VideoBoardCover.HidesFan(s));
+        /// <summary>Every seat a player can see (the fans wholly behind the Video Board are left out; AllIncludingHidden has every
+        /// seat), row by row from the lower tier's front row to the upper tier's back row; along each row from behind the near
+        /// net's left end round past +x, the far end and -x, so seats next in the list sit side by side. Worked out once.</summary>
+        public static FanSeat[] All() => _visible ??= Array.FindAll(AllIncludingHidden(), s => !VideoBoardCover.HidesFan(s));
+        static FanSeat[] _visible;
 
         /// <summary>As All, with the fans the Video Board hides (VideoBoardCover) too.</summary>
         public static FanSeat[] AllIncludingHidden()

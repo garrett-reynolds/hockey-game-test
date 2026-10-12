@@ -6,8 +6,9 @@ using UnityEngine.Rendering;
 namespace HockeyGame
 {
     /// <summary>
-    /// The Video Board, hung from the roof high behind the near net and tilted toward the player, and the 4-screen Centre
-    /// Board over centre ice, at their Rink Layout places. They only follow the Arena Show (Show): the start card, the score
+    /// The Video Board, hung in front of the near end's crowd at the Ribbon Board's height and tilted toward the player, and the
+    /// 4-screen Centre Board over centre ice, at their Rink Layout places. They only follow the Arena Show (Show): one dim
+    /// still colour with no words from goalie set to the Shot (the Calm Area rules), otherwise the start card, the score
     /// and the last Shot speed, the result, the final score or NEW BEST! (its frame flashes with the Goal Show lights), and
     /// brand ad slides. Every screen shares one picture (one material), so the Centre Board always shows what the Video
     /// Board shows. ShowPicture puts a texture on every screen instead of the words (the Replay's render texture, #91).

@@ -185,7 +185,7 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void Half_way_up_the_camera_is_half_way_between_the_net_and_the_board()
         {
-            Vector3 board = new Vector3(0, 16, 16);
+            Vector3 board = new Vector3((float)RinkLayout.VideoBoard.X, (float)RinkLayout.VideoBoard.Y, (float)RinkLayout.VideoBoard.Z);
             BreakawayView.PlaceShooterCamera(_eye.transform, 0f, 9f, 0f, 0f);
             Quaternion onNet = _eye.transform.rotation;
             BreakawayView.LookUpTo(_eye.transform, board, 0f);

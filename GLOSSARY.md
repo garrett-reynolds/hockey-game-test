@@ -91,7 +91,7 @@ A Miss whose position lands on a post or the crossbar: just outside the Net Face
 _Avoid_: Iron, post shot
 
 **Video Board**:
-The big screen hung high behind the net. It shows the score during the skate-in and the Replay after a Shot.
+The big screen hung in front of the near end's crowd, at the Ribbon Board's height. It shows the score during the skate-in, one dim still colour from goalie set to the Shot, and the Replay after a Shot.
 _Avoid_: Jumbotron, scoreboard, centre-hung
 
 **Ribbon Board**:

@@ -110,7 +110,7 @@ namespace HockeyGame.Core.Tests
                 for (double window = 0; window <= settings.ShootingWindowSeconds + 1e-9; window += 0.1)
                 {
                     float drift = (float)Breakaway.Drift(side, settings.SlowDownSeconds, window, settings);
-                    for (float stride = 0f; stride < rollPeriod; stride += 0.05f)
+                    for (float stride = 0f; stride < rollPeriod; stride += 0.02f)
                     {
                         BreakawayView.PlaceShooterCamera(_eye.transform, (float)x, (float)distance, drift, stride);
                         Rect board = Outline(corners), goalie = Outline(net);
@@ -141,7 +141,7 @@ namespace HockeyGame.Core.Tests
             RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
             // No fan stands in the board's frame, in front of it, or within the clear gap behind it.
             float behind = VideoBoards.Depth + 0.01f + (float)VideoBoardCover.ClearGap;
-            foreach (FanSeat s in CrowdSeats.All())
+            foreach (FanSeat s in CrowdSeats.AllIncludingHidden())
                 foreach (double dy in new[] { 0.0, VideoBoardCover.FanHeight })
                 foreach (double dx in new[] { -VideoBoardCover.FanHalfWidth, VideoBoardCover.FanHalfWidth })
                 foreach (double dz in new[] { -VideoBoardCover.FanHalfWidth, VideoBoardCover.FanHalfWidth })
@@ -181,6 +181,56 @@ namespace HockeyGame.Core.Tests
                 if (Mathf.Abs(c.z - ((float)RinkLayout.NearEndBoardsZ + RibbonBoards.Offset)) > 0.2f) continue; // a corner's panel, not along x
                 Assert.IsFalse(HiddenFromEveryEye(eyes, frame, box), "ribbon panel " + i + " at " + c + " is wholly hidden but still there");
             }
+        }
+
+        [Test]
+        public void Every_fan_and_Ribbon_Board_panel_left_out_is_wholly_behind_the_board_from_the_real_camera()
+        {
+            VideoBoards boards = VideoBoards.Build(_rink.transform);
+            RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
+            Vector3[] frame = FrontOutline(boards);
+            // The shooter's real camera (BreakawayView.PlaceShooterCamera, bob and drift included) over every Attack Side: the skate-in,
+            // the slow-down and the shooting window. The Replay's look-up turns the camera from where it ends but does not move it.
+            var settings = new RoundSettings();
+            float rollPeriod = (float)(2 * System.Math.PI / Breakaway.RollRadiansPerSecond);
+            var eyes = new System.Collections.Generic.List<(double X, double Y, double Z)>();
+            void Eye(float x, float distance, float drift, float stride)
+            {
+                BreakawayView.PlaceShooterCamera(_eye.transform, x, distance, drift, stride);
+                Vector3 p = _eye.transform.position;
+                eyes.Add((p.x, p.y, p.z));
+            }
+            foreach (AttackSide side in Sides)
+            {
+                for (double u = 0.0; u <= 1.0 + 1e-9; u += 0.05)
+                {
+                    Breakaway.SkatePoint(side, u, out double x, out double distance);
+                    for (float stride = 0f; stride < rollPeriod; stride += 0.1f) Eye((float)x, (float)distance, 0f, stride);
+                }
+                Breakaway.SkatePoint(side, 1.0, out double sx, out double sd);
+                for (double t = 0.0; t <= settings.SlowDownSeconds + 1e-9; t += 0.1)
+                    for (float stride = 0f; stride < rollPeriod; stride += 0.1f)
+                        Eye((float)sx, (float)sd, (float)Breakaway.Drift(side, t, 0.0, settings), stride);
+                for (double window = 0; window <= settings.ShootingWindowSeconds + 1e-9; window += 0.1)
+                {
+                    float drift = (float)Breakaway.Drift(side, settings.SlowDownSeconds, window, settings);
+                    for (float stride = 0f; stride < rollPeriod; stride += 0.02f) Eye((float)sx, (float)sd, drift, stride);
+                }
+            }
+            var all = eyes.ToArray();
+
+            FanSeat[] visible = CrowdSeats.All();
+            var left = new System.Collections.Generic.HashSet<FanSeat>(CrowdSeats.AllIncludingHidden());
+            left.ExceptWith(visible);
+            Assert.That(left.Count, Is.GreaterThan(100), "fans are left out");
+            foreach (FanSeat s in left)
+                Assert.IsTrue(HiddenFromEveryEye(all, frame, BoxOf(s.X - 0.25, s.Y, s.Z - 0.25, s.X + 0.25, s.Y + VideoBoardCover.FanHeight, s.Z + 0.25)),
+                              s + " is left out but the real camera can see it");
+            Assert.That(ribbons.LeftOut.Count, Is.GreaterThan(0), "panels are left out");
+            foreach ((Vector2 from, Vector2 to) in ribbons.LeftOut)
+                Assert.IsTrue(HiddenFromEveryEye(all, frame, BoxOf(Mathf.Min(from.x, to.x), RinkLayout.RibbonBottom, Mathf.Min(from.y, to.y) - 0.05f,
+                                                                     Mathf.Max(from.x, to.x), RinkLayout.RibbonBottom + RinkLayout.RibbonHeight, Mathf.Max(from.y, to.y) + 0.05f)),
+                              "the ribbon panel from " + from + " to " + to + " is left out but the real camera can see it");
         }
 
         static Vector3[] BoxOf(double x0, double y0, double z0, double x1, double y1, double z1)

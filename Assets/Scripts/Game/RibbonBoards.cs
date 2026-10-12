@@ -62,6 +62,8 @@ namespace HockeyGame
         Material _edge; // the skin's edge colour; null: no edges
 
         public int PanelCount => _panels.Count;
+        /// <summary>The ring's panels left out because the Video Board hides them wholly (their two ends), for tests.</summary>
+        public readonly List<(Vector2 From, Vector2 To)> LeftOut = new List<(Vector2 From, Vector2 To)>();
         public Vector3 CentreOf(int panel) => _panels[panel].Centre;
         public float LengthOf(int panel) => _panels[panel].Length;
         public ArenaZone ZoneOf(int panel) => _panels[panel].Zone;
@@ -95,7 +97,7 @@ namespace HockeyGame
             foreach ((Vector2 from, Vector2 to) in ring)
             {
                 // A panel wholly behind the Video Board is never seen: leave it out.
-                if (VideoBoardCover.HidesRibbonPanel(from.x, from.y, to.x, to.y)) continue;
+                if (VideoBoardCover.HidesRibbonPanel(from.x, from.y, to.x, to.y)) { ribbons.LeftOut.Add((from, to)); continue; }
                 ribbons.AddPanel(index++, from, to);
             }
             ribbons.Show(ArenaShow.At(new ArenaShowInput { Phase = RoundPhase.Idle }), 0.0);

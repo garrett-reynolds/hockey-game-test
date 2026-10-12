@@ -175,13 +175,13 @@ namespace HockeyGame
         public const float ReplayLookLift = 6.75f;
 
         /// <summary>
-        /// Where the camera looks for the Replay: at the Video Board's centre, ReplayLookLift higher, so the whole board shows with the
+        /// Where the camera looks for the Replay: ReplayLookLift above the Video Board's centre, so the whole board shows with the
         /// net and the goalie (who plays the Replay back) kept below the view from every Attack Side.
         /// </summary>
         public static readonly Vector3 ReplayLookTarget =
             new Vector3((float)RinkLayout.VideoBoard.X, (float)RinkLayout.VideoBoard.Y + ReplayLookLift, (float)RinkLayout.VideoBoard.Z);
 
-        /// <summary>Turns the camera from where it looks (the net) toward target (the Video Board's centre) by amount (0..1).</summary>
+        /// <summary>Turns the camera from where it looks (the net) toward target (the Replay look-up's aim point: ReplayLookTarget) by amount (0..1).</summary>
         public static void LookUpTo(Transform camera, Vector3 target, float amount)
         {
             if (amount <= 0f) return;
