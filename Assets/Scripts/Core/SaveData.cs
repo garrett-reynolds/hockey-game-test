@@ -14,6 +14,8 @@ namespace HockeyGame.Core
     public sealed class SaveData
     {
         public const string AutoUsbPort = "Auto";
+        /// <summary>The League Skin's name: the Team Skin used when the file names none.</summary>
+        public const string LeagueSkin = "league";
 
         /// <summary>Allowed values and step for one number setting. The settings screen steps by these; Load clamps to them.</summary>
         public readonly struct NumberRange
@@ -38,6 +40,7 @@ namespace HockeyGame.Core
         private const string TickOnKey = "tickOn";
         private const string MasterVolumeKey = "masterVolume";
         private const string MuteKey = "mute";
+        private const string TeamSkinKey = "teamSkin";
         private const string ForceGoalieBlocksKey = "forceGoalieBlocks"; // replaces goalieCharacterOn (#27), which old files hold as false
 
         public int BestScore = 0;
@@ -56,6 +59,11 @@ namespace HockeyGame.Core
         /// Set forceGoalieBlocks=true in the settings file to turn it on. The old goalieCharacterOn key is ignored.
         /// </summary>
         public bool ForceGoalieBlocks = false;
+        /// <summary>
+        /// The Team Skin picked before play: its asset name in Assets/Resources/Skins (TeamSkin). Not on the settings
+        /// screen (no menu yet): set teamSkin=&lt;name&gt; in the settings file. An unknown name plays the League Skin.
+        /// </summary>
+        public string TeamSkin = LeagueSkin;
 
         /// <summary>Loads from a path. Never throws: any problem leaves defaults for what could not be read.</summary>
         public static SaveData Load(string path)
@@ -92,6 +100,7 @@ namespace HockeyGame.Core
             data.MasterVolume = ReadDouble(values, MasterVolumeKey, data.MasterVolume, VolumeRange);
             data.Mute = ReadBool(values, MuteKey, data.Mute);
             data.ForceGoalieBlocks = ReadBool(values, ForceGoalieBlocksKey, data.ForceGoalieBlocks);
+            if (values.TryGetValue(TeamSkinKey, out var skin) && skin.Length > 0) data.TeamSkin = skin;
             return data;
         }
 
@@ -116,6 +125,7 @@ namespace HockeyGame.Core
                 sb.Append(MasterVolumeKey).Append('=').Append(MasterVolume.ToString("R", inv)).Append('\n');
                 sb.Append(MuteKey).Append('=').Append(Mute ? "true" : "false").Append('\n');
                 sb.Append(ForceGoalieBlocksKey).Append('=').Append(ForceGoalieBlocks ? "true" : "false").Append('\n');
+                sb.Append(TeamSkinKey).Append('=').Append(TeamSkin).Append('\n');
                 File.WriteAllText(path, sb.ToString(), new UTF8Encoding(false));
                 return true;
             }

@@ -38,6 +38,35 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void The_still_far_net_stands_on_the_far_goal_line_facing_the_near_net()
+        {
+            const float farGoalLine = -54.26f; // 200 ft rink, goal lines 11 ft from each end, near goal line at z = 0
+            foreach (System.Func<string, GameObject> findFile in new System.Func<string, GameObject>[] { null, name => null })
+            {
+                GameObject far = NetBuilder.BuildFar(_rink, findFile);
+                Bounds all = WorldBounds(far.transform);
+                Assert.AreEqual(0f, all.min.y, Tolerance, "on the ice");
+                Assert.AreEqual(farGoalLine - Depth, all.min.z, Tolerance, "its back toward the far end boards");
+                Bounds left = WorldBounds(Part(far.transform, "LeftPost")), right = WorldBounds(Part(far.transform, "RightPost"));
+                Assert.AreEqual(0f, (left.center.x + right.center.x) / 2f, Tolerance, "in the middle of the far end");
+                Assert.That(left.center.x, Is.GreaterThan(0f), "turned round: its left post is on the shooter's right");
+                Assert.AreEqual(farGoalLine, left.center.z, Tolerance, "posts on the far goal line");
+                Object.DestroyImmediate(far);
+            }
+        }
+
+        [Test]
+        public void The_netting_that_shakes_on_a_goal_is_always_the_near_nets()
+        {
+            GameObject far = NetBuilder.BuildFar(_rink);
+            GameObject near = NetBuilder.Build(_rink);
+            Transform netting = NetBuilder.FindNetting(_rink);
+            Assert.IsNotNull(netting);
+            Assert.IsTrue(netting.IsChildOf(near.transform), "the near net's netting, never the far net's");
+            Assert.IsNotNull(Part(far.transform, NetBuilder.FarNettingName), "the far net keeps its netting, under another name");
+        }
+
+        [Test]
         public void With_no_net_model_the_box_net_comes_back_around_the_same_opening()
         {
             GameObject net = NetBuilder.Build(_rink, name => null);

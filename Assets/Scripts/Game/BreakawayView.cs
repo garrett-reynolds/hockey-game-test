@@ -32,6 +32,7 @@ namespace HockeyGame
         RinkPoint _puckOnStick;  // the puck his head follows before the Shot (#70)
         float _lastTarget;       // the facing that squares him up to the puck, as last worked out
         float _life;       // the goalie's Stance Life clock: real seconds, never reset, so it never jumps
+        float _lookUp;     // how far the camera turns up to the Video Board for the Replay (the Arena Show's), 0..1
 
         public void Init(Round round, Camera shooterCamera, GoalieView goalie)
         {
@@ -39,11 +40,14 @@ namespace HockeyGame
             _camera = shooterCamera;
             _goalie = goalie;
             _camera.GetUniversalAdditionalCameraData().renderPostProcessing = true;
-            _look = MakeLookVolume();
+            _look = MakeLookVolume(transform);
             _shuffle = new GoalieShuffle(new RinkPoint(0, 0, -round.Settings.NormalDepthMetres)); // centred, at his normal depth
             _steps = new SkateInShuffles(_shuffle.Shown);
             _goalie.Stand(ToVector(_shuffle.Shown));
         }
+
+        /// <summary>How far the camera turns up to the Video Board this frame (ArenaState.CameraLookUp): 0 on the net, 1 on the board.</summary>
+        public void LookUp(double amount) => _lookUp = (float)amount;
 
         void LateUpdate()
         {
@@ -107,6 +111,7 @@ namespace HockeyGame
             double u = phase == RoundPhase.SkateIn ? Breakaway.SkateProgress(phaseSeconds, _round.Settings) : 1.0;
             Breakaway.SkatePoint(side, u, out double x, out double distance);
             PlaceCamera((float)x, (float)distance);
+            LookUpTo(_camera.transform, ReplayLookTarget, _lookUp); // the Replay: up at the Video Board and back
 
             // The goalie plays the angle (SetUps.Approach): he shuffles across on the line from the puck to the net centre through
             // the skate-in, settles into his Set-up through the slow-down, and stands on his Set-up spot through the window. He
@@ -145,23 +150,46 @@ namespace HockeyGame
         static Vector3 ToVector(RinkPoint p) => new Vector3((float)p.X, (float)p.Y, (float)p.Z);
 
         /// <summary>Places the camera: the shooter's eye on the skate-in at (x, distance out), drifted on toward the net.</summary>
-        void PlaceCamera(float x, float distance)
+        void PlaceCamera(float x, float distance) => PlaceShooterCamera(_camera.transform, x, distance, _drift, _gameTime);
+
+        /// <summary>
+        /// Places the shooter's camera: the eye on the skate-in at (x, distance out), drifted on toward the net by drift metres
+        /// (capped short of the net), with the stride bob and roll at gameSeconds. The picture test uses it too (PictureTestTool).
+        /// </summary>
+        public static void PlaceShooterCamera(Transform camera, float x, float distance, float drift, float gameSeconds)
         {
             // Unity: the Net Face is at z = 0 and the shooter stands at -z.
             var ground = new Vector3(x, 0f, -distance);
             var toNet = new Vector3(-x, 0f, distance);
-            float along = (float)Breakaway.CappedDrift(_drift, toNet.magnitude);
+            float along = (float)Breakaway.CappedDrift(drift, toNet.magnitude);
             ground += toNet.normalized * along;
 
-            float bob = (float)Breakaway.Bob(_gameTime);
-            var t = _camera.transform;
-            t.position = new Vector3(ground.x, (float)Breakaway.EyeHeight + bob, ground.z);
-            t.LookAt(NetCentre);
-            float rollDegrees = (float)Breakaway.Roll(_gameTime) * Mathf.Rad2Deg;
-            t.Rotate(0f, 0f, rollDegrees, Space.Self);
+            float bob = (float)Breakaway.Bob(gameSeconds);
+            camera.position = new Vector3(ground.x, (float)Breakaway.EyeHeight + bob, ground.z);
+            camera.LookAt(NetCentre);
+            float rollDegrees = (float)Breakaway.Roll(gameSeconds) * Mathf.Rad2Deg;
+            camera.Rotate(0f, 0f, rollDegrees, Space.Self);
         }
 
-        Volume MakeLookVolume()
+        /// <summary>Metres above the Video Board's centre the Replay's look-up aims (7 m was right for the old board; the tight window is 6.5 to 7 m for this one: lower and the net and goalie show in the view, higher and the board's lower edge leaves it).</summary>
+        public const float ReplayLookLift = 6.75f;
+
+        /// <summary>
+        /// Where the camera looks for the Replay: ReplayLookLift above the Video Board's centre, so the whole board shows with the
+        /// net and the goalie (who plays the Replay back) kept below the view from every Attack Side.
+        /// </summary>
+        public static readonly Vector3 ReplayLookTarget =
+            new Vector3((float)RinkLayout.VideoBoard.X, (float)RinkLayout.VideoBoard.Y + ReplayLookLift, (float)RinkLayout.VideoBoard.Z);
+
+        /// <summary>Turns the camera from where it looks (the net) toward target (the Replay look-up's aim point: ReplayLookTarget) by amount (0..1).</summary>
+        public static void LookUpTo(Transform camera, Vector3 target, float amount)
+        {
+            if (amount <= 0f) return;
+            camera.rotation = Quaternion.Slerp(camera.rotation, Quaternion.LookRotation(target - camera.position), Mathf.Clamp01(amount));
+        }
+
+        /// <summary>The slow-down's grey, high-contrast, vignetted look: a global Volume under parent, weight 0 (off). The picture test uses it too.</summary>
+        public static Volume MakeLookVolume(Transform parent)
         {
             var profile = ScriptableObject.CreateInstance<VolumeProfile>();
             var colour = profile.Add<ColorAdjustments>(true);
@@ -173,7 +201,7 @@ namespace HockeyGame
             vignette.color.Override(Color.black);
 
             var volumeObject = new GameObject("Slow-mo Look");
-            volumeObject.transform.SetParent(transform);
+            volumeObject.transform.SetParent(parent);
             var volume = volumeObject.AddComponent<Volume>();
             volume.isGlobal = true;
             volume.priority = 10f;

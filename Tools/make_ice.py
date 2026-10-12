@@ -1,12 +1,15 @@
-# Writes the ice model ice.obj + ice.mtl: one flat 60 m x 60 m sheet, top at y = 0, centred on the Net Face
-# (x = 0, z = 0), textured with ice-markings.jpg (made by Tools/make_ice_texture.py: ice, rink lines and crease).
-# Unity mirrors OBJ files on x when it imports them, so u runs from file +x to file -x: in the game the
-# texture's left edge is at world x = -30 and its top edge is at world z = +30 (behind the net).
+# Writes the ice model ice.obj + ice.mtl: one flat square sheet ICE_SIZE across (Tools/rink_layout.py), top at y = 0,
+# textured with ice-markings.jpg (made by Tools/make_ice_texture.py: ice, rink lines and creases). The file is centred
+# on its own origin; the game fits it to RinkLayout.IceSize and centres it on the centre line (RinkLayout.IceCentreZ).
+# Unity mirrors OBJ files on x when it imports them, so u runs from file +x to file -x: in the game the texture's left
+# edge is at world x = -ICE_SIZE / 2 and its top edge is at the near end (+z, behind the near net).
 # Run: python Tools/make_ice.py Assets/Resources/Models
 import os, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # finds rink_layout.py even when run with -I
+from rink_layout import ICE_SIZE
 
 out = sys.argv[1]
-HALF = 30.0
+HALF = ICE_SIZE / 2
 
 corners = [(-HALF, -HALF), (-HALF, HALF), (HALF, HALF), (HALF, -HALF)]   # (file x, z), wound to face +Y
 with open(os.path.join(out, "ice.obj"), "w") as o:

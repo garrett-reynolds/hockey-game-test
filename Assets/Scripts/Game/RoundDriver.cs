@@ -19,8 +19,6 @@ namespace HockeyGame
             public double Next() { return _random.NextDouble(); }
         }
 
-        const string GameName = "HOCKEY GAME";
-
         ScreenFlow _flow;
         Round _round; // the flow's one Round; each start reuses it
         SaveData _save;
@@ -31,16 +29,33 @@ namespace HockeyGame
         UsbShotSource _usb; // real Shots from the electronics
         RoundSound _sound; // reads tick on/off, master volume and mute from _save each frame
         Camera _camera;
+        RibbonBoards _ribbons; // follow the Arena Show
+        RoofLights _roofLights; // pulse in the Goal Show and the new-best show
+        Crowd _crowd; // follows the Arena Show (null without the crowd body file)
+        VideoBoards _boards;   // follow the Arena Show
+        BreakawayView _breakaway; // the camera: looks up at the Video Board for the Replay
+        ReplayView _replay;    // the Replay on both boards
         Plane _netFacePlane;
         bool _testShotsOn;
         int _testShotSpeedKmh = TestShotSpeed.DefaultKmh;
-        GUIStyle _big, _mid, _small;
+        GUIStyle _big, _mid, _small, _scoreBox;
+        Texture2D _scoreBoxBack; // made with the styles; freed in OnDestroy
+        ArenaState _show; // this frame's Arena Show, worked out once in Update and read by everything that frame, OnGUI too
+        const float ScoreBoxWidth = 330f;
+        TeamSkin _skin; // picked by the save file's teamSkin setting before the rink is built
 
         void Awake()
         {
-            RinkBuilder.Build(out _camera);
+            FrameRate.Lock(); // 60 fps, VSync on (#85)
+            FrameReadout.AddTo(gameObject); // dev-only GPU and CPU ms (Editor and development builds)
             _save = SaveStore.Current;
+            _skin = TeamSkin.Load(_save.TeamSkin);
+            RinkBuilder.Build(out _camera, _skin);
             Transform rink = GameObject.Find("Rink").transform;
+            _ribbons = rink.GetComponentInChildren<RibbonBoards>();
+            _roofLights = new RoofLights(rink);
+            _crowd = rink.GetComponentInChildren<Crowd>();
+            _boards = rink.GetComponentInChildren<VideoBoards>();
             GoalieCharacter character = _save.ForceGoalieBlocks ? null : new GoalieCharacter(rink);
             _goalie = new GoalieView(rink, character);
             _effects = new ShotEffects(rink, _camera, null, _goalie);
@@ -50,14 +65,18 @@ namespace HockeyGame
             _flow = new ScreenFlow(new SystemRandomSource(), _save, new GoalieCharacterReach(character, settings), settings);
             _flow.BestScoreChanged += SaveStore.Save;
             _round = _flow.Round;
-            _sound = new RoundSound(_camera.gameObject, _save, _round.Settings);
-            gameObject.AddComponent<BreakawayView>().Init(_round, _camera, _goalie);
+            _sound = new RoundSound(_camera.gameObject, _save, _round.Settings, new SystemRandomSource(), _skin); // the chant rolls on its own source
+            _breakaway = gameObject.AddComponent<BreakawayView>();
+            _breakaway.Init(_round, _camera, _goalie);
+            _replay = gameObject.AddComponent<ReplayView>(); // the puck last: it can ride in the goalie's glove
+            _replay.Init(_round, _boards, _camera, _goalie.Body, _effects.SaveBlock, _effects.Puck);
             _usb = gameObject.AddComponent<UsbShotSource>();
             _usb.Init(_save);
         }
 
         void Update()
         {
+            _replay.RestoreLive(); // last frame's Replay poses go back before anything moves
             _flow.Tick(Time.unscaledDeltaTime);
 
             // Real Shots count whether Test Shots are on or off; on the start or end screen one acts as a Press.
@@ -75,7 +94,16 @@ namespace HockeyGame
             _goalie.Show(inShot || _goalie.HasCharacter);
             _goalie.ShowGaps(_easyGlow.Update(_save.EasyMode, _round));
             _effects.Update(_round, Time.unscaledDeltaTime);
-            _sound.Update(_round, _effects.PuckArrivedThisFrame, Time.unscaledDeltaTime, _effects.ContactSound);
+            _show = ArenaShow.From(_flow); // the arena follows the Arena Show: once a frame, for every part
+            ArenaState show = _show;
+            _sound.Update(_flow, show, _effects.PuckArrivedThisFrame, Time.unscaledDeltaTime, _effects.ContactSound);
+            _ribbons.Show(show, Time.unscaledTimeAsDouble);
+            _boards.Show(show, Time.unscaledTimeAsDouble);
+            _effects.GoalLight.SetOn(show.GoalShow.GoalLight);
+            _roofLights.Show(show.GoalShow);
+            if (_crowd != null) _crowd.Show(show, Time.unscaledTimeAsDouble);
+            _breakaway.LookUp(show.CameraLookUp);
+            _replay.Show(show);
 
             bool playing = _flow.Screen == FlowScreen.Playing;
             bool pressed = false; // key or click outside a Round: at most one Press per frame
@@ -116,6 +144,7 @@ namespace HockeyGame
                     {
                         SubmitTestShot(mouse.position.ReadValue());
                         _effects.Update(_round, 0f); // start the puck now so the result stays hidden in this frame's OnGUI
+                        _show = ArenaShow.From(_flow); // only on a Shot frame: OnGUI shows the Round as it is now
                     }
                     else if (!playing)
                         pressed = true; // a click starts or leaves, even with Test Shots off
@@ -123,7 +152,10 @@ namespace HockeyGame
             }
 
             if (pressed)
+            {
                 _flow.Press();
+                _show = ArenaShow.From(_flow); // only on a Press frame: OnGUI shows the new screen's Score Box at once
+            }
         }
 
         void SubmitTestShot(Vector2 screenPosition)
@@ -144,10 +176,11 @@ namespace HockeyGame
             float w = Screen.width, h = Screen.height;
 
             if (_flow.Screen != FlowScreen.Start) // the start screen shows no old Round
-            {
                 DrawDots(w);
-                GUI.Label(new Rect(0, 70, w, 40), "Goals: " + ShownGoals(), _mid);
-            }
+
+            ScoreBox scoreBox = _show.ScoreBox; // this frame's, from Update
+            if (scoreBox.Shown) // all Round, in the top-right corner like on TV
+                GUI.Label(ScoreBoxArea(w), scoreBox.Text, _scoreBox);
 
             string testShots = _testShotsOn
                 ? "Test Shots: ON  (" + _testShotSpeedKmh + " km/h, wheel to change, F1 off)"
@@ -183,7 +216,7 @@ namespace HockeyGame
             switch (_flow.Screen)
             {
                 case FlowScreen.Start:
-                    GUI.Label(new Rect(0, h * 0.2f, w, 60), GameName, _big);
+                    GUI.Label(new Rect(0, h * 0.2f, w, 60), ArenaShow.GameName, _big);
                     GUI.Label(new Rect(0, h * 0.2f + 70, w, 40), "Best score: " + _save.BestScore + " / " + Round.ShotsPerRound, _mid);
                     GUI.Label(new Rect(0, h * 0.2f + 120, w, 40), "Shoot or press any key", _mid);
                     GUI.Label(new Rect(0, h * 0.2f + 170, w, 40), _usb.StatusText, _mid);
@@ -218,14 +251,6 @@ namespace HockeyGame
             }
         }
 
-        /// <summary>Goals so far, not counting a Goal whose puck is still in flight.</summary>
-        int ShownGoals()
-        {
-            bool goalInFlight = !_round.ResultShowing && _round.LastResult.HasValue
-                                && _round.LastResult.Value.Kind == ShotResultKind.Goal;
-            return _round.Goals - (goalInFlight ? 1 : 0);
-        }
-
         static Color DotColour(ShotResultKind kind)
         {
             switch (kind)
@@ -253,6 +278,28 @@ namespace HockeyGame
             _mid = new GUIStyle(GUI.skin.label) { fontSize = 26, alignment = TextAnchor.MiddleCenter };
             _small = new GUIStyle(GUI.skin.label) { fontSize = 18 };
             _big.normal.textColor = _mid.normal.textColor = _small.normal.textColor = Color.white;
+            var back = _scoreBoxBack = new Texture2D(1, 1);
+            (Color boxBack, Color boxText) = ScoreBoxColours(_skin);
+            back.SetPixel(0, 0, boxBack);
+            back.Apply();
+            _scoreBox = new GUIStyle(GUI.skin.label) { fontSize = 22, alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
+            _scoreBox.normal.background = back;
+            _scoreBox.normal.textColor = boxText;
+        }
+
+        void OnDestroy()
+        {
+            if (_scoreBoxBack != null) SceneObjects.DestroySafely(_scoreBoxBack);
+        }
+
+        /// <summary>Where the Score Box is drawn on a screen this wide: the top-right corner.</summary>
+        public static Rect ScoreBoxArea(float width) => new Rect(width - ScoreBoxWidth - 10f, 10f, ScoreBoxWidth, 44f);
+
+        /// <summary>The Score Box's background and words colours: the skin's (null: the League Skin's).</summary>
+        public static (Color Back, Color Text) ScoreBoxColours(TeamSkin skin)
+        {
+            skin = TeamSkin.OrLeague(skin);
+            return (skin.ScoreBoxBack, skin.ScoreBoxText);
         }
     }
 }

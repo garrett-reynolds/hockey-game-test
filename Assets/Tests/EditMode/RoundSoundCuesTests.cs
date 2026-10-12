@@ -64,13 +64,13 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void Too_late_plays_buzzer_and_groan_at_once()
+        public void Too_late_plays_buzzer_and_small_groan_at_once()
         {
             var round = StartedRound();
             var cues = new RoundSoundCues(new SaveData());
             var heard = Run(round, cues, 3.7 + 3.0 + Frame);
             Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
-            CollectionAssert.IsSubsetOf(new[] { SoundCue.Buzzer, SoundCue.Groan }, heard);
+            CollectionAssert.IsSubsetOf(new[] { SoundCue.Buzzer, SoundCue.SmallGroan }, heard);
         }
 
         [Test]
@@ -103,7 +103,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void Miss_plays_boards_clang_and_groan_on_arrival()
+        public void Miss_plays_boards_clang_and_small_groan_on_arrival()
         {
             var round = StartedRound();
             var cues = new RoundSoundCues(new SaveData());
@@ -111,7 +111,7 @@ namespace HockeyGame.Core.Tests
             round.SubmitShot(150, 90, 100, false);       // off the Net Face
             round.DelayResult(0.5);
             cues.Update(round, false);
-            CollectionAssert.AreEquivalent(new[] { SoundCue.MissImpact, SoundCue.Groan }, cues.Update(round, true));
+            CollectionAssert.AreEquivalent(new[] { SoundCue.MissImpact, SoundCue.SmallGroan }, cues.Update(round, true));
         }
 
         // What the puck visibly hits (ShotEffects) can differ from the gear the Shot point names: the stick or a skate in front
@@ -130,7 +130,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void A_Frame_Hit_the_goalie_s_pad_is_in_front_of_thuds_off_the_pad_and_is_still_a_Miss()
+        public void A_Frame_Hit_the_goalie_s_pad_is_in_front_of_thuds_off_the_pad_with_an_ooh_and_is_still_a_Miss()
         {
             var round = StartedRound();
             var cues = new RoundSoundCues(new SaveData());
@@ -138,7 +138,7 @@ namespace HockeyGame.Core.Tests
             round.SubmitShot(-2, 50, 100, false);        // on the left post
             round.DelayResult(0.5);
             cues.Update(round, false, SoundCue.SaveImpact);
-            CollectionAssert.AreEquivalent(new[] { SoundCue.SaveImpact, SoundCue.Groan }, cues.Update(round, true, SoundCue.SaveImpact));
+            CollectionAssert.AreEquivalent(new[] { SoundCue.SaveImpact, SoundCue.Ooh }, cues.Update(round, true, SoundCue.SaveImpact));
             Assert.AreEqual(ShotResultKind.Miss, round.LastResult.Value.Kind);
         }
 
@@ -151,7 +151,7 @@ namespace HockeyGame.Core.Tests
             round.SubmitShot(-2, 50, 100, false);
             round.DelayResult(0.5);
             cues.Update(round, false, null);
-            CollectionAssert.AreEquivalent(new[] { SoundCue.PostPing, SoundCue.Groan }, cues.Update(round, true, null));
+            CollectionAssert.AreEquivalent(new[] { SoundCue.PostPing, SoundCue.Ooh }, cues.Update(round, true, null));
         }
 
         // Plays one Shot at (x, y) and returns the cues on the puck's arrival frame.
@@ -166,21 +166,21 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void Miss_on_the_left_post_pings_and_still_counts_as_a_Miss()
+        public void Miss_on_the_left_post_pings_with_an_ooh_and_still_counts_as_a_Miss()
         {
             var round = StartedRound();
             var heard = ArrivalCues(round, -2, 50);      // 2 units left of the opening: inside the post's thickness
-            CollectionAssert.AreEquivalent(new[] { SoundCue.PostPing, SoundCue.Groan }, heard);
+            CollectionAssert.AreEquivalent(new[] { SoundCue.PostPing, SoundCue.Ooh }, heard);
             Assert.AreEqual(ShotResultKind.Miss, round.LastResult.Value.Kind);
         }
 
         [TestCase(102, 50, TestName = "Right post")]
         [TestCase(50, 103, TestName = "Crossbar")]
         [TestCase(-3, 104, TestName = "Top left corner of the frame")]
-        public void Miss_on_the_frame_pings(double x, double y)
+        public void Miss_on_the_frame_pings_with_an_ooh(double x, double y)
         {
             var heard = ArrivalCues(StartedRound(), x, y);
-            CollectionAssert.AreEquivalent(new[] { SoundCue.PostPing, SoundCue.Groan }, heard);
+            CollectionAssert.AreEquivalent(new[] { SoundCue.PostPing, SoundCue.Ooh }, heard);
         }
 
         // Gear already in the way everywhere: every Shot on the Net Face is saved, showing (and sounding) its point's Save Reaction.
@@ -253,7 +253,7 @@ namespace HockeyGame.Core.Tests
         public void Miss_wide_of_the_frame_clangs_off_the_boards(double x, double y)
         {
             var heard = ArrivalCues(StartedRound(), x, y);
-            CollectionAssert.AreEquivalent(new[] { SoundCue.MissImpact, SoundCue.Groan }, heard);
+            CollectionAssert.AreEquivalent(new[] { SoundCue.MissImpact, SoundCue.SmallGroan }, heard);
         }
 
         [Test]
@@ -280,7 +280,7 @@ namespace HockeyGame.Core.Tests
             {
                 heard.AddRange(Run(round, cues, 3.8));
                 round.SubmitShot(i < goals ? 50 : 150, 90, 100, false);
-                heard.AddRange(Run(round, cues, 2.6, puckArrived: true));
+                heard.AddRange(Run(round, cues, round.ResultHoldLength + 0.1, puckArrived: true));
             }
             return heard;
         }

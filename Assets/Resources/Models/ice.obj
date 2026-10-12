@@ -1,9 +1,9 @@
 # Hockey ice sheet, made for Hockey Game Test by Tools/make_ice.py. CC0.
 mtllib ice.mtl
-v -30.000 0 -30.000
-v -30.000 0 30.000
-v 30.000 0 30.000
-v 30.000 0 -30.000
+v -32.200 0 -32.200
+v -32.200 0 32.200
+v 32.200 0 32.200
+v 32.200 0 -32.200
 vt 1.000 0.000
 vt 1.000 1.000
 vt 0.000 1.000

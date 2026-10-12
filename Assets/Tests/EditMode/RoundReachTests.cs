@@ -242,7 +242,7 @@ namespace HockeyGame.Core.Tests
             var round = InWindow(reach, settings, random: random);
             Assert.AreEqual(0.08, round.ReactionSeconds, Tol);
             round.SubmitShot(x, y, 100, false);
-            round.Tick(settings.ResultHoldSeconds);
+            round.Tick(round.ResultHoldLength);
             Assert.AreEqual(2, round.ShotNumber);
             Assert.AreEqual(AttackSide.Middle, round.AttackSide);
             Assert.AreEqual(SetUp.Cheat(Post.Right), round.SetUp);
@@ -268,7 +268,7 @@ namespace HockeyGame.Core.Tests
             var round = InWindow(FakeReach.InTheWay(), settings);
             round.SubmitShot(50, 50, 100, false);
             Assert.IsNotNull(round.LastRace);
-            round.Tick(settings.ResultHoldSeconds);
+            round.Tick(round.ResultHoldLength);
             Assert.AreEqual(RoundPhase.SkateIn, round.Phase);
             Assert.IsNull(round.LastRace);
         }

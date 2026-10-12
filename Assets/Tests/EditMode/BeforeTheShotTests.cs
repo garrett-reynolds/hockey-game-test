@@ -242,7 +242,10 @@ namespace HockeyGame.Core.Tests
         static double OffTheLine(Vector3 spot, RinkPoint puck) =>
             Math.Abs(puck.X * spot.z - puck.Z * spot.x) / Math.Sqrt(puck.X * puck.X + puck.Z * puck.Z);
 
-        static string R(RinkPoint p) => "(" + p.X.ToString("R") + ", " + p.Y.ToString("R") + ", " + p.Z.ToString("R") + ")";
+        // To the micrometre and microsecond: the Shot frames can fall a hair apart with the pieces on and off (most likely the on-screen flight of
+        // a Save that stops on the gear (ShotEffects -> Round.DelayResult) follows his pose, and so then does when the next hold ends).
+        // #91's longer Replay hold made that show (a Shot start 1e-8 m apart). The race itself is the same.
+        static string R(RinkPoint p) => "(" + p.X.ToString("F6") + ", " + p.Y.ToString("F6") + ", " + p.Z.ToString("F6") + ")";
 
         Played PlayRound(RoundSettings settings)
         {
@@ -285,8 +288,8 @@ namespace HockeyGame.Core.Tests
                         shot++;
                         ShotRace race = round.LastRace.Value;
                         played.Shots.Add(race.SetUp + " " + race.AttackSide + ": spot " + R(race.Spot) + ", start " + R(race.ShotStart)
-                            + ", reach " + race.ReachSeconds.ToString("R") + " (move " + race.MoveSeconds.ToString("R") + ", " + race.SaveReaction
-                            + (race.InTheWay ? ", in the way" : "") + "), flight " + race.FlightSeconds.ToString("R") + ": " + round.LastResult.Value.Kind);
+                            + ", reach " + race.ReachSeconds.ToString("F6") + " (move " + race.MoveSeconds.ToString("F6") + ", " + race.SaveReaction
+                            + (race.InTheWay ? ", in the way" : "") + "), flight " + race.FlightSeconds.ToString("F6") + ": " + round.LastResult.Value.Kind);
                         Vector3 spot = view.ShownSpot;
                         if (Math.Abs(spot.x - race.Spot.X) > 1e-5 || Math.Abs(spot.z - race.Spot.Z) > 1e-5)
                             played.Failures.Add("Shot " + shot + ": reacts from " + spot.ToString("F4") + ", race " + race.Spot);

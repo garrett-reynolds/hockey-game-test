@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using HockeyGame.Core;
 using UnityEngine;
 
 namespace HockeyGame
@@ -34,10 +35,30 @@ namespace HockeyGame
             obstacles.AddTube(new Vector3(-x, top, 0f), new Vector3(x, top, 0f), Post / 2f, PuckSurface.Frame, CrossbarPiece);
         }
 
+        /// <summary>The still net at the far end (no goalie, no shake) and its netting's name there.</summary>
+        public const string FarNetName = "Far Net", FarNettingName = "Far Netting";
+
         /// <summary>A new "Net" object under the rink. findFile is for tests; see ModelFiles.Load.</summary>
-        public static GameObject Build(Transform rink, Func<string, GameObject> findFile = null)
+        public static GameObject Build(Transform rink, Func<string, GameObject> findFile = null) => Make("Net", rink, findFile);
+
+        /// <summary>
+        /// The far net: the same net on the far goal line (RinkLayout.FarNet), turned to face the near net. It is only
+        /// scenery: pucks never reach it, nothing hits its frame and its netting (FarNettingName) never shakes.
+        /// </summary>
+        public static GameObject BuildFar(Transform rink, Func<string, GameObject> findFile = null)
         {
-            var net = new GameObject("Net");
+            GameObject net = Make(FarNetName, rink, findFile);
+            RinkPoint at = RinkLayout.FarNet;
+            net.transform.localPosition = new Vector3((float)at.X, (float)at.Y, (float)at.Z);
+            net.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            foreach (Transform t in net.GetComponentsInChildren<Transform>(true))
+                if (t.name == NettingName) t.name = FarNettingName;
+            return net;
+        }
+
+        static GameObject Make(string name, Transform rink, Func<string, GameObject> findFile)
+        {
+            var net = new GameObject(name);
             net.transform.SetParent(rink, false);
             GameObject model = ModelFiles.Place(net.transform, ModelFiles.Net, PlaceholderNet, findFile, null);
             Fit(model.transform);
