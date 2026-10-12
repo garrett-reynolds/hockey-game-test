@@ -170,18 +170,8 @@ namespace HockeyGame.Editor
             return clock.Elapsed.TotalMilliseconds / frames;
         }
 
-        /// <summary>The mean of the slowest 1% of values (at least one).</summary>
-        static double Slowest1Pct(List<double> values)
-        {
-            List<double> sorted = values.OrderByDescending(v => v).ToList();
-            return sorted.Take(Math.Max(1, sorted.Count / 100)).Average();
-        }
+        static double Slowest1Pct(List<double> values) => FrameBudget.Slowest1Pct(values);
 
-        static double Median(List<double> values)
-        {
-            List<double> sorted = values.OrderBy(v => v).ToList();
-            int n = sorted.Count;
-            return n % 2 == 1 ? sorted[n / 2] : (sorted[n / 2 - 1] + sorted[n / 2]) / 2;
-        }
+        static double Median(List<double> values) => FrameBudget.Median(values);
     }
 }
