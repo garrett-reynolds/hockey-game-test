@@ -229,7 +229,8 @@ namespace HockeyGame.Core.Tests
             VideoBoards boards = VideoBoards.Build(_rink.transform);
             boards.Show(At(RoundPhase.RoundOver, 0.1), 0.0);
             Color dark = boards.FrameColour;
-            ArenaState lit = At(RoundPhase.RoundOver, 0.1, newBest: true), unlit = At(RoundPhase.RoundOver, 0.35, newBest: true);
+            // the new-best show starts dark for half a flash (#92)
+            ArenaState lit = At(RoundPhase.RoundOver, 0.35, newBest: true), unlit = At(RoundPhase.RoundOver, 0.1, newBest: true);
             Assert.IsTrue(lit.GoalShow.Lit);
             Assert.IsFalse(unlit.GoalShow.Lit);
             boards.Show(lit, 0.0);
