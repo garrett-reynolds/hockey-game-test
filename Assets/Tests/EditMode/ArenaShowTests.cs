@@ -180,7 +180,7 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(VideoBoardContent.StartCard, At(RoundPhase.Idle).VideoBoard);
             Assert.AreEqual(VideoBoardContent.Score, At(RoundPhase.SkateIn).VideoBoard);
             Assert.AreEqual(VideoBoardContent.Score, At(RoundPhase.SlowDown).VideoBoard);
-            Assert.AreEqual(VideoBoardContent.Score, At(RoundPhase.ShootingWindow).VideoBoard);
+            Assert.AreEqual(VideoBoardContent.CalmStill, At(RoundPhase.ShootingWindow).VideoBoard);
             Assert.AreEqual(VideoBoardContent.Score, At(RoundPhase.ResultHold, 0.1, ArenaResult.Goal, hidden: true).VideoBoard);
             Assert.AreEqual(VideoBoardContent.Goal, Showing(ArenaResult.Goal).VideoBoard);
             Assert.AreEqual(VideoBoardContent.Replay, Showing(ArenaResult.Save).VideoBoard);
@@ -190,6 +190,19 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(VideoBoardContent.AdSlide, Showing(ArenaResult.TooLate).VideoBoard);
             Assert.AreEqual(VideoBoardContent.Final, At(RoundPhase.RoundOver).VideoBoard);
             Assert.AreEqual(VideoBoardContent.NewBest, At(RoundPhase.RoundOver, newBest: true).VideoBoard);
+        }
+
+        [Test]
+        public void The_Video_Board_is_one_dim_still_colour_with_no_words_exactly_from_goalie_set_to_the_Shot()
+        {
+            foreach (RoundPhase phase in System.Enum.GetValues(typeof(RoundPhase)))
+            foreach (double t in new[] { 0.0, 1.0, 2.99 })
+            {
+                ArenaState s = At(phase, t);
+                Assert.AreEqual(phase == RoundPhase.ShootingWindow, s.VideoBoard == VideoBoardContent.CalmStill, phase + " at " + t + " s");
+                Assert.AreEqual(s.CalmAreaRules, s.VideoBoard == VideoBoardContent.CalmStill, "the same window as the Calm Area rules, " + phase);
+                if (s.VideoBoard == VideoBoardContent.CalmStill) Assert.AreEqual(new VideoBoardWords("", ""), s.VideoBoardWords, "no words");
+            }
         }
 
         [Test]
@@ -208,7 +221,7 @@ namespace HockeyGame.Core.Tests
             foreach (double t in new[] { 0.0, 0.01, 1.5, 2.99, 3.0 })
             {
                 ArenaState s = At(RoundPhase.ShootingWindow, t, result, hidden, newBest, goals: 2, shot: 4);
-                Assert.AreEqual(VideoBoardContent.Score, s.VideoBoard, "a still score, no ad slide, at " + t + " s after " + result);
+                Assert.AreEqual(VideoBoardContent.CalmStill, s.VideoBoard, "one dim still colour, no ad slide, at " + t + " s after " + result);
             }
         }
 
@@ -254,7 +267,7 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual("GOALS 2 · SHOT 4 OF 6", w.Headline);
             Assert.AreEqual("LAST SHOT 92 km/h", w.Details);
             Assert.AreEqual("", Words(RoundPhase.SkateIn, shot: 1, speed: null).Details, "no Shot with a puck yet");
-            Assert.AreEqual(w, Words(RoundPhase.ShootingWindow, goals: 2, shot: 4, speed: 92.4), "the same still score at the Shot");
+            Assert.AreEqual(new VideoBoardWords("", ""), Words(RoundPhase.ShootingWindow, goals: 2, shot: 4, speed: 92.4), "no words from goalie set to the Shot: the Calm Area's dim still colour");
         }
 
         [Test]

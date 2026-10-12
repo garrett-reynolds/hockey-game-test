@@ -34,9 +34,10 @@ namespace HockeyGame.Core.Tests
         public void Every_row_of_both_tiers_has_fans_all_round_the_rink()
         {
             Assert.That(Seats.Select(s => s.Row).Distinct().Count(), Is.EqualTo(RinkLayout.LowerRows + RinkLayout.UpperRows));
+            FanSeat[] everyone = CrowdSeats.AllIncludingHidden(); // the Video Board hides the fans straight behind it, in the rows level with it
             foreach (IGrouping<int, FanSeat> row in Seats.GroupBy(s => s.Row))
             {
-                Assert.That(row.Any(s => s.Z > RinkLayout.NearEndBoardsZ && Math.Abs(s.X) < 1), "behind the near net, row " + row.Key);
+                Assert.That(everyone.Any(s => s.Row == row.Key && s.Z > RinkLayout.NearEndBoardsZ && Math.Abs(s.X) < 1), "behind the near net, row " + row.Key);
                 Assert.That(row.Any(s => s.Z < RinkLayout.FarEndBoardsZ && Math.Abs(s.X) < 1), "behind the far net, row " + row.Key);
                 Assert.That(row.Any(s => s.X > RinkLayout.HalfWidth), "the +x side, row " + row.Key);
                 Assert.That(row.Any(s => s.X < -RinkLayout.HalfWidth), "the -x side, row " + row.Key);

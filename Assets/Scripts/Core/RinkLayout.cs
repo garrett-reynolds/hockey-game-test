@@ -263,13 +263,19 @@ namespace HockeyGame.Core
 
         // ---------- Video Board, Centre Board and roof ----------
         /// <summary>
-        /// The Video Board's middle: hung from the roof behind the near net, 11 x 6 m, tilted toward the player. The spec's
-        /// estimate (14.5 m up, 22 m behind the Net Face) shows its bottom edge in the top of the view early in the shooting
-        /// window, so it hangs higher and nearer: on screen in the skate-in, off the top of the view from goalie set to the Shot
-        /// at every Attack Side (VideoBoardsTests checks it from the player's eye). Its top stays under the light banks (20 m).
+        /// The Video Board hangs in the middle of the near end's Ribbon Board, in front of the crowd (Garrett's pick 2026-10-12:
+        /// in the middle of the ribbon, in front of the crowd, so the camera barely pans up): 14.3 x 7.8 m, its middle at the
+        /// ribbon's middle height, tilted toward the player. Its distance puts its frame a clear gap (about 0.8 m: the rows come in steps) in front of the nearest
+        /// seat of the lower tier behind it (the stands rise toward the ribbon, so its lower edge is what the crowd's lower rows
+        /// come near), so no fan or panel pokes through it or stands in front of it; the fans and panels it hides are left out
+        /// (VideoBoardCover). From goalie set to the Shot it shows one dim still colour (the Calm Area rules); it is on screen
+        /// at the start of the skate-in. Its top is under the light banks (20 m).
         /// </summary>
-        public static readonly RinkPoint VideoBoard = new RinkPoint(0, 16.0, 16.0);
-        public const double VideoBoardWidth = 11.0, VideoBoardHeight = 6.0;
+        public const double VideoBoardZ = 10.9;
+        public static readonly RinkPoint VideoBoard = new RinkPoint(0, RibbonBottom + RibbonHeight / 2, VideoBoardZ);
+        public const double VideoBoardWidth = 14.3, VideoBoardHeight = 7.8;
+        /// <summary>The dark frame round the Video Board's screen (metres each side) and its depth behind the screen.</summary>
+        public const double VideoBoardFrameMargin = 0.2, VideoBoardDepth = 0.4;
         /// <summary>How far the Video Board leans forward: it faces the shooter's eye at the start of the skate-in.</summary>
         public static readonly double VideoBoardTiltDegrees =
             Math.Atan2(VideoBoard.Y - Breakaway.EyeHeight, VideoBoard.Z + Breakaway.StartDistance) * 180 / Math.PI;

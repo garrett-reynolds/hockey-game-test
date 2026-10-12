@@ -15,7 +15,7 @@ namespace HockeyGame
     public sealed class VideoBoards : MonoBehaviour
     {
         /// <summary>The dark frame round each screen (metres each side) and the boards' depth.</summary>
-        public const float FrameMargin = 0.2f, Depth = 0.4f;
+        public const float FrameMargin = (float)RinkLayout.VideoBoardFrameMargin, Depth = (float)RinkLayout.VideoBoardDepth;
         /// <summary>Seconds each ad slide shows before the next.</summary>
         public const float AdSeconds = 5f;
 
@@ -37,7 +37,8 @@ namespace HockeyGame
         }
 
         readonly List<Screen> _screens = new List<Screen>();
-        Material _picture, _frame, _cable;
+        Material _picture, _frame, _cable, _stillPicture;
+        bool _still; // the Video Board shows the Calm Area's one dim still colour (CalmStill)
         Font _font;
         Transform _videoBoard, _centreBoard;
         // The Team Skin's look: the words' background, the words, and the frame (dark, and lit for a new best).
@@ -97,6 +98,7 @@ namespace HockeyGame
             Material unlit = Resources.Load<Material>(ArenaLighting.AssetFolder + "/" + ArenaLighting.UnlitMaterial);
             boards._picture = new Material(unlit) { name = "Video Board Picture" };
             boards._frame = new Material(unlit) { name = "Video Board Frame" };
+            boards._stillPicture = new Material(unlit) { name = "Video Board Still", color = RibbonBoards.ColourOf(ArenaShow.CalmRibbonColour) };
             boards._cable = new Material(unlit) { name = "Video Board Cable", color = CableColour };
             boards.BuildVideoBoard();
             boards.BuildCentreBoard();
@@ -107,6 +109,7 @@ namespace HockeyGame
         /// <summary>Shows the Arena Show's answer on every screen. seconds: a running clock (real time) that cycles the ad slides.</summary>
         public void Show(ArenaState state, double seconds)
         {
+            SetStill(state.VideoBoard == VideoBoardContent.CalmStill);
             string headline = state.VideoBoardWords.Headline, details = state.VideoBoardWords.Details;
             Color back = _skinBack, fore = _skinWords;
             if (state.VideoBoard == VideoBoardContent.AdSlide)
@@ -144,8 +147,22 @@ namespace HockeyGame
             _picture.color = picture != null ? Color.white : _back;
             foreach (Screen s in _screens)
             {
-                s.Headline.GetComponent<Renderer>().enabled = picture == null;
-                s.Details.GetComponent<Renderer>().enabled = picture == null;
+                bool words = picture == null && !_still;
+                s.Headline.GetComponent<Renderer>().enabled = words;
+                s.Details.GetComponent<Renderer>().enabled = words;
+            }
+        }
+
+        // From goalie set to the Shot the boards show one dim still colour and no words (the Calm Area rules).
+        void SetStill(bool still)
+        {
+            _still = still;
+            foreach (Screen s in _screens)
+            {
+                s.Picture.sharedMaterial = still ? _stillPicture : _picture;
+                bool words = !still && _shownPicture == null;
+                s.Headline.GetComponent<Renderer>().enabled = words;
+                s.Details.GetComponent<Renderer>().enabled = words;
             }
         }
 

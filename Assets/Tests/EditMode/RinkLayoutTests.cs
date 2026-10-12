@@ -177,11 +177,13 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void The_Video_Board_hangs_behind_the_near_net_and_the_Centre_Board_over_centre_ice()
         {
-            // Higher and nearer than the spec's 14.5 m up, 22 m back: VideoBoardsTests checks it from the player's eye.
-            Assert.That(RinkLayout.VideoBoard.Z, Is.InRange(RinkLayout.NearEndBoardsZ + 10, 22.0), "behind the near net, over the stands");
-            Assert.That(RinkLayout.VideoBoard.Y, Is.InRange(14.5, 17.0));
-            Assert.AreEqual(11.0, RinkLayout.VideoBoardWidth, 0.5);
-            Assert.AreEqual(6.0, RinkLayout.VideoBoardHeight, 0.5);
+            // Garrett's pick 2026-10-12: in the middle of the ribbon, in front of the crowd (VideoBoardsTests checks it from the player's eye).
+            Assert.AreEqual(0.0, RinkLayout.VideoBoard.X);
+            Assert.AreEqual(RinkLayout.RibbonBottom + RinkLayout.RibbonHeight / 2, RinkLayout.VideoBoard.Y, 1e-9, "the ribbon's middle height");
+            Assert.That(RinkLayout.VideoBoard.Z, Is.InRange(RinkLayout.NearEndBoardsZ + 5, RinkLayout.NearEndBoardsZ + RinkLayout.RibbonOffset),
+                "behind the near net, in front of the ribbon face");
+            Assert.AreEqual(14.3, RinkLayout.VideoBoardWidth, 1e-9);
+            Assert.AreEqual(7.8, RinkLayout.VideoBoardHeight, 1e-9);
             Assert.That(RinkLayout.VideoBoardTiltDegrees, Is.InRange(5.0, 25.0), "tilted toward the player");
             Assert.AreEqual(RinkLayout.CentreLineZ, RinkLayout.CentreBoard.Z);
             Assert.AreEqual(20.0, RinkLayout.CentreBoardBottom, 0.5);

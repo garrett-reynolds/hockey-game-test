@@ -48,7 +48,10 @@ namespace HockeyGame.Core
 
         /// <summary>Every seat, row by row from the lower tier's front row to the upper tier's back row; along each row
         /// from behind the near net's left end round past +x, the far end and -x, so seats next in the list sit side by side.</summary>
-        public static FanSeat[] All()
+        public static FanSeat[] All() => Array.FindAll(AllIncludingHidden(), s => !VideoBoardCover.HidesFan(s));
+
+        /// <summary>As All, with the fans the Video Board hides (VideoBoardCover) too.</summary>
+        public static FanSeat[] AllIncludingHidden()
         {
             var seats = new List<FanSeat>();
             for (int row = 0; row < RinkLayout.LowerRows + RinkLayout.UpperRows; row++)

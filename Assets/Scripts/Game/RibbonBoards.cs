@@ -63,6 +63,7 @@ namespace HockeyGame
 
         public int PanelCount => _panels.Count;
         public Vector3 CentreOf(int panel) => _panels[panel].Centre;
+        public float LengthOf(int panel) => _panels[panel].Length;
         public ArenaZone ZoneOf(int panel) => _panels[panel].Zone;
         public string TextOn(int panel) => _panels[panel].Words.text;
         public Color TextColourOn(int panel) => _panels[panel].Words.color;
@@ -90,8 +91,13 @@ namespace HockeyGame
                 ribbons._edge.SetFloat("_Smoothness", 0f);
             }
             List<(Vector2 From, Vector2 To)> ring = Ring(Offset - Inset);
-            for (int i = 0; i < ring.Count; i++)
-                ribbons.AddPanel(i, ring[i].From, ring[i].To);
+            int index = 0;
+            foreach ((Vector2 from, Vector2 to) in ring)
+            {
+                // A panel wholly behind the Video Board is never seen: leave it out.
+                if (VideoBoardCover.HidesRibbonPanel(from.x, from.y, to.x, to.y)) continue;
+                ribbons.AddPanel(index++, from, to);
+            }
             ribbons.Show(ArenaShow.At(new ArenaShowInput { Phase = RoundPhase.Idle }), 0.0);
             return ribbons;
         }

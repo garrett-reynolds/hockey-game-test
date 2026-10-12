@@ -69,10 +69,39 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void The_Video_Board_is_off_the_top_of_the_view_from_goalie_set_to_the_Shot_from_every_Attack_Side()
+        public void The_Video_Board_shows_one_dim_still_colour_and_no_words_from_goalie_set_to_the_Shot()
         {
             VideoBoards boards = VideoBoards.Build(_rink.transform);
-            Vector3[] corners = Corners(boards.VideoBoardBounds); // its whole box, frame too (the cables only rise above it)
+            Color dim = RibbonBoards.ColourOf(ArenaShow.CalmRibbonColour);
+            foreach (double seconds in new[] { 0.0, 1.0, 2.99 })
+            {
+                boards.Show(At(RoundPhase.ShootingWindow, seconds), 12.0 + seconds);
+                for (int i = 0; i < boards.ScreenCount; i++)
+                {
+                    Assert.AreEqual("", boards.HeadlineOn(i), "no words, screen " + i);
+                    Assert.AreEqual("", boards.DetailsOn(i), "no words, screen " + i);
+                    Assert.AreEqual((Color32)dim, (Color32)boards.PictureOn(i).color, "the Calm Ribbon's colour, screen " + i);
+                }
+            }
+            Color frame = boards.FrameColour;
+            boards.Show(At(RoundPhase.ShootingWindow, 2.0), 99.0);
+            Assert.AreEqual(frame, boards.FrameColour, "no frame flash");
+            boards.Show(At(RoundPhase.SkateIn), 0.0);
+            Assert.AreNotEqual("", boards.HeadlineOn(0), "the words come back after the Shot's window");
+            Assert.AreNotEqual((Color32)dim, (Color32)boards.PictureOn(0).color);
+        }
+
+        [Test]
+        public void In_the_shooting_window_the_Video_Board_stays_clear_of_the_net_and_the_goalie_from_every_Attack_Side()
+        {
+            VideoBoards boards = VideoBoards.Build(_rink.transform);
+            Vector3[] corners = Corners(boards.VideoBoardBounds); // its whole box, frame too
+            // The net's frame, and the highest the goalie reaches in front of it (the points the Replay's look-up test keeps out of view).
+            Vector3[] net =
+            {
+                new Vector3(-0.92f, 0f, 0f), new Vector3(0.92f, 0f, 0f), new Vector3(-0.92f, 1.22f, 0f), new Vector3(0.92f, 1.22f, 0f),
+                new Vector3(0f, 2.0f, -1.2f)
+            };
             var settings = new RoundSettings();
             float rollPeriod = (float)(2 * System.Math.PI / Breakaway.RollRadiansPerSecond);
             foreach (AttackSide side in Sides)
@@ -81,18 +110,119 @@ namespace HockeyGame.Core.Tests
                 for (double window = 0; window <= settings.ShootingWindowSeconds + 1e-9; window += 0.1)
                 {
                     float drift = (float)Breakaway.Drift(side, settings.SlowDownSeconds, window, settings);
-                    // Every stride bob and roll: one roll period holds both swings of each.
-                    for (float stride = 0f; stride < rollPeriod; stride += 0.02f)
+                    for (float stride = 0f; stride < rollPeriod; stride += 0.05f)
                     {
                         BreakawayView.PlaceShooterCamera(_eye.transform, (float)x, (float)distance, drift, stride);
-                        foreach (Vector3 corner in corners)
-                        {
-                            Vector3 v = _camera.WorldToViewportPoint(corner);
-                            Assert.That(v.y, Is.GreaterThan(1f), side + " " + window.ToString("0.0") + " s into the window: above the view");
-                        }
+                        Rect board = Outline(corners), goalie = Outline(net);
+                        string at = side + " " + window.ToString("0.0") + " s into the window";
+                        Assert.That(board.Overlaps(goalie), Is.False, at + ": the board " + board + " over the net and goalie " + goalie);
                     }
                 }
             }
+        }
+
+        /// <summary>The viewport rectangle round the points (in front of the camera).</summary>
+        Rect Outline(Vector3[] points)
+        {
+            float x0 = float.MaxValue, y0 = float.MaxValue, x1 = float.MinValue, y1 = float.MinValue;
+            foreach (Vector3 p in points)
+            {
+                Vector3 v = _camera.WorldToViewportPoint(p);
+                Assert.That(v.z, Is.GreaterThan(0f), "in front of the eye");
+                x0 = Mathf.Min(x0, v.x); y0 = Mathf.Min(y0, v.y); x1 = Mathf.Max(x1, v.x); y1 = Mathf.Max(y1, v.y);
+            }
+            return Rect.MinMaxRect(x0, y0, x1, y1);
+        }
+
+        [Test]
+        public void The_Video_Board_hangs_clear_in_front_of_the_crowd_and_the_Ribbon_Board()
+        {
+            VideoBoards boards = VideoBoards.Build(_rink.transform);
+            RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
+            // No fan stands in the board's frame, in front of it, or within the clear gap behind it.
+            float behind = VideoBoards.Depth + 0.01f + (float)VideoBoardCover.ClearGap;
+            foreach (FanSeat s in CrowdSeats.All())
+                foreach (double dy in new[] { 0.0, VideoBoardCover.FanHeight })
+                foreach (double dx in new[] { -VideoBoardCover.FanHalfWidth, VideoBoardCover.FanHalfWidth })
+                foreach (double dz in new[] { -VideoBoardCover.FanHalfWidth, VideoBoardCover.FanHalfWidth })
+                    Assert.IsFalse(VideoBoardCover.InSlab(s.X + dx, s.Y + dy, s.Z + dz, behind), s + " is in or in front of the board");
+            // Nor a Ribbon Board panel.
+            for (int i = 0; i < ribbons.PanelCount; i++)
+            {
+                Vector3 c = ribbons.CentreOf(i);
+                if (Mathf.Abs(c.x) > 10f || c.z < (float)RinkLayout.NearEndBoardsZ) continue; // only the near end's panels are near the board
+                Assert.IsFalse(VideoBoardCover.InSlab(c.x, c.y, c.z, behind), "ribbon panel " + i + " at " + c + " is in or in front of the board");
+                Assert.That(c.z, Is.GreaterThan(boards.VideoBoardBounds.max.z + 0.3f), "ribbon panel " + i + " is behind the board");
+            }
+        }
+
+        [Test]
+        public void No_fan_and_no_Ribbon_Board_panel_sits_wholly_behind_the_Video_Board_and_the_ones_that_did_are_gone()
+        {
+            VideoBoards boards = VideoBoards.Build(_rink.transform);
+            RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
+            Vector3[] frame = FrontOutline(boards);
+            FanSeat[] shown = CrowdSeats.All();
+            Assert.That(CrowdSeats.AllIncludingHidden().Length - shown.Length, Is.GreaterThan(100), "the fans behind the board are left out");
+            // Seen from every eye, with a Unity camera: a fan or panel whose box lies inside the board's outline is hidden.
+            var eyes = VideoBoardCover.Eyes;
+            foreach (FanSeat s in shown)
+            {
+                if (Mathf.Abs((float)s.X) > 12f || s.Z < boards.VideoBoardBounds.min.z) continue; // nowhere near the board's back
+                Assert.IsFalse(HiddenFromEveryEye(eyes, frame, BoxOf(s.X - 0.25, s.Y, s.Z - 0.25, s.X + 0.25, s.Y + VideoBoardCover.FanHeight, s.Z + 0.25)), s + " is wholly hidden but still there");
+            }
+            Assert.That(ribbons.PanelCount, Is.GreaterThan(30));
+            for (int i = 0; i < ribbons.PanelCount; i++)
+            {
+                Vector3 c = ribbons.CentreOf(i);
+                if (c.z < boards.VideoBoardBounds.min.z || Mathf.Abs(c.x) > 12f) continue;
+                float half = ribbons.LengthOf(i) / 2f; // the near end's panels run along x
+                Vector3[] box = BoxOf(c.x - half, RinkLayout.RibbonBottom, c.z - 0.05, c.x + half, RinkLayout.RibbonBottom + RinkLayout.RibbonHeight, c.z + 0.05);
+                if (Mathf.Abs(c.z - ((float)RinkLayout.NearEndBoardsZ + RibbonBoards.Offset)) > 0.2f) continue; // a corner's panel, not along x
+                Assert.IsFalse(HiddenFromEveryEye(eyes, frame, box), "ribbon panel " + i + " at " + c + " is wholly hidden but still there");
+            }
+        }
+
+        static Vector3[] BoxOf(double x0, double y0, double z0, double x1, double y1, double z1)
+        {
+            var box = new Vector3[8];
+            for (int i = 0; i < 8; i++)
+                box[i] = new Vector3((float)((i & 1) == 0 ? x0 : x1), (float)((i & 2) == 0 ? y0 : y1), (float)((i & 4) == 0 ? z0 : z1));
+            return box;
+        }
+
+        /// <summary>The front outline of the board's frame (its four corners, anticlockwise from bottom left as the player sees it).</summary>
+        static Vector3[] FrontOutline(VideoBoards boards)
+        {
+            Vector3 c = boards.CentreOf(0), facing = boards.FacingOf(0);
+            Vector3 right = Vector3.right, up = Vector3.Cross(facing, right).normalized; // facing points at the player; up along the face
+            if (up.y < 0f) up = -up;
+            float hw = boards.SizeOf(0).x / 2f + VideoBoards.FrameMargin, hh = boards.SizeOf(0).y / 2f + VideoBoards.FrameMargin;
+            return new[] { c - right * hw - up * hh, c + right * hw - up * hh, c + right * hw + up * hh, c - right * hw + up * hh };
+        }
+
+        // Whether, from every eye, every corner of the box is behind the frame's outline (the ray from the eye crosses the frame's rectangle first).
+        static bool HiddenFromEveryEye((double X, double Y, double Z)[] eyes, Vector3[] frame, Vector3[] box)
+        {
+            Vector3 origin = frame[0], across = frame[1] - frame[0], upward = frame[3] - frame[0];
+            Vector3 normal = Vector3.Cross(across, upward).normalized;
+            float w = across.magnitude, h = upward.magnitude;
+            foreach (var e in eyes)
+            {
+                var eye = new Vector3((float)e.X, (float)e.Y, (float)e.Z);
+                foreach (Vector3 p in box)
+                {
+                    Vector3 ray = p - eye;
+                    float denominator = Vector3.Dot(ray, normal);
+                    if (Mathf.Abs(denominator) < 1e-6f) return false;
+                    float t = Vector3.Dot(origin - eye, normal) / denominator;
+                    if (t <= 0f || t >= 1f) return false; // the plane is not between the eye and the point
+                    Vector3 hit = eye + ray * t - origin;
+                    float a = Vector3.Dot(hit, across / w), b = Vector3.Dot(hit, upward / h);
+                    if (a < 0f || a > w || b < 0f || b > h) return false;
+                }
+            }
+            return true;
         }
 
         [Test]
