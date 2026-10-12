@@ -1,3 +1,4 @@
+using System.Collections;
 using HockeyGame.Core;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -6,8 +7,9 @@ namespace HockeyGame
 {
     /// <summary>
     /// Owns the screen flow (start screen, Round, end screen), ticks it with unscaled time, builds the rink,
-    /// takes key / click / Test Shot input and draws the HUD. The scene only needs this component on an
-    /// empty GameObject.
+    /// takes key / click / Test Shot input and draws the HUD. Shots fly by Unity physics (PhysicsShotEffects): after each
+    /// physics step the puck's facts go to the Whistle rule, which gives the Round its Whistle. The scene only needs this
+    /// component on an empty GameObject.
     /// </summary>
     public sealed class RoundDriver : MonoBehaviour
     {
@@ -27,7 +29,7 @@ namespace HockeyGame
         SettingsScreen _settingsScreen; // made fresh each time F2 opens it (port list refreshed); null when closed
         GoalieView _goalie; // the goalie character, or the block goalie with no model or the forceGoalieBlocks developer flag
         readonly EasyGlow _easyGlow = new EasyGlow(); // the Gaps Easy mode glows, a few cells measured each frame
-        ShotEffects _effects;
+        PhysicsShotEffects _effects; // the physics puck of each Shot, and the Round's Whistle
         UsbShotSource _usb; // real Shots from the electronics
         RoundSound _sound; // reads tick on/off, master volume and mute from _save each frame
         Camera _camera;
@@ -43,7 +45,7 @@ namespace HockeyGame
             Transform rink = GameObject.Find("Rink").transform;
             GoalieCharacter character = _save.ForceGoalieBlocks ? null : new GoalieCharacter(rink);
             _goalie = new GoalieView(rink, character);
-            _effects = new ShotEffects(rink, _camera, null, _goalie);
+            _effects = new PhysicsShotEffects(rink, _camera, new SystemRandomSource(), _goalie);
             _netFacePlane = new Plane(Vector3.back, Vector3.zero); // Net Face plane: z = 0
             _testShotsOn = _save.TestShotOnAtStart;
             var settings = new RoundSettings(); // shared: the Round runs on it, the goalie-reach port reads the gear speeds from it
@@ -52,9 +54,26 @@ namespace HockeyGame
             _flow.BestScoreChanged += SaveStore.Save;
             _round = _flow.Round;
             _sound = new RoundSound(_camera.gameObject, _save, _round.Settings);
-            gameObject.AddComponent<BreakawayView>().Init(_round, _camera, _goalie, () => _effects.FlightSeconds);
+            gameObject.AddComponent<BreakawayView>().Init(_round, _camera, _goalie, () => _effects.FlightSeconds); // the Shot's Flight Time, before and after the Whistle
             _usb = gameObject.AddComponent<UsbShotSource>();
             _usb.Init(_save);
+            StartCoroutine(AfterPhysicsSteps());
+        }
+
+        /// <summary>After each physics step (FixedUpdate's, at the Fixed Timestep, 1/120 s): the puck's facts to the Whistle rule.</summary>
+        IEnumerator AfterPhysicsSteps()
+        {
+            var afterStep = new WaitForFixedUpdate(); // resumes after the step's physics, not before it as FixedUpdate does
+            while (true)
+            {
+                yield return afterStep;
+                _effects.AfterPhysicsStep(Time.fixedDeltaTime);
+            }
+        }
+
+        void OnDestroy()
+        {
+            _effects?.Dispose();
         }
 
         void Update()
@@ -76,7 +95,7 @@ namespace HockeyGame
             _goalie.Show(inShot || _goalie.HasCharacter);
             _goalie.ShowGaps(_easyGlow.Update(_save.EasyMode, _round));
             _effects.Update(_round, Time.unscaledDeltaTime);
-            _sound.Update(_round, _effects.PuckArrivedThisFrame, Time.unscaledDeltaTime, _effects.ContactSound);
+            _sound.Update(_round, Time.unscaledDeltaTime, _effects.HitSound);
 
             bool playing = _flow.Screen == FlowScreen.Playing;
             bool pressed = false; // key or click outside a Round: at most one Press per frame
@@ -116,7 +135,7 @@ namespace HockeyGame
                     if (playing && _testShotsOn)
                     {
                         SubmitTestShot(mouse.position.ReadValue());
-                        _effects.Update(_round, 0f); // start the puck now so the result stays hidden in this frame's OnGUI
+                        _effects.Update(_round, 0f); // launch the puck on the Shot frame, as a real Shot (this one came in after the effects updated above)
                     }
                     else if (!playing)
                         pressed = true; // a click starts or leaves, even with Test Shots off

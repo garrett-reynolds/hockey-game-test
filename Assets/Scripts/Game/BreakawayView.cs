@@ -21,7 +21,7 @@ namespace HockeyGame
         static readonly Color RingColour = new Color(1f, 0.2f, 0.2f);
 
         Round _round;
-        Func<float> _scriptedFlight; // ShotEffects.FlightSeconds: the goalie eases over it until the Whistle
+        Func<float> _flight; // PhysicsShotEffects.FlightSeconds: the Shot's Flight Time, which the goalie eases over
         Camera _camera;
         GoalieView _goalie;
         Volume _look;
@@ -35,10 +35,12 @@ namespace HockeyGame
         float _lastTarget;       // the facing that squares him up to the puck, as last worked out
         float _life;       // the goalie's Stance Life clock: real seconds, never reset, so it never jumps
 
-        public void Init(Round round, Camera shooterCamera, GoalieView goalie, Func<float> scriptedFlight = null)
+        /// <param name="flightSeconds">The current Shot's Flight Time (PhysicsShotEffects.FlightSeconds), the same before and
+        /// after the Whistle, so nothing jumps on the Whistle frame. Required.</param>
+        public void Init(Round round, Camera shooterCamera, GoalieView goalie, Func<float> flightSeconds)
         {
             _round = round;
-            _scriptedFlight = scriptedFlight;
+            _flight = flightSeconds ?? throw new ArgumentNullException(nameof(flightSeconds));
             _camera = shooterCamera;
             _goalie = goalie;
             _camera.GetUniversalAdditionalCameraData().renderPostProcessing = true;
@@ -89,7 +91,7 @@ namespace HockeyGame
 
             // On the Shot he moves as the Round's race timed him (Reach in time): what is seen agrees with the result (#63).
             float set = (float)Breakaway.GoalieSet(phase, phaseSeconds, _round.LastShot.HasValue,
-                Breakaway.GoalieFlightSeconds(_round.AwaitingWhistle, _round.ResultDelaySeconds, _scriptedFlight?.Invoke() ?? float.PositiveInfinity), _round.LastRace);
+                _flight(), _round.LastRace);
             if (phase == RoundPhase.Idle || phase == RoundPhase.RoundOver)
             {
                 _goalie.Face((float)_turn.Shown, (float)_turn.Shown); // keeps facing the last shooter

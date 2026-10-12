@@ -52,7 +52,7 @@ namespace HockeyGame.Core.Tests
                     AttackSide.Left, AttackSide.Middle, AttackSide.Right }, new[] { HockeyGame.Core.SetUp.Clean, HockeyGame.Core.SetUp.Depth, HockeyGame.Core.SetUp.Clean }),
                     settings, FakeReach.NeverReaches(), 0);
                 var breakaway = driver.AddComponent<BreakawayView>();
-                breakaway.Init(round, camera, view);
+                breakaway.Init(round, camera, view, () => effects.FlightSeconds);
 
                 var failures = new List<string>();
                 var hipsAtWindow = new Dictionary<AttackSide, float>();

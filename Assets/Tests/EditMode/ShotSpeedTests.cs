@@ -109,7 +109,7 @@ namespace HockeyGame.Core.Tests
             bool lateGear = kind == ShotResultKind.Goal && !double.IsPositiveInfinity(round.LastRace.Value.MoveSeconds); // some gear reaches, too late
             // The Shot frame (the Round has ticked already): the puck starts and the Round learns its flight.
             effects.Update(round, usb ? Frame : 0f);
-            view.SetProgress((float)Breakaway.GoalieSet(round.Phase, round.PhaseSecondsElapsed, true, Breakaway.GoalieFlightSeconds(round.AwaitingWhistle, round.ResultDelaySeconds, effects.FlightSeconds), round.LastRace));
+            view.SetProgress((float)Breakaway.GoalieSet(round.Phase, round.PhaseSecondsElapsed, true, effects.FlightSeconds, round.LastRace));
             Vector3 last = puck.position;
             float flown = 0f;
             for (int i = 0; i < 120; i++)
@@ -120,7 +120,7 @@ namespace HockeyGame.Core.Tests
                 flown += dt;
                 round.Tick(dt);
                 effects.Update(round, dt);
-                float set = (float)Breakaway.GoalieSet(round.Phase, round.PhaseSecondsElapsed, true, Breakaway.GoalieFlightSeconds(round.AwaitingWhistle, round.ResultDelaySeconds, effects.FlightSeconds), round.LastRace);
+                float set = (float)Breakaway.GoalieSet(round.Phase, round.PhaseSecondsElapsed, true, effects.FlightSeconds, round.LastRace);
                 view.SetProgress(set);
                 Vector3 now = puck.position;
                 // A Goal: the race was lost, so his gear is still on its way when the puck passes him (at his spot's depth).

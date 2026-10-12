@@ -47,6 +47,7 @@ namespace HockeyGame
         readonly PuckObstacles _reaction = new PuckObstacles(); // the reaction's gear and body, from React (refilled each Shot)
         readonly string[] _reactionPiece = new string[1];       // SaveStop's cast: the reaction's piece alone
         AfterShotGesture _gesture;               // what the goalie does once the puck has got there (AfterShot)
+        double _lateMargin = double.PositiveInfinity, _lateMarginLimit; // from React: they pick the Annoyed Gesture at Judge
         float _sinceArrival = -1f, _sinceNetting = -1f;
         Vector3 _puck, _post;                    // where the puck is now; the post a Miss glances back at
         RoundSettings _before;                   // Before the Shot (#70, BeforeTheShot): its switches and sizes; null: none of it
@@ -291,6 +292,8 @@ namespace HockeyGame
             _character.React(reaction ?? SaveReactions.For(result.X, result.Y), from, netPoint, PosedFacing(), result.Kind == ShotResultKind.Save || lateReach);
             _reacted = true;
             _gesture = AfterShot.GestureFor(result.Kind, lateMarginSeconds, lateMarginLimitSeconds);
+            _lateMargin = lateMarginSeconds;
+            _lateMarginLimit = lateMarginLimitSeconds;
             _sinceArrival = _sinceNetting = -1f;
             _puck = netPoint;
             _post = new Vector3((netPoint.x >= 0f ? 1f : -1f) * (float)NetFaceMapping.WidthMetres / 2f, PostGlanceHeight, 0f);
@@ -300,10 +303,22 @@ namespace HockeyGame
         }
 
         /// <summary>
-        /// Each frame of the result hold, from ShotEffects: where the puck is (shown or not), the seconds since it reached the
-        /// Net Face and since a GOAL! met the netting (negative: not yet). From these the goalie carries on after its reach
-        /// (AfterShot, #43): its head follows the puck, then a GOAL! looks back into the net and shows an Annoyed Gesture, and
-        /// a Miss shows Relief. Shown by the next SetProgress.
+        /// At the Whistle: what the goalie does after his reach follows the Shot's real result, not the race's (React). A GOAL!
+        /// gets its Annoyed Gesture (picked by the race's Late Margin, as React), a Miss gets Relief, a Save none.
+        /// </summary>
+        public void Judge(ShotResultKind kind)
+        {
+            _gesture = AfterShot.GestureFor(kind, _lateMargin, _lateMarginLimit);
+        }
+
+        /// <summary>The seconds since the puck got there, as last given to Watch (negative: not yet).</summary>
+        public float SecondsSinceArrival => _sinceArrival;
+
+        /// <summary>
+        /// Each frame of the result hold, from PhysicsShotEffects: where the puck is (shown or not), the seconds since it got
+        /// there (the Whistle; in ShotEffects, the scripted puck's arrival) and since a GOAL! met the netting (negative: not
+        /// yet). From these the goalie carries on after its reach (AfterShot, #43): its head follows the puck, then a GOAL!
+        /// looks back into the net and shows an Annoyed Gesture, and a Miss shows Relief. Shown by the next SetProgress.
         /// </summary>
         public void Watch(Vector3 puck, float sinceArrival, float sinceNetting)
         {

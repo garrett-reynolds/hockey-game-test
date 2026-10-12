@@ -64,9 +64,7 @@ namespace HockeyGame.Core
         private int _ticksPlayed;
         private int _stridesPlayed;
         private readonly ShotResultWatch _newResult = new ShotResultWatch();
-        private ShotResult? _pendingImpact;
-        private SoundCue? _pendingContact;
-        private SoundCue _pendingSaveSound;
+        private bool _hitThisShot; // a hit sound (a post or the crossbar) has played since the Shot
 
         /// <summary>Reads the tick on/off setting from save each frame, so a settings change applies at once.</summary>
         public RoundSoundCues(SaveData save)
@@ -78,25 +76,22 @@ namespace HockeyGame.Core
         public static double ListenerVolume(SaveData save) => save.Mute ? 0 : Numbers.Clamp01(save.MasterVolume);
 
         /// <summary>
-        /// Cues to start this frame. puckArrived is true on the frame the on-screen puck reaches the net
-        /// (or passes it on a Miss). The list is reused; read it before the next call.
+        /// Cues to start this frame. A Shot's result sounds at its Whistle, from the Round's result (Round.Whistle): a GOAL!'s
+        /// net hit, horn and cheer at the line crossing. The list is reused; read it before the next call.
         /// </summary>
-        public IReadOnlyList<SoundCue> Update(Round round, bool puckArrived) => Update(round, puckArrived, null);
+        public IReadOnlyList<SoundCue> Update(Round round) => Update(round, null);
 
         /// <summary>
-        /// As Update(round, puckArrived), with the sound of what the on-screen puck visibly hits on a Save or a Frame Hit
-        /// (ShotEffects.ContactSound): the stick or a skate in front of the pads, or the goalie's gear in front of the frame.
-        /// It replaces the Save Reaction's save sound or the post ping; the result does not change. null: the result's own sound.
-        /// Given once (from the Shot frame on), it holds until the impact plays.
+        /// As Update(round), with the sound of a hit the physics puck made since the last frame (PhysicsShotEffects.HitSound:
+        /// a post or the crossbar), played at once. null: no hit.
         /// </summary>
-        public IReadOnlyList<SoundCue> Update(Round round, bool puckArrived, SoundCue? contact)
+        public IReadOnlyList<SoundCue> Update(Round round, SoundCue? hit)
         {
             _cues.Clear();
             RoundPhase phase = round.Phase;
 
             if (phase != _lastPhase)
             {
-                if (_lastPhase == RoundPhase.ResultHold) PlayPendingImpact();
                 if (_lastPhase == RoundPhase.SkateIn) _cues.Add(SoundCue.HockeyStopEnd);
                 if (phase == RoundPhase.SkateIn) _cues.Add(SoundCue.HockeyStop);
                 if (phase == RoundPhase.RoundOver && round.IsNewBest) _cues.Add(SoundCue.NewBestCheer);
@@ -105,29 +100,14 @@ namespace HockeyGame.Core
                 _lastPhase = phase;
             }
 
-            // A pending impact never outlives its result hold: leaving ResultHold plays it (above).
-            bool newShot = _newResult.TakeNewShot(round);
-            bool newResult = _newResult.TakeNew(round);
-            if (newResult && round.LastResult.Value.Kind == ShotResultKind.TooLate)
+            if (_newResult.TakeNewShot(round)) _hitThisShot = false;
+            if (hit.HasValue)
             {
-                _cues.Add(SoundCue.Buzzer);
-                _cues.Add(SoundCue.Groan);
+                _cues.Add(hit.Value);
+                _hitThisShot = true;
             }
-            else if (newShot)
-            {
-                // interim (#109): the impact comes from the scripted result; read the Round's result at the Whistle instead.
-                // Today's result for the Shot (ScriptedShot), as the scripted puck will land it at the Whistle.
-                ShotResult result = ScriptedShot.Result(round);
-                _pendingImpact = result;
-                _pendingContact = null;
-                // The race's Save Reaction (the gear that won it), taken now: the next Shot clears LastRace.
-                _pendingSaveSound = SaveReactions.Sound(round.LastRace?.SaveReaction ?? SaveReactions.For(result.X, result.Y));
-            }
-            if (_pendingImpact.HasValue && contact.HasValue) _pendingContact = contact;
-
-            // The result shows at the Whistle, when the puck lands (Round.Whistle), so a missed arrival frame still plays it then.
-            if (_pendingImpact.HasValue && (puckArrived || (phase == RoundPhase.ResultHold && round.ResultShowing)))
-                PlayPendingImpact();
+            // A new result is a Too Late (at once) or a Shot's Whistle.
+            if (_newResult.TakeNew(round)) PlayResult(round);
 
             if (phase == RoundPhase.SkateIn)
             {
@@ -154,27 +134,28 @@ namespace HockeyGame.Core
             return _cues;
         }
 
-        private void PlayPendingImpact()
+        private void PlayResult(Round round)
         {
-            if (!_pendingImpact.HasValue) return;
-            ShotResult result = _pendingImpact.Value;
+            ShotResult result = round.LastResult.Value;
             switch (result.Kind)
             {
+                case ShotResultKind.TooLate:
+                    _cues.Add(SoundCue.Buzzer);
+                    break;
                 case ShotResultKind.Goal:
                     _cues.Add(SoundCue.GoalImpact);
                     _cues.Add(SoundCue.Cheer);
-                    break;
+                    return;
                 case ShotResultKind.Save:
-                    _cues.Add(_pendingContact ?? _pendingSaveSound);
-                    _cues.Add(SoundCue.Groan);
+                    // Until #111 (the save sound at each contact with the gear): the race's Save Reaction's sound, at the Whistle.
+                    _cues.Add(SaveReactions.Sound(round.LastRace?.SaveReaction ?? SaveReactions.For(result.X, result.Y)));
                     break;
                 default:
-                    _cues.Add(NetFrame.At(result.X, result.Y) == FrameHit.None ? SoundCue.MissImpact : _pendingContact ?? SoundCue.PostPing);
-                    _cues.Add(SoundCue.Groan);
+                    // Until #110 (boards from physics contacts): a Miss that rang off nothing clangs on the boards at its Whistle.
+                    if (!_hitThisShot) _cues.Add(SoundCue.MissImpact);
                     break;
             }
-            _pendingImpact = null;
-            _pendingContact = null;
+            _cues.Add(SoundCue.Groan);
         }
 
         /// <summary>What stops a Save at this Net Face position: the gear of its Save Reaction (SaveReactions).</summary>

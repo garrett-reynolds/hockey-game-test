@@ -266,7 +266,7 @@ namespace HockeyGame.Core.Tests
                         HockeyGame.Core.SetUp.LateSettle(Post.Right), HockeyGame.Core.SetUp.Cheat(Post.Right), HockeyGame.Core.SetUp.Clean }),
                     settings, new GoalieCharacterReach(character, settings), 0);
                 var breakaway = driver.AddComponent<BreakawayView>();
-                breakaway.Init(round, camera, view);
+                breakaway.Init(round, camera, view, () => effects.FlightSeconds);
                 var aims = new[] { (88.0, 82.0), (50.0, 90.0), (15.0, 12.0), (80.0, 30.0), (12.0, 82.0), (50.0, 15.0) };
                 int shot = 0;
                 Vector3 lastSpot = view.ShownSpot;

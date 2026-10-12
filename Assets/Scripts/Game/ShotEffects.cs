@@ -10,6 +10,10 @@ namespace HockeyGame
     /// to the spot; the puck deflects off the surface it hit, or the catching glove holds it), Miss (the puck flies on past the net, or
     /// deflects off a post or the crossbar) or Too Late (no puck). The deflection is PuckMotion (see #38).
     /// Watches the Round and sounds its Whistle when the flight ends (Round.Whistle). Uses real (unscaled) time. No colliders.
+    /// <para>
+    /// The scripted flight: since #109 the game plays Shots with Unity physics (PhysicsShotEffects), which gives the Round
+    /// its Whistle; the game no longer makes this. It stays, with its tests, until #113 removes it.
+    /// </para>
     /// </summary>
     public sealed class ShotEffects
     {

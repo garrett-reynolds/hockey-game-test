@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace HockeyGame.Core
@@ -110,7 +111,10 @@ namespace HockeyGame.Core
         /// <summary>True from a Shot on the clock until the game reports its Whistle (Whistle). The result hold has not started.</summary>
         public bool AwaitingWhistle { get; private set; }
 
-        /// <summary>Real seconds from the Shot to its Whistle (the puck's flight, today); 0 until the Whistle.</summary>
+        /// <summary>
+        /// Real seconds from the Shot to its Whistle (Shot-to-Whistle, since #108: not the puck's flight); 0 until the Whistle.
+        /// The result hold runs ResultHoldSeconds after it. (Named before the Whistle; kept, as other code reads it.)
+        /// </summary>
         public double ResultDelaySeconds => _resultDelay;
 
         /// <summary>The Shot just submitted (where it went, how fast); null until one is, and after a Too Late. Its result comes at the Whistle.</summary>
@@ -160,10 +164,13 @@ namespace HockeyGame.Core
 
         /// <summary>
         /// The game reports the Whistle with the Shot's result (Goal, Save or Miss). The Round records it and holds it
-        /// ResultHoldSeconds from now. Counts only while waiting for a Whistle: a later call changes nothing.
+        /// ResultHoldSeconds from now. Counts only while waiting for a Whistle: a later call changes nothing. A Whistle is
+        /// never Too Late (that comes from the shooting window running out): it throws.
         /// </summary>
         public void Whistle(ShotResultKind kind)
         {
+            if (kind == ShotResultKind.TooLate)
+                throw new ArgumentException("A Whistle gives Goal, Save or Miss; Too Late is the Round's own result.", nameof(kind));
             if (!AwaitingWhistle)
                 return;
 

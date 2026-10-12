@@ -46,9 +46,9 @@ namespace HockeyGame.Core
     }
 
     /// <summary>
-    /// The goalie's motion after the Shot, as a pure function of the time since the puck reached the Net Face (and, on a
-    /// GOAL!, since it met the netting). The result hold always runs ResultHoldSeconds (2.5 s) after the puck gets there
-    /// (Round.Whistle). Every reaction plays out, glides back to the goalie's spot (on a GOAL! before the Annoyed Gesture,
+    /// The goalie's motion after the Shot, as a pure function of the time since the puck got there (the Whistle: on a GOAL!
+    /// the line crossing) and, on a GOAL!, since it met the netting. The result hold always runs ResultHoldSeconds (2.5 s)
+    /// after the Whistle (Round.Whistle), so it starts on the same clock as this motion. Every reaction plays out, glides back to the goalie's spot (on a GOAL! before the Annoyed Gesture,
     /// so it reads on its own) and recovers into the Ready Stance by RecoveredBy (#44), so the hold ends, and the next Shot
     /// starts, in the Ready Stance with no snap.
     /// </summary>
@@ -56,7 +56,7 @@ namespace HockeyGame.Core
     {
         /// <summary>A GOAL!'s hand is there this long after the puck.</summary>
         public const double LateReachSeconds = 0.25;
-        /// <summary>The latest a GOAL! is taken to meet the netting (s after the Net Face): the look back starts by then.</summary>
+        /// <summary>The latest a GOAL! is taken to meet the netting (s after the Whistle, the line crossing): the look back starts by then.</summary>
         public const double LatestNetting = 0.5;
         /// <summary>A GOAL!, after the netting: the look back turns in over (0.05..0.45 s), the arm drops (0.1..0.6 s).</summary>
         public const double LookBackFrom = 0.05, LookBackTo = 0.45, RelaxFrom = 0.1, RelaxTo = 0.6;
@@ -98,7 +98,7 @@ namespace HockeyGame.Core
         }
 
         /// <summary>
-        /// Where the motion is: sinceArrival = seconds since the puck reached the Net Face (negative before); sinceNetting =
+        /// Where the motion is: sinceArrival = seconds since the puck got there, at the Whistle (negative before); sinceNetting =
         /// seconds since a GOAL! met the netting (negative before, or never: then taken as LatestNetting after arrival).
         /// </summary>
         public static AfterShotMoment At(AfterShotGesture gesture, double sinceArrival, double sinceNetting)

@@ -83,16 +83,16 @@ namespace HockeyGame
         }
 
         /// <summary>
-        /// Call once per frame after the Round and ShotEffects update. puckArrived: ShotEffects.PuckArrivedThisFrame;
-        /// contact: ShotEffects.ContactSound (what the puck visibly hits; see RoundSoundCues.Update).
+        /// Call once per frame after the Round and PhysicsShotEffects update. hit: PhysicsShotEffects.HitSound (a post or
+        /// crossbar hit in the physics steps before this frame; see RoundSoundCues.Update).
         /// </summary>
-        public void Update(Round round, bool puckArrived, float realSeconds, SoundCue? contact = null)
+        public void Update(Round round, float realSeconds, SoundCue? hit = null)
         {
             AudioListener.volume = (float)RoundSoundCues.ListenerVolume(_save);
             RoundPhase phase = round.Phase;
             double phaseSeconds = round.PhaseSecondsElapsed;
 
-            foreach (SoundCue cue in _cues.Update(round, puckArrived, contact))
+            foreach (SoundCue cue in _cues.Update(round, hit))
             {
                 if (cue == SoundCue.HockeyStop) { StartHockeyStop(round); continue; }
                 if (cue == SoundCue.HockeyStopEnd) { _hockeyStopTarget = 0f; continue; }

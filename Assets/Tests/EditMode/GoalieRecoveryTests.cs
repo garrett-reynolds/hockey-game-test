@@ -265,7 +265,7 @@ namespace HockeyGame.Core.Tests
                     round.Tick(Frame);
                     if (round.Phase != RoundPhase.ResultHold) break;
                     arrived |= effects.PuckArrivedThisFrame;
-                    view.SetProgress((float)Breakaway.GoalieSet(round.Phase, round.PhaseSecondsElapsed, true, Breakaway.GoalieFlightSeconds(round.AwaitingWhistle, round.ResultDelaySeconds, effects.FlightSeconds), round.LastRace));
+                    view.SetProgress((float)Breakaway.GoalieSet(round.Phase, round.PhaseSecondsElapsed, true, effects.FlightSeconds, round.LastRace));
                     if (!arrived) continue;
                     since += Frame;
                     Assert.IsTrue(character.GearBounds(GearPiece.Catcher, out Bounds glove));
@@ -300,7 +300,7 @@ namespace HockeyGame.Core.Tests
                     AttackSide.Left, AttackSide.Middle, AttackSide.Right), new RoundSettings(),
                     FakeReach.Saving((x, y) => !((x == 88 && y == 82) || (x == 15 && y == 85))), 0); // two Goals, three Saves, a Miss
                 var breakaway = driver.AddComponent<BreakawayView>();
-                breakaway.Init(round, camera, view);
+                breakaway.Init(round, camera, view, () => effects.FlightSeconds);
                 var shots = new[] { (88.0, 82.0), (50.0, 90.0), (15.0, 12.0), (112.0, 50.0), (12.0, 82.0), (15.0, 85.0) };
                 int shot = 0;
                 float afterHold = -1f; // seconds since the last hold ended (-1: in a hold, or none yet)

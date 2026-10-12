@@ -424,6 +424,20 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(0.4, round.ResultDelaySeconds, 1e-9);
         }
 
+        // Too Late is the Round's own result (the window ran out), never a Whistle's: the Round refuses it and keeps waiting.
+        [Test]
+        public void A_Whistle_with_Too_Late_is_refused_and_the_Round_keeps_waiting()
+        {
+            var round = InWindow();
+            round.SubmitShot(50, 90, 100, false);
+            Assert.Throws<System.ArgumentException>(() => round.Whistle(ShotResultKind.TooLate));
+            Assert.IsTrue(round.AwaitingWhistle);
+            Assert.IsFalse(round.LastResult.HasValue);
+            Assert.AreEqual(0, round.Results.Count);
+            round.Whistle(ShotResultKind.Miss);
+            Assert.AreEqual(ShotResultKind.Miss, round.LastResult.Value.Kind);
+        }
+
         [Test]
         public void A_Whistle_at_once_holds_2_5_seconds()
         {

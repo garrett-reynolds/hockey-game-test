@@ -18,13 +18,13 @@ namespace HockeyGame.Core.Tests
         }
 
         // Ticks the Round frame by frame for the given real seconds, collecting every cue.
-        private static List<SoundCue> Run(Round round, RoundSoundCues cues, double seconds, bool puckArrived = false)
+        private static List<SoundCue> Run(Round round, RoundSoundCues cues, double seconds)
         {
             var heard = new List<SoundCue>();
             for (double t = 0; t < seconds - 1e-9; t += Frame)
             {
                 round.Tick(Frame);
-                heard.AddRange(cues.Update(round, puckArrived));
+                heard.AddRange(cues.Update(round));
             }
             return heard;
         }
@@ -59,7 +59,7 @@ namespace HockeyGame.Core.Tests
             var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.7);
             round.Tick(2.5);                             // a hitch inside the window
-            var heard = cues.Update(round, false);
+            var heard = cues.Update(round);
             Assert.AreEqual(1, new List<SoundCue>(heard).FindAll(c => c == SoundCue.Tick || c == SoundCue.FastTick).Count);
         }
 
@@ -74,109 +74,103 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void Goal_waits_for_the_puck_then_plays_net_hit_horn_and_cheer()
+        public void Goal_waits_for_the_Whistle_then_plays_net_hit_horn_and_cheer()
         {
             var round = StartedRound();
             var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.8);
             round.SubmitShot(50, 90, 100, false);        // high: a Goal
-            var beforeArrival = Run(round, cues, 0.2);
-            Assert.IsFalse(beforeArrival.Contains(SoundCue.GoalImpact));
-            Assert.IsFalse(beforeArrival.Contains(SoundCue.Cheer));
+            var beforeWhistle = Run(round, cues, 0.2);
+            Assert.IsFalse(beforeWhistle.Contains(SoundCue.GoalImpact));
+            Assert.IsFalse(beforeWhistle.Contains(SoundCue.Cheer));
 
-            var atArrival = new List<SoundCue>(cues.Update(round, true));
-            CollectionAssert.AreEquivalent(new[] { SoundCue.GoalImpact, SoundCue.Cheer }, atArrival);
-            Assert.IsEmpty(cues.Update(round, true)); // plays once
+            round.Whistle(ShotResultKind.Goal);          // the line crossing
+            var atWhistle = new List<SoundCue>(cues.Update(round));
+            CollectionAssert.AreEquivalent(new[] { SoundCue.GoalImpact, SoundCue.Cheer }, atWhistle);
+            Assert.IsEmpty(cues.Update(round)); // plays once
+        }
+
+        // The result is the Round's, at the Whistle (WhistleRule), not the race's at the Shot: the race saves this one, but the
+        // physics puck went in (the goalie has no hit shapes yet, #111).
+        [Test]
+        public void The_result_sound_follows_the_Whistle_s_result_not_the_race()
+        {
+            var round = StandUpRound();
+            var cues = new RoundSoundCues(new SaveData());
+            Run(round, cues, 3.8);
+            round.SubmitShot(20, 10, 100, false);        // the race: a pad save
+            Assert.IsTrue(round.LastRace.Value.IsSave);
+            Assert.IsEmpty(cues.Update(round));
+            round.Whistle(ShotResultKind.Goal);
+            CollectionAssert.AreEquivalent(new[] { SoundCue.GoalImpact, SoundCue.Cheer }, cues.Update(round));
         }
 
         [Test]
-        public void Save_plays_pad_thud_and_groan_on_arrival()
+        public void Save_plays_pad_thud_and_groan_at_the_Whistle()
         {
             var round = StartedRound();
             var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.8);
             round.SubmitShot(20, 10, 100, false);        // low: a pad save
-            cues.Update(round, false);
-            CollectionAssert.AreEquivalent(new[] { SoundCue.SaveImpact, SoundCue.Groan }, cues.Update(round, true));
+            cues.Update(round);
+            round.Whistle(ShotResultKind.Save);
+            CollectionAssert.AreEquivalent(new[] { SoundCue.SaveImpact, SoundCue.Groan }, cues.Update(round));
         }
 
         [Test]
-        public void Miss_plays_boards_clang_and_groan_on_arrival()
+        public void Miss_that_hit_nothing_plays_boards_clang_and_groan_at_the_Whistle()
         {
             var round = StartedRound();
             var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.8);
             round.SubmitShot(150, 90, 100, false);       // off the Net Face
-            cues.Update(round, false);
-            CollectionAssert.AreEquivalent(new[] { SoundCue.MissImpact, SoundCue.Groan }, cues.Update(round, true));
+            cues.Update(round);
+            round.Whistle(ShotResultKind.Miss);
+            CollectionAssert.AreEquivalent(new[] { SoundCue.MissImpact, SoundCue.Groan }, cues.Update(round));
         }
 
-        // What the puck visibly hits (ShotEffects) can differ from the gear the Shot point names: the stick or a skate in front
-        // of the pads, or gear in front of the frame. The sound follows the puck; the result does not change.
+        // Post and crossbar sounds come from the physics contacts (PhysicsShotEffects.HitSound), when they happen.
         [Test]
-        public void A_save_the_puck_makes_on_the_stick_sounds_like_the_stick_not_the_pad()
-        {
-            var round = StartedRound();
-            var cues = new RoundSoundCues(new SaveData());
-            Run(round, cues, 3.8);
-            round.SubmitShot(50, 10, 100, false);        // low: a pad save by its point
-            cues.Update(round, false, SoundCue.BlockerHit); // the Shot frame: the puck will meet the stick
-            CollectionAssert.AreEquivalent(new[] { SoundCue.BlockerHit, SoundCue.Groan }, cues.Update(round, true));
-            round.WhistleNow();
-            Assert.AreEqual(ShotResultKind.Save, round.LastResult.Value.Kind);
-        }
-
-        [Test]
-        public void A_Frame_Hit_the_goalie_s_pad_is_in_front_of_thuds_off_the_pad_and_is_still_a_Miss()
+        public void A_post_hit_pings_when_it_happens_and_the_Miss_then_only_groans()
         {
             var round = StartedRound();
             var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.8);
             round.SubmitShot(-2, 50, 100, false);        // on the left post
-            cues.Update(round, false, SoundCue.SaveImpact);
-            CollectionAssert.AreEquivalent(new[] { SoundCue.SaveImpact, SoundCue.Groan }, cues.Update(round, true, SoundCue.SaveImpact));
-            round.WhistleNow();
-            Assert.AreEqual(ShotResultKind.Miss, round.LastResult.Value.Kind);
+            cues.Update(round);
+            CollectionAssert.AreEquivalent(new[] { SoundCue.PostPing }, cues.Update(round, SoundCue.PostPing));
+            Assert.IsEmpty(cues.Update(round, null));
+            round.Whistle(ShotResultKind.Miss);
+            CollectionAssert.AreEquivalent(new[] { SoundCue.Groan }, cues.Update(round));
         }
 
         [Test]
-        public void With_no_contact_sound_the_result_sounds_as_its_Save_Reaction_says()
+        public void A_post_hit_on_the_last_Shot_does_not_quiet_the_next_Miss()
         {
             var round = StartedRound();
             var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.8);
             round.SubmitShot(-2, 50, 100, false);
-            cues.Update(round, false, null);
-            CollectionAssert.AreEquivalent(new[] { SoundCue.PostPing, SoundCue.Groan }, cues.Update(round, true, null));
+            cues.Update(round, SoundCue.PostPing);
+            round.Whistle(ShotResultKind.Miss);
+            Run(round, cues, 2.6 + 3.8);                 // the hold, then the next Shot's skate-in, slow-down and window
+            Assert.AreEqual(2, round.ShotNumber);
+            Assert.AreEqual(RoundPhase.ShootingWindow, round.Phase);
+            round.SubmitShot(150, 90, 100, false);
+            cues.Update(round);
+            round.Whistle(ShotResultKind.Miss);
+            CollectionAssert.AreEquivalent(new[] { SoundCue.MissImpact, SoundCue.Groan }, cues.Update(round));
         }
 
-        // Plays one Shot at (x, y) and returns the cues on the puck's arrival frame.
+        // Plays one Shot at (x, y) with the race's result at its Whistle (ScriptedShot) and returns the cues on the Whistle frame.
         private static List<SoundCue> ArrivalCues(Round round, double x, double y)
         {
             var cues = new RoundSoundCues(new SaveData());
             Run(round, cues, 3.8);
             round.SubmitShot(x, y, 100, false);
-            cues.Update(round, false);
-            return new List<SoundCue>(cues.Update(round, true));
-        }
-
-        [Test]
-        public void Miss_on_the_left_post_pings_and_still_counts_as_a_Miss()
-        {
-            var round = StartedRound();
-            var heard = ArrivalCues(round, -2, 50);      // 2 units left of the opening: inside the post's thickness
-            CollectionAssert.AreEquivalent(new[] { SoundCue.PostPing, SoundCue.Groan }, heard);
+            cues.Update(round);
             round.WhistleNow();
-            Assert.AreEqual(ShotResultKind.Miss, round.LastResult.Value.Kind);
-        }
-
-        [TestCase(102, 50, TestName = "Right post")]
-        [TestCase(50, 103, TestName = "Crossbar")]
-        [TestCase(-3, 104, TestName = "Top left corner of the frame")]
-        public void Miss_on_the_frame_pings(double x, double y)
-        {
-            var heard = ArrivalCues(StartedRound(), x, y);
-            CollectionAssert.AreEquivalent(new[] { SoundCue.PostPing, SoundCue.Groan }, heard);
+            return new List<SoundCue>(cues.Update(round));
         }
 
         // Gear already in the way everywhere: every Shot on the Net Face is saved, showing (and sounding) its point's Save Reaction.
@@ -220,8 +214,9 @@ namespace HockeyGame.Core.Tests
             round.SubmitShot(15, 85, 45, false); // high on the left: a blocker by the Shot point; slow, so the glove gets there
             Assert.IsTrue(round.LastRace.Value.IsSave);
             Assert.AreEqual(SaveReaction.Glove, round.LastRace.Value.SaveReaction);
-            cues.Update(round, false);
-            CollectionAssert.AreEquivalent(new[] { SoundCue.GloveCatch, SoundCue.Groan }, cues.Update(round, true));
+            cues.Update(round);
+            round.Whistle(ShotResultKind.Save);
+            CollectionAssert.AreEquivalent(new[] { SoundCue.GloveCatch, SoundCue.Groan }, cues.Update(round));
         }
 
         // The sound is the Save Reaction's gear (SaveReactions): pads low, the body in the middle, the stick along the ice
@@ -255,7 +250,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void Slow_Shot_result_sound_waits_for_the_Whistle_even_when_the_arrival_is_missed()
+        public void Slow_Shot_result_sound_waits_for_the_Whistle()
         {
             var round = StartedRound();
             var cues = new RoundSoundCues(new SaveData());
@@ -266,7 +261,7 @@ namespace HockeyGame.Core.Tests
             Assert.IsFalse(inFlight.Contains(SoundCue.Groan));
 
             round.Whistle(ScriptedShot.Result(round).Kind); // the puck lands
-            var landed = Run(round, cues, 0.1);          // no arrival frame seen: the result showing still plays it
+            var landed = Run(round, cues, 0.1);
             CollectionAssert.IsSubsetOf(new[] { SoundCue.SaveImpact, SoundCue.Groan }, landed);
             Assert.AreEqual(1, landed.FindAll(c => c == SoundCue.SaveImpact).Count);
         }
@@ -278,7 +273,7 @@ namespace HockeyGame.Core.Tests
             {
                 heard.AddRange(Run(round, cues, 3.8));
                 round.SubmitShotAndWhistle(i < goals ? 50 : 150, 90, 100, false);
-                heard.AddRange(Run(round, cues, 2.6, puckArrived: true));
+                heard.AddRange(Run(round, cues, 2.6));
             }
             return heard;
         }
@@ -309,7 +304,7 @@ namespace HockeyGame.Core.Tests
             var round = StartedRound();
             var cues = new RoundSoundCues(new SaveData());
             round.Tick(Frame);
-            CollectionAssert.Contains(cues.Update(round, false), SoundCue.HockeyStop);
+            CollectionAssert.Contains(cues.Update(round), SoundCue.HockeyStop);
 
             var duringSkate = Run(round, cues, 2.4);     // still skating in at 2.45 s
             Assert.AreEqual(RoundPhase.SkateIn, round.Phase);
@@ -320,7 +315,7 @@ namespace HockeyGame.Core.Tests
             while (round.Phase == RoundPhase.SkateIn)
             {
                 round.Tick(Frame);
-                heard = new List<SoundCue>(cues.Update(round, false));
+                heard = new List<SoundCue>(cues.Update(round));
             }
             Assert.AreEqual(RoundPhase.SlowDown, round.Phase);
             CollectionAssert.Contains(heard, SoundCue.HockeyStopEnd);
@@ -338,12 +333,12 @@ namespace HockeyGame.Core.Tests
             var sides = new HashSet<AttackSide>();
             var order = new List<SoundCue>();
 
-            void Watch(double seconds, bool puckArrived)
+            void Watch(double seconds)
             {
                 for (double t = 0; t < seconds - 1e-9; t += Frame)
                 {
                     round.Tick(Frame);
-                    foreach (SoundCue cue in cues.Update(round, puckArrived))
+                    foreach (SoundCue cue in cues.Update(round))
                     {
                         if (cue == SoundCue.HockeyStop) sides.Add(round.AttackSide);
                         if (cue == SoundCue.HockeyStop || cue == SoundCue.HockeyStopEnd) order.Add(cue);
@@ -353,9 +348,9 @@ namespace HockeyGame.Core.Tests
 
             for (int i = 0; i < Round.ShotsPerRound; i++)
             {
-                Watch(3.8, false);
+                Watch(3.8);
                 round.SubmitShotAndWhistle(150, 90, 100, false);
-                Watch(2.6, true);
+                Watch(2.6);
             }
 
             Assert.AreEqual(RoundPhase.RoundOver, round.Phase);
@@ -390,7 +385,7 @@ namespace HockeyGame.Core.Tests
                 var heard = new List<SoundCue>();
                 void Listen()
                 {
-                    foreach (SoundCue cue in cues.Update(round, false))
+                    foreach (SoundCue cue in cues.Update(round))
                         if (cue == SoundCue.StrideLeft || cue == SoundCue.StrideRight) { times.Add(round.PhaseSecondsElapsed); heard.Add(cue); }
                 }
                 Listen(); // the skate-in's first frame
@@ -398,7 +393,7 @@ namespace HockeyGame.Core.Tests
                 {
                     round.Tick(StrideFrame);
                     if (round.Phase == RoundPhase.SkateIn) Listen();
-                    else cues.Update(round, false);
+                    else cues.Update(round);
                 }
 
                 CollectionAssert.AreEqual(expectedSides, heard, "Attack Side " + round.AttackSide);
@@ -414,7 +409,7 @@ namespace HockeyGame.Core.Tests
                 while (round.Phase != RoundPhase.SkateIn && round.Phase != RoundPhase.RoundOver)
                 {
                     round.Tick(Frame);
-                    cues.Update(round, true);
+                    cues.Update(round);
                 }
             }
 
