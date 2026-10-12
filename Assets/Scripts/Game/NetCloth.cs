@@ -8,7 +8,7 @@ namespace HockeyGame
     /// The cloth netting that gives on a Goal (#112, spec #107 "Net and netting"): Unity's built-in Cloth on one welded grid
     /// (the sides, back and roof), pinned at the ice, the posts and the crossbar, in the rink's frame (the Net Face at z = 0, the
     /// back at z = +NetDepth). It is looks only: the catch boxes (ShotColliders.Catch) stop the puck and the cloth never pushes
-    /// it. The cloth sees the puck through a capsule of two spheres, where the puck was a step ago and where it is now (Follow).
+    /// it. The cloth sees the puck through a capsule of two spheres, where the puck was last frame and where it is now (Follow).
     /// The model's own netting is hidden while this one shows.
     /// </summary>
     public sealed class NetCloth : IDisposable
@@ -82,7 +82,7 @@ namespace HockeyGame
             Cloth.sphereColliders = new[] { new ClothSphereColliderPair(_was, _now) };
         }
 
-        /// <summary>Call after each physics step: the capsule runs from where the puck was last step to where it is now.</summary>
+        /// <summary>Call once a frame while the puck is shown: the capsule runs from where the puck was last frame to where it is now. A hidden puck is not followed (a hidden body may read position zero).</summary>
         public void Follow(Vector3 puck)
         {
             if (_now == null) return;
@@ -90,7 +90,7 @@ namespace HockeyGame
             _now.transform.position = puck;
         }
 
-        /// <summary>The puck's capsule, the two sphere centres (last step, this step); null before a puck is tracked.</summary>
+        /// <summary>The puck's capsule, the two sphere centres (last frame, this frame); null before a puck is tracked.</summary>
         public (Vector3 Was, Vector3 Now)? Capsule => _now == null ? ((Vector3, Vector3)?)null : (_was.transform.position, _now.transform.position);
 
         void Release()

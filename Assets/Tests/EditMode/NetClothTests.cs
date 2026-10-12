@@ -66,6 +66,32 @@ namespace HockeyGame.Core.Tests
             _effects.Update(round, Step);
         }
 
+        void FrameSteps(Round round, int steps)
+        {
+            for (int i = 0; i < steps; i++)
+            {
+                Physics.Simulate(Step);
+                _effects.AfterPhysicsStep(Step);
+            }
+            round.Tick(Step * steps);
+            _effects.Update(round, Step * steps);
+        }
+
+        [Test]
+        public void The_capsule_stays_where_it_was_once_the_puck_is_hidden()
+        {
+            Round round = Shoot(130, 50, 100);
+            for (int i = 0; i < 5; i++) Frame(round);
+            _effects.Shot.Puck.gameObject.SetActive(false); // a hidden body may read position zero
+            Frame(round);
+            var held = _effects.NetCloth.Capsule.Value;
+            for (int i = 0; i < 3; i++) Frame(round);
+            var capsule = _effects.NetCloth.Capsule.Value;
+            Assert.AreEqual(held.Now, capsule.Now, "no following a hidden puck");
+            Assert.AreEqual(held.Was, capsule.Was);
+            Assert.Greater(Vector3.Distance(capsule.Now, _root.transform.position), 0.5f, "not stretched to the origin");
+        }
+
         [Test]
         public void The_cloth_netting_has_the_Hard_settings()
         {
@@ -93,14 +119,19 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void The_cloth_sees_the_puck_as_a_capsule_from_where_it_was_a_step_ago_to_where_it_is()
+        public void The_cloth_sees_the_puck_as_a_capsule_from_where_it_was_last_frame_to_where_it_is()
         {
             Round round = Shoot(50, 50, 100);
             for (int i = 0; i < 5; i++) Frame(round);
-            Vector3 before = _effects.Shot.Puck.position;
-            Frame(round);
+            Vector3 lastFrame = _effects.Shot.Puck.position;
+            for (int i = 0; i < 3; i++) FrameSteps(round, 1 + i % 2); // frames of one and of two physics steps
+            FrameSteps(round, 3);
             var capsule = _effects.NetCloth.Capsule.Value;
-            Assert.AreEqual(before, capsule.Was);
+            Assert.AreNotEqual(lastFrame, capsule.Was, "moved on from the older frames");
+            Vector3 beforeThis = capsule.Now;
+            FrameSteps(round, 3);
+            capsule = _effects.NetCloth.Capsule.Value;
+            Assert.AreEqual(beforeThis, capsule.Was, "last frame, not last step");
             Assert.AreEqual(_effects.Shot.Puck.position, capsule.Now);
             Assert.AreEqual(1, _effects.NetCloth.Cloth.sphereColliders.Length);
             foreach (Collider sphere in new Collider[] { _effects.NetCloth.Cloth.sphereColliders[0].first, _effects.NetCloth.Cloth.sphereColliders[0].second })

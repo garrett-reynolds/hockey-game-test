@@ -120,6 +120,7 @@ namespace HockeyGame
                 realSeconds = 0f; // the Shot frame: the clock starts with the Round's result hold, whichever way the Shot came in
             }
             if (Shot == null) return;
+            if (Shot.Puck.gameObject.activeSelf) _netCloth.Follow(Shot.Puck.position); // once a frame: last frame to this frame
             _clock += realSeconds;
 
             // No hang: a Shot the physics stopped feeding still gets the cap's Whistle.
@@ -137,7 +138,6 @@ namespace HockeyGame
         {
             if (Shot == null) return;
             Shot.AfterStep(stepSeconds);
-            _netCloth.Follow(Shot.Puck.position);
             if (CameraLookUp == 0 && Shot.Puck.gameObject.activeSelf && Shot.OutOfSight) Shot.Puck.gameObject.SetActive(false);
         }
 
