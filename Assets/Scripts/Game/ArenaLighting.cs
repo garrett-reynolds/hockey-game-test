@@ -35,6 +35,9 @@ namespace HockeyGame
         /// <summary>HDR glow of a light bank: well above the bloom threshold.</summary>
         const float BankGlow = 16f;
         const float BankHeight = 20f;
+        static readonly Vector3 BankSize = new Vector3(5f, 0.3f, 1.4f);
+        /// <summary>How far a light bank keeps clear of the Centre Board's box (metres).</summary>
+        public const float CentreBoardClearance = 0.4f;
 
         /// <summary>Adds the lights under rink and sets the scene's ambient light and fog. Returns the main light.</summary>
         public static Light Build(Transform rink)
@@ -117,6 +120,19 @@ namespace HockeyGame
             return spot;
         }
 
+        /// <summary>
+        /// A bank's z, moved out along the rink past the Centre Board (with CentreBoardClearance) when its footprint would
+        /// fall under the board's box; the board hangs at the banks' height, so the bank keeps lighting the ice beside it.
+        /// </summary>
+        static float ClearOfCentreBoard(float x, float z)
+        {
+            float half = (float)RinkLayout.CentreBoardScreenWidth / 2f, centre = (float)RinkLayout.CentreBoard.Z;
+            bool under = Mathf.Abs(x) - BankSize.x / 2f < half + CentreBoardClearance
+                         && Mathf.Abs(z - centre) - BankSize.z / 2f < half + CentreBoardClearance;
+            if (!under) return z;
+            return centre + Mathf.Sign(z - centre) * (half + CentreBoardClearance + BankSize.z / 2f);
+        }
+
         /// <summary>Rows of glowing light banks under the roof: seen when looking up, mirrored in the ice.</summary>
         static void AddLightBanks(Transform rink)
         {
@@ -129,7 +145,7 @@ namespace HockeyGame
             foreach (float z in near.Concat(near.Select(z => (float)RinkLayout.Mirror(z))))
                 foreach (float x in new[] { -12f, -4f, 4f, 12f })
                 {
-                    GameObject bank = RinkBuilder.Cube(banks, LightBank, new Vector3(x, BankHeight, z), new Vector3(5f, 0.3f, 1.4f), Color.white);
+                    GameObject bank = RinkBuilder.Cube(banks, LightBank, new Vector3(x, BankHeight, ClearOfCentreBoard(x, z)), BankSize, Color.white);
                     var r = bank.GetComponent<Renderer>();
                     r.sharedMaterial = glow;
                     r.shadowCastingMode = ShadowCastingMode.Off;

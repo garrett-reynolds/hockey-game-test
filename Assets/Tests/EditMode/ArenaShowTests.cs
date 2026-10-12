@@ -441,8 +441,12 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(3, flow.Round.ShotNumber);
             Assert.AreEqual("", ArenaShow.From(flow).VideoBoardWords.Details, "Too late has no speed");
 
+            for (int shot = 3; shot <= Round.ShotsPerRound; shot++)
+                flow.Tick(3.7 + 3.0 + 2.5 + 0.01); // the rest: no Shot in time
+            flow.Tick(save.AutoReturnSeconds);
+            Assert.AreEqual(FlowScreen.Start, flow.Screen);
             save.BestScore = 0; // a reset on the settings screen shows on the start card at once
-            Assert.AreEqual(0, flow.BestScore);
+            Assert.AreEqual("BEST SCORE 0 OF 6\nSHOOT TO PLAY", ArenaShow.From(flow).VideoBoardWords.Details);
         }
     }
 }

@@ -136,6 +136,42 @@ namespace HockeyGame.Core.Tests
                 }
         }
 
+        /// <summary>The gap between two boxes (metres; 0 when they touch or overlap).</summary>
+        static float Gap(Bounds a, Bounds b)
+        {
+            float dx = Mathf.Max(0f, Mathf.Max(a.min.x - b.max.x, b.min.x - a.max.x));
+            float dy = Mathf.Max(0f, Mathf.Max(a.min.y - b.max.y, b.min.y - a.max.y));
+            float dz = Mathf.Max(0f, Mathf.Max(a.min.z - b.max.z, b.min.z - a.max.z));
+            return Mathf.Sqrt(dx * dx + dy * dy + dz * dz);
+        }
+
+        [Test]
+        public void No_light_bank_touches_either_board_or_its_cables()
+        {
+            ArenaLighting.Build(_rink.transform);
+            VideoBoards boards = VideoBoards.Build(_rink.transform);
+            Renderer[] banks = System.Array.FindAll(_rink.GetComponentsInChildren<Renderer>(), r => r.name == ArenaLighting.LightBank);
+            Assert.That(banks.Length, Is.GreaterThanOrEqualTo(6));
+            foreach (Transform board in new[] { boards.CentreBoard, boards.VideoBoard })
+            foreach (Renderer part in board.GetComponentsInChildren<Renderer>()) // the frame box and cables, not just the screens
+            foreach (Renderer bank in banks)
+                Assert.That(Gap(part.bounds, bank.bounds), Is.GreaterThanOrEqualTo(0.3f),
+                            part.name + " and the light bank at " + bank.bounds.center);
+        }
+
+        [Test]
+        public void The_light_banks_by_the_Centre_Board_move_out_beside_it_not_away()
+        {
+            ArenaLighting.Build(_rink.transform);
+            Renderer[] banks = System.Array.FindAll(_rink.GetComponentsInChildren<Renderer>(), r => r.name == ArenaLighting.LightBank);
+            Assert.AreEqual(2 * 7 * 4, banks.Length, "every bank still lights the bowl");
+            float centre = (float)RinkLayout.CentreLineZ;
+            int beside = 0;
+            foreach (Renderer bank in banks)
+                if (Mathf.Abs(bank.bounds.center.x) < 6f && Mathf.Abs(bank.bounds.center.z - centre) < 8f) beside++;
+            Assert.AreEqual(4, beside, "the four inner banks near centre ice hang just outside the board");
+        }
+
         // ---- what they show ----
 
         [Test]

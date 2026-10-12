@@ -211,11 +211,11 @@ namespace HockeyGame
             Quaternion turn = Quaternion.LookRotation(-s.Facing);
             AddBox(_videoBoard, "Video Board Frame", centre + turn * new Vector3(0f, 0f, Depth / 2f + 0.01f), turn,
                    new Vector3(s.Width + 2f * FrameMargin, s.Height + 2f * FrameMargin, Depth), _frame);
-            // Two cables from the top of the frame up to the roof.
-            Vector3 up = turn * Vector3.up;
+            // Two cables up to the roof from the back of the frame's top (the side away from the light banks' row in front).
+            Vector3 up = turn * Vector3.up, back = turn * Vector3.forward;
             foreach (float side in new[] { -1f, 1f })
             {
-                Vector3 top = centre + up * (s.Height / 2f + FrameMargin) + Vector3.right * side * s.Width * 0.35f;
+                Vector3 top = centre + up * (s.Height / 2f + FrameMargin) + back * Depth + Vector3.right * side * s.Width * 0.35f;
                 AddCable(_videoBoard, top);
             }
         }
