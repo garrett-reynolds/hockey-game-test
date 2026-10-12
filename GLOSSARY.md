@@ -99,11 +99,11 @@ The thin LED strip that runs around the stands. It shows ads, and words such as 
 _Avoid_: LED ribbon, ticker
 
 **Score Box**:
-The small score in a corner of the screen, like on TV. It stays on screen when the Video Board is out of view.
+The small score in a corner of the screen, like on TV. It stays on screen all Round.
 _Avoid_: HUD, score bug
 
 **Replay**:
-The slow-motion view of a Shot from behind the net, played on the Video Board after a Goal, a Save or a Frame Hit (never after a wide Miss or no Shot in time).
+The slow-motion view of a Shot from behind the net, played on both the Video Board and the Centre Board after a Goal, a Save or a Frame Hit (never after a wide Miss or no Shot in time).
 _Avoid_: Instant replay, highlight
 
 **Goal Show**:
