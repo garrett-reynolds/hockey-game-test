@@ -171,17 +171,32 @@ namespace HockeyGame.Core
 
         // ---------- ad panel slots ----------
         /// <summary>
-        /// One printed ad panel on the board face: its middle (X, Z) on the inside face, its normal into the rink, its width
-        /// along the boards, from AdBandBottom to AdBandTop. CalmArea panels (behind the near net) get soft grey logos.
+        /// One printed ad panel on the board face, from FromS to ToS round the boards (OnBoards) and from AdBandBottom to
+        /// AdBandTop: its middle (X, Z) on the inside face, its normal into the rink and its width along the boards. Corner
+        /// panels bend round the corner arc. CalmArea panels (any part of them inside the Calm Area's bounds, behind the
+        /// near net) get soft grey logos.
         /// </summary>
         public readonly struct AdPanelSlot
         {
-            public readonly double X, Z, InX, InZ, Width;
+            public readonly double FromS, ToS, X, Z, InX, InZ, Width;
             public readonly bool Corner, CalmArea;
-            public AdPanelSlot(BoardPoint middle, double width, bool corner)
+            public AdPanelSlot(double fromS, double toS, bool corner)
             {
-                X = middle.X; Z = middle.Z; InX = middle.InX; InZ = middle.InZ; Width = width; Corner = corner;
-                CalmArea = Z > NearGoalLineZ && Math.Abs(X) <= CalmAreaHalfWidth;
+                BoardPoint middle = OnBoards((fromS + toS) / 2);
+                FromS = fromS; ToS = toS; Width = toS - fromS; Corner = corner;
+                X = middle.X; Z = middle.Z; InX = middle.InX; InZ = middle.InZ;
+                CalmArea = TouchesCalmArea(fromS, toS);
+            }
+
+            /// <summary>
+            /// True when any part of the boards from fromS to toS is in the Calm Area's bounds: the near end boards with x
+            /// within ±CalmAreaHalfWidth, round the middle of the near end (s = 0).
+            /// </summary>
+            static bool TouchesCalmArea(double fromS, double toS)
+            {
+                double p = BoardsPerimeter;
+                double from = ((fromS % p) + p) % p, to = from + (toS - fromS); // from in [0, p); the run may wrap past p
+                return from <= CalmAreaHalfWidth || to >= p - CalmAreaHalfWidth;
             }
             public override string ToString() => $"ad panel at ({X:0.##}, {Z:0.##}){(CalmArea ? " in the Calm Area" : "")}";
         }
@@ -199,7 +214,7 @@ namespace HockeyGame.Core
             void Run(double length, int count, bool corner)
             {
                 double w = length / count;
-                for (int i = 0; i < count; i++) slots.Add(new AdPanelSlot(OnBoards(s + w * (i + 0.5)), w, corner));
+                for (int i = 0; i < count; i++) slots.Add(new AdPanelSlot(s + w * i, s + w * (i + 1), corner));
                 s += length;
             }
             for (int half = 0; half < 2; half++)
@@ -213,6 +228,7 @@ namespace HockeyGame.Core
         }
 
         // ---------- ice logo spots (estimate: broadcast look, never in an end zone) ----------
+        const double BesideCircleX = 7.7, BesideCircleDz = 1.2;
         public enum IceLogoKind { CentreIce, BesideCentreCircle, NeutralZoneRound }
 
         /// <summary>Where an ice logo goes: its middle on the ice and its size across (x) and along (z) the rink.</summary>
@@ -224,12 +240,18 @@ namespace HockeyGame.Core
             public override string ToString() => $"{Kind} logo at ({X:0.##}, {Z:0.##})";
         }
 
-        /// <summary>The centre-ice logo (first), a logo beside the centre circle each side, and a round logo by each neutral-zone spot.</summary>
+        /// <summary>
+        /// The centre-ice logo (first); a logo beside the centre circle on each side, either side of the red line (near
+        /// side first), clear of the circle, the red line and the referee's crease; and a round logo by each neutral-zone
+        /// spot, toward centre ice.
+        /// </summary>
         public static readonly IceLogoSpot[] IceLogoSpots =
         {
             new IceLogoSpot(IceLogoKind.CentreIce, 0, CentreLineZ, 6.0, 6.0),
-            new IceLogoSpot(IceLogoKind.BesideCentreCircle, -7.4, CentreLineZ, 4.0, 1.6),
-            new IceLogoSpot(IceLogoKind.BesideCentreCircle, 7.4, CentreLineZ, 4.0, 1.6),
+            new IceLogoSpot(IceLogoKind.BesideCentreCircle, -BesideCircleX, CentreLineZ + BesideCircleDz, 4.2, 1.4),
+            new IceLogoSpot(IceLogoKind.BesideCentreCircle, BesideCircleX, CentreLineZ + BesideCircleDz, 4.2, 1.4),
+            new IceLogoSpot(IceLogoKind.BesideCentreCircle, -BesideCircleX, CentreLineZ - BesideCircleDz, 4.2, 1.4),
+            new IceLogoSpot(IceLogoKind.BesideCentreCircle, BesideCircleX, CentreLineZ - BesideCircleDz, 4.2, 1.4),
             new IceLogoSpot(IceLogoKind.NeutralZoneRound, -EndZoneDotX, NearNeutralDotZ - 2.4, 2.0, 2.0),
             new IceLogoSpot(IceLogoKind.NeutralZoneRound, EndZoneDotX, NearNeutralDotZ - 2.4, 2.0, 2.0),
             new IceLogoSpot(IceLogoKind.NeutralZoneRound, -EndZoneDotX, Mirror(NearNeutralDotZ - 2.4), 2.0, 2.0),

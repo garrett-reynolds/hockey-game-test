@@ -42,6 +42,7 @@ Models load from `Assets/Resources/Models/` through `ModelFiles`. Sounds load fr
 | Goalie mask texture | `Assets/Resources/Models/goalie-dressing-mask.png` | `Kissel_no_decals.png`, with the mask model | Supplied by Garrett; source unknown | Unknown (supplied by Garrett) | Scaled to 1024 px by `Tools/make_lifelike_goalie.py` |
 | Skate texture (scan colour) | `Assets/Resources/Models/goalie-dressing-skate.png` | `Hockey_Skate_retopo.jpeg`, with the skate scan | Supplied by Garrett; source unknown | Unknown (supplied by Garrett) | Scaled to 1024 px and saved as PNG by `Tools/make_lifelike_goalie.py` |
 | Crowd of seated fans on the arena seats (one row of 16 seats, repeated round the stands) | `Assets/Resources/Models/crowd.png` | Made for this project by `Tools/make_arena.py`, no outside source | Hockey Game Test project | CC0 | Drawn in code |
+| Board ads and ice logos: the 10 made-up brands' logos (white panels, soft grey Calm Area panels, round ice logos) and the League Skin's "All-Star Hockey" centre-ice mark | `Assets/Resources/Ads/*.png` | Made for this project by `Tools/make_ads.py` (run: `py -3 Tools/make_ads.py Assets/Resources/Ads C:/Windows/Fonts`). The brands and marks are made up. The lettering uses fonts that come with Windows (Georgia, Segoe UI Black, Rockwell, Franklin Gothic, Trebuchet, Arial Black, Impact, Verdana, Bahnschrift) | Hockey Game Test project | Pictures CC0; fonts under Microsoft's Windows font licence (lettering drawn into the pictures only, no font files stored) | Drawn in code |
 
 ### Notes
 
