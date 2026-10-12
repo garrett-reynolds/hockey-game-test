@@ -9,7 +9,8 @@ namespace HockeyGame
     /// A sound with no file plays its code-made placeholder from PlaceholderSounds. No code change is needed.
     /// File names: crowd-loop, heartbeat-loop, tick, fast-tick, buzzer, net-hit, goal-horn, pad-thud,
     /// boards-clang, cheer, groan, ooh, small-groan, new-best-cheer, post-ping, glove-catch, blocker-hit, hockey-stop,
-    /// stride-1 .. stride-4, chant.
+    /// stride-1 .. stride-4, chant. The goal horn, goal song and Clap Chant file names come from the Team Skin (the League
+    /// Skin's are goal-horn and chant).
     /// </summary>
     public static class SoundFiles
     {
@@ -22,7 +23,6 @@ namespace HockeyGame
         public const string FastTick = "fast-tick";
         public const string Buzzer = "buzzer";
         public const string NetHit = "net-hit";
-        public const string GoalHorn = "goal-horn";
         public const string PadThud = "pad-thud";
         public const string BoardsClang = "boards-clang";
         public const string Cheer = "cheer";
@@ -32,8 +32,6 @@ namespace HockeyGame
         public const string Ooh = "ooh";
         /// <summary>The small groan on a Wide Miss or no Shot in time; with no file, the groan plays softer.</summary>
         public const string SmallGroan = "small-groan";
-        /// <summary>The Clap Chant: "Let's go!", then clap-clap, clap-clap-clap (trimmed, faded and normalised).</summary>
-        public const string Chant = "chant";
         public const string NewBestCheer = "new-best-cheer";
         public const string PostPing = "post-ping";
         public const string GloveCatch = "glove-catch";

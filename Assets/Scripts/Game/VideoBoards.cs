@@ -26,32 +26,7 @@ namespace HockeyGame
         /// <summary>The name of the cables the boards hang from.</summary>
         public const string CablePart = "Cable";
         const int FontSize = 64;
-        static readonly Color Back = new Color32(10, 16, 34, 255);    // the words' background: a dark TV blue
-        static readonly Color Words = Color.white;
-        static readonly Color FrameDark = new Color32(14, 15, 18, 255);
-        static readonly Color FrameLit = new Color32(255, 215, 80, 255); // the new-best light show's frame colour
-
-        struct Brand
-        {
-            public readonly string Name;
-            public readonly Color32 Back, Fore;
-            public Brand(string name, Color32 back, Color32 fore) { Name = name; Back = back; Fore = fore; }
-        }
-
-        /// <summary>The fixed made-up brands (#84), as the Ribbon Boards show them (RibbonBoards.Brands): keep the two lists the same.</summary>
-        static readonly Brand[] Brands =
-        {
-            new Brand("NORTHVALE BANK", new Color32(12, 35, 80, 255), new Color32(255, 255, 255, 255)),
-            new Brand("GlacierLink", new Color32(255, 255, 255, 255), new Color32(110, 40, 170, 255)),
-            new Brand("BRAWNY'S LAGER", new Color32(200, 150, 30, 255), new Color32(60, 20, 10, 255)),
-            new Brand("KESTREL MOTORS", new Color32(30, 30, 35, 255), new Color32(200, 205, 210, 255)),
-            new Brand("Aurora Air", new Color32(255, 255, 255, 255), new Color32(0, 130, 140, 255)),
-            new Brand("SHIELDCROSS", new Color32(0, 90, 60, 255), new Color32(255, 255, 255, 255)),
-            new Brand("VOLT RUSH", new Color32(20, 20, 20, 255), new Color32(170, 230, 0, 255)),
-            new Brand("BIG TIMBER BURGERS", new Color32(235, 110, 20, 255), new Color32(255, 255, 255, 255)),
-            new Brand("PEAKSIDE ENERGY", new Color32(255, 255, 255, 255), new Color32(0, 80, 170, 255)),
-            new Brand("FrostByte PCs", new Color32(0, 170, 220, 255), new Color32(255, 255, 255, 255)),
-        };
+        static readonly Color CableColour = new Color32(14, 15, 18, 255);
 
         sealed class Screen
         {
@@ -65,6 +40,8 @@ namespace HockeyGame
         Material _picture, _frame, _cable;
         Font _font;
         Transform _videoBoard, _centreBoard;
+        // The Team Skin's look: the words' background, the words, and the frame (dark, and lit for a new best).
+        Color _skinBack, _skinWords, _frameDark, _frameLit;
         Texture _shownPicture;
         // What the screens show now, so Show changes only what changed (it runs every frame).
         string _headline, _details;
@@ -101,18 +78,26 @@ namespace HockeyGame
 
         static string WordsShown(TextMesh t) => t.GetComponent<Renderer>().enabled ? t.text : "";
 
-        /// <summary>Adds the Video Board and the Centre Board under rink. They show the start card until told otherwise.</summary>
-        public static VideoBoards Build(Transform rink)
+        /// <summary>
+        /// Adds the Video Board and the Centre Board under rink, in the skin's frame and colours (null: the League Skin's).
+        /// They show the start card until told otherwise.
+        /// </summary>
+        public static VideoBoards Build(Transform rink, TeamSkin skin = null)
         {
+            skin = TeamSkin.OrLeague(skin);
             var root = new GameObject("Video Boards");
             root.transform.SetParent(rink, false);
             var boards = root.AddComponent<VideoBoards>();
+            boards._skinBack = skin.VideoBoardBack;
+            boards._skinWords = skin.VideoBoardWords;
+            boards._frameDark = skin.VideoBoardFrame;
+            boards._frameLit = skin.VideoBoardFrameLit;
             boards._font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             // Unlit: the screens show only their own picture, with no arena light or shine on them.
             Material unlit = Resources.Load<Material>(ArenaLighting.AssetFolder + "/" + ArenaLighting.UnlitMaterial);
             boards._picture = new Material(unlit) { name = "Video Board Picture" };
             boards._frame = new Material(unlit) { name = "Video Board Frame" };
-            boards._cable = new Material(unlit) { name = "Video Board Cable", color = FrameDark };
+            boards._cable = new Material(unlit) { name = "Video Board Cable", color = CableColour };
             boards.BuildVideoBoard();
             boards.BuildCentreBoard();
             boards.Show(ArenaShow.At(new ArenaShowInput { Phase = RoundPhase.Idle }), 0.0);
@@ -123,18 +108,18 @@ namespace HockeyGame
         public void Show(ArenaState state, double seconds)
         {
             string headline = state.VideoBoardWords.Headline, details = state.VideoBoardWords.Details;
-            Color back = Back, fore = Words;
+            Color back = _skinBack, fore = _skinWords;
             if (state.VideoBoard == VideoBoardContent.AdSlide)
             {
-                Brand b = Brands[(int)System.Math.Floor(seconds / AdSeconds) % Brands.Length];
-                headline = b.Name;
+                Brands.Brand b = Brands.All[(int)System.Math.Floor(seconds / AdSeconds) % Brands.All.Length];
+                headline = b.AdWords;
                 details = "";
-                back = b.Back;
-                fore = b.Fore;
+                back = RibbonBoards.ColourOf(b.AdBack);
+                fore = RibbonBoards.ColourOf(b.AdFore);
             }
             // The small light show for a new best: the frame flashes with the Goal Show lights (never over 3 a second).
             bool lit = state.VideoBoard == VideoBoardContent.NewBest && state.GoalShow.Lit;
-            SetFrame(lit ? FrameLit : FrameDark);
+            SetFrame(lit ? _frameLit : _frameDark);
             if (headline == _headline && details == _details && back == _back && fore == _fore) return;
             _headline = headline;
             _details = details;

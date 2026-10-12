@@ -9,7 +9,8 @@ namespace HockeyGame
     /// The boards and glass around the whole rink, from the boards model (Assets/Resources/Models/boards.obj) when there is
     /// one. With no model the rink stays open, as it was before. Sizes from the Rink Layout: NHL 200 x 85 ft, end boards
     /// 11 ft behind each goal line; the near goal line is the Net Face plane and the far end boards are behind the shooter.
-    /// The model's parts named "Glass" are made see-through here (OBJ materials import opaque).
+    /// The model's parts named "Glass" are made see-through here (OBJ materials import opaque). The rail and the kick plate
+    /// take the Team Skin's colours.
     /// </summary>
     public static class RinkBoards
     {
@@ -26,6 +27,8 @@ namespace HockeyGame
 
         /// <summary>Name of the see-through parts in the boards model.</summary>
         public const string GlassPart = "Glass";
+        /// <summary>Names of the team-coloured parts in the boards model: the rail along the top and the kick plate at the bottom.</summary>
+        public const string RailPart = "Rail", KickPlatePart = "KickPlate";
 
         const float GlassAlpha = 0.15f;
         /// <summary>Share of its speed into the boards a puck keeps coming back off them.</summary>
@@ -45,9 +48,11 @@ namespace HockeyGame
             }
         }
 
-        /// <summary>Adds the boards under rink. findFile is for tests; by default the model comes from Assets/Resources/Models.</summary>
-        public static GameObject Build(Transform rink, Func<string, GameObject> findFile = null)
+        /// <summary>Adds the boards under rink, with the skin's rail and kick plate (null: the League Skin's). findFile is for
+        /// tests; by default the model comes from Assets/Resources/Models.</summary>
+        public static GameObject Build(Transform rink, Func<string, GameObject> findFile = null, TeamSkin skin = null)
         {
+            skin = TeamSkin.OrLeague(skin);
             var boards = new GameObject("Boards");
             boards.transform.SetParent(rink, false);
             boards.transform.localPosition = Box.center;
@@ -55,7 +60,11 @@ namespace HockeyGame
             GameObject model = ModelFiles.Place(boards.transform, ModelFiles.Boards, () => new GameObject("No Boards Model"), findFile, Box.size);
 
             foreach (Renderer r in model.GetComponentsInChildren<Renderer>())
+            {
                 if (r.name == GlassPart) MakeGlass(r);
+                else if (r.name == RailPart) RinkBuilder.Recolour(r.gameObject, skin.Rail);
+                else if (r.name == KickPlatePart) RinkBuilder.Recolour(r.gameObject, skin.KickPlate);
+            }
             return boards;
         }
 

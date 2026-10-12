@@ -122,7 +122,7 @@ namespace HockeyGame.Core.Tests
                     Assert.AreEqual("", ribbons.TextOn(i), "panel " + i);
                     Assert.AreEqual((Color32)dim, (Color32)ribbons.BackOn(i), "panel " + i);
                 }
-                else Assert.IsTrue(RibbonBoards.IsBrand(ribbons.TextOn(i)), "panel " + i + ": " + ribbons.TextOn(i));
+                else Assert.IsTrue(Brands.IsAdWords(ribbons.TextOn(i)), "panel " + i + ": " + ribbons.TextOn(i));
             }
 
             // Still: the ads move on elsewhere, the Calm Area does not.
@@ -145,7 +145,7 @@ namespace HockeyGame.Core.Tests
             Assert.AreNotEqual(first, ribbons.TextOn(1));
             ribbons.Show(skateIn, RibbonBoards.AdSeconds + 0.01);
             Assert.AreNotEqual(first, ribbons.TextOn(0));
-            Assert.IsTrue(RibbonBoards.IsBrand(ribbons.TextOn(0)));
+            Assert.IsTrue(Brands.IsAdWords(ribbons.TextOn(0)));
         }
 
         [Test]

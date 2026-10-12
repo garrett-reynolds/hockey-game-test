@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using HockeyGame.Core;
 using UnityEngine;
@@ -28,6 +29,12 @@ namespace HockeyGame
         readonly SaveData _save;
         readonly RoundSoundCues _cues;
         readonly AudioSource _crowd, _heartbeat, _world, _tick, _hockeyStop, _strideLeft, _strideRight, _chant;
+        readonly AudioSource _goalSong; // the Team Skin's goal song, with the horn; null when the skin has none
+
+        /// <summary>The goal horn, Clap Chant and goal song clips (from the Team Skin's files); GoalSongClip is null with no song.</summary>
+        public AudioClip GoalHornClip { get; }
+        public AudioClip ChantClip => _chant.clip;
+        public AudioClip GoalSongClip => _goalSong != null ? _goalSong.clip : null;
         readonly AudioLowPassFilter _crowdFilter, _heartbeatFilter, _worldFilter;
         readonly Dictionary<SoundCue, AudioClip[]> _clips = new Dictionary<SoundCue, AudioClip[]>();
         readonly AudioClip[] _strides;
@@ -38,10 +45,13 @@ namespace HockeyGame
 
         /// <summary>
         /// Tick on/off, master volume and mute are read from save every frame; the settings screen just changes them.
-        /// chantRandom rolls the chant gaps: its own source, not the Round's.
+        /// chantRandom rolls the chant gaps: its own source, not the Round's. The goal horn, goal song and chant are the
+        /// skin's (null: the League Skin's). findSkinSound looks those three files up (tests); by default SoundFiles' folder.
         /// </summary>
-        public RoundSound(GameObject listener, SaveData save, RoundSettings settings, IRandomSource chantRandom)
+        public RoundSound(GameObject listener, SaveData save, RoundSettings settings, IRandomSource chantRandom, TeamSkin skin = null,
+                          Func<string, AudioClip> findSkinSound = null)
         {
+            skin = TeamSkin.OrLeague(skin);
             _save = save;
 
             _crowd = Source(listener, "Crowd", out _crowdFilter);
@@ -72,11 +82,8 @@ namespace HockeyGame
             _clips[SoundCue.Tick] = new[] { SoundFiles.Load(SoundFiles.Tick, PlaceholderSounds.Tick) };
             _clips[SoundCue.FastTick] = new[] { SoundFiles.Load(SoundFiles.FastTick, PlaceholderSounds.FastTick) };
             _clips[SoundCue.Buzzer] = new[] { SoundFiles.Load(SoundFiles.Buzzer, PlaceholderSounds.Buzzer) };
-            _clips[SoundCue.GoalImpact] = new[]
-            {
-                SoundFiles.Load(SoundFiles.NetHit, PlaceholderSounds.NetHit),
-                SoundFiles.Load(SoundFiles.GoalHorn, PlaceholderSounds.Horn)
-            };
+            GoalHornClip = SoundFiles.Load(skin.GoalHorn, PlaceholderSounds.Horn, findSkinSound);
+            _clips[SoundCue.GoalImpact] = new[] { SoundFiles.Load(SoundFiles.NetHit, PlaceholderSounds.NetHit), GoalHornClip };
             _clips[SoundCue.SaveImpact] = new[] { SoundFiles.Load(SoundFiles.PadThud, PlaceholderSounds.PadThud) };
             _clips[SoundCue.GloveCatch] = new[] { SoundFiles.Load(SoundFiles.GloveCatch, PlaceholderSounds.GloveCatch) };
             _clips[SoundCue.BlockerHit] = new[] { SoundFiles.Load(SoundFiles.BlockerHit, PlaceholderSounds.BlockerHit) };
@@ -90,7 +97,13 @@ namespace HockeyGame
             _clips[SoundCue.NewBestCheer] = new[] { SoundFiles.Load(SoundFiles.NewBestCheer, PlaceholderSounds.NewBestCheer) };
 
             _chant = Source(listener, "Chant", out _); // never in the slow-down: no muffle or pitch
-            _chant.clip = SoundFiles.Load(SoundFiles.Chant, PlaceholderSounds.Chant);
+            _chant.clip = SoundFiles.Load(skin.Chant, PlaceholderSounds.Chant, findSkinSound);
+            AudioClip song = string.IsNullOrEmpty(skin.GoalSong) ? null : SoundFiles.Load(skin.GoalSong, () => null, findSkinSound);
+            if (song != null)
+            {
+                _goalSong = Source(listener, "Goal Song", out _); // its own source: the chant's timing follows the horn alone
+                _goalSong.clip = song;
+            }
             _cues = new RoundSoundCues(save, chantRandom, CueSeconds);
 
             AudioListener.volume = (float)RoundSoundCues.ListenerVolume(save);
@@ -117,6 +130,11 @@ namespace HockeyGame
                 {
                     PlayStride(cue == SoundCue.StrideLeft ? _strideLeft : _strideRight);
                     continue;
+                }
+                if (cue == SoundCue.GoalImpact && _goalSong != null)
+                {
+                    _goalSong.volume = (float)RoundSoundCues.Volume(cue);
+                    _goalSong.Play();
                 }
                 AudioSource source = cue == SoundCue.Tick || cue == SoundCue.FastTick ? _tick : _world;
                 foreach (AudioClip clip in _clips[cue])

@@ -9,7 +9,9 @@ namespace HockeyGame
     /// The Ribbon Boards: LED panels all round the stands, on the arena model's ribbon ring between the tiers (it hides the
     /// model's own plain "Ribbon" part). They only follow the Arena Show (Show): brand ads that cycle, the result words
     /// (GOAL!, SAVE, OFF THE POST!, OFF THE BAR!), and in the Calm Area behind the near net one dim still colour from goalie
-    /// set to the Shot. A panel is in the Calm Area when it stands behind the near end boards.
+    /// set to the Shot. A panel is in the Calm Area when it stands behind the near end boards. A Team Skin may give the
+    /// panels edges in a team colour: a thin strip along the top and bottom of each panel, never in the Calm Area (the
+    /// League Skin has none). The ads are the fixed brands (Brands): no skin changes them.
     /// <para>
     /// The ring is the Rink Layout's full rink outline pushed out by Offset (and a further BenchDepth beside the benches and
     /// penalty boxes, where the stands step back), as Tools/make_arena.py builds the ribbon from the same Rink Layout
@@ -33,32 +35,14 @@ namespace HockeyGame
         const float TextLift = 0.02f;    // the words stand just in front of their panel
         const float BigText = 0.8f, SmallText = 0.45f, AdText = 0.6f; // word heights (metres)
         const float TextWidth = 0.9f;    // share of a panel the words may fill
+        /// <summary>The height of a team-coloured edge strip (metres), on the panel's top and bottom.</summary>
+        public const float EdgeHeight = 0.08f;
+        /// <summary>The name of the team-coloured edge strips.</summary>
+        public const string EdgePart = "Ribbon Edge";
         const int FontSize = 64;
         const float AdGlow = 0.85f;      // an ad's background glows this much of its colour
         static readonly int EmissionColour = Shader.PropertyToID("_EmissionColor");
         static readonly Color WordsBack = new Color32(14, 16, 22, 255);
-
-        struct Brand
-        {
-            public readonly string Name;
-            public readonly Color32 Back, Fore;
-            public Brand(string name, Color32 back, Color32 fore) { Name = name; Back = back; Fore = fore; }
-        }
-
-        /// <summary>The fixed made-up brands (#84), with their colours from the #77 prototype.</summary>
-        static readonly Brand[] Brands =
-        {
-            new Brand("NORTHVALE BANK", new Color32(12, 35, 80, 255), new Color32(255, 255, 255, 255)),
-            new Brand("GlacierLink", new Color32(255, 255, 255, 255), new Color32(110, 40, 170, 255)),
-            new Brand("BRAWNY'S LAGER", new Color32(200, 150, 30, 255), new Color32(60, 20, 10, 255)),
-            new Brand("KESTREL MOTORS", new Color32(30, 30, 35, 255), new Color32(200, 205, 210, 255)),
-            new Brand("Aurora Air", new Color32(255, 255, 255, 255), new Color32(0, 130, 140, 255)),
-            new Brand("SHIELDCROSS", new Color32(0, 90, 60, 255), new Color32(255, 255, 255, 255)),
-            new Brand("VOLT RUSH", new Color32(20, 20, 20, 255), new Color32(170, 230, 0, 255)),
-            new Brand("BIG TIMBER BURGERS", new Color32(235, 110, 20, 255), new Color32(255, 255, 255, 255)),
-            new Brand("PEAKSIDE ENERGY", new Color32(255, 255, 255, 255), new Color32(0, 80, 170, 255)),
-            new Brand("FrostByte PCs", new Color32(0, 170, 220, 255), new Color32(255, 255, 255, 255)),
-        };
 
         sealed class Panel
         {
@@ -75,6 +59,7 @@ namespace HockeyGame
 
         readonly List<Panel> _panels = new List<Panel>();
         Font _font;
+        Material _edge; // the skin's edge colour; null: no edges
 
         public int PanelCount => _panels.Count;
         public Vector3 CentreOf(int panel) => _panels[panel].Centre;
@@ -87,17 +72,11 @@ namespace HockeyGame
 
         public static Color ColourOf(ArenaColour c) => new Color32(c.R, c.G, c.B, 255);
 
-        /// <summary>True for a brand's name as the ads show it.</summary>
-        public static bool IsBrand(string text)
+        /// <summary>Adds the Ribbon Boards under rink, with the skin's edges (null: the League Skin's), and hides the arena
+        /// model's own ribbon. They show ads until told otherwise.</summary>
+        public static RibbonBoards Build(Transform rink, TeamSkin skin = null)
         {
-            foreach (Brand b in Brands)
-                if (b.Name == text) return true;
-            return false;
-        }
-
-        /// <summary>Adds the Ribbon Boards under rink and hides the arena model's own ribbon. They show ads until told otherwise.</summary>
-        public static RibbonBoards Build(Transform rink)
-        {
+            skin = TeamSkin.OrLeague(skin);
             foreach (Renderer r in rink.GetComponentsInChildren<Renderer>())
                 if (r.name == ArenaStands.GlowPart) r.enabled = false;
 
@@ -105,6 +84,11 @@ namespace HockeyGame
             root.transform.SetParent(rink, false);
             var ribbons = root.AddComponent<RibbonBoards>();
             ribbons._font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (skin.RibbonEdgesOn)
+            {
+                ribbons._edge = ArenaLighting.Glow(Color.black, skin.RibbonEdge);
+                ribbons._edge.SetFloat("_Smoothness", 0f);
+            }
             List<(Vector2 From, Vector2 To)> ring = Ring(Offset - Inset);
             for (int i = 0; i < ring.Count; i++)
                 ribbons.AddPanel(i, ring[i].From, ring[i].To);
@@ -123,8 +107,8 @@ namespace HockeyGame
                 switch (board.Message)
                 {
                     case RibbonMessage.Ads:
-                        Brand b = Brands[(adStep + i) % Brands.Length];
-                        Apply(p, b.Name, b.Fore, b.Back, AdGlow, AdText);
+                        Brands.Brand b = Brands.All[(adStep + i) % Brands.All.Length];
+                        Apply(p, b.AdWords, ColourOf(b.AdFore), ColourOf(b.AdBack), AdGlow, AdText);
                         break;
                     case RibbonMessage.CalmStill:
                         Color still = ColourOf(board.Colour);
@@ -214,6 +198,23 @@ namespace HockeyGame
                 : centre.z > (RinkBoards.EndZ + RinkBoards.FarZ) / 2f ? ArenaZone.Near
                 : ArenaZone.Far;
             _panels.Add(new Panel { Centre = centre, Length = length, Zone = zone, Back = back, Words = text });
+            if (_edge != null && zone != ArenaZone.CalmArea) // the Calm Area's panels stay one dim still colour
+                foreach (float side in new[] { 1f, -1f })
+                    AddEdge(centre + Vector3.up * side * (Height - EdgeHeight) / 2f - outward * TextLift / 2f, facing, length);
+        }
+
+        void AddEdge(Vector3 centre, Quaternion facing, float length)
+        {
+            var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            quad.name = EdgePart;
+            quad.transform.SetParent(transform, false);
+            quad.transform.SetPositionAndRotation(centre, facing);
+            quad.transform.localScale = new Vector3(length, EdgeHeight, 1f);
+            SceneObjects.DestroySafely(quad.GetComponent<Collider>());
+            var renderer = quad.GetComponent<Renderer>();
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            renderer.sharedMaterial = _edge;
         }
 
         /// <summary>

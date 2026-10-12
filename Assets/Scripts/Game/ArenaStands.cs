@@ -10,7 +10,8 @@ namespace HockeyGame
     /// roof, from the arena model (Assets/Resources/Models/arena.obj) when there is one, so the shooter never sees the edge
     /// of the world.
     /// With no model the dark backdrop stays as it was. The arena casts no shadows (its roof would shade the ice), and
-    /// the model's part named "Ribbon" glows in its own colour. The other parts are dimmed, so the lit ice pops.
+    /// the model's part named "Ribbon" glows in its own colour. The seats (the "Risers" part) take the Team Skin's colour.
+    /// The other parts are dimmed, so the lit ice pops; the seats too.
     /// </summary>
     public static class ArenaStands
     {
@@ -20,8 +21,10 @@ namespace HockeyGame
         public const float RoofHeight = (float)RinkLayout.RoofHeight;
         /// <summary>Name of the glowing LED ribbon board part in the arena model.</summary>
         public const string GlowPart = "Ribbon";
+        /// <summary>Name of the seats part in the arena model (the stepped treads the 3D fans sit on).</summary>
+        public const string SeatsPart = "Risers";
         /// <summary>How much of its own colour each non-glowing part shows: the stands sit in the dark, the ice is lit.</summary>
-        const float StandsLight = 0.4f;
+        public const float StandsLight = 0.4f;
 
         /// <summary>
         /// The model's outer box in rink space: the boards' box plus Reach all round, from the ice to the roof. The sizes are
@@ -38,9 +41,11 @@ namespace HockeyGame
             }
         }
 
-        /// <summary>Adds the arena under rink. findFile is for tests; by default the model comes from Assets/Resources/Models.</summary>
-        public static GameObject Build(Transform rink, Func<string, GameObject> findFile = null)
+        /// <summary>Adds the arena under rink, with the skin's seats (null: the League Skin's). findFile is for tests; by
+        /// default the model comes from Assets/Resources/Models.</summary>
+        public static GameObject Build(Transform rink, Func<string, GameObject> findFile = null, TeamSkin skin = null)
         {
+            skin = TeamSkin.OrLeague(skin);
             var arena = new GameObject("Arena");
             arena.transform.SetParent(rink, false);
             arena.transform.localPosition = Box.center;
@@ -51,7 +56,11 @@ namespace HockeyGame
             {
                 r.shadowCastingMode = ShadowCastingMode.Off;
                 if (r.name == GlowPart) Glow(r);
-                else Dim(r);
+                else
+                {
+                    if (r.name == SeatsPart) RinkBuilder.Recolour(r.gameObject, skin.Seats);
+                    Dim(r);
+                }
             }
             return arena;
         }
