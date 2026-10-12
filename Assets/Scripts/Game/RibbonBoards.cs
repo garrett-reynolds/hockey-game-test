@@ -11,19 +11,19 @@ namespace HockeyGame
     /// (GOAL!, SAVE, OFF THE POST!, OFF THE BAR!), and in the Calm Area behind the near net one dim still colour from goalie
     /// set to the Shot. A panel is in the Calm Area when it stands behind the near end boards.
     /// <para>
-    /// The ring is today's rink outline (RinkBoards, corner radius CornerRadius) pushed out by Offset, as Tools/make_arena.py
-    /// builds the ribbon (FRONT + LOWER_ROWS * ROW_D out, FRONT_H + LOWER_ROWS * LOWER_RISE up, RIBBON_H tall): change both
-    /// together. When the Rink Layout (#86) holds the full rink and the stands, these sizes should come from it.
+    /// The ring is the Rink Layout's full rink outline pushed out by Offset (and a further BenchDepth beside the benches and
+    /// penalty boxes, where the stands step back), as Tools/make_arena.py builds the ribbon from the same Rink Layout
+    /// numbers: every size here comes from RinkLayout.
     /// </para>
     /// </summary>
     public sealed class RibbonBoards : MonoBehaviour
     {
         /// <summary>How far the ribbon ring stands out from the inside of the boards (metres).</summary>
-        public const float Offset = 18f;
+        public const float Offset = (float)RinkLayout.RibbonOffset;
         /// <summary>Height of the ribbon's bottom and the ribbon's height (metres).</summary>
-        public const float Bottom = 10f, Height = 1.2f;
+        public const float Bottom = (float)RinkLayout.RibbonBottom, Height = (float)RinkLayout.RibbonHeight;
         /// <summary>The rink's corner radius (metres).</summary>
-        public const float CornerRadius = 8.53f;
+        public const float CornerRadius = (float)RinkLayout.CornerRadius;
         /// <summary>About how long one panel is along the ring (metres).</summary>
         public const float PanelLength = 6f;
         /// <summary>Seconds each ad shows before the next.</summary>
@@ -105,9 +105,9 @@ namespace HockeyGame
             root.transform.SetParent(rink, false);
             var ribbons = root.AddComponent<RibbonBoards>();
             ribbons._font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            List<Vector2> ring = Ring(Offset - Inset);
+            List<(Vector2 From, Vector2 To)> ring = Ring(Offset - Inset);
             for (int i = 0; i < ring.Count; i++)
-                ribbons.AddPanel(i, ring[i], ring[(i + 1) % ring.Count]);
+                ribbons.AddPanel(i, ring[i].From, ring[i].To);
             ribbons.Show(ArenaShow.At(new ArenaShowInput { Phase = RoundPhase.Idle }), 0.0);
             return ribbons;
         }
@@ -171,7 +171,7 @@ namespace HockeyGame
             Vector2 mid = (from + to) / 2f;
             float cx = RinkBoards.HalfWidth - CornerRadius;
             var core = new Vector2(Mathf.Clamp(mid.x, -cx, cx),
-                                   Mathf.Clamp(mid.y, RinkBoards.NearZ + CornerRadius, RinkBoards.EndZ - CornerRadius));
+                                   Mathf.Clamp(mid.y, RinkBoards.FarZ + CornerRadius, RinkBoards.EndZ - CornerRadius));
             Vector2 out2 = (mid - core).normalized;
             var outward = new Vector3(out2.x, 0f, out2.y);
             var along = new Vector3(to.x - from.x, 0f, to.y - from.y);
@@ -211,47 +211,66 @@ namespace HockeyGame
             wordsRenderer.receiveShadows = false;
 
             ArenaZone zone = centre.z > RinkBoards.EndZ ? ArenaZone.CalmArea
-                : centre.z > (RinkBoards.EndZ + RinkBoards.NearZ) / 2f ? ArenaZone.Near
+                : centre.z > (RinkBoards.EndZ + RinkBoards.FarZ) / 2f ? ArenaZone.Near
                 : ArenaZone.Far;
             _panels.Add(new Panel { Centre = centre, Length = length, Zone = zone, Back = back, Words = text });
         }
 
         /// <summary>
-        /// The panel ends round the rink outline pushed out by offset, as Tools/make_arena.py walks it: anticlockwise from
-        /// above, up the +x side toward the net end. Straight runs and corners are cut into about PanelLength pieces.
+        /// The panels' two ends round the rink outline pushed out by offset, as Tools/make_arena.py walks it: anticlockwise
+        /// from above, up the +x side toward the net end. Straight runs and corners are cut into about PanelLength pieces; a
+        /// side run is cut at each bench and penalty box, and the part beside one is pushed out a further BenchDepth.
         /// </summary>
-        static List<Vector2> Ring(float offset)
+        static List<(Vector2 From, Vector2 To)> Ring(float offset)
         {
-            var points = new List<Vector2>();
+            var panels = new List<(Vector2, Vector2)>();
             float hw = RinkBoards.HalfWidth, r = CornerRadius, cx = hw - r;
-            float ze = RinkBoards.EndZ - r, zn = RinkBoards.NearZ + r, radius = r + offset;
+            float ze = RinkBoards.EndZ - r, zn = RinkBoards.FarZ + r, radius = r + offset;
 
             void Line(Vector2 a, Vector2 b)
             {
                 int n = Mathf.Max(1, Mathf.RoundToInt(Vector2.Distance(a, b) / PanelLength));
-                for (int i = 0; i < n; i++) points.Add(Vector2.Lerp(a, b, i / (float)n));
+                for (int i = 0; i < n; i++) panels.Add((Vector2.Lerp(a, b, i / (float)n), Vector2.Lerp(a, b, (i + 1) / (float)n)));
             }
 
             void Arc(float x, float z, float a0, float a1)
             {
                 int n = Mathf.Max(1, Mathf.RoundToInt(radius * (a1 - a0) / PanelLength));
-                for (int i = 0; i < n; i++)
+                Vector2 At(int i) => new Vector2(x + radius * Mathf.Cos(a0 + (a1 - a0) * i / n), z + radius * Mathf.Sin(a0 + (a1 - a0) * i / n));
+                for (int i = 0; i < n; i++) panels.Add((At(i), At(i + 1)));
+            }
+
+            // A side run from z0 to z1 on side (+1 or -1), cut where the benches and boxes begin and end.
+            void Side(int side, float z0, float z1)
+            {
+                var cuts = new List<float> { z0, z1 };
+                foreach (RinkLayout.Opening[] group in new[] { RinkLayout.Benches, RinkLayout.PenaltyBoxes })
+                    foreach (RinkLayout.Opening o in group)
+                        if (o.Side == side)
+                            foreach (float z in new[] { (float)o.FromZ, (float)o.ToZ })
+                                if (z > Mathf.Min(z0, z1) && z < Mathf.Max(z0, z1)) cuts.Add(z);
+                cuts.Sort((a, b) => (z1 > z0 ? a.CompareTo(b) : b.CompareTo(a)));
+                for (int i = 0; i + 1 < cuts.Count; i++)
                 {
-                    float a = a0 + (a1 - a0) * i / n;
-                    points.Add(new Vector2(x + radius * Mathf.Cos(a), z + radius * Mathf.Sin(a)));
+                    float mid = (cuts[i] + cuts[i + 1]) / 2f, push = 0f;
+                    foreach (RinkLayout.Opening[] group in new[] { RinkLayout.Benches, RinkLayout.PenaltyBoxes })
+                        foreach (RinkLayout.Opening o in group)
+                            if (o.Side == side && mid >= o.FromZ && mid <= o.ToZ) push = (float)o.Depth;
+                    float x = side * (hw + offset + push);
+                    Line(new Vector2(x, cuts[i]), new Vector2(x, cuts[i + 1]));
                 }
             }
 
             const float quarter = Mathf.PI / 2f;
-            Line(new Vector2(hw + offset, zn), new Vector2(hw + offset, ze));
+            Side(1, zn, ze);
             Arc(cx, ze, 0f, quarter);
             Line(new Vector2(cx, RinkBoards.EndZ + offset), new Vector2(-cx, RinkBoards.EndZ + offset));
             Arc(-cx, ze, quarter, 2f * quarter);
-            Line(new Vector2(-hw - offset, ze), new Vector2(-hw - offset, zn));
+            Side(-1, ze, zn);
             Arc(-cx, zn, 2f * quarter, 3f * quarter);
-            Line(new Vector2(-cx, RinkBoards.NearZ - offset), new Vector2(cx, RinkBoards.NearZ - offset));
+            Line(new Vector2(-cx, RinkBoards.FarZ - offset), new Vector2(cx, RinkBoards.FarZ - offset));
             Arc(cx, zn, 3f * quarter, 4f * quarter);
-            return points;
+            return panels;
         }
     }
 }

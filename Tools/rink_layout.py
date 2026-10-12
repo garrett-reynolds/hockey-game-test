@@ -46,6 +46,16 @@ BENCH_GAP = 2.44
 PENALTY_BOX_LENGTH = 3.66
 TIMEKEEPER_LENGTH = 2.44
 
+# The stands (metres): front wall offset from the boards and its height; lower-tier rows (depth, rise, count); the Ribbon
+# Board ring sits on the fascia after the lower rows (RibbonOffset = STANDS_FRONT + LOWER_ROWS * ROW_DEPTH out,
+# RibbonBottom = STANDS_FRONT_HEIGHT + LOWER_ROWS * LOWER_RISE up) and is RIBBON_HEIGHT tall.
+STANDS_FRONT = 1.0
+STANDS_FRONT_HEIGHT = 1.6
+ROW_DEPTH = 0.85
+LOWER_ROWS = 20
+LOWER_RISE = 0.42
+RIBBON_HEIGHT = 1.2
+
 
 def _pair(gap, length):
     """Two openings either side of the centre line, gap apart, far one first."""

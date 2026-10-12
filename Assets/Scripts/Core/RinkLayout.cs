@@ -109,6 +109,17 @@ namespace HockeyGame.Core
             new Opening(side, CentreLineZ + gap, CentreLineZ + gap + length, BenchDepth),
         };
 
+        // ---------- the stands and the Ribbon Board ring (Tools/make_arena.py builds the stands to these) ----------
+        /// <summary>Offset of the stands' front wall from the inside face of the boards, and its height.</summary>
+        public const double StandsFront = 1.0, StandsFrontHeight = 1.6;
+        /// <summary>The lower tier: rows of seats, each RowDepth deep and LowerRise higher than the one in front.</summary>
+        public const double RowDepth = 0.85, LowerRise = 0.42;
+        public const int LowerRows = 20;
+        /// <summary>The Ribbon Board ring sits on the fascia between the tiers: this far out from the boards (not counting the step back beside a bench or box), this high at its bottom, this tall.</summary>
+        public const double RibbonOffset = StandsFront + LowerRows * RowDepth;
+        public const double RibbonBottom = StandsFrontHeight + LowerRows * LowerRise;
+        public const double RibbonHeight = 1.2;
+
         // ---------- the board outline ----------
         /// <summary>A point on the inside face of the boards, with the unit normal (InX, InZ) pointing into the rink.</summary>
         public readonly struct BoardPoint

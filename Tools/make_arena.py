@@ -266,11 +266,11 @@ def boards(folder):
 
 
 # ---------- arena.obj ----------
-FRONT = 1.0            # stands' front wall offset from the rink outline
-FRONT_H = 1.6          # front wall height (above the boards, so nothing behind the boards shows through the glass)
-ROW_D = 0.85
-LOWER_ROWS, LOWER_RISE = 20, 0.42
-RIBBON_H = 1.2
+FRONT = layout.STANDS_FRONT            # stands' front wall offset from the rink outline
+FRONT_H = layout.STANDS_FRONT_HEIGHT   # front wall height (above the boards, so nothing behind the boards shows through the glass)
+ROW_D = layout.ROW_DEPTH
+LOWER_ROWS, LOWER_RISE = layout.LOWER_ROWS, layout.LOWER_RISE
+RIBBON_H = layout.RIBBON_HEIGHT        # the game's Ribbon Boards (RibbonBoards.cs) read the ring's place from the Rink Layout
 UPPER_ROWS, UPPER_RISE = 13, 0.55
 
 

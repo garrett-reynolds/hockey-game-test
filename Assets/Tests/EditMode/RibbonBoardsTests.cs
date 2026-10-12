@@ -33,10 +33,60 @@ namespace HockeyGame.Core.Tests
                 minZ = Mathf.Min(minZ, c.z); maxZ = Mathf.Max(maxZ, c.z);
             }
             float ring = RibbonBoards.Offset;
-            Assert.AreEqual(RinkBoards.HalfWidth + ring, maxX, 0.2f);
-            Assert.AreEqual(-RinkBoards.HalfWidth - ring, minX, 0.2f);
+            float side = ring + (float)RinkLayout.BenchDepth; // the stands step back beside the benches and boxes, which reach the side extremes
+            Assert.AreEqual(RinkBoards.HalfWidth + side, maxX, 0.2f);
+            Assert.AreEqual(-RinkBoards.HalfWidth - side, minX, 0.2f);
             Assert.AreEqual(RinkBoards.EndZ + ring, maxZ, 0.2f);
-            Assert.AreEqual(RinkBoards.NearZ - ring, minZ, 0.2f);
+            Assert.AreEqual(RinkBoards.FarZ - ring, minZ, 0.2f);
+        }
+
+        [Test]
+        public void The_ring_follows_the_Rink_Layout_all_round_the_full_rink_and_steps_back_beside_the_benches()
+        {
+            RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
+            Assert.AreEqual(RinkLayout.RibbonOffset, RibbonBoards.Offset, 1e-4);
+            Assert.AreEqual(RinkLayout.RibbonBottom, RibbonBoards.Bottom, 1e-4);
+            Assert.AreEqual(RinkLayout.RibbonHeight, RibbonBoards.Height, 1e-4);
+            // Panels stand at the Offset from the boards (a rounded rectangle pushed out), except beside a bench or box.
+            int nearFarEnd = 0, farEnd = 0, steppedBack = 0;
+            for (int i = 0; i < ribbons.PanelCount; i++)
+            {
+                Vector3 c = ribbons.CentreOf(i);
+                bool beside = false;
+                foreach (RinkLayout.Opening o in System.Linq.Enumerable.Concat(RinkLayout.Benches, RinkLayout.PenaltyBoxes))
+                    if (Mathf.Sign(c.x) == o.Side && c.z >= o.FromZ && c.z <= o.ToZ && Mathf.Abs(c.x) > RinkLayout.HalfWidth + 1f) beside = true;
+                float cx = (float)RinkLayout.CornerX, nearCz = (float)RinkLayout.NearCornerZ, farCz = (float)RinkLayout.FarCornerZ;
+                var core = new Vector2(Mathf.Clamp(c.x, -cx, cx), Mathf.Clamp(c.z, farCz, nearCz));
+                float away = Vector2.Distance(core, new Vector2(c.x, c.z)) - (float)RinkLayout.CornerRadius;
+                float expected = RibbonBoards.Offset - 0.05f + (beside ? (float)RinkLayout.BenchDepth : 0f);
+                // Chords on a corner sit a little inside the arc; straight runs are exact.
+                Assert.AreEqual(expected, away, beside ? 0.2f : 0.3f, "panel " + i + " at " + c);
+                if (beside) steppedBack++;
+                if (c.z > RinkLayout.NearEndBoardsZ) nearFarEnd++;
+                if (c.z < RinkLayout.FarEndBoardsZ) farEnd++;
+            }
+            Assert.Greater(nearFarEnd, 0, "panels behind the near net");
+            Assert.Greater(farEnd, 0, "panels behind the far end");
+            Assert.Greater(steppedBack, 0, "panels beside the benches and boxes");
+        }
+
+        [Test]
+        public void The_Calm_Area_panels_include_the_ones_straight_behind_the_near_net()
+        {
+            RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
+            int behindNet = 0;
+            for (int i = 0; i < ribbons.PanelCount; i++)
+            {
+                Vector3 c = ribbons.CentreOf(i);
+                if (Mathf.Abs(c.x) > RinkLayout.CalmAreaHalfWidth) continue;
+                if (c.z > RinkLayout.NearEndBoardsZ)
+                {
+                    Assert.AreEqual(ArenaZone.CalmArea, ribbons.ZoneOf(i), "panel " + i);
+                    behindNet++;
+                }
+                else Assert.AreNotEqual(ArenaZone.CalmArea, ribbons.ZoneOf(i), "panel " + i);
+            }
+            Assert.Greater(behindNet, 0, "a Calm panel inside the Calm Area's x bounds");
         }
 
         [Test]
