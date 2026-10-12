@@ -185,12 +185,12 @@ namespace HockeyGame.Core
         public double PhaseSeconds;
         /// <summary>The last Shot's result this Shot (None before the Shot).</summary>
         public ArenaResult Result;
-        /// <summary>True while the result is held back for the on-screen puck flight (Round.ResultShowing is false).</summary>
+        /// <summary>True from the Shot until its Whistle (Round.ResultShowing is false): the puck is still on its way.</summary>
         public bool ResultHidden;
-        /// <summary>Real seconds the result is held back in the result hold (Round.ResultDelaySeconds): the Goal Show starts after them.</summary>
+        /// <summary>Real seconds from the Shot to its Whistle (Round.ResultDelaySeconds): the Goal Show and the Replay's camera count from there.</summary>
         public double ResultDelaySeconds;
         public bool IsNewBest;
-        /// <summary>Goals so far, counting a Goal whose puck is still in flight (as Round.Goals does).</summary>
+        /// <summary>Goals so far (Round.Goals: a Goal counts from its Whistle, the line crossing).</summary>
         public int Goals;
         public int ShotNumber;
         /// <summary>The saved best score (the start card shows it).</summary>
@@ -324,16 +324,15 @@ namespace HockeyGame.Core
 
         public static ArenaState At(ArenaShowInput input)
         {
-            // A result counts from when it shows (the puck lands), and only in its result hold.
+            // A result counts from when it shows (its Whistle), and only in its result hold.
             ArenaResult result = input.Phase == RoundPhase.ResultHold && !input.ResultHidden ? input.Result : ArenaResult.None;
-            bool goalInFlight = input.Phase == RoundPhase.ResultHold && input.ResultHidden && input.Result == ArenaResult.Goal;
             bool calm = input.Phase == RoundPhase.ShootingWindow;
 
             RibbonBoard ribbon = RibbonFor(result);
             CrowdState near = CrowdFor(input.Phase, result);
             bool chant = input.Phase == RoundPhase.Idle || input.Phase == RoundPhase.RoundOver;
-            int goalsShown = input.Goals - (goalInFlight ? 1 : 0);
-            // The Replay's part of the hold counts from when the puck lands, like the Goal Show.
+            int goalsShown = input.Goals; // the Round counts a Goal from its Whistle (the line crossing), when it shows
+            // The Replay's part of the hold counts from the Whistle (the puck lands), like the Goal Show.
             bool replayHold = ReplayTiming.Follows(result);
             double landed = input.PhaseSeconds - input.ResultDelaySeconds;
             CameraMode camera = replayHold ? ReplayTiming.CameraAt(landed) : CameraMode.OnNet;

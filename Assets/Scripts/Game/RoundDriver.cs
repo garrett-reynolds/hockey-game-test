@@ -72,7 +72,8 @@ namespace HockeyGame
             _breakaway = gameObject.AddComponent<BreakawayView>();
             _breakaway.Init(_round, _camera, _goalie, () => _effects.FlightSeconds); // the Shot's Flight Time, before and after the Whistle
             _replay = gameObject.AddComponent<ReplayView>();
-            _replay.Init(_round, _boards, _camera, _goalie.Body); // the physics puck is a new Rigidbody each Shot: not in the ReplayTrack
+            _replay.Init(_round, _boards, _camera, _goalie.Body);
+            _replay.ReplayPhysicsPuck(() => _effects.Shot?.Puck); // a new Rigidbody each Shot: replayed on a stand-in, not in the track
             _usb = gameObject.AddComponent<UsbShotSource>();
             _usb.Init(_save);
             StartCoroutine(AfterPhysicsSteps());
@@ -114,10 +115,11 @@ namespace HockeyGame
             _sound.Update(_flow, show, Time.unscaledDeltaTime, _effects.HitSound);
             _ribbons.Show(show, Time.unscaledTimeAsDouble);
             _boards.Show(show, Time.unscaledTimeAsDouble);
-            _effects.GoalLight.SetOn(show.GoalShow.GoalLight);
+            _effects.GoalLight.SetOn(show.GoalShow.GoalLight); // the goal light's one driver: the Goal Show, from a GOAL!'s Whistle
             _roofLights.Show(show.GoalShow);
             if (_crowd != null) _crowd.Show(show, Time.unscaledTimeAsDouble);
             _breakaway.LookUp(show.CameraLookUp);
+            _effects.CameraLookUp = show.CameraLookUp; // no hiding the puck while the camera looks up (the next physics steps see this look)
             _replay.Show(show);
 
             bool playing = _flow.Screen == FlowScreen.Playing;

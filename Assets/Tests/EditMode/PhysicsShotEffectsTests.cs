@@ -150,24 +150,37 @@ namespace HockeyGame.Core.Tests
 
         // ---- Effects at the Whistle ----
 
+        /// <summary>A screen flow in the shooting window on a middle attack (the eye PlaceEye puts the camera at).</summary>
+        static ScreenFlow FlowInWindow()
+        {
+            var flow = new ScreenFlow(ScriptedRandom.Forcing(AttackSide.Middle), new SaveData(), FakeReach.NeverReaches());
+            flow.Press();
+            flow.Tick(3.7 + 1.0);
+            Assert.AreEqual(RoundPhase.ShootingWindow, flow.Round.Phase);
+            return flow;
+        }
+
+        // The goal light has one driver, the Arena Show's Goal Show (RoundDriver sets it each frame): it comes on at a GOAL!'s
+        // Whistle (the line crossing, from the physics puck) and goes off when the hold ends. PhysicsShotEffects only builds it.
         [Test]
         public void The_goal_light_comes_on_at_the_line_crossing_and_goes_off_after_the_hold()
         {
             var effects = Effects();
-            var round = InWindow(FakeReach.NeverReaches());
+            ScreenFlow flow = FlowInWindow();
+            Round round = flow.Round;
             Shoot(round, effects, 70, 60, 120);
             while (round.AwaitingWhistle && effects.Shot.SecondsSinceShot < 4.0)
             {
-                Assert.IsFalse(effects.GoalLightOn, "off before the crossing, at " + effects.Shot.SecondsSinceShot + " s");
+                Assert.IsFalse(ArenaShow.From(flow).GoalShow.GoalLight, "off before the crossing, at " + effects.Shot.SecondsSinceShot + " s");
                 Frame(round, effects);
             }
             Assert.AreEqual(ShotResultKind.Goal, round.LastResult.Value.Kind);
             Assert.IsTrue(effects.Shot.LastFacts.WholePuckInNet, "the Whistle's step: the whole puck is past the goal line");
-            Assert.IsTrue(effects.GoalLightOn, "on from the Whistle's step");
+            Assert.IsTrue(ArenaShow.From(flow).GoalShow.GoalLight, "on from the Whistle's frame");
             Assert.IsTrue(round.ResultShowing, "GOAL! shows from the Whistle");
 
             while (round.Phase == RoundPhase.ResultHold) Frame(round, effects);
-            Assert.IsFalse(effects.GoalLightOn, "off when the hold ends");
+            Assert.IsFalse(ArenaShow.From(flow).GoalShow.GoalLight, "off when the hold ends");
         }
 
         [Test]
@@ -284,6 +297,115 @@ namespace HockeyGame.Core.Tests
             _camera.transform.rotation = ahead * Quaternion.Euler(0f, 180f, 0f);
             Frame(round, effects);
             Assert.IsFalse(puck.activeSelf, "out of view after the Net Face: hidden");
+        }
+
+        // The Replay's look-up turns the camera up to the Video Board, so a netted puck is out of its view: the hide rule waits
+        // for the camera to come back down (CameraLookUp 0), and the puck is still in the net then.
+        [Test]
+        public void A_netted_puck_stays_shown_while_the_camera_looks_up_and_after_it_comes_back()
+        {
+            var effects = Effects();
+            var round = InWindow(FakeReach.NeverReaches());
+            Shoot(round, effects, 70, 60, 120);
+            UntilWhistle(round, effects);
+            Assert.AreEqual(ShotResultKind.Goal, round.LastResult.Value.Kind);
+            for (int i = 0; i < 60; i++) Frame(round, effects); // into the netting
+            GameObject puck = effects.Shot.Puck.gameObject;
+            Assert.IsTrue(puck.activeSelf, "in the net, in view");
+
+            Quaternion ahead = _camera.transform.rotation;
+            effects.CameraLookUp = 1.0;
+            _camera.transform.rotation = ahead * Quaternion.Euler(-60f, 0f, 0f); // up at the Video Board: the net is below the view
+            for (int i = 0; i < 60; i++) Frame(round, effects);
+            Assert.IsTrue(effects.Shot.OutOfSight, "the netted puck is out of the looked-up view");
+            Assert.IsTrue(puck.activeSelf, "not hidden while the camera looks up");
+
+            effects.CameraLookUp = 0.0;
+            _camera.transform.rotation = ahead;
+            for (int i = 0; i < 5; i++) Frame(round, effects);
+            Assert.IsTrue(puck.activeSelf, "still in the net when the camera comes back down");
+        }
+
+        // ---- The Replay of a physics Shot (ReplayView) ----
+
+        ReplayView MakeReplay(Round round, PhysicsShotEffects effects)
+        {
+            VideoBoards boards = VideoBoards.Build(_root.transform);
+            var host = new GameObject("Replay (test)");
+            host.transform.SetParent(_root.transform, false);
+            var replay = host.AddComponent<ReplayView>();
+            replay.Init(round, boards, _camera);
+            replay.ReplayPhysicsPuck(() => effects.Shot?.Puck, name => null);
+            return replay;
+        }
+
+        // The Replay records from the Shot (its result comes at the Whistle) and plays the physics puck's recorded Rigidbody poses
+        // on a stand-in with no Rigidbody or hit shapes; the live puck is not drawn on Replay frames and physics keeps it.
+        [Test]
+        public void A_Goal_s_Replay_plays_the_physics_puck_s_recorded_flight_on_a_stand_in()
+        {
+            var effects = Effects();
+            ScreenFlow flow = FlowInWindow();
+            Round round = flow.Round;
+            ReplayView replay = MakeReplay(round, effects);
+            GameObject standIn = replay.ReplayPuck;
+            Assert.IsNull(standIn.GetComponentInChildren<Rigidbody>(true), "the stand-in has no Rigidbody");
+            Assert.IsNull(standIn.GetComponentInChildren<Collider>(true), "and no hit shapes");
+
+            Shoot(round, effects, 70, 60, 120);
+            Rigidbody live = effects.Shot.Puck;
+            int replayFrames = 0;
+            float nearestZ = float.MaxValue, furthestZ = float.MinValue;
+            for (int f = 0; f < 10.0 / Step && round.Phase == RoundPhase.ResultHold; f++)
+            {
+                replay.RestoreLive();
+                Frame(round, effects);
+                replay.Show(ArenaShow.From(flow));
+                replay.Step();
+                Renderer[] liveLook = live.GetComponentsInChildren<Renderer>();
+                if (replay.Showing)
+                {
+                    replayFrames++;
+                    Assert.IsFalse(Array.Exists(liveLook, r => r.enabled), "the live puck is not drawn in the Replay, frame " + f);
+                    Assert.IsFalse(live.isKinematic, "physics keeps the live puck");
+                    if (standIn.activeSelf)
+                    {
+                        nearestZ = Mathf.Min(nearestZ, standIn.transform.position.z);
+                        furthestZ = Mathf.Max(furthestZ, standIn.transform.position.z);
+                    }
+                }
+                else
+                {
+                    Assert.IsTrue(Array.TrueForAll(liveLook, r => r.enabled), "the live puck is drawn outside the Replay, frame " + f);
+                    Assert.IsFalse(standIn.activeSelf, "the stand-in shows only in the Replay, frame " + f);
+                }
+            }
+            Assert.AreEqual(ShotResultKind.Goal, round.Results[0]);
+            Assert.Greater(replay.RecordedMoments, 30, "the flight was recorded from the Shot");
+            Assert.Greater(replayFrames, 100, "the Replay played (2 s at 120 frames a second)");
+            Assert.Less(nearestZ, 0f, "the Replay shows the puck before the Net Face");
+            Assert.Greater(furthestZ, 0f, "and in the net");
+        }
+
+        [Test]
+        public void A_Wide_Miss_with_the_physics_puck_keeps_no_Replay()
+        {
+            var effects = Effects();
+            ScreenFlow flow = FlowInWindow();
+            Round round = flow.Round;
+            ReplayView replay = MakeReplay(round, effects);
+
+            Shoot(round, effects, -40, 50, 120); // well wide of the frame
+            for (int f = 0; f < 10.0 / Step && round.Phase == RoundPhase.ResultHold; f++)
+            {
+                replay.RestoreLive();
+                Frame(round, effects);
+                replay.Show(ArenaShow.From(flow));
+                replay.Step();
+                Assert.IsFalse(replay.Showing, "no Replay, frame " + f);
+            }
+            Assert.AreEqual(ShotResultKind.Miss, round.Results[0]);
+            Assert.AreEqual(0, replay.RecordedMoments, "the recording is dropped at the Whistle");
         }
 
         [Test]

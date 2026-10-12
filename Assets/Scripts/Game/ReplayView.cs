@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using HockeyGame.Core;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
@@ -5,12 +7,17 @@ using UnityEngine.Rendering.Universal;
 namespace HockeyGame
 {
     /// <summary>
-    /// The Replay (#91): after a Goal, a Save or a Frame Hit it records what is seen of the Shot (ReplayTrack), and while the
-    /// Arena Show says the Replay plays it shows that Shot again in slow motion (ReplayTiming) to a second camera behind the
+    /// The Replay (#91): it records what is seen of each Shot from the Shot on (ReplayTrack), keeps it if a Replay follows
+    /// the Whistle's result (a Goal, a Save or a Frame Hit; ReplayTiming.Follows), and while the Arena Show says the Replay plays it shows that Shot again in slow motion (ReplayTiming) to a second camera behind the
     /// near net looking back at the shooter. That camera draws a small render texture that both boards show. The camera
     /// draws only while the Replay plays. The recorded poses go back to the live ones at the start of the next frame
     /// (RestoreLive, from RoundDriver) so the game's own views carry on from where they were. Runs after the views'
     /// LateUpdate (BreakawayView), so it records and shows what they set.
+    /// <para>
+    /// The physics puck (ADR 0004) is not in the track: Unity physics moves it, and each Shot has a new one. Its Rigidbody
+    /// pose is recorded onto a stand-in puck with no Rigidbody or hit shapes (ReplayPhysicsPuck), which the Replay moves
+    /// and shows instead, with the live puck's renderers off while the Replay shows.
+    /// </para>
     /// </summary>
     [DefaultExecutionOrder(1000)]
     public sealed class ReplayView : MonoBehaviour
@@ -27,6 +34,9 @@ namespace HockeyGame
         VideoBoards _boards;
         Camera _shooter;
         Transform[] _parts;
+        Func<Rigidbody> _livePuck;      // the current Shot's physics puck (null before the first); see ReplayPhysicsPuck
+        GameObject _replayPuck;          // its stand-in: shown only on Replay frames
+        readonly List<Renderer> _hiddenLive = new List<Renderer>(); // the live puck's renderers the Replay turned off
         readonly ReplayTrack _track = new ReplayTrack();
         ArenaState _show;
         bool _recording, _begun, _showing;
@@ -40,7 +50,8 @@ namespace HockeyGame
         public int RecordedMoments => _track.SampleCount;
 
         /// <summary>
-        /// Sets the Replay up. parts: what the Replay plays back (the goalie, the save block, then the puck last, since the puck
+        /// Sets the Replay up. parts: what the Replay plays back by their transforms, none with a Rigidbody (the physics puck
+        /// goes through ReplayPhysicsPuck): the goalie, then any scripted save block and puck (the puck last, since the puck
         /// can ride in the glove). shooter: the player's camera, copied for the Replay camera's look.
         /// </summary>
         public void Init(Round round, VideoBoards boards, Camera shooter, params Transform[] parts)
@@ -66,11 +77,31 @@ namespace HockeyGame
             ReplayCamera.transform.position = CameraSpot;
         }
 
+        /// <summary>
+        /// Replays the physics puck too: each frame of the recording, livePuck's Rigidbody pose (position, rotation, shown or
+        /// not) goes onto a stand-in puck (PhysicsPuck.MakeLook: no Rigidbody, no hit shapes), which the track records. On
+        /// Replay frames the stand-in shows the recorded flight and the live puck's renderers are off (RestoreLive turns them
+        /// back on). livePuck: the current Shot's puck, a new one each Shot; null before the first. findFile as ModelFiles.
+        /// </summary>
+        public void ReplayPhysicsPuck(Func<Rigidbody> livePuck, Func<string, GameObject> findFile = null)
+        {
+            _livePuck = livePuck;
+            _replayPuck = PhysicsPuck.MakeLook(transform, findFile);
+            _replayPuck.SetActive(false);
+        }
+
+        /// <summary>The stand-in the Replay shows for the physics puck (null without ReplayPhysicsPuck).</summary>
+        public GameObject ReplayPuck => _replayPuck;
+
         /// <summary>The Arena Show's answer this frame: the Replay plays while its camera mode is Replay.</summary>
         public void Show(ArenaState show) => _show = show;
 
         /// <summary>Puts the live poses back after a frame that showed the Replay. Call first thing each frame.</summary>
-        public void RestoreLive() => _track.Restore();
+        public void RestoreLive()
+        {
+            _track.Restore();
+            ShowLivePuck();
+        }
 
         void LateUpdate()
         {
@@ -82,31 +113,90 @@ namespace HockeyGame
         {
             Record();
             bool play = _show.Camera == CameraMode.Replay && _track.SampleCount > 0;
-            if (play) _track.Apply(ReplayTiming.ShotSecondsAt(_show.ReplaySeconds, _round.ResultDelaySeconds));
+            if (play)
+            {
+                _track.Apply(ReplayTiming.ShotSecondsAt(_show.ReplaySeconds, _round.ResultDelaySeconds));
+                HideLivePuck();
+            }
             SetShowing(play);
         }
 
-        /// <summary>From each Shot that gets a Replay, records its clip (from the Shot to just after the clip ends).</summary>
+        /// <summary>
+        /// Records each Shot from the frame it is shot (the result is not known until the Whistle), and at the Whistle keeps
+        /// the recording only if a Replay follows. Records until just after the clip ends (ReplayTiming.ClipEnd). A hold with
+        /// no Shot (Too late) or with no Replay drops the last recording.
+        /// </summary>
         void Record()
         {
-            bool hold = _round.Phase == RoundPhase.ResultHold && ReplayTiming.Follows(_round.LastResult);
-            if (!hold)
+            if (_round.Phase != RoundPhase.ResultHold)
             {
-                if (_round.Phase == RoundPhase.ResultHold && !_begun) { _track.Begin(); _begun = true; } // no Replay: drop the last one
-                if (_round.Phase != RoundPhase.ResultHold) _begun = false;
+                _begun = _recording = false;
+                return;
+            }
+            if (!_begun)
+            {
+                _begun = true;
+                _recording = _round.LastShot.HasValue; // the Shot frame; Too late has no Shot
+                if (_recording)
+                {
+                    _track.Begin(Parts());
+                    Aim(_shooter.transform.position);
+                }
+                else _track.Begin(); // no Replay: drop the last one
+            }
+            if (!_recording) return;
+            if (_round.ResultShowing && !ReplayTiming.Follows(_round.LastResult))
+            {
+                _track.Begin(); // the Whistle gave a result with no Replay (a Wide Miss): drop the recording
                 _recording = false;
                 return;
             }
             double seconds = _round.PhaseSecondsElapsed;
-            if (!_begun)
-            {
-                _begun = _recording = true;
-                _track.Begin(_parts);
-                Aim(_shooter.transform.position);
-            }
-            if (!_recording) return;
+            PoseReplayPuck();
             _track.Record(seconds);
+            if (_replayPuck != null) _replayPuck.SetActive(false); // seen only on Replay frames
             if (_round.ResultShowing && seconds > ReplayTiming.ClipEnd(_round.ResultDelaySeconds) + RecordMargin) _recording = false;
+        }
+
+        /// <summary>What the track records: the parts given to Init, then the physics puck's stand-in.</summary>
+        Transform[] Parts()
+        {
+            if (_replayPuck == null) return _parts;
+            var parts = new Transform[_parts.Length + 1];
+            _parts.CopyTo(parts, 0);
+            parts[_parts.Length] = _replayPuck.transform;
+            return parts;
+        }
+
+        /// <summary>The stand-in takes the live puck's Rigidbody pose, shown as the live puck is (read only: physics keeps the puck).</summary>
+        void PoseReplayPuck()
+        {
+            if (_replayPuck == null) return;
+            Rigidbody live = _livePuck?.Invoke();
+            bool shown = live != null && live.gameObject.activeInHierarchy;
+            if (shown) _replayPuck.transform.SetPositionAndRotation(live.position, live.rotation);
+            _replayPuck.SetActive(shown);
+        }
+
+        /// <summary>On a Replay frame: the live puck is not drawn (the stand-in is), with no change to its physics.</summary>
+        void HideLivePuck()
+        {
+            if (_hiddenLive.Count > 0) return;
+            Rigidbody live = _livePuck?.Invoke();
+            if (live == null) return;
+            foreach (Renderer r in live.GetComponentsInChildren<Renderer>())
+            {
+                if (!r.enabled) continue;
+                r.enabled = false;
+                _hiddenLive.Add(r);
+            }
+        }
+
+        void ShowLivePuck()
+        {
+            foreach (Renderer r in _hiddenLive)
+                if (r != null) r.enabled = true;
+            _hiddenLive.Clear();
         }
 
         /// <summary>Points the Replay camera from behind the net back up the ice at the shooter, framing the goalie and the puck's path.</summary>

@@ -128,6 +128,8 @@ namespace HockeyGame.Core.Tests
                     {
                         replay.RestoreLive();
                         flow.Tick(frame);
+                        if (flow.Round.AwaitingWhistle && flow.Round.PhaseSecondsElapsed >= 0.3 - 1e-9)
+                            flow.Round.WhistleNow(); // the puck gets there 0.3 s after the Shot: the result is known only now
                         _puck.transform.position = new Vector3(0, 0.5f, (float)flow.Round.PhaseSecondsElapsed); // the live puck moves on
                         ArenaState show = ArenaShow.From(flow);
                         replay.Show(show);
@@ -146,9 +148,8 @@ namespace HockeyGame.Core.Tests
                 flow.Press();
                 flow.Tick(3.7 + 0.5);
                 flow.SubmitShot(50, 90, 100, false); // a Goal
-                flow.Round.WhistleNow(); // the puck there at once: the clip is the Whistle to TailSeconds after
                 Assert.AreEqual(120, Play(out int goalMoments), 1, "2 s of Replay at 60 fps");
-                Assert.Greater(goalMoments, 20, "the clip was recorded");
+                Assert.Greater(goalMoments, 30, "the clip was recorded from the Shot, before its Whistle");
 
                 flow.Tick(3.7 + 0.5 - frame);
                 Assert.AreEqual(RoundPhase.ShootingWindow, flow.Round.Phase);

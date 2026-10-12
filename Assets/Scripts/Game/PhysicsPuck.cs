@@ -64,6 +64,18 @@ namespace HockeyGame
         }
 
         /// <summary>
+        /// A puck only to look at, under parent: drawn as the physics puck is (the puck model at real size, or a dark disc), with
+        /// no Rigidbody and no hit shapes, so nothing in physics meets it. The Replay's stand-in (ReplayView.ReplayPhysicsPuck).
+        /// </summary>
+        public static GameObject MakeLook(Transform parent, Func<string, GameObject> findFile = null)
+        {
+            var puck = new GameObject("Replay Puck");
+            puck.transform.SetParent(parent, false);
+            ModelFiles.Place(puck.transform, ModelFiles.Puck, ShotEffects.PlaceholderPuck, findFile, new Vector3(Diameter, Thickness, Diameter));
+            return puck;
+        }
+
+        /// <summary>
         /// Where a Shot starts, worked out from the camera now (Breakaway.StartBelowView): on the ice straight ahead of the shooter,
         /// just below the bottom edge of the view, so the puck flies up into view. The Round's Breakaway.ShotStart is the same
         /// point for its own eye.

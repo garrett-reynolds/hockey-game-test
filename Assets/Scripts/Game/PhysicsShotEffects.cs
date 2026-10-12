@@ -9,14 +9,15 @@ namespace HockeyGame
     /// the same) it launches a new physics puck (PhysicsShot) from just below the camera's view; after each physics step it
     /// gives the Whistle rule the puck's facts, and at the Whistle it tells the Round the result (Round.Whistle).
     /// <para>
-    /// At the Whistle: a GOAL! (the line crossing) turns on the goal light; the goalie's after-shot motion (AfterShot) starts
-    /// from it, with the real result (GoalieView.Judge), so a Miss shows Relief. The Annoyed Gesture waits for the puck to
-    /// meet the netting (the catch). Post and crossbar hits sound from the physics contacts (HitSound).
+    /// The goalie's after-shot motion (AfterShot) starts from the Whistle, with the real result (GoalieView.Judge), so a
+    /// Miss shows Relief. The Annoyed Gesture waits for the puck to meet the netting (the catch). Post and crossbar hits sound from the physics contacts (HitSound). The goal light is
+    /// built here with the rink's Shot parts, but the Arena Show drives it (GoalShow.GoalLight, from a GOAL!'s Whistle).
     /// </para>
     /// <para>
     /// The puck stays until the next Shot, which replaces it. It is hidden only once it is out of the camera's view after it
     /// has crossed the Net Face or hit something (PhysicsShot.OutOfSight): it flies up into view, and a slow Shot's lob is not
-    /// hidden in the air. Builds the Shot colliders (ShotColliders) under the rink.
+    /// hidden in the air, and not while the camera is turned up to the Video Board (CameraLookUp): a netted puck is still there
+    /// when it comes back down. Builds the Shot colliders (ShotColliders) under the rink.
     /// </para>
     /// Interim: the goalie has no hit shapes yet (#111), so the puck passes through him and every Shot that is not a GOAL!
     /// is a Miss. He still moves as the Round's race timed him (Reach in time). The scripted flight (ShotEffects) is not used.
@@ -73,18 +74,21 @@ namespace HockeyGame
         /// </summary>
         public float FlightSeconds { get; private set; }
 
-        /// <summary>The goal light at the far net (built with the rink's Shot parts).</summary>
+        /// <summary>The goal light at the far net (built with the rink's Shot parts). The Arena Show turns it on and off (RoundDriver).</summary>
         public GoalLight GoalLight => _goalLight;
 
-        /// <summary>The goal light is on: from a GOAL!'s Whistle (the line crossing) to the end of its result hold.</summary>
-        public bool GoalLightOn { get; private set; }
+        /// <summary>
+        /// How far the shooter's camera is turned up to the Video Board now (the Arena Show's CameraLookUp, 0 on the net): set
+        /// once a frame. The hide rule only runs at 0, so the look-up and the Replay never switch off the puck.
+        /// </summary>
+        public double CameraLookUp { get; set; }
 
         /// <summary>The sound of a hit the puck made in the physics steps before this frame (a post or the crossbar: PostPing); null for none.</summary>
         public SoundCue? HitSound { get; private set; }
 
         /// <summary>
         /// Call once per frame with real seconds. Launches the puck when the Round is given a Shot, keeps the goalie's
-        /// after-shot motion on the Whistle's clock, and turns the goal light off when the result hold ends.
+        /// after-shot motion on the Whistle's clock.
         /// </summary>
         public void Update(Round round, float realSeconds)
         {
@@ -103,23 +107,19 @@ namespace HockeyGame
             // No hang: a Shot the physics stopped feeding still gets the cap's Whistle.
             if (!Shot.HasWhistled && _clock >= round.Settings.WhistleCapSeconds + NoWhistleGraceSeconds) Shot.WhistleNow();
 
-            if (round.Phase != RoundPhase.ResultHold)
-            {
-                SetGoalLight(false);
-                return;
-            }
+            if (round.Phase != RoundPhase.ResultHold) return;
             _goalie?.Watch(Shot.Puck.transform.position, _whistledAt < 0f ? -1f : _clock - _whistledAt, _nettedAt < 0f ? -1f : _clock - _nettedAt);
         }
 
         /// <summary>
         /// Call after each physics step of stepSeconds (the game's: after FixedUpdate's step; a test's: after Physics.Simulate).
-        /// Gives the Whistle rule the puck's facts, and hides the puck once it is out of sight.
+        /// Gives the Whistle rule the puck's facts, and hides the puck once it is out of sight (only with the camera on the net).
         /// </summary>
         public void AfterPhysicsStep(float stepSeconds)
         {
             if (Shot == null) return;
             Shot.AfterStep(stepSeconds);
-            if (Shot.Puck.gameObject.activeSelf && Shot.OutOfSight) Shot.Puck.gameObject.SetActive(false);
+            if (CameraLookUp == 0 && Shot.Puck.gameObject.activeSelf && Shot.OutOfSight) Shot.Puck.gameObject.SetActive(false);
         }
 
         void Launch(Round round)
@@ -131,7 +131,6 @@ namespace HockeyGame
             _clock = 0f;
             _whistledAt = _nettedAt = -1f;
             _lastPing = double.NegativeInfinity;
-            SetGoalLight(false);
 
             Shot = new PhysicsShot(_rink, _camera, round.Settings, _random, _findFile);
             Shot.Whistled += OnWhistled;
@@ -161,7 +160,6 @@ namespace HockeyGame
         {
             _whistledAt = _clock;
             if (_round.AwaitingWhistle && _round.ShotsSubmitted == _shotNumber) _round.Whistle(kind); // only for the Shot it waits for
-            if (kind == ShotResultKind.Goal) SetGoalLight(true);
             _goalie?.Judge(kind);
         }
 
@@ -176,12 +174,6 @@ namespace HockeyGame
             if (Shot.SecondsSinceShot - _lastPing < PingGapSeconds) return;
             _lastPing = Shot.SecondsSinceShot;
             _pendingHit = SoundCue.PostPing;
-        }
-
-        void SetGoalLight(bool on)
-        {
-            GoalLightOn = on;
-            _goalLight.SetOn(on);
         }
 
         /// <summary>Removes the puck and stops listening for its contacts (the Shot colliders and the goal light stay with the rink).</summary>

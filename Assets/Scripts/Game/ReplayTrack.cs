@@ -54,7 +54,8 @@ namespace HockeyGame
         /// <summary>
         /// The track moves its parts by their transforms. A part with a Rigidbody belongs to Unity physics (ADR 0004), and
         /// writing its transform would fight physics, so the track refuses it out loud: leave such a part out of the track
-        /// and play it back another way (for example, the puck's Rigidbody pose, kinematic for the Replay).
+        /// and play it back another way: the physics puck's Rigidbody pose goes onto a stand-in with no Rigidbody, which the
+        /// track records (ReplayView.ReplayPhysicsPuck). The live Rigidbody is never made kinematic for the Replay.
         /// </summary>
         void RefusePhysicsParts()
         {

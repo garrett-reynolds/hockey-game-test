@@ -468,9 +468,9 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void The_Score_Box_counts_a_Goal_only_once_its_puck_lands()
+        public void The_Score_Box_shows_the_Round_s_Goals_which_count_a_Goal_from_its_Whistle()
         {
-            Assert.AreEqual("GOALS 2 · SHOT 3 OF 6", At(RoundPhase.ResultHold, 0.1, ArenaResult.Goal, hidden: true, goals: 3, shot: 3).ScoreBox.Text);
+            Assert.AreEqual("GOALS 2 · SHOT 3 OF 6", At(RoundPhase.ResultHold, 0.1, ArenaResult.None, hidden: true, goals: 2, shot: 3).ScoreBox.Text);
             Assert.AreEqual("GOALS 3 · SHOT 3 OF 6", At(RoundPhase.ResultHold, 0.5, ArenaResult.Goal, goals: 3, shot: 3).ScoreBox.Text);
         }
 
