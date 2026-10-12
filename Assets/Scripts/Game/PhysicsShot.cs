@@ -59,6 +59,8 @@ namespace HockeyGame
         public bool Touched => _touched;
         /// <summary>The first thing other than the ice the puck hit this Shot (null before).</summary>
         public Collider FirstTouched { get; private set; }
+        /// <summary>The push of that first hit (N s): how hard it was, for its sound.</summary>
+        public Vector3 FirstTouchImpulse { get; private set; }
         /// <summary>The last facts given to the Whistle rule.</summary>
         public PuckFacts LastFacts { get; private set; }
 
@@ -131,6 +133,7 @@ namespace HockeyGame
                 if (other == null || other.name == ShotColliders.IceName || pair.impulseSum == Vector3.zero) continue;
                 _touched = true;
                 FirstTouched = other;
+                FirstTouchImpulse = pair.impulseSum;
                 return;
             }
         }

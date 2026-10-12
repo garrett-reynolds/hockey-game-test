@@ -23,8 +23,9 @@ namespace HockeyGame
         static PhysicsMaterial _material;
 
         /// <summary>No bounce and full grip, both combined by Minimum: what the puck hits decides its own bounce and grip.</summary>
-        public static PhysicsMaterial Material => _material ??= new PhysicsMaterial("Puck")
+        public static PhysicsMaterial Material => _material != null ? _material : _material = new PhysicsMaterial("Puck")
         {
+            hideFlags = HideFlags.DontUnloadUnusedAsset, // kept: a Unity null check would not see an unloaded one through ??=
             bounciness = 0f, dynamicFriction = 1f, staticFriction = 1f,
             frictionCombine = PhysicsMaterialCombine.Minimum, bounceCombine = PhysicsMaterialCombine.Minimum,
         };

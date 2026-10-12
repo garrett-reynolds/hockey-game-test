@@ -338,8 +338,12 @@ namespace HockeyGame.Core.Tests
             _camera.transform.LookAt(new Vector3(0f, 0.61f, 0f));
         }
 
+        // #109: from 3 m the Shot now starts on the ice about 1.1 m in front of the goalie. Two scripted-flight leftovers are
+        // accepted there (the scripted flight goes in #113; Unity physics flies the puck from Task 3 on): a glove hold sits
+        // about 10 cm off the glove, and a frame hit's rebound is still sliding at the end. Every other check runs from 3 m.
+
         [TestCase(false)]
-        [TestCase(true, Ignore = "#109: from 3 m the Shot now starts on the ice about 1.1 m in front of the goalie; the scripted flight's glove holds sit ~10 cm off the glove and its frame rebounds fly on. The scripted flight goes in #113.")]
+        [TestCase(true)]
         public void After_any_save_or_frame_hit_the_puck_stays_out_of_the_goalie_frame_and_ice_and_settles_flat(bool close)
         {
             var failures = new List<string>();
@@ -382,12 +386,14 @@ namespace HockeyGame.Core.Tests
                 {
                     // Off the ice: only held in the catching glove, carried there as he recovers (#48: no other gear carries it).
                     if (run.Surface != PuckSurface.Catcher) failures.Add(where + "off the ice at the end after a " + run.Surface + " save (carried on the goalie): " + end.ToString("F3"));
-                    else if (!AgainstGear(GoalieTriangles(character), end)) failures.Add(where + "off the ice but not on the goalie at the end: " + end.ToString("F3"));
+                    else if (!AgainstGear(GoalieTriangles(character), end) && !close) // #109 leftover from 3 m, see above the test
+                        failures.Add(where + "off the ice but not on the goalie at the end: " + end.ToString("F3"));
                     continue;
                 }
                 Vector3 endAxis = run.Turns[run.Turns.Count - 1] * Vector3.up;
                 bool still = run.Path[run.Path.Count - 2] == end;
                 bool flatOnIce = Mathf.Abs(endAxis.y) > 0.999f && Mathf.Abs(end.y - 0.025f) < 0.002f;
+                if (close && run.Surface == PuckSurface.Frame && !still) continue; // #109 leftover from 3 m, see above the test
                 if (!still || (!flatOnIce && !AgainstGear(goalie, end)))
                     failures.Add(where + "not lying still, flat on the ice (or held in the gear), at the end: " + end.ToString("F3"));
             }

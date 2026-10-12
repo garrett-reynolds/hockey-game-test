@@ -67,6 +67,8 @@ namespace HockeyGame.Core.Tests
             public bool OutOfViewInTheAir;        // left the camera's view before it reached the Net Face
             public bool WhistleBeforeNetFace;
             public Vector3 Highest;
+            public float FarthestZ = float.NegativeInfinity;
+            public Vector3 FirstTouchAt;          // where the puck was on the step it first hit something (not the ice)
         }
 
         Flight Fly(double x, double y, double kmh, int seed, double seconds = 4.0)
@@ -99,6 +101,8 @@ namespace HockeyGame.Core.Tests
                         flight.OutOfViewInTheAir = true;
                 }
                 if (p.y > flight.Highest.y) flight.Highest = p;
+                flight.FarthestZ = Mathf.Max(flight.FarthestZ, p.z);
+                if (shot.Touched && flight.FirstTouchAt == Vector3.zero) flight.FirstTouchAt = p;
                 if (ShotColliders.InsideCatch(p)) wentIn = true;
                 if (wentIn && PastTheCatch(p)) flight.WentThrough = true;
                 before = p;
@@ -174,6 +178,48 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(ShotResultKind.Miss, shot.Result);
             Assert.IsFalse(ShotColliders.InsideCatch(shot.Puck.position), "stayed out: ended at " + shot.Puck.position.ToString("F3"));
             Assert.Less(shot.WhistleSeconds, Defaults.WhistleCapSeconds + Step);
+        }
+
+        // Wide of a post and over the crossbar, by about 6 cm and more past the frame's outer edge (0-100 is the Net Face; the
+        // frame is NetFrame.PostWidth across and CrossbarHeight high outside it): the Miss spots wide and over, and two more.
+        // Not here: (40, 115) at 100 km/h takes a look-ahead push off the roof's front edge 16 cm clear and flies up (see the
+        // report for #109).
+        [TestCase(110, 50)]
+        [TestCase(-10, 50)]
+        [TestCase(50, 110)]
+        [TestCase(112, 30)]
+        [TestCase(-12, 70)]
+        public void A_Shot_just_wide_or_high_passes_the_net_and_is_a_Miss(double x, double y)
+        {
+            Flight flight = Fly(x, y, 100, seed: 9, seconds: 3.0);
+            PhysicsShot shot = flight.Shot;
+
+            Assert.AreEqual(ShotResultKind.Miss, shot.Result);
+            // Not stopped at the goal line: it goes on past the net. (A fast puck passing the frame or the net a few centimetres
+            // clear can still take a push off it, ContinuousSpeculative's look-ahead contact: see the report for #109. That
+            // is why this does not ask for no touch at all; the catch's shape itself is checked by the test below.)
+            string touched = shot.FirstTouched == null ? "nothing" : shot.FirstTouched.name + " at " + flight.FirstTouchAt.ToString("F3");
+            Assert.Greater(flight.FarthestZ, 1f, "went on past the goal line (touched " + touched + "), ended at " + shot.Puck.position.ToString("F2"));
+            Assert.Less(shot.WhistleSeconds, flight.CrossedAt + 0.1, "gone as it passed the goal line outside the net");
+        }
+
+        [Test]
+        public void The_catch_shows_no_face_beside_or_above_the_frame()
+        {
+            // At the goal line (and the post's depth in front of it) every catch box lies within the frame's outer edge:
+            // behind a post or the crossbar, or inside the net. So no Shot wide or high meets a hidden wall there.
+            float outerX = (float)NetFrame.FaceWidthMetres / 2f + NetBuilder.Post, outerY = (float)NetFrame.FaceHeightMetres + NetBuilder.Post;
+            int boxes = 0;
+            foreach (BoxCollider box in _root.GetComponentsInChildren<BoxCollider>())
+            {
+                if (!box.name.StartsWith("Catch")) continue;
+                boxes++;
+                Bounds b = box.bounds;
+                if (b.min.z > NetBuilder.Post / 2f) continue; // starts behind the posts: beside or above the net, not at the line
+                Assert.LessOrEqual(Mathf.Max(-b.min.x, b.max.x), outerX + 1e-4f, box.name + " sticks out beside the posts: " + b);
+                Assert.LessOrEqual(b.max.y, outerY + 1e-4f, box.name + " sticks out above the crossbar: " + b);
+            }
+            Assert.AreEqual(4, boxes);
         }
 
         [Test]

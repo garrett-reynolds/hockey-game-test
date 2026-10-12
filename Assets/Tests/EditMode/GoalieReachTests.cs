@@ -119,12 +119,13 @@ namespace HockeyGame.Core.Tests
         public void A_gear_wins_the_race_only_when_its_own_piece_reaches_the_puck_s_line()
         {
             // The high blocker-side corner: the stick (held in the blocker hand) must not win it because the hand is on the line.
-            // (85 up: from the ice start, the top of this corner from the Right is now won by the stick itself, see #109.)
+            // From the Right the stick is a contender here (#109: from the Shot start on the ice the line passes the goalie at
+            // about 1 m, below the knob but above the grip; it won the race until ReachStick kept to the shaft below the hand).
             GoalieCharacterReach port = Port(out _);
             foreach (AttackSide side in new[] { AttackSide.Left, AttackSide.Middle, AttackSide.Right })
             {
                 RinkPoint start = Breakaway.ShotStart(side, 0, Defaults);
-                GoalieReachAnswer answer = port.Reach(SetUp.Clean, side, 0, start, RinkPoint.OnNetFace(1, 85));
+                GoalieReachAnswer answer = port.Reach(SetUp.Clean, side, 0, start, RinkPoint.OnNetFace(1, 99));
                 Assert.AreNotEqual(SaveReaction.Stick, answer.QuickestGear, side + ": " + answer);
                 if (!answer.InTheWay && answer.QuickestGear.HasValue)
                     Assert.IsTrue(SaveReactions.IsHand(answer.QuickestGear.Value) || answer.QuickestGear == SaveReaction.Body, side + ": " + answer);

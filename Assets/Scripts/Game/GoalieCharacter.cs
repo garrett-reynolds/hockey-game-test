@@ -810,12 +810,15 @@ namespace HockeyGame
             // stick moves (blade on the ice, same angle) until the lower shaft is on the puck's line at that height.
             Vector3 blade = GearPoint(GearPiece.Stick);
             Vector3 shaft = (Bone(HumanBodyBones.RightHand).position - blade).normalized; // up the shaft to the grip
-            Vector3 target = blade;
+            Vector3 target = blade, onShaft = blade;
             for (int i = 0; i < 3; i++)
             {
-                Vector3 onShaft = LineAt(from, to, target.z + ShaftOffset(shaft, LineAt(from, to, target.z).y - blade.y).z);
+                onShaft = LineAt(from, to, target.z + ShaftOffset(shaft, LineAt(from, to, target.z).y - blade.y).z);
                 target = onShaft - ShaftOffset(shaft, onShaft.y - blade.y);
             }
+            // Only the shaft below the blocker hand makes a stick save: a line above the grip is the blocker's, so the stick
+            // stays put (#109: from the Shot start on the ice the line can pass a high corner below the knob, above the hand).
+            if (onShaft.y > Bone(HumanBodyBones.RightHand).position.y) return;
             ReachHand(false, GearPiece.Stick, target, facing, true);
         }
 

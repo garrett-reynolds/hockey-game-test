@@ -20,29 +20,38 @@ namespace HockeyGame
 
         /// <summary>How far behind the netting's back, sides and roof the catch boxes stand (metres).</summary>
         public const float CatchGap = 0.04f;
-        /// <summary>How thick each catch box is (metres): thick enough that no fast puck skips through it in one step.</summary>
+        /// <summary>How thick the catch's back box is (metres): thick enough that no fast puck skips through it in one step.</summary>
         public const float CatchThickness = 0.6f;
+        /// <summary>
+        /// How thick the catch's side and roof boxes are (metres): only out to the posts' and crossbar's outer edge, so from in
+        /// front they hide behind the frame and a Shot just wide or just high passes the net as it would a real one.
+        /// </summary>
+        public const float CatchSideThickness = Post - CatchGap;
 
-        // Static friction is a little over the grip (dynamic friction), as in the prototypes.
+        // Static friction is a little over the grip (dynamic friction), as in the prototypes. Made once and kept: never
+        // unloaded with unused assets (a Unity null check would not see an unloaded one through ??=).
         static PhysicsMaterial _ice, _frame, _catch;
 
         /// <summary>Ice: grip 0.08, no bounce.</summary>
-        public static PhysicsMaterial Ice => _ice ??= new PhysicsMaterial("Ice")
+        public static PhysicsMaterial Ice => _ice != null ? _ice : _ice = new PhysicsMaterial("Ice")
         {
+            hideFlags = HideFlags.DontUnloadUnusedAsset,
             bounciness = 0f, dynamicFriction = 0.08f, staticFriction = 0.08f * 1.2f,
             frictionCombine = PhysicsMaterialCombine.Minimum, bounceCombine = PhysicsMaterialCombine.Minimum,
         };
 
         /// <summary>Posts and crossbar ("C Dead"): bounce 0.4, grip 0.3. A wall: its own bounce wins (Maximum), its own grip too (Minimum).</summary>
-        public static PhysicsMaterial Frame => _frame ??= new PhysicsMaterial("Posts and Crossbar")
+        public static PhysicsMaterial Frame => _frame != null ? _frame : _frame = new PhysicsMaterial("Posts and Crossbar")
         {
+            hideFlags = HideFlags.DontUnloadUnusedAsset,
             bounciness = 0.4f, dynamicFriction = 0.3f, staticFriction = 0.3f * 1.2f,
             frictionCombine = PhysicsMaterialCombine.Minimum, bounceCombine = PhysicsMaterialCombine.Maximum,
         };
 
         /// <summary>The catch: no bounce (Minimum beats the puck's), grip 0.6, so the puck dies in the net.</summary>
-        public static PhysicsMaterial Catch => _catch ??= new PhysicsMaterial("Net Catch")
+        public static PhysicsMaterial Catch => _catch != null ? _catch : _catch = new PhysicsMaterial("Net Catch")
         {
+            hideFlags = HideFlags.DontUnloadUnusedAsset,
             bounciness = 0f, dynamicFriction = 0.6f, staticFriction = 0.6f * 1.2f,
             frictionCombine = PhysicsMaterialCombine.Minimum, bounceCombine = PhysicsMaterialCombine.Minimum,
         };
@@ -63,12 +72,15 @@ namespace HockeyGame
             Tube(root, "Crossbar", new Vector3(-x, top, 0f), new Vector3(x, top, 0f));
 
             // The catch: CatchGap behind the netting's sides, roof and back. The sides and roof start at the Net Face (z = 0),
-            // so they never touch a puck still on its way in, and run to the back of the back box.
-            float g = CatchGap, t = CatchThickness, outer = W / 2f + g, depth = NetDepth + g + t;
-            Box(root, "Catch Left", new Vector3(-outer - t / 2f, (H + g) / 2f, depth / 2f), new Vector3(t, H + g + 0.2f, depth), Catch);
-            Box(root, "Catch Right", new Vector3(outer + t / 2f, (H + g) / 2f, depth / 2f), new Vector3(t, H + g + 0.2f, depth), Catch);
-            Box(root, "Catch Roof", new Vector3(0f, H + g + t / 2f, depth / 2f), new Vector3(2f * outer + 2f * t, t, depth), Catch);
-            Box(root, "Catch Back", new Vector3(0f, (H + g) / 2f, NetDepth + g + t / 2f), new Vector3(2f * outer, H + g + 0.2f, t), Catch);
+            // so they never touch a puck still on its way in, and run to the back of the back box. They are only
+            // CatchSideThickness thick, out to the frame's outer edge: no hidden wall stands beside or above the frame.
+            float g = CatchGap, s = CatchSideThickness, t = CatchThickness, outer = W / 2f + g, depth = NetDepth + g + t;
+            const float below = 0.1f; // into the ice, so no puck slips under
+            float catchTop = H + g + s, sideHeight = catchTop + below;
+            Box(root, "Catch Left", new Vector3(-outer - s / 2f, catchTop - sideHeight / 2f, depth / 2f), new Vector3(s, sideHeight, depth), Catch);
+            Box(root, "Catch Right", new Vector3(outer + s / 2f, catchTop - sideHeight / 2f, depth / 2f), new Vector3(s, sideHeight, depth), Catch);
+            Box(root, "Catch Roof", new Vector3(0f, H + g + s / 2f, depth / 2f), new Vector3(2f * (outer + s), s, depth), Catch);
+            Box(root, "Catch Back", new Vector3(0f, catchTop - sideHeight / 2f, NetDepth + g + t / 2f), new Vector3(2f * (outer + s), sideHeight, t), Catch);
             return root;
         }
 
