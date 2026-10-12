@@ -108,22 +108,37 @@ namespace HockeyGame.Core
         public override string ToString() => Message + " \"" + Text + "\" " + Colour + (Small ? " small" : "");
     }
 
-    /// <summary>The Goal Show's lights: the red goal light and the roof lights pulsing, at FlashesPerSecond (never over 3).</summary>
-    public readonly struct GoalShowLights
+    /// <summary>
+    /// The Goal Show's lights: the red goal light and the roof lights pulsing, at FlashesPerSecond (never over 3). The
+    /// default (all off) is no show.
+    /// </summary>
+    public readonly struct GoalShowLights : IEquatable<GoalShowLights>
     {
+        /// <summary>The red goal light above the net: on, still, for the whole Goal Show.</summary>
         public bool GoalLight { get; }
         public bool RoofPulse { get; }
         public double FlashesPerSecond { get; }
         /// <summary>Whether the pulsing lights are on at this moment of their flash (false when nothing pulses).</summary>
         public bool Lit { get; }
+        /// <summary>The roof lights' colour while Lit; between flashes they are their normal white.</summary>
+        public ArenaColour PulseColour { get; }
 
-        public GoalShowLights(bool goalLight, bool roofPulse, double flashesPerSecond, bool lit)
+        public GoalShowLights(bool goalLight, bool roofPulse, double flashesPerSecond, bool lit, ArenaColour pulseColour)
         {
             GoalLight = goalLight;
             RoofPulse = roofPulse;
             FlashesPerSecond = flashesPerSecond;
             Lit = lit;
+            PulseColour = pulseColour;
         }
+
+        public bool Equals(GoalShowLights other) =>
+            GoalLight == other.GoalLight && RoofPulse == other.RoofPulse && FlashesPerSecond.Equals(other.FlashesPerSecond) &&
+            Lit == other.Lit && PulseColour.Equals(other.PulseColour);
+        public override bool Equals(object obj) => obj is GoalShowLights other && Equals(other);
+        public override int GetHashCode() => (GoalLight ? 1 : 0) | (RoofPulse ? 2 : 0) | (Lit ? 4 : 0) | (PulseColour.GetHashCode() << 3);
+        public override string ToString() =>
+            (GoalLight ? "goal light, " : "") + (RoofPulse ? "roof pulse " + FlashesPerSecond + "/s " + PulseColour + (Lit ? " lit" : " dark") : "no pulse");
     }
 
     /// <summary>The small TV-style score in a screen corner.</summary>
@@ -150,6 +165,8 @@ namespace HockeyGame.Core
         public ArenaResult Result;
         /// <summary>True while the result is held back for the on-screen puck flight (Round.ResultShowing is false).</summary>
         public bool ResultHidden;
+        /// <summary>Real seconds the result is held back in the result hold (Round.ResultDelaySeconds): the Goal Show starts after them.</summary>
+        public double ResultDelaySeconds;
         public bool IsNewBest;
         /// <summary>Goals so far, counting a Goal whose puck is still in flight (as Round.Goals does).</summary>
         public int Goals;
@@ -211,12 +228,14 @@ namespace HockeyGame.Core
         public static readonly ArenaColour GoalRed = new ArenaColour(230, 30, 35);
         public static readonly ArenaColour SaveWhite = new ArenaColour(240, 242, 245);
         public static readonly ArenaColour FrameHitAmber = new ArenaColour(255, 185, 40);
+        /// <summary>The roof lights' colour in the new-best light show.</summary>
+        public static readonly ArenaColour NewBestGold = new ArenaColour(255, 205, 80);
         /// <summary>The Calm Area's one dim still Ribbon Board colour: a dark slate, near the dimmed stands round it (no reserved colour).</summary>
         public static readonly ArenaColour CalmRibbonColour = new ArenaColour(26, 31, 40);
 
         private static readonly RibbonBoard Ads = new RibbonBoard(RibbonMessage.Ads, "", SaveWhite, false);
         private static readonly RibbonBoard CalmStill = new RibbonBoard(RibbonMessage.CalmStill, "", CalmRibbonColour, false);
-        private static readonly GoalShowLights NoLights = new GoalShowLights(false, false, 0, false);
+        private static readonly GoalShowLights NoLights = default;
 
         /// <summary>The arena's reading of a Shot result (null: no Shot yet).</summary>
         public static ArenaResult ResultOf(ShotResult? result)
@@ -256,6 +275,7 @@ namespace HockeyGame.Core
                 PhaseSeconds = start ? 0 : phase == RoundPhase.RoundOver ? flow.EndSecondsElapsed : round.PhaseSecondsElapsed,
                 Result = ResultOf(round.LastResult),
                 ResultHidden = !round.ResultShowing,
+                ResultDelaySeconds = round.ResultDelaySeconds,
                 IsNewBest = round.IsNewBest,
                 Goals = round.Goals,
                 ShotNumber = round.ShotNumber
@@ -281,7 +301,7 @@ namespace HockeyGame.Core
                 calm ? CrowdState.Still : near,
                 near,
                 result == ArenaResult.Save || result == ArenaResult.FrameHitPost || result == ArenaResult.FrameHitBar ? CrowdState.Sit : near,
-                LightsFor(input.Phase, result, input.IsNewBest, input.PhaseSeconds),
+                LightsFor(input.Phase, result, input.IsNewBest, input.PhaseSeconds, input.ResultDelaySeconds),
                 CameraMode.OnNet,
                 chant,
                 calm,
@@ -346,14 +366,20 @@ namespace HockeyGame.Core
             }
         }
 
-        private static GoalShowLights LightsFor(RoundPhase phase, ArenaResult result, bool newBest, double seconds)
+        /// <summary>
+        /// The Goal Show runs from when the puck lands (the horn), so its flashes fall the same on every Goal however long the
+        /// puck flew: on for the first half of each flash. The new-best show starts dark for half a flash, so a last Goal's
+        /// flash just before Round over and the show's first flash are never closer than a normal flash.
+        /// </summary>
+        private static GoalShowLights LightsFor(RoundPhase phase, ArenaResult result, bool newBest, double seconds, double resultDelay)
         {
             bool goal = result == ArenaResult.Goal;
             bool newBestShow = phase == RoundPhase.RoundOver && newBest;
             if (!goal && !newBestShow) return NoLights;
             double rate = GoalShowFlashesPerSecond;
-            bool lit = Math.Floor(Math.Max(0, seconds) * rate * 2.0) % 2 == 0; // on for the first half of each flash
-            return new GoalShowLights(goal, true, rate, lit);
+            double showSeconds = Math.Max(0, goal ? seconds - resultDelay : seconds);
+            bool firstHalf = Math.Floor(showSeconds * rate * 2.0) % 2 == 0;
+            return new GoalShowLights(goal, true, rate, goal ? firstHalf : !firstHalf, goal ? GoalRed : NewBestGold);
         }
     }
 }

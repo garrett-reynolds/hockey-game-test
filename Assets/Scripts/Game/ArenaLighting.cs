@@ -29,11 +29,13 @@ namespace HockeyGame
         public const string EasyGlowMaterial = "EasyGlow";
         /// <summary>Name of each glowing overhead light bank under the roof.</summary>
         public const string LightBank = "Light Bank";
+        /// <summary>Name of each spot over the skate-in (the roof lights that pulse in the Goal Show, with the light banks).</summary>
+        public const string OverheadLight = "Overhead Light";
 
         /// <summary>Cool arena white, about 6,000 K.</summary>
         static readonly Color ArenaWhite = new Color(0.93f, 0.97f, 1f);
         /// <summary>HDR glow of a light bank: well above the bloom threshold.</summary>
-        const float BankGlow = 16f;
+        public const float BankGlow = 16f;
         const float BankHeight = 20f;
 
         /// <summary>Adds the lights under rink and sets the scene's ambient light and fog. Returns the main light.</summary>
@@ -59,7 +61,7 @@ namespace HockeyGame
 
             // Along the skate-in: brighter pools and highlights on the glossy ice. No shadows (cost).
             foreach (float z in new[] { -8f, -16f, -24f })
-                Spot(rink, "Overhead Light", new Vector3(0f, 16f, z), new Vector3(0f, 0f, z), 110f, 30f, 70f);
+                Spot(rink, OverheadLight, new Vector3(0f, 16f, z), new Vector3(0f, 0f, z), 110f, 30f, 70f);
 
             AddLightBanks(rink);
             AddReflections(rink);

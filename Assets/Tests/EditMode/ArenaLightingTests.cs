@@ -110,6 +110,49 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void The_roof_lights_pulse_in_the_Goal_Show_colour_while_lit_and_come_back_exactly_after()
+        {
+            ArenaLighting.Build(_rink.transform);
+            var roof = new RoofLights(_rink.transform);
+            Renderer[] banks = _rink.GetComponentsInChildren<Renderer>().Where(r => r.name == ArenaLighting.LightBank).ToArray();
+            Light[] lights = _rink.GetComponentsInChildren<Light>();
+            Light[] overhead = lights.Where(l => l.name == ArenaLighting.OverheadLight).ToArray();
+            Assert.That(overhead.Length, Is.GreaterThanOrEqualTo(2));
+            Color[] bankGlows = banks.Select(r => r.sharedMaterial.GetColor("_EmissionColor")).ToArray();
+            Color[] lightColours = lights.Select(l => l.color).ToArray();
+            float[] intensities = lights.Select(l => l.intensity).ToArray();
+
+            var lit = new GoalShowLights(true, true, ArenaShow.GoalShowFlashesPerSecond, true, ArenaShow.GoalRed);
+            var dark = new GoalShowLights(true, true, ArenaShow.GoalShowFlashesPerSecond, false, ArenaShow.GoalRed);
+
+            roof.Show(lit);
+            foreach (Renderer r in banks)
+            {
+                Color glow = r.sharedMaterial.GetColor("_EmissionColor");
+                Assert.Greater(glow.r, glow.g * 3f, "the banks glow Goal red");
+                Assert.Greater(glow.maxColorComponent, 1f, "still bright enough to bloom");
+            }
+            foreach (Light l in overhead)
+                Assert.Greater(l.color.r, l.color.g * 3f, l.name + " shines Goal red");
+            for (int i = 0; i < lights.Length; i++)
+                if (lights[i].name != ArenaLighting.OverheadLight)
+                    Assert.AreEqual(lightColours[i], lights[i].color, lights[i].name + " never pulses (the goalie's shadows)");
+
+            foreach (GoalShowLights after in new[] { dark, default(GoalShowLights) })
+            {
+                roof.Show(lit);
+                roof.Show(after);
+                for (int i = 0; i < banks.Length; i++)
+                    Assert.AreEqual(bankGlows[i], banks[i].sharedMaterial.GetColor("_EmissionColor"), "bank back to its white after " + after);
+                for (int i = 0; i < lights.Length; i++)
+                {
+                    Assert.AreEqual(lightColours[i], lights[i].color, lights[i].name + " after " + after);
+                    Assert.AreEqual(intensities[i], lights[i].intensity, lights[i].name + " after " + after);
+                }
+            }
+        }
+
+        [Test]
         public void The_ice_and_glass_reflect_a_cubemap_of_the_arena_rendered_once_at_start()
         {
             ArenaLighting.Build(_rink.transform);
