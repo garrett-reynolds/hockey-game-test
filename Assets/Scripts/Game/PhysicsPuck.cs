@@ -33,7 +33,7 @@ namespace HockeyGame
         /// <summary>
         /// A new physics puck under parent, drawn at its real size (the puck model, or a dark disc without one). Its hit shape is
         /// a hexagon: 3 boxes turned 0, 60 and 120 degrees, their corners on the rim. Each box reports its contacts (PhysicsShot
-        /// listens for them). findFile is for tests, as ModelFiles.
+        /// listens for them) and lets them be changed (PuckReach). findFile is for tests, as ModelFiles.
         /// </summary>
         public static Rigidbody Make(Transform parent, Func<string, GameObject> findFile = null)
         {
@@ -48,6 +48,7 @@ namespace HockeyGame
                 box.size = new Vector3(2f * Radius * Mathf.Cos(Mathf.PI / 6f), Thickness, Radius);
                 box.sharedMaterial = Material;
                 box.providesContacts = true;
+                box.hasModifiableContacts = true; // PuckReach ignores the contacts it foresees but never reaches (#114)
             }
             ModelFiles.Place(puck.transform, ModelFiles.Puck, ShotEffects.PlaceholderPuck, findFile, new Vector3(Diameter, Thickness, Diameter));
 

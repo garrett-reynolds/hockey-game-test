@@ -181,26 +181,100 @@ namespace HockeyGame.Core.Tests
         }
 
         // Wide of a post and over the crossbar, by about 6 cm and more past the frame's outer edge (0-100 is the Net Face; the
-        // frame is NetFrame.PostWidth across and CrossbarHeight high outside it): the Miss spots wide and over, and two more.
-        // Not here: (40, 115) at 100 km/h takes a look-ahead push off the roof's front edge 16 cm clear and flies up (see the
-        // report for #109).
+        // frame is NetFrame.PostWidth across and CrossbarHeight high outside it): the Miss spots wide and over, and three more.
         [TestCase(110, 50)]
         [TestCase(-10, 50)]
         [TestCase(50, 110)]
         [TestCase(112, 30)]
         [TestCase(-12, 70)]
+        [TestCase(40, 115)] // before #114 it took a look-ahead push off the crossbar, 16 cm clear, and flew up
         public void A_Shot_just_wide_or_high_passes_the_net_and_is_a_Miss(double x, double y)
         {
             Flight flight = Fly(x, y, 100, seed: 9, seconds: 3.0);
             PhysicsShot shot = flight.Shot;
 
             Assert.AreEqual(ShotResultKind.Miss, shot.Result);
-            // Not stopped at the goal line: it goes on past the net. (A fast puck passing the frame or the net a few centimetres
-            // clear can still take a push off it, ContinuousSpeculative's look-ahead contact: see the report for #109. That
-            // is why this does not ask for no touch at all; the catch's shape itself is checked by the test below.)
             string touched = shot.FirstTouched == null ? "nothing" : shot.FirstTouched.name + " at " + flight.FirstTouchAt.ToString("F3");
-            Assert.Greater(flight.FarthestZ, 1f, "went on past the goal line (touched " + touched + "), ended at " + shot.Puck.position.ToString("F2"));
+            Assert.IsFalse(shot.Touched, "passed clear of the frame and the catch, but touched " + touched);
+            // Not stopped at the goal line: it goes on past the net.
+            Assert.Greater(flight.FarthestZ, 1f, "went on past the goal line, ended at " + shot.Puck.position.ToString("F2"));
             Assert.Less(shot.WhistleSeconds, flight.CrossedAt + 0.1, "gone as it passed the goal line outside the net");
+        }
+
+        // How far the puck reaches out from its centre: sideways its radius; up, a flat puck's half-thickness plus what a tip
+        // of up to MaxTiltDegrees lifts its rim.
+        static readonly float ReachSideways = PhysicsPuck.Radius;
+        static readonly float ReachUp = PhysicsPuck.Thickness / 2f + PhysicsPuck.Radius * Mathf.Sin(PhysicsPuck.MaxTiltDegrees * Mathf.Deg2Rad);
+
+        /// <summary>Net Face x (0-100) for a puck whose edge passes clearMetres wide of a post's outer edge (side -1 left, 1 right).</summary>
+        static double WideOfPost(int side, float clearMetres) =>
+            (side * ((float)NetFrame.FaceWidthMetres / 2f + NetBuilder.Post + ReachSideways + clearMetres) / (float)NetFrame.FaceWidthMetres + 0.5f) * 100.0;
+
+        /// <summary>Net Face y (0-100) for a puck whose lowest edge passes clearMetres over the crossbar's top (the catch roof's is as high).</summary>
+        static double OverCrossbar(float clearMetres) =>
+            ((float)NetFrame.FaceHeightMetres + NetBuilder.Post + ReachUp + clearMetres) / (float)NetFrame.FaceHeightMetres * 100.0;
+
+        // #114: ContinuousSpeculative foresees contacts a step ahead. Before #114 a fast puck a few cm clear of a post or the
+        // crossbar took a real push off it (about 10 m/s at 100 km/h). Wide of a post it also passes beside the catch's side
+        // box; over the crossbar it passes over the catch roof's front edge and on along its top.
+        [TestCase(-1, 0.02f, 100)]
+        [TestCase(-1, 0.05f, 100)]
+        [TestCase(-1, 0.10f, 200)]
+        [TestCase(1, 0.02f, 150)]
+        [TestCase(1, 0.05f, 200)]
+        [TestCase(1, 0.10f, 100)]
+        [TestCase(0, 0.02f, 100)] // side 0: over the crossbar
+        [TestCase(0, 0.05f, 150)]
+        [TestCase(0, 0.10f, 200)]
+        [TestCase(0, 0.16f, 100)]
+        public void A_fast_Shot_just_clear_of_the_frame_keeps_its_flight_and_touches_nothing(int side, float clear, double kmh)
+        {
+            double x = side == 0 ? 40 : WideOfPost(side, clear);
+            double y = side == 0 ? OverCrossbar(clear) : 50;
+            var shot = new PhysicsShot(_root.transform, _camera, Defaults, new SeededRandom(9), name => null);
+            _shots.Add(shot);
+            shot.Launch(x, y, kmh);
+            Physics.SyncTransforms();
+
+            // The puck's velocity a metre before the goal line and once past the catch's back: only gravity changes it between.
+            Vector3 before = Vector3.zero, after = Vector3.zero;
+            double beforeAt = 0, afterAt = 0;
+            float pastTheCatch = ShotColliders.NetDepth + ShotColliders.CatchGap + ShotColliders.CatchThickness + 0.2f;
+            for (int i = 0; i < 2.0 / Step && afterAt == 0; i++)
+            {
+                Physics.Simulate(Step);
+                shot.AfterStep(Step);
+                float z = shot.Puck.position.z;
+                if (beforeAt == 0 && z > -1f) { before = shot.Puck.linearVelocity; beforeAt = shot.SecondsSinceShot; }
+                if (z > pastTheCatch) { after = shot.Puck.linearVelocity; afterAt = shot.SecondsSinceShot; }
+            }
+
+            Assert.AreNotEqual(0, afterAt, "never got past the net: at " + shot.Puck.position.ToString("F3") + " going " + shot.Puck.linearVelocity.ToString("F2"));
+            Assert.IsFalse(shot.Touched, "touched " + shot.FirstTouched?.name + " with a push of " + shot.FirstTouchImpulse.ToString("F4"));
+            Vector3 expected = before + Physics.gravity * (float)(afterAt - beforeAt);
+            Assert.Less(Vector3.Distance(expected, after), 0.01f * before.magnitude, "went " + after.ToString("F2") + ", gravity alone gives " + expected.ToString("F2"));
+        }
+
+        [TestCase(50, 100)]
+        [TestCase(25, 160)]
+        public void A_Shot_off_the_crossbar_bounces_off_it(double x, double kmh)
+        {
+            // The middle of the crossbar: just over the Net Face (Net Face y above 100).
+            var shot = new PhysicsShot(_root.transform, _camera, Defaults, new SeededRandom(5), name => null);
+            _shots.Add(shot);
+            shot.Launch(x, 100 + NetFrame.CrossbarHeight / 2, kmh);
+            Physics.SyncTransforms();
+            Vector3 before = shot.Puck.linearVelocity;
+            for (int i = 0; i < 2.0 / Step && !shot.Touched; i++)
+            {
+                before = shot.Puck.linearVelocity;
+                Physics.Simulate(Step);
+                shot.AfterStep(Step);
+            }
+
+            Assert.IsTrue(shot.Touched, "the puck hit the crossbar");
+            Assert.AreEqual("Crossbar", shot.FirstTouched.name);
+            Assert.Less(shot.Puck.linearVelocity.z, 0.5f * before.z, "bounced: from " + before.ToString("F2") + " to " + shot.Puck.linearVelocity.ToString("F2"));
         }
 
         [Test]

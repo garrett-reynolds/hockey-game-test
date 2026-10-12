@@ -205,6 +205,39 @@ namespace HockeyGame.Core.Tests
             Assert.IsTrue(rang, "the post rang");
         }
 
+        [Test]
+        public void A_crossbar_hit_rings_from_its_physics_contact()
+        {
+            var effects = Effects();
+            var round = InWindow(FakeReach.NeverReaches());
+            Shoot(round, effects, 50, 100 + NetFrame.CrossbarHeight / 2, 100); // the middle of the crossbar
+            bool rang = false;
+            for (int i = 0; i < 2.0 / Step && !rang; i++)
+            {
+                Frame(round, effects);
+                if (effects.HitSound != SoundCue.PostPing) continue;
+                rang = true;
+                Assert.AreEqual("Crossbar", effects.Shot.FirstTouched.name);
+            }
+            Assert.IsTrue(rang, "the crossbar rang");
+        }
+
+        // #114: a fast puck a few centimetres clear of the frame takes no look-ahead push off it, so nothing rings.
+        [TestCase(-9.2, 50)]  // 5 cm wide of the left post
+        [TestCase(40, 109.8)] // 2 cm over the crossbar
+        public void A_fast_Shot_just_clear_of_the_frame_rings_no_ping(double x, double y)
+        {
+            var effects = Effects();
+            var round = InWindow(FakeReach.NeverReaches());
+            Shoot(round, effects, x, y, 100);
+            for (int i = 0; i < 1.0 / Step; i++)
+            {
+                Frame(round, effects);
+                Assert.IsNull(effects.HitSound, "rang at " + effects.Shot.SecondsSinceShot + " s, off " + effects.Shot.FirstTouched?.name);
+            }
+            Assert.IsFalse(effects.Shot.Touched);
+        }
+
         GoalieView ShownGoalie()
         {
             var character = new GoalieCharacter(_root.transform);

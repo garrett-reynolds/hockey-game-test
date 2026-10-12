@@ -25,6 +25,7 @@ namespace HockeyGame
         readonly WhistleRule _rule;
         readonly HashSet<Collider> _ownShapes = new HashSet<Collider>();
         readonly Plane[] _view = new Plane[6];
+        readonly PuckReach _reach;
         bool _touched;
 
         /// <param name="parent">Where the puck goes in the scene.</param>
@@ -38,6 +39,7 @@ namespace HockeyGame
             Puck = PhysicsPuck.Make(parent, findFile);
             Puck.gameObject.SetActive(false); // not seen and not hit until the launch
             foreach (Collider shape in Puck.GetComponentsInChildren<Collider>(true)) _ownShapes.Add(shape);
+            _reach = new PuckReach(Puck);
             Settings = settings;
             Random = random;
             Physics.ContactEvent += OnContacts;
@@ -92,15 +94,18 @@ namespace HockeyGame
             Puck.gameObject.SetActive(true);
             LaunchVelocity = PhysicsPuck.Launch(Puck, PhysicsPuck.Start(_camera, Settings), Target, speedKmh, StepSeconds, Random);
             Start = Puck.position;
+            _reach.LookAhead(StepSeconds);
         }
 
         /// <summary>
         /// Call after each physics step of stepSeconds: reads the puck and gives the Whistle rule this step's facts. Returns
-        /// true once the Whistle has gone. Nothing changes after the Whistle (the puck flies on, judged no more).
+        /// true once the Whistle has gone. Nothing changes after the Whistle (the puck flies on, judged no more). Also looks
+        /// ahead to the next step (PuckReach), taken to be as long.
         /// </summary>
         public bool AfterStep(float stepSeconds)
         {
             if (!Launched) return false;
+            _reach.LookAhead(stepSeconds);
             SecondsSinceShot += stepSeconds;
             if (Puck.position.z > 0f) CrossedNetFace = true; // the body, not the transform (Interpolate: the transform lags)
             if (_rule.HasWhistled) return true;
@@ -161,8 +166,9 @@ namespace HockeyGame
             {
                 ContactPair pair = headers[i].GetContactPair(j);
                 Collider other = _ownShapes.Contains(pair.collider) ? pair.otherCollider : _ownShapes.Contains(pair.otherCollider) ? pair.collider : null;
-                // A real hit pushes: ContinuousSpeculative also reports contacts it only foresaw, with no push, up to a step's travel away.
-                // The ice is known by its material, not its name: anything else with a push is a hit.
+                // A real hit pushes: ContinuousSpeculative also reports contacts it only foresaw, with no push, up to a step's travel
+                // away; and those the puck would never reach PuckReach ignores, so they push not either (#114). The ice is known
+                // by its material, not its name: anything else with a push is a hit.
                 if (other == null || other.sharedMaterial == ShotColliders.Ice || pair.impulseSum == Vector3.zero) continue;
                 if (!_touched)
                 {
@@ -177,6 +183,7 @@ namespace HockeyGame
         public void Dispose()
         {
             Physics.ContactEvent -= OnContacts;
+            _reach.Dispose();
             if (Puck != null) SceneObjects.DestroySafely(Puck.gameObject);
         }
     }
