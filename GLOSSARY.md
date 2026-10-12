@@ -88,15 +88,15 @@ The goalie character's small, steady motion in the Ready Stance: breathing, weig
 _Avoid_: Idle animation, idle pose (Idle is the start screen's phase)
 
 **Save**:
-A Shot whose puck touches the goalie's gear and does not go in.
-_Avoid_: Stop
+A Shot whose puck touches the goalie's gear and does not go in, however it got there (straight on, or off a post first).
+_Avoid_: Stop, block
 
 **Miss**:
-Any Shot that is neither a Goal nor a Save: the puck never gets in and never touches the goalie's gear (a Frame Hit that stays out too), or no Shot in time. It uses one of the Round's 6 Shots.
+A Shot whose puck neither goes in nor touches the goalie's gear (wide, or a Frame Hit that stays out), or no Shot in time. It uses one of the Round's 6 Shots.
 
 **Whistle**:
-The moment a Shot's result is fixed: a Goal the moment the whole puck is past the goal line inside the net, otherwise when the puck is dead (very slow for about 0.3 s), gone (behind the goal line outside the net, or out of the camera's view) or about 3 s after the Shot. Nothing after the Whistle changes the result. The result shows at the Whistle and is held 2.5 s.
-_Avoid_: Final whistle, play dead
+The moment the game decides a Shot. For a Goal it is when the whole puck crosses the goal line. Otherwise it is the first of: the puck has stopped, the puck has gone (behind the goal line outside the net, or out of view), or a set time after the Shot runs out. Nothing the puck does after the Whistle changes the result, so a rebound that rolls in late is not a Goal.
+_Avoid_: Call, end of the Shot
 
 **Frame Hit**:
 A Shot whose puck strikes a post or the crossbar. It pings and the puck bounces off the frame; where it then goes decides a Goal or a Miss. Should the stick, the blocker or a skate stand in front of a Save Reaction's gear on the puck's line, the puck stops on that and sounds like it.

@@ -265,7 +265,7 @@ namespace HockeyGame.Core.Tests
                     round.Tick(Frame);
                     if (round.Phase != RoundPhase.ResultHold) break;
                     arrived |= effects.PuckArrivedThisFrame;
-                    view.SetProgress((float)Breakaway.GoalieSet(round.Phase, round.PhaseSecondsElapsed, true, effects.FlightSeconds, round.LastRace));
+                    view.SetProgress((float)Breakaway.GoalieSet(round.Phase, round.PhaseSecondsElapsed, true, Breakaway.GoalieFlightSeconds(round.AwaitingWhistle, round.ResultDelaySeconds, effects.FlightSeconds), round.LastRace));
                     if (!arrived) continue;
                     since += Frame;
                     Assert.IsTrue(character.GearBounds(GearPiece.Catcher, out Bounds glove));

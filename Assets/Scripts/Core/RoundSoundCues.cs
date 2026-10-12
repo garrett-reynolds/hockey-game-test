@@ -115,6 +115,7 @@ namespace HockeyGame.Core
             }
             else if (newShot)
             {
+                // interim (#109): the impact comes from the scripted result; read the Round's result at the Whistle instead.
                 // Today's result for the Shot (ScriptedShot), as the scripted puck will land it at the Whistle.
                 ShotResult result = ScriptedShot.Result(round);
                 _pendingImpact = result;

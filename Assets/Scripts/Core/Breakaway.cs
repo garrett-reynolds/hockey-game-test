@@ -111,6 +111,13 @@ namespace HockeyGame.Core
             return react > 0 ? EaseOut(Numbers.Clamp01(phaseSeconds / react)) : 1;
         }
 
+        /// <summary>
+        /// The flight the goalie's ease-in is timed by: the scripted flight while the Round awaits the Whistle (so he eases
+        /// exactly as before and nothing jumps on the Whistle frame), the Round's Shot-to-Whistle time after it.
+        /// </summary>
+        public static double GoalieFlightSeconds(bool awaitingWhistle, double shotToWhistleSeconds, double scriptedFlightSeconds) =>
+            awaitingWhistle ? scriptedFlightSeconds : shotToWhistleSeconds;
+
         /// <summary>Share of the shooting window ring still showing (1 full, 0 empty).</summary>
         public static double RingFraction(double windowSecondsLeft, RoundSettings settings) => Numbers.Clamp01(windowSecondsLeft / settings.ShootingWindowSeconds);
 

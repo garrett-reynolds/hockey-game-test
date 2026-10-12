@@ -51,7 +51,7 @@ namespace HockeyGame
             _flow.BestScoreChanged += SaveStore.Save;
             _round = _flow.Round;
             _sound = new RoundSound(_camera.gameObject, _save, _round.Settings);
-            gameObject.AddComponent<BreakawayView>().Init(_round, _camera, _goalie);
+            gameObject.AddComponent<BreakawayView>().Init(_round, _camera, _goalie, () => _effects.FlightSeconds);
             _usb = gameObject.AddComponent<UsbShotSource>();
             _usb.Init(_save);
         }

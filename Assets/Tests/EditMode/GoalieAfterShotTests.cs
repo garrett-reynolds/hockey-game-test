@@ -220,10 +220,53 @@ namespace HockeyGame.Core.Tests
                     round.Tick(Frame);
                     if (round.Phase != RoundPhase.ResultHold) break;
                     arrived |= effects.PuckArrivedThisFrame;
-                    view.SetProgress((float)Breakaway.GoalieSet(round.Phase, round.PhaseSecondsElapsed, true, effects.FlightSeconds, round.LastRace));
+                    view.SetProgress((float)Breakaway.GoalieSet(round.Phase, round.PhaseSecondsElapsed, true, Breakaway.GoalieFlightSeconds(round.AwaitingWhistle, round.ResultDelaySeconds, effects.FlightSeconds), round.LastRace));
                     frame(character, (float)round.PhaseSecondsElapsed, arrived, puck);
                 }
                 Assert.IsTrue(arrived);
+            }
+            finally { Object.DestroyImmediate(camera); }
+        }
+
+        [Test]
+        public void A_close_fast_Shot_with_gear_in_the_way_eases_the_goalie_in_with_no_jump_at_the_Whistle()
+        {
+            // BreakawayView's real argument: Breakaway.GoalieFlightSeconds (scripted flight until the Whistle, then the Round's).
+            // It must give the same progress every frame as the scripted flight alone, as before the Round took the Whistle.
+            NetBuilder.Build(_parent.transform);
+            var camera = new GameObject("Camera (test)", typeof(Camera));
+            camera.transform.position = Eye;
+            camera.transform.LookAt(new Vector3(0f, 0.61f, 0f));
+            try
+            {
+                var view = new GoalieView(_parent.transform, new GoalieCharacter(_parent.transform));
+                var effects = new ShotEffects(_parent.transform, camera.GetComponent<Camera>(), null, view);
+                var round = new Round(ScriptedRandom.Forcing(AttackSide.Middle), new RoundSettings(), FakeReach.InTheWay(), 0);
+                round.StartRound();
+                round.Tick(3.7);
+                view.Show(true);
+                round.SubmitShot(50, 50, 200, false);
+                const float Frame = 1f / 60f;
+                bool sawWhistle = false;
+                double previous = 0, biggestStep = 0;
+                for (int i = 0; i < 60 && round.Phase == RoundPhase.ResultHold; i++)
+                {
+                    bool waiting = round.AwaitingWhistle;
+                    effects.Update(round, Frame);
+                    round.Tick(Frame);
+                    if (round.Phase != RoundPhase.ResultHold) break;
+                    sawWhistle |= waiting && !round.AwaitingWhistle;
+                    double shown = Breakaway.GoalieSet(round.Phase, round.PhaseSecondsElapsed, true,
+                        Breakaway.GoalieFlightSeconds(round.AwaitingWhistle, round.ResultDelaySeconds, effects.FlightSeconds), round.LastRace);
+                    double before = Breakaway.GoalieSet(round.Phase, round.PhaseSecondsElapsed, true, effects.FlightSeconds, round.LastRace);
+                    Assert.AreEqual(before, shown, 0.02, "frame " + i + ": the ease-in follows the scripted flight");
+                    biggestStep = System.Math.Max(biggestStep, shown - previous);
+                    previous = shown;
+                }
+                Assert.IsTrue(sawWhistle, "the Whistle came");
+                Assert.Less(effects.FlightSeconds, Breakaway.GoalieReactSeconds, "a close, fast Shot: the flight is shorter than his ease-in");
+                Assert.IsTrue(round.LastRace.Value.InTheWay);
+                Assert.Less(biggestStep, 0.5, "no jump in his progress");
             }
             finally { Object.DestroyImmediate(camera); }
         }
