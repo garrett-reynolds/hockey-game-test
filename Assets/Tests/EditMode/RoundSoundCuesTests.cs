@@ -170,7 +170,7 @@ namespace HockeyGame.Core.Tests
             cues.Update(round);
             CollectionAssert.AreEquivalent(new[] { SoundCue.NetRustle }, cues.Update(round, SoundCue.NetRustle));
             round.Whistle(ShotResultKind.Miss);
-            CollectionAssert.AreEquivalent(new[] { SoundCue.MissImpact, SoundCue.SmallGroan }, cues.Update(round));
+            CollectionAssert.AreEquivalent(new[] { SoundCue.SmallGroan }, cues.Update(round)); // the boards sound comes from a physics contact (#110), not the Whistle
         }
 
         [Test]

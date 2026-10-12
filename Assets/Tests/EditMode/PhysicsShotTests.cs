@@ -214,7 +214,9 @@ namespace HockeyGame.Core.Tests
 
             Assert.AreEqual(ShotResultKind.Miss, shot.Result);
             string touched = shot.FirstTouched == null ? "nothing" : shot.FirstTouched.name + " at " + flight.FirstTouchAt.ToString("F3");
-            Assert.IsFalse(shot.Touched, "passed clear of the frame and the catch, but touched " + touched);
+            // Past the net it may still meet the boards or glass (a real hit, #110); it must not touch the frame or the catch.
+            bool hitWall = shot.Touched && (shot.FirstTouched.sharedMaterial == ShotColliders.Boards || shot.FirstTouched.sharedMaterial == ShotColliders.Glass);
+            Assert.IsTrue(!shot.Touched || hitWall, "passed clear of the frame and the catch, but touched " + touched);
             // Not stopped at the goal line: it goes on past the net.
             Assert.Greater(flight.FarthestZ, 1f, "went on past the goal line, ended at " + shot.Puck.position.ToString("F2"));
             Assert.Less(shot.WhistleSeconds, flight.CrossedAt + 0.1, "gone as it passed the goal line outside the net");

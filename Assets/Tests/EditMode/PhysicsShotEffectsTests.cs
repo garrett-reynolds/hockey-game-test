@@ -233,9 +233,11 @@ namespace HockeyGame.Core.Tests
             for (int i = 0; i < 1.0 / Step; i++)
             {
                 Frame(round, effects);
-                Assert.IsNull(effects.HitSound, "rang at " + effects.Shot.SecondsSinceShot + " s, off " + effects.Shot.FirstTouched?.name);
+                // Past the frame it may sound the boards or glass (#110); it must not ring the frame or rustle the netting.
+                Assert.IsTrue(effects.HitSound == null || effects.HitSound == SoundCue.MissImpact || effects.HitSound == SoundCue.GlassImpact,
+                    "rang " + effects.HitSound + " at " + effects.Shot.SecondsSinceShot + " s, off " + effects.Shot.FirstTouched?.name);
             }
-            Assert.IsFalse(effects.Shot.Touched);
+            Assert.IsTrue(!effects.Shot.Touched || effects.Shot.FirstTouched.sharedMaterial == ShotColliders.Boards || effects.Shot.FirstTouched.sharedMaterial == ShotColliders.Glass);
         }
 
         // Wide of the net and low (the boards) or high (the glass): the first wall sound of the Shot, from its physics contact.
