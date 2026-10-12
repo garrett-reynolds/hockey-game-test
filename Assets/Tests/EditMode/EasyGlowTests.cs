@@ -317,7 +317,8 @@ namespace HockeyGame.Core.Tests
                              })
                     {
                         Vector3 ray = point - eye;
-                        RaycastHit[] hits = Physics.RaycastAll(eye, ray.normalized, ray.magnitude + 0.1f).OrderBy(h => h.distance).ToArray();
+                        // The physics puck's hit shapes on his gear (#111) draw nothing: only what is drawn can hide the glow.
+                        RaycastHit[] hits = Physics.RaycastAll(eye, ray.normalized, ray.magnitude + 0.1f).Where(h => RendererOf(h.collider) != null).OrderBy(h => h.distance).ToArray();
                         int at = System.Array.FindIndex(hits, h => RendererOf(h.collider) == glow);
                         string where = side + " " + setUp + " Gap " + column + "," + row;
                         if (at < 0) { problems.Add(where + ": the glow is not on the line from the eye"); continue; }

@@ -39,6 +39,7 @@ namespace HockeyGame
         bool _visible;
         Vector3 _spot;                       // where the goalie stands (Stand)
         readonly GoalieCharacter _character; // null or without a model: the block goalie is drawn
+        readonly GoalieHitShapes _hits;      // the physics puck's hit shapes on his gear and body (#111); null for the block goalie
         float _life;                             // Stance Life clock (Live)
         Transform _carried, _carrier;            // Carry: the resting puck, and what it moves with
         Vector3 _carriedAt;
@@ -75,7 +76,11 @@ namespace HockeyGame
                 cell.GetComponent<Renderer>().sharedMaterial = _glow;
                 _gapCells[NetFaceGaps.Index(column, row)] = cell;
             }
-            if (_character != null) _block.GetComponent<Renderer>().enabled = false;
+            if (_character != null)
+            {
+                _block.GetComponent<Renderer>().enabled = false;
+                _hits = new GoalieHitShapes(_character, parent);
+            }
             Apply();
             SetGlowDepth();
         }
@@ -212,6 +217,12 @@ namespace HockeyGame
         /// <summary>True when the rigged goalie character is drawn (not the block goalie).</summary>
         public bool HasCharacter => _character != null;
 
+        /// <summary>
+        /// Call in each physics step, once the goalie is posed for the end of the step (SetProgress) and before physics simulates:
+        /// moves the hit shapes to his gear (#111). Nothing without the character or while he is hidden.
+        /// </summary>
+        public void MoveHitShapes() => _hits?.Move();
+
         /// <summary>The goalie as drawn: the character's root, or the block goalie (the Replay records it).</summary>
         public Transform Body => _character != null ? _character.Root.transform : _block.transform;
 
@@ -273,6 +284,7 @@ namespace HockeyGame
             ApplyGaps();
             if (_character == null) return;
             _character.Show(_visible);
+            _hits.SetActive(_visible);
             if (_visible) _character.Prepare(); // measured now, at the Round start, not on the Shot
             PoseCharacter();
         }

@@ -34,6 +34,7 @@ namespace HockeyGame
         RinkPoint _puckOnStick;  // the puck his head follows before the Shot (#70)
         float _lastTarget;       // the facing that squares him up to the puck, as last worked out
         float _life;       // the goalie's Stance Life clock: real seconds, never reset, so it never jumps
+        float _frameSeconds; // Time.unscaledTime at the last frame's LateUpdate, where the Round's clock (PhaseSecondsElapsed) is read
         float _lookUp;     // how far the camera turns up to the Video Board for the Replay (the Arena Show's), 0..1
 
         /// <param name="flightSeconds">The current Shot's Flight Time (PhysicsShotEffects.FlightSeconds), the same before and
@@ -56,7 +57,33 @@ namespace HockeyGame
 
         void LateUpdate()
         {
-            if (_round != null) Step(Time.deltaTime, Time.unscaledDeltaTime);
+            if (_round == null) return;
+            _frameSeconds = Time.unscaledTime;
+            Step(Time.deltaTime, Time.unscaledDeltaTime);
+        }
+
+        /// <summary>
+        /// Each physics step (#111, before Unity simulates it): poses the goalie for the end of the step, then moves the hit
+        /// shapes to his gear, so physics sees the gear's true speed. LateUpdate poses him again for the picture each frame.
+        /// Between frames only his reaction moves (GoalieSet, on the result hold's clock); where he stands and faces holds.
+        /// </summary>
+        void FixedUpdate()
+        {
+            if (_round == null) return;
+            float ahead = Mathf.Clamp(Time.fixedUnscaledTime + Time.fixedUnscaledDeltaTime - _frameSeconds, 0f, MaxAheadSeconds);
+            PoseForPhysics(ahead);
+        }
+
+        /// <summary>The longest the pose is taken ahead of the Round's clock (seconds): a long frame is not a long guess.</summary>
+        const float MaxAheadSeconds = 0.1f;
+
+        /// <summary>Poses the goalie as the Round's clock will have him ahead seconds from the last frame, and moves the hit shapes to his gear.</summary>
+        public void PoseForPhysics(float ahead)
+        {
+            float set = (float)Breakaway.GoalieSet(_round.Phase, _round.PhaseSecondsElapsed + ahead, _round.LastShot.HasValue,
+                _flight(), _round.LastRace);
+            _goalie.SetProgress(set);
+            _goalie.MoveHitShapes();
         }
 
         /// <summary>One frame: dt is the game (scaled) seconds since the last one, realDt the real seconds. LateUpdate runs it each frame.</summary>

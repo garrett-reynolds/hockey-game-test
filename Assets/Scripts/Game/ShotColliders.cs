@@ -7,7 +7,8 @@ namespace HockeyGame
     /// <summary>
     /// What the physics puck can hit, with the "C Dead" feel (#103): the ice, the posts and crossbar, the boards and glass all
     /// round the rink (#110), and the hidden catch boxes behind the netting (#102), which stop the puck in the net (the
-    /// netting itself is looks only). Hidden, static colliders. No goalie hit shapes yet (#111).
+    /// netting itself is looks only). Hidden, static colliders. The goalie's gear has its materials here too (#111), told
+    /// apart by feel group; its hit shapes move, so GoalieHitShapes builds them.
     /// </summary>
     public static class ShotColliders
     {
@@ -40,7 +41,7 @@ namespace HockeyGame
 
         // Static friction is a little over the grip (dynamic friction), as in the prototypes. Made once and kept: never
         // unloaded with unused assets (a Unity null check would not see an unloaded one through ??=).
-        static PhysicsMaterial _ice, _frame, _catch, _boards, _glass;
+        static PhysicsMaterial _ice, _frame, _catch, _boards, _glass, _pads, _stick, _body, _glove;
 
         /// <summary>Ice: grip 0.08, no bounce.</summary>
         public static PhysicsMaterial Ice => _ice != null ? _ice : _ice = new PhysicsMaterial("Ice")
@@ -81,6 +82,35 @@ namespace HockeyGame
             bounciness = 0.3f, dynamicFriction = 0.15f, staticFriction = 0.15f * 1.2f,
             frictionCombine = PhysicsMaterialCombine.Minimum, bounceCombine = PhysicsMaterialCombine.Maximum,
         };
+
+        /// <summary>Pads, blocker and skates (gear feel "C Soak 70%", #105): bounce 0.25, grip 0.5. Gear: its own bounce wins (Maximum), its own grip too (Minimum).</summary>
+        public static PhysicsMaterial GearPads => _pads != null ? _pads : _pads = Gear("Goalie Pads and Blocker", 0.25f);
+
+        /// <summary>The goalie's stick: bounce 0.2, grip 0.5.</summary>
+        public static PhysicsMaterial GearStick => _stick != null ? _stick : _stick = Gear("Goalie Stick", 0.2f);
+
+        /// <summary>The goalie's body and mask: bounce 0.1, grip 0.5.</summary>
+        public static PhysicsMaterial GearBody => _body != null ? _body : _body = Gear("Goalie Body", 0.1f);
+
+        /// <summary>The catching glove: bounce 0.02, grip 0.5. It nearly kills the puck.</summary>
+        public static PhysicsMaterial GearGlove => _glove != null ? _glove : _glove = Gear("Goalie Glove", 0.02f);
+
+        static PhysicsMaterial Gear(string name, float bounce) => new PhysicsMaterial(name)
+        {
+            hideFlags = HideFlags.DontUnloadUnusedAsset,
+            bounciness = bounce, dynamicFriction = 0.5f, staticFriction = 0.5f * 1.2f,
+            frictionCombine = PhysicsMaterialCombine.Minimum, bounceCombine = PhysicsMaterialCombine.Maximum,
+        };
+
+        /// <summary>The goalie's gear feel for this piece of gear (GearPiece): the glove for the Catcher, the stick, the pads for the pads, blocker and skates, else the body.</summary>
+        public static PhysicsMaterial GearOf(string piece) =>
+            piece == GearPiece.Catcher ? GearGlove : piece == GearPiece.Stick ? GearStick
+            : piece == GearPiece.LeftPad || piece == GearPiece.RightPad || piece == GearPiece.Blocker
+              || piece == GearPiece.LeftSkate || piece == GearPiece.RightSkate ? GearPads : GearBody;
+
+        /// <summary>The material is one of the goalie's gear (a gear touch makes a Save, #111).</summary>
+        public static bool IsGear(PhysicsMaterial material) =>
+            material != null && (material == _pads || material == _stick || material == _body || material == _glove);
 
         /// <summary>Adds the colliders under parent, in a new RootName object. Returns that root.</summary>
         public static GameObject Build(Transform parent)
