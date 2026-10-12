@@ -144,6 +144,20 @@ namespace HockeyGame.Core.Tests
             CollectionAssert.AreEquivalent(new[] { SoundCue.Ooh }, cues.Update(round));
         }
 
+        // The netting's sound (#112) plays when the puck meets the netting; it is no frame hit, so a Miss after it is no "ooh".
+        [Test]
+        public void The_netting_sound_plays_when_it_happens_and_is_no_frame_hit()
+        {
+            var round = StartedRound();
+            var cues = new RoundSoundCues(new SaveData());
+            Run(round, cues, 3.8);
+            round.SubmitShot(150, 90, 100, false);
+            cues.Update(round);
+            CollectionAssert.AreEquivalent(new[] { SoundCue.NetRustle }, cues.Update(round, SoundCue.NetRustle));
+            round.Whistle(ShotResultKind.Miss);
+            CollectionAssert.AreEquivalent(new[] { SoundCue.MissImpact, SoundCue.SmallGroan }, cues.Update(round));
+        }
+
         [Test]
         public void A_post_hit_on_the_last_Shot_does_not_quiet_the_next_Miss()
         {

@@ -86,6 +86,24 @@ namespace HockeyGame.Core.Tests
             }
         }
 
+        // #112: the look back starts when the puck meets the netting, or LatestNetting after the Whistle if it never does.
+        [Test]
+        public void On_a_goal_the_gesture_starts_at_the_netting_touch_or_half_a_second_after_the_Whistle_if_there_is_none()
+        {
+            const AfterShotGesture g = AfterShotGesture.StickSlap;
+            void AssertSame(AfterShotMoment a, AfterShotMoment b, string why)
+            {
+                Assert.AreEqual(a.Watch, b.Watch, 1e-9, why);
+                Assert.AreEqual(a.Relax, b.Relax, 1e-9, why);
+                Assert.AreEqual(a.Gesture, b.Gesture, 1e-9, why);
+            }
+            AssertSame(AfterShot.At(g, 0.4, 0.3), AfterShot.At(g, 0.8, -1), "a touch at 0.1 s starts it 0.4 s sooner than no touch (0.5 s)");
+            AssertSame(AfterShot.At(g, 0.5 + 0.7, 0.7), AfterShot.At(g, 0.5 + 0.7, -1), "no touch: as a touch at 0.5 s");
+            AssertSame(AfterShot.At(g, 1.0, 0.1), AfterShot.At(g, 1.0, -1), "a touch after 0.9 s is too late: the fallback has started it");
+            Assert.AreEqual(0, AfterShot.At(g, 0.45, -1).Watch, "no touch yet, and not 0.5 s");
+            Assert.Greater(AfterShot.At(g, 0.45, 0.35).Watch, 0.0, "a touch at 0.1 s: looking back by 0.45 s");
+        }
+
         [Test]
         public void On_a_goal_the_hand_reaches_late_then_he_looks_back_into_the_net_then_gestures_then_recovers()
         {

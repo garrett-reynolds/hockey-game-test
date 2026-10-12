@@ -320,6 +320,9 @@ namespace HockeyGame
         /// <summary>The seconds since the puck got there, as last given to Watch (negative: not yet).</summary>
         public float SecondsSinceArrival => _sinceArrival;
 
+        /// <summary>The seconds since the puck met the netting, as last given to Watch (negative: not yet, so the gesture waits for AfterShot.LatestNetting).</summary>
+        public float SecondsSinceNetting => _sinceNetting;
+
         /// <summary>
         /// Each frame of the result hold, from PhysicsShotEffects: where the puck is (shown or not), the seconds since it got
         /// there (the Whistle; in ShotEffects, the scripted puck's arrival) and since a GOAL! met the netting (negative: not

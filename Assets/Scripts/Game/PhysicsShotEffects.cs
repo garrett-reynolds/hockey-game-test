@@ -10,7 +10,7 @@ namespace HockeyGame
     /// gives the Whistle rule the puck's facts, and at the Whistle it tells the Round the result (Round.Whistle).
     /// <para>
     /// The goalie's after-shot motion (AfterShot) starts from the Whistle, with the real result (GoalieView.Judge), so a
-    /// Miss shows Relief. The Annoyed Gesture waits for the puck to meet the netting (the catch). Post and crossbar hits sound from the physics contacts (HitSound). The goal light is
+    /// Miss shows Relief. The Annoyed Gesture starts when the puck meets the netting (the catch: its contact also sounds the netting, and the cloth netting (NetCloth) gives), or AfterShot.LatestNetting after the Whistle if it never does. Post and crossbar hits sound from the physics contacts (HitSound). The goal light is
     /// built here with the rink's Shot parts, but the Arena Show drives it (GoalShow.GoalLight, from a GOAL!'s Whistle).
     /// </para>
     /// <para>
@@ -42,6 +42,7 @@ namespace HockeyGame
         readonly GoalieView _goalie;
         readonly Func<string, GameObject> _findFile;
         readonly GoalLight _goalLight;
+        readonly NetCloth _netCloth;
         readonly ShotResultWatch _newResult = new ShotResultWatch();
 
         Round _round;          // the Round of the current Shot
@@ -63,6 +64,7 @@ namespace HockeyGame
             _findFile = findFile;
             ShotColliders.Build(rink);
             _goalLight = new GoalLight(rink, findFile);
+            _netCloth = new NetCloth(rink);
         }
 
         /// <summary>The current Shot's physics puck and its Whistle; null before the first Shot.</summary>
@@ -76,6 +78,15 @@ namespace HockeyGame
 
         /// <summary>The goal light at the far net (built with the rink's Shot parts). The Arena Show turns it on and off (RoundDriver).</summary>
         public GoalLight GoalLight => _goalLight;
+
+        /// <summary>The cloth netting (looks only: the catch boxes stop the puck).</summary>
+        public NetCloth NetCloth => _netCloth;
+
+        /// <summary>
+        /// Seconds since the puck first met the netting (the catch) in this Shot, -1 before it does: the Annoyed Gesture starts
+        /// from it, or AfterShot.LatestNetting after the Whistle if the puck never does.
+        /// </summary>
+        public float SecondsSinceNetting => _nettedAt < 0f ? -1f : _clock - _nettedAt;
 
         /// <summary>
         /// How far the shooter's camera is turned up to the Video Board now (the Arena Show's CameraLookUp, 0 on the net): set
@@ -108,7 +119,7 @@ namespace HockeyGame
             if (!Shot.HasWhistled && _clock >= round.Settings.WhistleCapSeconds + NoWhistleGraceSeconds) Shot.WhistleNow();
 
             if (round.Phase != RoundPhase.ResultHold) return;
-            _goalie?.Watch(Shot.Puck.transform.position, _whistledAt < 0f ? -1f : _clock - _whistledAt, _nettedAt < 0f ? -1f : _clock - _nettedAt);
+            _goalie?.Watch(Shot.Puck.transform.position, _whistledAt < 0f ? -1f : _clock - _whistledAt, SecondsSinceNetting);
         }
 
         /// <summary>
@@ -119,6 +130,7 @@ namespace HockeyGame
         {
             if (Shot == null) return;
             Shot.AfterStep(stepSeconds);
+            _netCloth.Follow(Shot.Puck.position);
             if (CameraLookUp == 0 && Shot.Puck.gameObject.activeSelf && Shot.OutOfSight) Shot.Puck.gameObject.SetActive(false);
         }
 
@@ -136,6 +148,7 @@ namespace HockeyGame
             Shot.Whistled += OnWhistled;
             Shot.Hit += OnHit;
             Shot.Launch(shot.X, shot.Y, shot.SpeedKmh); // also off the Net Face: judged by the same rule
+            _netCloth.Track(Shot.Puck);
             FlightSeconds = (float)ShotFlight.Seconds(Vector3.Distance(Shot.Start, Shot.Target), shot.SpeedKmh);
 
             // The goalie moves as the Round's race timed him (Reach in time): the race's result (ScriptedShot) picks his reach.
@@ -167,7 +180,9 @@ namespace HockeyGame
         {
             if (other.sharedMaterial == ShotColliders.Catch)
             {
-                if (_nettedAt < 0f) _nettedAt = _clock; // the puck meets the netting
+                if (_nettedAt >= 0f) return;
+                _nettedAt = _clock; // the puck meets the netting
+                _pendingHit = SoundCue.NetRustle;
                 return;
             }
             if (other.sharedMaterial != ShotColliders.Frame || impulse.magnitude < PingImpulse) return;
@@ -177,6 +192,10 @@ namespace HockeyGame
         }
 
         /// <summary>Removes the puck and stops listening for its contacts (the Shot colliders and the goal light stay with the rink).</summary>
-        public void Dispose() => Replace();
+        public void Dispose()
+        {
+            Replace();
+            _netCloth.Dispose();
+        }
     }
 }

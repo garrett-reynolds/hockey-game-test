@@ -88,6 +88,7 @@ namespace HockeyGame
             _clips[SoundCue.GloveCatch] = new[] { SoundFiles.Load(SoundFiles.GloveCatch, PlaceholderSounds.GloveCatch) };
             _clips[SoundCue.BlockerHit] = new[] { SoundFiles.Load(SoundFiles.BlockerHit, PlaceholderSounds.BlockerHit) };
             _clips[SoundCue.MissImpact] = new[] { SoundFiles.Load(SoundFiles.BoardsClang, PlaceholderSounds.BoardsClang) };
+            _clips[SoundCue.NetRustle] = new[] { SoundFiles.Load(SoundFiles.NetRustle, PlaceholderSounds.NetRustle) };
             _clips[SoundCue.PostPing] = new[] { SoundFiles.Load(SoundFiles.PostPing, PlaceholderSounds.PostPing) };
             _clips[SoundCue.Cheer] = new[] { SoundFiles.Load(SoundFiles.Cheer, PlaceholderSounds.Cheer) };
             AudioClip groan = SoundFiles.Load(SoundFiles.Groan, PlaceholderSounds.Groan);

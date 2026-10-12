@@ -36,6 +36,8 @@ namespace HockeyGame
         public const string PostPing = "post-ping";
         public const string GloveCatch = "glove-catch";
         public const string BlockerHit = "blocker-hit";
+        /// <summary>The puck meets the netting and the cloth gives.</summary>
+        public const string NetRustle = "net-rustle";
         /// <summary>The hockey stop that ends the skate-in, cut to RoundSoundCues.HockeyStopSeconds.</summary>
         public const string HockeyStop = "hockey-stop";
         /// <summary>One blade push each; a stride plays one of them, never the same one twice running.</summary>

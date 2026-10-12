@@ -19,6 +19,7 @@ namespace HockeyGame.Core
         NewBestCheer,
         PostPing,     // a Miss rings off a post or the crossbar
         GloveCatch,   // a Save in the catching glove
+        NetRustle,    // the puck meets the netting (a GOAL!): the cloth gives
         BlockerHit,   // a Save off the blocker (or the stick or a skate)
         HockeyStop,   // the skate-in begins: start the hockey stop, placed so it ends with the skate-in
         HockeyStopEnd, // the skate-in ends: stop the hockey stop
@@ -228,7 +229,7 @@ namespace HockeyGame.Core
             if (hit.HasValue)
             {
                 _cues.Add(hit.Value);
-                _hitThisShot = true;
+                if (hit.Value != SoundCue.NetRustle) _hitThisShot = true; // the netting is no frame hit: no "ooh"
             }
             // A new result is a Too Late (at once) or a Shot's Whistle.
             if (_newResult.TakeNew(round)) PlayResult(round);
