@@ -573,7 +573,7 @@ namespace HockeyGame.Core.Tests
                     Shoot(round, effects, 50, 50, 100);
                     var stray = new List<string>();
                     foreach (Collider c in rink.GetComponentsInChildren<Collider>(true))
-                        if (c.GetComponentInParent<Rigidbody>(true) == null && c.transform.parent?.name != ShotColliders.RootName)
+                        if (c.GetComponentInParent<Rigidbody>(true) == null && c.transform.parent?.name != ShotColliders.RootName && c.name != NetCloth.ProxyName) // the cloth's spheres ignore the puck (NetClothTests)
                             stray.Add(c.name + " under " + c.transform.parent?.name);
                     CollectionAssert.IsEmpty(stray);
                     Assert.IsEmpty(camera.GetComponentsInChildren<Collider>(true));

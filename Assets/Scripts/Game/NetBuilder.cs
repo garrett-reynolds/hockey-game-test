@@ -17,7 +17,7 @@ namespace HockeyGame
         /// <summary>Thickness of the posts and crossbar (metres). The opening is inside them.</summary>
         public const float Post = (float)Core.NetFrame.ThicknessMetres;
 
-        /// <summary>Name of the part that shakes on a goal (the netting).</summary>
+        /// <summary>Name of the netting part (the cloth netting, NetCloth, takes its place on the near net).</summary>
         public const string NettingName = "Netting";
 
         /// <summary>The frame's pieces a puck can hit (AddFrame).</summary>
@@ -94,7 +94,7 @@ namespace HockeyGame
             return false;
         }
 
-        /// <summary>The part of the net under the rink that shakes on a goal, or null.</summary>
+        /// <summary>The netting part of the net under the rink, or null.</summary>
         public static Transform FindNetting(Transform rink) =>
             rink.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == NettingName);
 

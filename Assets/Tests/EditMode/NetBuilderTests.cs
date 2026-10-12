@@ -73,7 +73,7 @@ namespace HockeyGame.Core.Tests
 
             Assert.IsNotNull(Child(net.transform, "Back"), "box net back");
             AssertOpeningMatchesTheNetFace(net.transform);
-            Assert.IsNotNull(NetBuilder.FindNetting(_rink), "the box netting still shakes on a goal");
+            Assert.IsNotNull(NetBuilder.FindNetting(_rink), "the box netting is still found (the cloth netting hides it)");
         }
 
         [Test]
@@ -98,15 +98,6 @@ namespace HockeyGame.Core.Tests
             int triangles = net.GetComponentsInChildren<MeshFilter>(true).Sum(f => (int)f.sharedMesh.GetIndexCount(0) / 3);
             Assert.Less(triangles, 50000, "whole net, triangles");
             Assert.Greater(triangles, 10000, "the netting is real strands, not a box");
-        }
-
-        [Test]
-        public void The_supplied_netting_mesh_can_be_bent_at_run_time()
-        {
-            NetBuilder.Build(_rink);
-
-            Mesh netting = NetBuilder.FindNetting(_rink).GetComponent<MeshFilter>().sharedMesh;
-            Assert.IsTrue(netting.isReadable, "NetBulge moves the netting vertices, so the mesh must be readable in a build");
         }
 
         [Test]

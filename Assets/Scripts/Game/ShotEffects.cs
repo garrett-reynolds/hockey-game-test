@@ -6,7 +6,7 @@ namespace HockeyGame
 {
     /// <summary>
     /// Plays what a Shot did: the puck flies from just below the camera to the Shot's spot on the Net Face
-    /// (time from ShotFlight), spinning flat, then Goal (into the net, the netting bulges and the puck drops, red goal light), Save (on the goalie character's gear, or a goalie block slides
+    /// (time from ShotFlight), spinning flat, then Goal (into the net, the puck drops, red goal light), Save (on the goalie character's gear, or a goalie block slides
     /// to the spot; the puck deflects off the surface it hit, or the catching glove holds it), Miss (the puck flies on past the net, or
     /// deflects off a post or the crossbar) or Too Late (no puck). The deflection is PuckMotion (see #38).
     /// Watches the Round and sounds its Whistle when the flight ends (Round.Whistle). Uses real (unscaled) time. No colliders.
@@ -27,18 +27,18 @@ namespace HockeyGame
         const float GloveZ = GoalieView.BlockZ - GoalieView.BlockDepth / 2f - GloveGap - GloveDepth / 2f; // in front of the goalie block
         const float SaveZ = GloveZ - GloveDepth / 2f - PuckThickness;
         const float MissCarrySeconds = 0.8f;
-        const float CaughtSeconds = 0.25f;           // a goal puck rests in the netting bulge this long, then drops
+        const float CaughtSeconds = 0.25f;           // a goal puck rests at the back of the net this long, then drops
         const float BaseRailMetres = 0.07f;          // the net's back base tube and skirt on the ice: copied by hand from Tools/make_supplied_net.py's output, change both together
         static readonly Color SaveBlockColour = new Color(0.45f, 0.6f, 1f); // lighter than the GoalieView block so the slide shows in front of it
 
         enum Stage { None, Flying, IntoNet, InNet, Deflecting, Carrying, OnGoalie } // OnGoalie: held in the catching glove, moved by GoalieView.Carry
 
+        readonly Transform _rink;
         readonly Camera _camera;
         readonly GameObject _puck;
         readonly GameObject _glove;
         /// <summary>The red goal light above the net, built off. The Goal Show (Arena Show) turns it on and off, not the puck.</summary>
         public GoalLight GoalLight { get; }
-        readonly NetBulge _net;        // the netting catches a goal
         readonly bool _boards;         // a missed puck comes back off the end boards (only when there are boards)
         readonly GoalieView _goalie;   // with the goalie character shown, a save stops on its gear (no save block)
 
@@ -97,6 +97,7 @@ namespace HockeyGame
         /// <param name="goalie">The goalie; when it shows the character, a save stops on the character's gear.</param>
         public ShotEffects(Transform rink, Camera camera, Func<string, GameObject> findFile = null, GoalieView goalie = null)
         {
+            _rink = rink;
             _camera = camera;
             _goalie = goalie;
             _boards = RinkBoards.Present(rink);
@@ -112,8 +113,6 @@ namespace HockeyGame
             ModelFiles.Place(_glove.transform, ModelFiles.SaveGlove, PlaceholderSaveBlock, findFile, new Vector3(0.3f, 0.25f, GloveDepth));
 
             GoalLight = new GoalLight(rink);
-
-            _net = new NetBulge(NetBuilder.FindNetting(rink));
 
             Clear();
         }
@@ -148,7 +147,7 @@ namespace HockeyGame
             bool newResult = _newResult.TakeNew(round);
             if (round.Phase != RoundPhase.ResultHold)
             {
-                if (_stage != Stage.None || _net.Moving || _glove.activeSelf) Clear();
+                if (_stage != Stage.None || _glove.activeSelf) Clear();
                 return;
             }
             bool isNew = newShot || (newResult && !round.LastResult.Value.HasShot); // a Whistle's result is not new: its Shot is playing
@@ -280,18 +279,17 @@ namespace HockeyGame
                             _time = 0f;
                             _nettedAt = _clock;
                             _velocity = Vector3.zero;
-                            _net.Hit(new Vector3(p.x, p.y, _backZ), (float)_result.SpeedKmh);
                         }
                         _puck.transform.position = p;
                     }
                     break;
                 case Stage.InNet:
                     {
-                        // Rides the bulge at the back of the net, then drops to the ice.
+                        // Rests at the back of the net, then drops to the ice.
                         // While it drops it eases forward so it lands in front of the back base rail, not inside it.
                         Vector3 p = _puck.transform.position;
                         float clear = Mathf.Clamp01((_time - CaughtSeconds) / 0.2f);
-                        p.z = _backZ - Mathf.Lerp(PuckThickness, BaseRailMetres + PuckThickness / 2f, clear) + _net.BackAtHit;
+                        p.z = _backZ - Mathf.Lerp(PuckThickness, BaseRailMetres + PuckThickness / 2f, clear);
                         if (_time > CaughtSeconds && p.y > PuckDiameter / 2f)
                         {
                             _velocity.y -= PuckMotion.Gravity * dt;
@@ -312,7 +310,25 @@ namespace HockeyGame
                     if (_time > MissCarrySeconds) { _puck.SetActive(false); _stage = Stage.None; }
                     break;
             }
-            _net.Step(dt);
+        }
+
+        /// <summary>World z where a goal at this Net Face point meets the netting at the back of the net: the deepest netting within 3 cm across and up (else the nearest); the net depth for the box net.</summary>
+        float BackOfNet(float x, float y)
+        {
+            Transform netting = NetBuilder.FindNetting(_rink);
+            var filter = netting != null ? netting.GetComponent<MeshFilter>() : null;
+            if (filter == null || filter.sharedMesh == null) return RinkBuilder.NetDepth;
+            const float Column = 0.03f;
+            float back = float.NegativeInfinity, nearest = float.MaxValue, nearestZ = RinkBuilder.NetDepth;
+            foreach (Vector3 local in filter.sharedMesh.vertices)
+            {
+                Vector3 w = netting.TransformPoint(local);
+                float dx = w.x - x, dy = w.y - y;
+                if (Mathf.Abs(dx) <= Column && Mathf.Abs(dy) <= Column && w.z > back) back = w.z;
+                float r = dx * dx + dy * dy;
+                if (r < nearest) { nearest = r; nearestZ = w.z; }
+            }
+            return float.IsNegativeInfinity(back) ? nearestZ : back;
         }
 
         void Arrive()
@@ -329,7 +345,7 @@ namespace HockeyGame
                     p.x = Mathf.Clamp(p.x, -W / 2f + PuckDiameter, W / 2f - PuckDiameter);
                     p.y = Mathf.Clamp(p.y, PuckThickness, H - PuckDiameter);
                     _puck.transform.position = p;
-                    _backZ = _net.BackOfNet(p.x, p.y); // the netting's back slopes: a high goal meets it sooner
+                    _backZ = BackOfNet(p.x, p.y); // the netting's back slopes: a high goal meets it sooner
                     _stage = Stage.IntoNet;
                     break;
                 case ShotResultKind.Save:
@@ -390,7 +406,6 @@ namespace HockeyGame
             _puck.SetActive(false);
             _goalie?.Carry(null);
             _glove.SetActive(false);
-            _net.Reset();
         }
     }
 }

@@ -24,6 +24,7 @@ namespace HockeyGame
         public static AudioClip GlassBang() => Make("Glass Bang", Bang(0.5f));
         public static AudioClip PostPing() => Make("Post Ping", Ping(0.8f));
         public static AudioClip GloveCatch() => Make("Glove Catch", NoiseBurst(0.18f, 0.6f, 0.75f, 35f, 13));
+        public static AudioClip NetRustle() => Make("Net Rustle", NoiseBurst(0.45f, 0.4f, 0.3f, 7f, 23));
         public static AudioClip BlockerHit() => Make("Blocker Hit", NoiseBurst(0.2f, 0.6f, 0.45f, 30f, 17));
         public static AudioClip Cheer() => Make("Cheer", Swell(Crowd(3f, 0.9f, 0.2f), 0.4f, 1.8f));
         public static AudioClip Groan() => Make("Groan", Swell(Crowd(1.8f, 0.7f, 0.65f), 0.25f, 1.0f));
