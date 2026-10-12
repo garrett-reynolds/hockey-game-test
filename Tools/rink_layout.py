@@ -13,6 +13,10 @@ FAR_END_BOARDS_Z = -57.61
 CENTRE_LINE_Z = -27.13
 NEAR_BLUE_LINE_Z = -19.6596
 
+# The Calm Area on the ice: x within +/-CALM_AREA_HALF_WIDTH, from the crease front to the near end boards.
+CALM_AREA_HALF_WIDTH = 4.27
+CALM_AREA_FRONT_Z = -1.9
+
 # Boards and glass (metres above the ice).
 BOARD_HEIGHT = 1.07
 KICK_PLATE_TOP = 0.20

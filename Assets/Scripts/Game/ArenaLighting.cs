@@ -12,7 +12,8 @@ namespace HockeyGame
     /// start, is the scene's reflection: the glossy ice mirrors the light banks, boards and net. Post-processing
     /// (tonemapping, bloom, vignette) and the material templates come from assets in Assets/Resources/Lighting, so a
     /// player build keeps their shaders.
-    /// Cost: 6 realtime lights (Forward+), 3 of them with soft shadows, and one 128 px cubemap rendered at start.
+    /// Cost: 6 realtime lights (Forward+), 3 of them with soft shadows, and one 256 px cubemap rendered at start.
+    /// No planar or screen-space reflections. No light is aimed back at the shooter, so none glares in the Calm Area.
     /// </summary>
     public static class ArenaLighting
     {
@@ -138,20 +139,23 @@ namespace HockeyGame
         }
 
         /// <summary>
-        /// What glossy surfaces (the ice, the glass) reflect: a cubemap of the arena seen from over the skate-in (ReflectionEyeZ) at eye
-        /// height, rendered once, here, by a temporary camera, and used as the scene's reflection. It holds the stands,
-        /// light banks, boards and net but not the goalie or puck (they move). Rendered in code, so it needs neither baked
-        /// lighting nor Realtime Reflection Probes on in the Quality settings.
-        /// </summary>
-        /// <summary>
         /// Where along the rink the reflection cubemap is seen from: over the skate-in, the middle of the half rink the
         /// shooter sees (the cubemap was taken here before the rink grew to full length, so the Calm Area keeps its look).
         /// </summary>
         public const float ReflectionEyeZ = -13.125f;
+        /// <summary>Pixels along each side of the reflection cubemap: the boards and ads show in the ice's soft sheen (#88).</summary>
+        const int ReflectionSize = 256;
 
+        /// <summary>
+        /// What glossy surfaces (the ice, the glass) reflect: a cubemap of the arena seen from over the skate-in (ReflectionEyeZ) at eye
+        /// height, rendered once, here, by a temporary camera, and used as the scene's reflection. It holds the stands,
+        /// light banks, boards and net but not the goalie or puck (they move). Rendered in code, so it needs neither baked
+        /// lighting nor Realtime Reflection Probes on in the Quality settings. RinkBuilder builds the lights after the boards
+        /// and ads, so they are in it.
+        /// </summary>
         static void AddReflections(Transform rink)
         {
-            var cube = new RenderTexture(128, 128, 24, RenderTextureFormat.ARGBHalf)
+            var cube = new RenderTexture(ReflectionSize, ReflectionSize, 24, RenderTextureFormat.ARGBHalf)
             {
                 dimension = TextureDimension.Cube,
                 useMipMap = true,      // blurrier mips for rougher surfaces

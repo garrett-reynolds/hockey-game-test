@@ -117,8 +117,16 @@ namespace HockeyGame.Core.Tests
             Texture cube = RenderSettings.customReflectionTexture;
             Assert.IsNotNull(cube, "the arena is rendered into the scene's reflection");
             Assert.AreEqual(TextureDimension.Cube, cube.dimension);
-            Assert.That(cube.width, Is.LessThanOrEqualTo(256), "cheap: one small render at start");
+            Assert.AreEqual(256, cube.width, "sharp enough to show the boards and ads in the ice, cheap enough for one render at start");
             Assert.IsNull(_rink.GetComponentInChildren<Camera>(), "the reflection camera is gone after the render");
+        }
+
+        [Test]
+        public void No_light_shines_back_toward_the_shooter_so_the_Calm_Area_has_no_glare()
+        {
+            ArenaLighting.Build(_rink.transform);
+            foreach (Light light in _rink.GetComponentsInChildren<Light>())
+                Assert.That(light.transform.forward.z, Is.GreaterThan(-0.01f), light.name + " is aimed back at the camera");
         }
 
         [Test]
