@@ -65,6 +65,9 @@ namespace HockeyGame.Core
         /// <summary>Result of the current Shot; null until it has one.</summary>
         public ShotResult? LastResult { get; private set; }
 
+        /// <summary>The last finished Shot's speed this Round (kept into the next Shot); null before the first, or when it was Too late.</summary>
+        public double? LastShotSpeedKmh { get; private set; }
+
         /// <summary>Result per finished Shot, in order (TooLate counts as a Miss in the tally).</summary>
         public IReadOnlyList<ShotResultKind> Results => _results;
 
@@ -135,6 +138,7 @@ namespace HockeyGame.Core
             Goals = 0;
             IsNewBest = false;
             LastResult = null;
+            LastShotSpeedKmh = null;
             ShotNumber = 1;
             StartShot();
             EnterPhase(RoundPhase.SkateIn);
@@ -220,6 +224,7 @@ namespace HockeyGame.Core
         private void Finish(ShotResult result)
         {
             LastResult = result;
+            LastShotSpeedKmh = result.HasShot ? result.SpeedKmh : (double?)null;
             _results.Add(result.Kind);
             if (result.Kind == ShotResultKind.Goal)
                 Goals++;

@@ -11,9 +11,9 @@
 #   the game.
 #   arena.obj: a dark floor round the boards, two tiers of plain stepped seating all round the bowl (the game seats its
 #   3D fans there: Crowd.cs, CrowdSeats.cs), an LED ribbon board between the tiers ("Ribbon", made to glow by the game),
-#   a back wall and a roof at 24 m.
+#   a back wall and a roof at ROOF_HEIGHT (30 m).
 #   Near centre ice the stands step back BENCH_DEPTH for the two empty players' benches (one side) and the two empty
-#   penalty boxes (the other). Outer box: the outline + 31.2 m all round, y 0 to 24.
+#   penalty boxes (the other). Outer box: the outline + 31.2 m all round, y 0 to ROOF_HEIGHT.
 # Everything here is made from scratch for Hockey Game Test (no outside source). CC0.
 import math, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # finds vector3.py even when run with -I
@@ -28,7 +28,7 @@ PANEL = 1.5                                 # glass panel width along straight b
 POST = 0.05                                 # stanchion width
 REACH = 31.0                                # arena outer box = boards outer box + REACH all round
 OUTER = T + REACH                           # outer wall's offset from the rink outline
-ROOF = 24.0
+ROOF = layout.ROOF_HEIGHT
 
 CX = HW - R                                 # corner centres at (+-CX, EZ - R) and (+-CX, NZ + R)
 ZE, ZN = EZ - R, NZ + R

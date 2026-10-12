@@ -44,6 +44,9 @@ namespace HockeyGame.Core
 
         public FlowScreen Screen { get; private set; }
 
+        /// <summary>The saved best score (the start screen shows it; a reset on the settings screen shows at once).</summary>
+        public int BestScore => _save.BestScore;
+
         /// <summary>The one Round for the whole run: idle (or the last Round, over) on the start screen.</summary>
         public Round Round { get; }
 

@@ -27,6 +27,9 @@ namespace HockeyGame
             NetBuilder.BuildFar(root); // the still far net, no goalie
 
             ArenaLighting.Build(root);
+            // After the lights: the reflection cubemap is rendered once, so a board in it would shine a frozen picture
+            // into the ice behind the net (the Calm Area keeps no ice shine).
+            VideoBoards.Build(root); // the Video Board behind the near net and the Centre Board; they follow the Arena Show
 
             var cameraObject = new GameObject("Shooter Camera");
             cameraObject.tag = "MainCamera";

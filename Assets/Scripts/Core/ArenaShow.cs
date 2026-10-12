@@ -141,6 +141,27 @@ namespace HockeyGame.Core
             (GoalLight ? "goal light, " : "") + (RoofPulse ? "roof pulse " + FlashesPerSecond + "/s " + PulseColour + (Lit ? " lit" : " dark") : "no pulse");
     }
 
+    /// <summary>
+    /// The Video Board's words (the Centre Board shows the same): a big Headline and smaller Details lines ("\n" between
+    /// lines). Both are "" for an ad slide, which brings its own brand.
+    /// </summary>
+    public readonly struct VideoBoardWords : IEquatable<VideoBoardWords>
+    {
+        public string Headline { get; }
+        public string Details { get; }
+
+        public VideoBoardWords(string headline, string details)
+        {
+            Headline = headline;
+            Details = details;
+        }
+
+        public bool Equals(VideoBoardWords other) => Headline == other.Headline && Details == other.Details;
+        public override bool Equals(object obj) => obj is VideoBoardWords other && Equals(other);
+        public override int GetHashCode() => (Headline ?? "").GetHashCode() ^ (Details ?? "").GetHashCode();
+        public override string ToString() => "\"" + Headline + "\" / \"" + Details + "\"";
+    }
+
     /// <summary>The small TV-style score in a screen corner.</summary>
     public readonly struct ScoreBox
     {
@@ -171,12 +192,18 @@ namespace HockeyGame.Core
         /// <summary>Goals so far, counting a Goal whose puck is still in flight (as Round.Goals does).</summary>
         public int Goals;
         public int ShotNumber;
+        /// <summary>The saved best score (the start card shows it).</summary>
+        public int BestScore;
+        /// <summary>The last finished Shot's speed this Round; null before the first Shot, or when it was Too late (no puck).</summary>
+        public double? LastShotSpeedKmh;
     }
 
     /// <summary>One answer of the Arena Show: what every arena part does now. The Unity parts only follow it.</summary>
     public readonly struct ArenaState
     {
         public VideoBoardContent VideoBoard { get; }
+        /// <summary>The Video Board's (and the Centre Board's) words for VideoBoard.</summary>
+        public VideoBoardWords VideoBoardWords { get; }
         public GoalShowLights GoalShow { get; }
         public CameraMode Camera { get; }
         public bool Chant { get; }
@@ -187,11 +214,12 @@ namespace HockeyGame.Core
         private readonly RibbonBoard _ribbon, _calmRibbon;
         private readonly CrowdState _calmCrowd, _nearCrowd, _farCrowd;
 
-        public ArenaState(VideoBoardContent videoBoard, RibbonBoard ribbon, RibbonBoard calmRibbon, CrowdState calmCrowd,
+        public ArenaState(VideoBoardContent videoBoard, VideoBoardWords videoBoardWords, RibbonBoard ribbon, RibbonBoard calmRibbon, CrowdState calmCrowd,
                           CrowdState nearCrowd, CrowdState farCrowd, GoalShowLights goalShow, CameraMode camera, bool chant,
                           bool calmAreaRules, ScoreBox scoreBox)
         {
             VideoBoard = videoBoard;
+            VideoBoardWords = videoBoardWords;
             _ribbon = ribbon;
             _calmRibbon = calmRibbon;
             _calmCrowd = calmCrowd;
@@ -220,6 +248,9 @@ namespace HockeyGame.Core
     /// </summary>
     public static class ArenaShow
     {
+        /// <summary>The game's name, as the start screen and the start card show it.</summary>
+        public const string GameName = "HOCKEY GAME";
+
         /// <summary>The photosensitive limit: no light flashes more often than this.</summary>
         public const double MaxFlashesPerSecond = 3.0;
         /// <summary>The Goal Show's (and the new-best light show's) flash rate.</summary>
@@ -278,7 +309,9 @@ namespace HockeyGame.Core
                 ResultDelaySeconds = round.ResultDelaySeconds,
                 IsNewBest = round.IsNewBest,
                 Goals = round.Goals,
-                ShotNumber = round.ShotNumber
+                ShotNumber = round.ShotNumber,
+                BestScore = flow.BestScore,
+                LastShotSpeedKmh = round.LastShotSpeedKmh
             });
         }
 
@@ -293,9 +326,11 @@ namespace HockeyGame.Core
             CrowdState near = CrowdFor(input.Phase, result);
             bool chant = input.Phase == RoundPhase.Idle || input.Phase == RoundPhase.RoundOver;
             int goalsShown = input.Goals - (goalInFlight ? 1 : 0);
+            VideoBoardContent board = VideoBoardFor(input.Phase, result, input.IsNewBest);
 
             return new ArenaState(
-                VideoBoardFor(input.Phase, result, input.IsNewBest),
+                board,
+                WordsFor(board, input, goalsShown),
                 ribbon,
                 calm ? CalmStill : ribbon,
                 calm ? CrowdState.Still : near,
@@ -330,6 +365,25 @@ namespace HockeyGame.Core
                         default: return VideoBoardContent.Score;
                     }
                 default: return VideoBoardContent.Score; // skate-in, slow-down and shooting window
+            }
+        }
+
+        private static VideoBoardWords WordsFor(VideoBoardContent board, ArenaShowInput input, int goalsShown)
+        {
+            string score = ScoreText(goalsShown, input.ShotNumber);
+            string goalsOf = goalsShown + " OF " + Round.ShotsPerRound + " GOALS";
+            string best = input.BestScore + " OF " + Round.ShotsPerRound;
+            switch (board)
+            {
+                case VideoBoardContent.StartCard: return new VideoBoardWords(GameName, "BEST SCORE " + best + "\nSHOOT TO PLAY");
+                case VideoBoardContent.Goal: return new VideoBoardWords("GOAL!", score);
+                case VideoBoardContent.Replay: return new VideoBoardWords("REPLAY", score); // the Replay picture comes with #91
+                case VideoBoardContent.Final: return new VideoBoardWords("FINAL SCORE", goalsOf + "\nBEST " + best);
+                case VideoBoardContent.NewBest: return new VideoBoardWords("NEW BEST!", goalsOf);
+                case VideoBoardContent.AdSlide: return new VideoBoardWords("", "");
+                default: // the score, still, from the skate-in to the Shot
+                    double? kmh = input.LastShotSpeedKmh;
+                    return new VideoBoardWords(score, kmh.HasValue ? "LAST SHOT " + ShotResultText.Speed(kmh.Value) : "");
             }
         }
 

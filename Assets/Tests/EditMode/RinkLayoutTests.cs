@@ -177,13 +177,23 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void The_Video_Board_hangs_behind_the_near_net_and_the_Centre_Board_over_centre_ice()
         {
-            Assert.AreEqual(22.0, RinkLayout.VideoBoard.Z, 0.5);
-            Assert.AreEqual(14.5, RinkLayout.VideoBoard.Y, 0.5);
+            // Higher and nearer than the spec's 14.5 m up, 22 m back: VideoBoardsTests checks it from the player's eye.
+            Assert.That(RinkLayout.VideoBoard.Z, Is.InRange(RinkLayout.NearEndBoardsZ + 10, 22.0), "behind the near net, over the stands");
+            Assert.That(RinkLayout.VideoBoard.Y, Is.InRange(14.5, 17.0));
             Assert.AreEqual(11.0, RinkLayout.VideoBoardWidth, 0.5);
             Assert.AreEqual(6.0, RinkLayout.VideoBoardHeight, 0.5);
             Assert.That(RinkLayout.VideoBoardTiltDegrees, Is.InRange(5.0, 25.0), "tilted toward the player");
             Assert.AreEqual(RinkLayout.CentreLineZ, RinkLayout.CentreBoard.Z);
             Assert.AreEqual(20.0, RinkLayout.CentreBoardBottom, 0.5);
+        }
+
+        [Test]
+        public void The_boards_hang_under_the_roof_with_room_to_spare()
+        {
+            Assert.That(RinkLayout.RoofHeight - RinkLayout.CentreBoardTop, Is.GreaterThanOrEqualTo(3.0), "the Centre Board");
+            double videoTop = RinkLayout.VideoBoard.Y + RinkLayout.VideoBoardHeight / 2;
+            Assert.That(RinkLayout.RoofHeight - videoTop, Is.GreaterThanOrEqualTo(3.0), "the Video Board");
+            Assert.That(RinkLayout.RoofHeight, Is.InRange(28.0, 40.0), "an NHL arena's height");
         }
 
         /// <summary>Tools/rink_layout.py copies the numbers the Python art tools build to; they must match.</summary>
@@ -208,6 +218,7 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(RinkLayout.BoardHeight, Py("BOARD_HEIGHT"), 1e-4);
             Assert.AreEqual(RinkLayout.EndGlassTop, Py("END_GLASS_TOP"), 1e-4);
             Assert.AreEqual(RinkLayout.SideGlassTop, Py("SIDE_GLASS_TOP"), 1e-4);
+            Assert.AreEqual(RinkLayout.RoofHeight, Py("ROOF_HEIGHT"), 1e-4);
             Assert.AreEqual(RinkLayout.IceSize, Py("ICE_SIZE"), 1e-4);
             Assert.AreEqual(RinkLayout.CalmAreaHalfWidth, Py("CALM_AREA_HALF_WIDTH"), 1e-4);
             Assert.AreEqual(RinkLayout.CalmAreaFrontZ, Py("CALM_AREA_FRONT_Z"), 1e-4);

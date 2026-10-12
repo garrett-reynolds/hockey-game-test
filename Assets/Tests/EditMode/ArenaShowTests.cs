@@ -200,6 +200,83 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void Video_Board_ad_slides_never_show_from_goalie_set_to_the_Shot_whatever_came_before()
+        {
+            foreach (ArenaResult result in Results)
+            foreach (bool hidden in new[] { false, true })
+            foreach (bool newBest in new[] { false, true })
+            foreach (double t in new[] { 0.0, 0.01, 1.5, 2.99, 3.0 })
+            {
+                ArenaState s = At(RoundPhase.ShootingWindow, t, result, hidden, newBest, goals: 2, shot: 4);
+                Assert.AreEqual(VideoBoardContent.Score, s.VideoBoard, "a still score, no ad slide, at " + t + " s after " + result);
+            }
+        }
+
+        [Test]
+        public void Video_Board_ad_slides_show_only_outside_the_shooting_window()
+        {
+            foreach (RoundPhase phase in Phases)
+            foreach (ArenaResult result in Results)
+            foreach (bool hidden in new[] { false, true })
+                if (At(phase, 1.0, result, hidden).VideoBoard == VideoBoardContent.AdSlide)
+                    Assert.AreNotEqual(RoundPhase.ShootingWindow, phase, result.ToString());
+            Assert.AreEqual(VideoBoardContent.AdSlide, Showing(ArenaResult.WideMiss).VideoBoard, "a slide fills a quiet result");
+        }
+
+        // ---- the Video Board's words (the Centre Board shows the same) ----
+
+        private static VideoBoardWords Words(RoundPhase phase, ArenaResult result = ArenaResult.None, bool newBest = false,
+                                             int goals = 2, int shot = 4, int best = 3, double? speed = 92.4) =>
+            ArenaShow.At(new ArenaShowInput
+            {
+                Phase = phase,
+                PhaseSeconds = 1.0,
+                Result = result,
+                IsNewBest = newBest,
+                Goals = goals,
+                ShotNumber = shot,
+                BestScore = best,
+                LastShotSpeedKmh = speed
+            }).VideoBoardWords;
+
+        [Test]
+        public void The_start_screen_Video_Board_shows_the_game_name_the_best_score_and_SHOOT_TO_PLAY()
+        {
+            VideoBoardWords w = Words(RoundPhase.Idle, best: 3);
+            Assert.AreEqual(ArenaShow.GameName, w.Headline);
+            Assert.AreEqual("BEST SCORE 3 OF 6\nSHOOT TO PLAY", w.Details);
+        }
+
+        [Test]
+        public void The_skate_in_Video_Board_shows_the_score_and_the_last_Shot_speed()
+        {
+            VideoBoardWords w = Words(RoundPhase.SkateIn, goals: 2, shot: 4, speed: 92.4);
+            Assert.AreEqual("GOALS 2 · SHOT 4 OF 6", w.Headline);
+            Assert.AreEqual("LAST SHOT 92 km/h", w.Details);
+            Assert.AreEqual("", Words(RoundPhase.SkateIn, shot: 1, speed: null).Details, "no Shot with a puck yet");
+            Assert.AreEqual(w, Words(RoundPhase.ShootingWindow, goals: 2, shot: 4, speed: 92.4), "the same still score at the Shot");
+        }
+
+        [Test]
+        public void The_Round_over_Video_Board_shows_the_final_score_or_NEW_BEST()
+        {
+            VideoBoardWords final = Words(RoundPhase.RoundOver, goals: 4, shot: 6, best: 5);
+            Assert.AreEqual("FINAL SCORE", final.Headline);
+            Assert.AreEqual("4 OF 6 GOALS\nBEST 5 OF 6", final.Details);
+            VideoBoardWords best = Words(RoundPhase.RoundOver, newBest: true, goals: 5, shot: 6, best: 5);
+            Assert.AreEqual("NEW BEST!", best.Headline);
+            Assert.AreEqual("5 OF 6 GOALS", best.Details);
+        }
+
+        [Test]
+        public void A_result_on_the_Video_Board_shows_its_words_and_an_ad_slide_brings_its_own()
+        {
+            Assert.AreEqual(new VideoBoardWords("GOAL!", "GOALS 2 · SHOT 4 OF 6"), Words(RoundPhase.ResultHold, ArenaResult.Goal));
+            Assert.AreEqual("REPLAY", Words(RoundPhase.ResultHold, ArenaResult.Save).Headline);
+            Assert.AreEqual(new VideoBoardWords("", ""), Words(RoundPhase.ResultHold, ArenaResult.WideMiss));
+        }
+
+        [Test]
         public void Crowd_zones_follow_the_phase_and_result()
         {
             foreach (ArenaZone zone in Zones)
@@ -426,6 +503,34 @@ namespace HockeyGame.Core.Tests
             ArenaState start = ArenaShow.From(flow);
             Assert.AreEqual(VideoBoardContent.StartCard, start.VideoBoard);
             Assert.IsFalse(start.ScoreBox.Shown);
+        }
+
+        [Test]
+        public void From_the_screen_flow_the_skate_in_shows_the_last_Shots_speed_and_the_start_card_the_saved_best()
+        {
+            var save = new SaveData { BestScore = 3 };
+            var flow = new ScreenFlow(ScriptedRandom.Halves(), save, FakeReach.NeverReaches());
+            Assert.AreEqual("BEST SCORE 3 OF 6\nSHOOT TO PLAY", ArenaShow.From(flow).VideoBoardWords.Details);
+
+            flow.Press();
+            Assert.AreEqual("", ArenaShow.From(flow).VideoBoardWords.Details, "shot 1: no last Shot yet");
+            flow.Tick(3.7 + 0.5);
+            flow.SubmitShot(50, 90, 87.6, false);
+            flow.Tick(2.5 + 0.01); // the result hold, into shot 2's skate-in
+            Assert.AreEqual(RoundPhase.SkateIn, flow.Round.Phase);
+            Assert.AreEqual("LAST SHOT 88 km/h", ArenaShow.From(flow).VideoBoardWords.Details);
+
+            flow.Tick(3.7 + 3.0 + 2.5 + 0.01); // shot 2: no Shot in time (no puck, no speed)
+            Assert.AreEqual(RoundPhase.SkateIn, flow.Round.Phase);
+            Assert.AreEqual(3, flow.Round.ShotNumber);
+            Assert.AreEqual("", ArenaShow.From(flow).VideoBoardWords.Details, "Too late has no speed");
+
+            for (int shot = 3; shot <= Round.ShotsPerRound; shot++)
+                flow.Tick(3.7 + 3.0 + 2.5 + 0.01); // the rest: no Shot in time
+            flow.Tick(save.AutoReturnSeconds);
+            Assert.AreEqual(FlowScreen.Start, flow.Screen);
+            save.BestScore = 0; // a reset on the settings screen shows on the start card at once
+            Assert.AreEqual("BEST SCORE 0 OF 6\nSHOOT TO PLAY", ArenaShow.From(flow).VideoBoardWords.Details);
         }
     }
 }
