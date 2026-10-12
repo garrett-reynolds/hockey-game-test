@@ -11,16 +11,14 @@ namespace HockeyGame
     /// Tools/make_ads.py (Assets/Resources/Ads). One row of white printed panels runs all round the boards in the ad band,
     /// corners included, each with a brand's logo (Brands); panels in the Calm Area's bounds show the soft grey logo, matte.
     /// Nothing goes on the glass. The ice logos lie just over the ice, between the blue lines, and read from behind the
-    /// near net looking out (the Replay view). The centre-ice logo is the skin's: the League Skin's "All-Star Hockey" mark
-    /// unless another is given.
+    /// near net looking out (the Replay view). The centre-ice logo is the Team Skin's (the League Skin's is the
+    /// "All-Star Hockey" mark); the brands are fixed.
     /// </summary>
     public static class RinkAds
     {
         public const string Part = "Ads", BoardAdsPart = "Board Ads", IceLogosPart = "Ice Logos";
         /// <summary>The art's folder under Resources.</summary>
         public const string ArtFolder = "Ads";
-        /// <summary>The League Skin's centre-ice logo.</summary>
-        public const string LeagueCentreIceLogo = "centre-ice-all-star-hockey";
 
         /// <summary>A brand's panel art: its logo in colour (also laid on the ice), or soft grey for the Calm Area.</summary>
         public static string PanelArt(Brands.Brand brand, bool soft) => "panel-" + brand.Id + (soft ? "-soft" : "");
@@ -33,9 +31,10 @@ namespace HockeyGame
         const float BendStep = 0.25f;
         const float PanelSmoothness = 0.2f, SoftPanelSmoothness = 0f, IceLogoSmoothness = 0.5f;
 
-        /// <summary>Adds the ads under rink. centreIceLogo is the skin's centre-ice logo; null for the League Skin's.</summary>
-        public static GameObject Build(Transform rink, Texture2D centreIceLogo = null)
+        /// <summary>Adds the ads under rink, with the skin's centre-ice logo (null: the League Skin's).</summary>
+        public static GameObject Build(Transform rink, TeamSkin skin = null)
         {
+            Texture2D centreIceLogo = Art(TeamSkin.OrLeague(skin).CentreIceLogo);
             var ads = new GameObject(Part);
             ads.transform.SetParent(rink, false);
             var materials = new Dictionary<string, Material>();
@@ -59,7 +58,7 @@ namespace HockeyGame
             {
                 RinkLayout.IceLogoSpot spot = spots[i];
                 Brands.Brand brand = Brands.ForIceLogo(i);
-                Texture2D texture = brand == null ? centreIceLogo != null ? centreIceLogo : Art(LeagueCentreIceLogo)
+                Texture2D texture = brand == null ? centreIceLogo
                     : Art(spot.Kind == RinkLayout.IceLogoKind.NeutralZoneRound ? RoundArt(brand) : PanelArt(brand, false));
                 string key = "ice " + (texture != null ? texture.name : "none");
                 Material m = Shared(materials, key, () => SeeThrough(texture));

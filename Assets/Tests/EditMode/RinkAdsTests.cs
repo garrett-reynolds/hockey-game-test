@@ -73,7 +73,7 @@ namespace HockeyGame.Core.Tests
             foreach (Brands.Brand b in Brands.All)
                 foreach (string art in new[] { RinkAds.PanelArt(b, false), RinkAds.PanelArt(b, true), RinkAds.RoundArt(b) })
                     Assert.IsNotNull(Resources.Load<Texture2D>(RinkAds.ArtFolder + "/" + art), art);
-            Assert.IsNotNull(Resources.Load<Texture2D>(RinkAds.ArtFolder + "/" + RinkAds.LeagueCentreIceLogo));
+            Assert.IsNotNull(Resources.Load<Texture2D>(RinkAds.ArtFolder + "/" + TeamSkin.League.CentreIceLogo));
 
             // The panel art keeps its shape when imported (no power-of-two scaling), so its logo fits the narrowest panel.
             double narrowest = RinkLayout.AdPanelSlots.Min(s => s.Width), band = RinkLayout.AdBandTop - RinkLayout.AdBandBottom;
@@ -215,7 +215,7 @@ namespace HockeyGame.Core.Tests
                 Assert.That(top.y, Is.GreaterThan(bottom.y), "not upside down: " + spot);
 
                 string art = Art(logos[i]);
-                if (spot.Kind == RinkLayout.IceLogoKind.CentreIce) Assert.AreEqual(RinkAds.LeagueCentreIceLogo, art);
+                if (spot.Kind == RinkLayout.IceLogoKind.CentreIce) Assert.AreEqual(TeamSkin.League.CentreIceLogo, art);
                 else if (spot.Kind == RinkLayout.IceLogoKind.NeutralZoneRound) Assert.AreEqual(RinkAds.RoundArt(Brands.ForIceLogo(i)), art);
                 else Assert.AreEqual(RinkAds.PanelArt(Brands.ForIceLogo(i), false), art);
             }
@@ -224,18 +224,19 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void The_centre_ice_logo_can_be_swapped_and_the_brands_stay()
         {
-            var teamLogo = new Texture2D(4, 4) { name = "team-logo" };
+            var skin = Object.Instantiate(TeamSkin.League);
+            skin.CentreIceLogo = "panel-shieldcross-soft"; // any art no ice logo uses
             try
             {
-                GameObject ads = RinkAds.Build(_rink.transform, teamLogo);
+                GameObject ads = RinkAds.Build(_rink.transform, skin);
                 Renderer[] logos = IceLogos(ads);
                 for (int i = 0; i < logos.Length; i++)
                 {
                     bool centre = RinkLayout.IceLogoSpots[i].Kind == RinkLayout.IceLogoKind.CentreIce;
-                    Assert.AreEqual(centre, Art(logos[i]) == "team-logo", RinkLayout.IceLogoSpots[i].ToString());
+                    Assert.AreEqual(centre, Art(logos[i]) == skin.CentreIceLogo, RinkLayout.IceLogoSpots[i].ToString());
                 }
             }
-            finally { Object.DestroyImmediate(teamLogo); }
+            finally { Object.DestroyImmediate(skin); }
         }
     }
 }

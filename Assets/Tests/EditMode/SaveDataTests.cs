@@ -38,6 +38,7 @@ namespace HockeyGame.Core.Tests
                 MasterVolume = 0.4,
                 Mute = true,
                 ForceGoalieBlocks = true,
+                TeamSkin = "bears",
             };
         }
 
@@ -54,6 +55,7 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(expected.MasterVolume, actual.MasterVolume);
             Assert.AreEqual(expected.Mute, actual.Mute);
             Assert.AreEqual(expected.ForceGoalieBlocks, actual.ForceGoalieBlocks);
+            Assert.AreEqual(expected.TeamSkin, actual.TeamSkin);
         }
 
         [Test]
@@ -71,6 +73,17 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(1.0, d.MasterVolume);
             Assert.IsFalse(d.Mute);
             Assert.IsFalse(d.ForceGoalieBlocks, "the goalie character shows by default; the blocks are a developer fallback");
+            Assert.AreEqual("league", d.TeamSkin, "the League Skin plays unless the file picks another");
+        }
+
+        [Test]
+        public void The_settings_file_picks_the_Team_Skin_and_a_blank_one_keeps_the_League_Skin()
+        {
+            Directory.CreateDirectory(_dir);
+            File.WriteAllText(_path, "teamSkin=bears\n");
+            Assert.AreEqual("bears", SaveData.Load(_path).TeamSkin);
+            File.WriteAllText(_path, "teamSkin=\n");
+            Assert.AreEqual(SaveData.LeagueSkin, SaveData.Load(_path).TeamSkin);
         }
 
         [Test]

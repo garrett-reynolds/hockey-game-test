@@ -216,10 +216,10 @@ namespace HockeyGame.Core.Tests
             ArenaState ad = At(RoundPhase.ResultHold, 1.0, ArenaResult.WideMiss);
             boards.Show(ad, 0.0);
             string first = boards.HeadlineOn(0);
-            Assert.IsTrue(RibbonBoards.IsBrand(first), first);
+            Assert.IsTrue(Brands.IsAdWords(first), first);
             Assert.AreEqual("", boards.DetailsOn(0));
             boards.Show(ad, VideoBoards.AdSeconds);
-            Assert.IsTrue(RibbonBoards.IsBrand(boards.HeadlineOn(0)));
+            Assert.IsTrue(Brands.IsAdWords(boards.HeadlineOn(0)));
             Assert.AreNotEqual(first, boards.HeadlineOn(0));
         }
 

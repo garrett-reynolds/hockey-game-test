@@ -63,9 +63,6 @@ namespace HockeyGame.Core
             public const int Cropped = 0, HairMesh1 = 1, HairMesh2 = 2, HairMesh3 = 3, Cap = 4, Bald = 5;
         }
 
-        /// <summary>The home jersey: a placeholder burgundy until the Team Skin holds it.</summary>
-        public static readonly ArenaColour HomeJersey = new ArenaColour(112, 30, 46);
-
         /// <summary>Dark plain clothes: charcoal, brown, olive, plum and slate (no black, blue or red).</summary>
         public static readonly ArenaColour[] DarkPlain =
         {
@@ -88,10 +85,10 @@ namespace HockeyGame.Core
             new ArenaColour(170, 140, 95), new ArenaColour(170, 160, 140), new ArenaColour(110, 50, 30)
         };
 
-        /// <summary>Cap colours: the home jersey and dark plain ones.</summary>
-        public static readonly ArenaColour[] Caps =
+        /// <summary>Cap colours: the home jersey (the Team Skin's) and dark plain ones.</summary>
+        public static ArenaColour[] Caps(ArenaColour homeJersey) => new[]
         {
-            HomeJersey, new ArenaColour(50, 50, 54), new ArenaColour(52, 56, 40), new ArenaColour(70, 56, 44)
+            homeJersey, new ArenaColour(50, 50, 54), new ArenaColour(52, 56, 40), new ArenaColour(70, 56, 44)
         };
 
         /// <summary>How fast a zone's clip clock runs in this state (1 = the clip's own speed). Still stops the clock, so
@@ -116,9 +113,10 @@ namespace HockeyGame.Core
         public static readonly ArenaColour FlatTone = new ArenaColour(57, 61, 73);
 
         /// <summary>Each seat's fan's random look. neighbours: CrowdSeats.Neighbours(seats). Each fan's body type is picked
-        /// from those none of its already-dressed neighbours has.</summary>
-        public static FanLook[] Make(FanSeat[] seats, int[][] neighbours, Random random)
+        /// from those none of its already-dressed neighbours has. homeJersey: the Team Skin's home jersey colour.</summary>
+        public static FanLook[] Make(FanSeat[] seats, int[][] neighbours, Random random, ArenaColour homeJersey)
         {
+            ArenaColour[] caps = Caps(homeJersey);
             var looks = new FanLook[seats.Length];
             var done = new bool[seats.Length];
             var free = new List<int>(BodyTypes.Length);
@@ -133,10 +131,10 @@ namespace HockeyGame.Core
 
                 double phase = random.NextDouble();
                 double height = type.MinHeight + (type.MaxHeight - type.MinHeight) * random.NextDouble();
-                ArenaColour shirt = random.NextDouble() < HomeShare ? HomeJersey : DarkPlain[random.Next(DarkPlain.Length)];
+                ArenaColour shirt = random.NextDouble() < HomeShare ? homeJersey : DarkPlain[random.Next(DarkPlain.Length)];
                 ArenaColour skin = Skins[random.Next(Skins.Length)];
                 int style = HairFor(type, random);
-                ArenaColour hair = style == HairStyle.Cap ? Caps[random.Next(Caps.Length)] : Hairs[random.Next(Hairs.Length)];
+                ArenaColour hair = style == HairStyle.Cap ? caps[random.Next(caps.Length)] : Hairs[random.Next(Hairs.Length)];
                 bool waves = random.NextDouble() < WaveShare;
                 looks[i] = new FanLook(phase, body, height, shirt, skin, hair, style, waves);
                 done[i] = true;

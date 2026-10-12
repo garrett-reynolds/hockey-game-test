@@ -11,7 +11,9 @@ namespace HockeyGame.Core.Tests
         private static readonly CrowdState[] States = (CrowdState[])Enum.GetValues(typeof(CrowdState));
         private static readonly FanSeat[] Seats = CrowdSeats.All();
         private static readonly int[][] Neighbours = CrowdSeats.Neighbours(Seats);
-        private static readonly FanLook[] Looks = CrowdLooks.Make(Seats, Neighbours, new Random(95));
+        /// <summary>The League Skin's home jersey (TeamSkinTests checks the skin holds it).</summary>
+        private static readonly ArenaColour HomeJersey = new ArenaColour(112, 30, 46);
+        private static readonly FanLook[] Looks = CrowdLooks.Make(Seats, Neighbours, new Random(95), HomeJersey);
 
         private const double ZNear = RinkLayout.NearCornerZ, ZFar = RinkLayout.FarCornerZ;
 
@@ -162,7 +164,7 @@ namespace HockeyGame.Core.Tests
         {
             Assert.That(Looks.All(l => l.Phase >= 0 && l.Phase < 1));
             Assert.That(Looks.Select(l => Math.Round(l.Phase, 2)).Distinct().Count(), Is.GreaterThan(90));
-            double home = Looks.Count(l => l.Shirt.Equals(CrowdLooks.HomeJersey)) / (double)Looks.Length;
+            double home = Looks.Count(l => l.Shirt.Equals(HomeJersey)) / (double)Looks.Length;
             Assert.That(home, Is.EqualTo(CrowdLooks.HomeShare).Within(0.03));
             Assert.That(CrowdLooks.HomeShare, Is.EqualTo(0.4));
         }
@@ -170,10 +172,10 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void The_rest_wear_dark_plain_clothes_darker_than_the_home_jersey()
         {
-            foreach (FanLook look in Looks.Where(l => !l.Shirt.Equals(CrowdLooks.HomeJersey)))
+            foreach (FanLook look in Looks.Where(l => !l.Shirt.Equals(HomeJersey)))
             {
                 Assert.That(CrowdLooks.DarkPlain, Does.Contain(look.Shirt));
-                ArenaColour home = CrowdLooks.HomeJersey;
+                ArenaColour home = HomeJersey;
                 Assert.That(look.Shirt.R + look.Shirt.G + look.Shirt.B, Is.LessThan(home.R + home.G + home.B));
             }
         }
@@ -189,11 +191,11 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void No_crowd_colour_is_a_reserved_colour()
         {
-            var colours = new List<ArenaColour> { CrowdLooks.HomeJersey, CrowdLooks.Pants, CrowdLooks.Shoes };
+            var colours = new List<ArenaColour> { HomeJersey, CrowdLooks.Pants, CrowdLooks.Shoes };
             colours.AddRange(CrowdLooks.DarkPlain);
             colours.AddRange(CrowdLooks.Skins);
             colours.AddRange(CrowdLooks.Hairs);
-            colours.AddRange(CrowdLooks.Caps);
+            colours.AddRange(CrowdLooks.Caps(HomeJersey));
             colours.AddRange(Looks.Select(l => l.Hair).Distinct());
             colours.Add(CrowdLooks.FlatTone);
             foreach (ArenaColour c in colours)
@@ -204,7 +206,7 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void The_same_seed_gives_the_same_crowd()
         {
-            FanLook[] a = CrowdLooks.Make(Seats, Neighbours, new Random(11)), b = CrowdLooks.Make(Seats, Neighbours, new Random(11));
+            FanLook[] a = CrowdLooks.Make(Seats, Neighbours, new Random(11), HomeJersey), b = CrowdLooks.Make(Seats, Neighbours, new Random(11), HomeJersey);
             Assert.That(a.Select(l => l.Phase), Is.EqualTo(b.Select(l => l.Phase)));
             Assert.That(a.Select(l => l.Shirt), Is.EqualTo(b.Select(l => l.Shirt)));
             Assert.That(a.Select(l => l.Body), Is.EqualTo(b.Select(l => l.Body)));

@@ -107,8 +107,9 @@ namespace HockeyGame
         /// <summary>Fans drawn for the last camera (the slices it could see).</summary>
         public int LastDrawnFans { get; private set; }
 
-        /// <summary>Adds the crowd under rink, or nothing when a body file or a shader is missing.</summary>
-        public static Crowd Build(Transform rink)
+        /// <summary>Adds the crowd under rink, in the skin's home jersey (null: the League Skin's), or nothing when a body
+        /// file or a shader is missing.</summary>
+        public static Crowd Build(Transform rink, TeamSkin skin = null)
         {
             var shader = Resources.Load<Shader>(Folder + "/" + ShaderFile);
             var cardShader = Resources.Load<Shader>(Folder + "/" + CardShaderFile);
@@ -129,7 +130,7 @@ namespace HockeyGame
             var root = new GameObject("Crowd");
             root.transform.SetParent(rink, false);
             var crowd = root.AddComponent<Crowd>();
-            crowd.Fill(bodies, shader, cardShader, new System.Random(95));
+            crowd.Fill(bodies, shader, cardShader, new System.Random(95), TeamSkin.OrLeague(skin).HomeJerseyColour);
             return crowd;
         }
 
@@ -141,7 +142,7 @@ namespace HockeyGame
             return true;
         }
 
-        void Fill(CrowdBody[] bodies, Shader shader, Shader cardShader, System.Random random)
+        void Fill(CrowdBody[] bodies, Shader shader, Shader cardShader, System.Random random, ArenaColour homeJersey)
         {
             var seconds = new double[ClipNames.Length];
             for (int i = 0; i < seconds.Length; i++) seconds[i] = bodies[0].Clips[i].Seconds;
@@ -170,7 +171,7 @@ namespace HockeyGame
             }
 
             FanSeat[] seats = CrowdSeats.All();
-            FanLook[] looks = CrowdLooks.Make(seats, CrowdSeats.Neighbours(seats), random);
+            FanLook[] looks = CrowdLooks.Make(seats, CrowdSeats.Neighbours(seats), random, homeJersey);
             var yaw = new float[seats.Length];
             for (int i = 0; i < yaw.Length; i++) yaw[i] = (float)seats[i].Yaw + YawSpread * (2f * (float)random.NextDouble() - 1f);
 

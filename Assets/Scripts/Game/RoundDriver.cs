@@ -38,15 +38,15 @@ namespace HockeyGame
         int _testShotSpeedKmh = TestShotSpeed.DefaultKmh;
         GUIStyle _big, _mid, _small, _scoreBox;
         const float ScoreBoxWidth = 330f;
-        /// <summary>The Score Box's colours: placeholders until the Team Skin holds them.</summary>
-        static readonly Color ScoreBoxBack = new Color(0.05f, 0.08f, 0.18f, 0.85f), ScoreBoxText = Color.white;
+        TeamSkin _skin; // picked by the save file's teamSkin setting before the rink is built
 
         void Awake()
         {
             FrameRate.Lock(); // 60 fps, VSync on (#85)
             FrameReadout.AddTo(gameObject); // dev-only GPU and CPU ms (Editor and development builds)
-            RinkBuilder.Build(out _camera);
             _save = SaveStore.Current;
+            _skin = TeamSkin.Load(_save.TeamSkin);
+            RinkBuilder.Build(out _camera, _skin);
             Transform rink = GameObject.Find("Rink").transform;
             _ribbons = rink.GetComponentInChildren<RibbonBoards>();
             _roofLights = new RoofLights(rink);
@@ -61,7 +61,7 @@ namespace HockeyGame
             _flow = new ScreenFlow(new SystemRandomSource(), _save, new GoalieCharacterReach(character, settings), settings);
             _flow.BestScoreChanged += SaveStore.Save;
             _round = _flow.Round;
-            _sound = new RoundSound(_camera.gameObject, _save, _round.Settings, new SystemRandomSource()); // the chant rolls on its own source
+            _sound = new RoundSound(_camera.gameObject, _save, _round.Settings, new SystemRandomSource(), _skin); // the chant rolls on its own source
             gameObject.AddComponent<BreakawayView>().Init(_round, _camera, _goalie);
             _usb = gameObject.AddComponent<UsbShotSource>();
             _usb.Init(_save);
@@ -264,11 +264,11 @@ namespace HockeyGame
             _small = new GUIStyle(GUI.skin.label) { fontSize = 18 };
             _big.normal.textColor = _mid.normal.textColor = _small.normal.textColor = Color.white;
             var back = new Texture2D(1, 1);
-            back.SetPixel(0, 0, ScoreBoxBack);
+            back.SetPixel(0, 0, _skin.ScoreBoxBack);
             back.Apply();
             _scoreBox = new GUIStyle(GUI.skin.label) { fontSize = 22, alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
             _scoreBox.normal.background = back;
-            _scoreBox.normal.textColor = ScoreBoxText;
+            _scoreBox.normal.textColor = _skin.ScoreBoxText;
         }
     }
 }
