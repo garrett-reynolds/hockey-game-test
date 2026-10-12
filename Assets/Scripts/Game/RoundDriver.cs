@@ -59,7 +59,7 @@ namespace HockeyGame
             _flow = new ScreenFlow(new SystemRandomSource(), _save, new GoalieCharacterReach(character, settings), settings);
             _flow.BestScoreChanged += SaveStore.Save;
             _round = _flow.Round;
-            _sound = new RoundSound(_camera.gameObject, _save, _round.Settings);
+            _sound = new RoundSound(_camera.gameObject, _save, _round.Settings, new SystemRandomSource()); // the chant rolls on its own source
             gameObject.AddComponent<BreakawayView>().Init(_round, _camera, _goalie);
             _usb = gameObject.AddComponent<UsbShotSource>();
             _usb.Init(_save);
@@ -84,7 +84,7 @@ namespace HockeyGame
             _goalie.Show(inShot || _goalie.HasCharacter);
             _goalie.ShowGaps(_easyGlow.Update(_save.EasyMode, _round));
             _effects.Update(_round, Time.unscaledDeltaTime);
-            _sound.Update(_round, _effects.PuckArrivedThisFrame, Time.unscaledDeltaTime, _effects.ContactSound);
+            _sound.Update(_flow, _effects.PuckArrivedThisFrame, Time.unscaledDeltaTime, _effects.ContactSound);
             ArenaState show = ArenaShow.From(_flow); // the arena follows the Arena Show
             _ribbons.Show(show, Time.unscaledTimeAsDouble);
             _effects.GoalLight.SetOn(show.GoalShow.GoalLight);

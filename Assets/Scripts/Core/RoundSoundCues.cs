@@ -13,7 +13,9 @@ namespace HockeyGame.Core
         SaveImpact,   // puck thuds on the goalie pad (or body)
         MissImpact,   // puck clangs on the boards
         Cheer,
-        Groan,
+        Groan,        // a Save: the home crowd groans
+        Ooh,          // a Frame Hit (post or crossbar): the crowd's "ooh"
+        SmallGroan,   // a Wide Miss or no Shot in time: a small groan
         NewBestCheer,
         PostPing,     // a Miss rings off a post or the crossbar
         GloveCatch,   // a Save in the catching glove
@@ -21,7 +23,9 @@ namespace HockeyGame.Core
         HockeyStop,   // the skate-in begins: start the hockey stop, placed so it ends with the skate-in
         HockeyStopEnd, // the skate-in ends: stop the hockey stop
         StrideLeft,   // a push of the camera's stride while it leans left: one stride sound, panned left
-        StrideRight   // a push of the camera's stride while it leans right: one stride sound, panned right
+        StrideRight,  // a push of the camera's stride while it leans right: one stride sound, panned right
+        Chant,        // start the Clap Chant ("Let's go!", clap-clap, clap-clap-clap) from its beginning
+        ChantEnd      // a Round starts while the chant plays: stop it (fade out, no click)
     }
 
     /// <summary>Slow-down audio for one frame: low-pass cutoff, pitch, heartbeat on/off.</summary>
@@ -42,6 +46,13 @@ namespace HockeyGame.Core
     /// <summary>
     /// Turns what the Round reports (phase, phase time, results, new best) into sound cues, frame by frame.
     /// Holds no rules of its own: call Update once per frame after the Round ticks.
+    /// <para>
+    /// The Clap Chant needs the screen flow and real time (Update(ScreenFlow, ...)); it follows the Arena Show's chant on/off.
+    /// On the start screen it repeats with a random quiet gap of ChantGapMinSeconds to ChantGapMaxSeconds from when one
+    /// ends to when the next starts. At Round over it plays once, as soon as the last cheer, goal horn and new-best cheer
+    /// have ended (at once when none plays). Never during a Round: a chant still playing when the skate-in starts is stopped.
+    /// The Round-only Update overloads never chant.
+    /// </para>
     /// </summary>
     public sealed class RoundSoundCues
     {
@@ -58,6 +69,20 @@ namespace HockeyGame.Core
         /// </summary>
         public const double HockeyStopSeconds = 0.6;
 
+        /// <summary>Quiet gap between two chants on the start screen (seconds, rolled evenly between these).</summary>
+        public const double ChantGapMinSeconds = 4;
+        public const double ChantGapMaxSeconds = 8;
+
+        /// <summary>Loudness order: goal horn > cheer > chant > crowd loop (CrowdLevel on the start and end screens).</summary>
+        public const double HornVolume = 1.0;
+        public const double CheerVolume = 0.8;
+        /// <summary>How far the chant sits under the cheer (dB).</summary>
+        public const double ChantUnderCheerDb = 6;
+        public static readonly double ChantVolume = CheerVolume * Math.Pow(10, -ChantUnderCheerDb / 20);
+        /// <summary>The Save groan and the Frame Hit "ooh": as loud as a cheer. The small groan is softer.</summary>
+        public const double GroanVolume = 0.8;
+        public const double SmallGroanVolume = 0.45;
+
         private readonly SaveData _save;
         private readonly List<SoundCue> _cues = new List<SoundCue>();
         private RoundPhase _lastPhase = RoundPhase.Idle;
@@ -68,14 +93,106 @@ namespace HockeyGame.Core
         private SoundCue? _pendingContact;
         private SoundCue _pendingSaveSound;
 
-        /// <summary>Reads the tick on/off setting from save each frame, so a settings change applies at once.</summary>
+        private enum ChantMode { Off, Repeat, Once }
+        private readonly IRandomSource _chantRandom;
+        private readonly Func<SoundCue, double> _cueSeconds;
+        private double _clock;              // real seconds, counted by Update(ScreenFlow, ...)
+        private double _cheerEndsAt;        // when the last cheer, goal horn or new-best cheer ends
+        private double _chantEndsAt;
+        private double _nextChantAt;
+        private bool _roundOverChanted;
+        private ChantMode _chantMode = ChantMode.Off;
+
+        /// <summary>Reads the tick on/off setting from save each frame, so a settings change applies at once. No chant.</summary>
         public RoundSoundCues(SaveData save)
         {
             _save = save;
         }
 
+        /// <summary>
+        /// With the Clap Chant (Update(ScreenFlow, ...)). chantRandom rolls the start-screen gaps (its own source, so the
+        /// Round's rolls do not move); cueSeconds gives how long each cue's sound plays (the clip lengths), so the chant
+        /// can wait for the cheer and horn and time its gaps from its own end.
+        /// </summary>
+        public RoundSoundCues(SaveData save, IRandomSource chantRandom, Func<SoundCue, double> cueSeconds) : this(save)
+        {
+            _chantRandom = chantRandom ?? throw new ArgumentNullException(nameof(chantRandom));
+            _cueSeconds = cueSeconds ?? throw new ArgumentNullException(nameof(cueSeconds));
+        }
+
         /// <summary>Volume for everything (0..1): 0 when muted, else the master volume, clamped.</summary>
         public static double ListenerVolume(SaveData save) => save.Mute ? 0 : Numbers.Clamp01(save.MasterVolume);
+
+        /// <summary>How loud a cue plays (0..1, before the master volume): GoalImpact is the goal horn (and the net hit).</summary>
+        public static double Volume(SoundCue cue)
+        {
+            switch (cue)
+            {
+                case SoundCue.GoalImpact: return HornVolume;
+                case SoundCue.Cheer:
+                case SoundCue.NewBestCheer: return CheerVolume;
+                case SoundCue.Chant: return ChantVolume;
+                case SoundCue.Groan:
+                case SoundCue.Ooh: return GroanVolume;
+                case SoundCue.SmallGroan: return SmallGroanVolume;
+                default: return 1.0;
+            }
+        }
+
+        /// <summary>
+        /// As Update(round, puckArrived, contact), plus the Clap Chant, from the game's screen flow. realSeconds: real time
+        /// since the last call. Needs the chant constructor.
+        /// </summary>
+        public IReadOnlyList<SoundCue> Update(ScreenFlow flow, bool puckArrived, double realSeconds, SoundCue? contact = null)
+        {
+            if (_chantRandom == null) throw new InvalidOperationException("The chant needs RoundSoundCues(save, chantRandom, cueSeconds).");
+            _clock += realSeconds;
+            Update(flow.Round, puckArrived, contact);
+            foreach (SoundCue cue in _cues)
+                if (cue == SoundCue.Cheer || cue == SoundCue.GoalImpact || cue == SoundCue.NewBestCheer)
+                    _cheerEndsAt = Math.Max(_cheerEndsAt, _clock + _cueSeconds(cue));
+            UpdateChant(flow);
+            return _cues;
+        }
+
+        private void UpdateChant(ScreenFlow flow)
+        {
+            const double Epsilon = 1e-6;
+            ChantMode mode = !ArenaShow.From(flow).Chant ? ChantMode.Off
+                : flow.Screen == FlowScreen.End ? ChantMode.Once
+                : ChantMode.Repeat;
+            if (mode != _chantMode)
+            {
+                if (mode == ChantMode.Off && _chantEndsAt > _clock + Epsilon)
+                {
+                    _cues.Add(SoundCue.ChantEnd);
+                    _chantEndsAt = _clock;
+                }
+                if (mode == ChantMode.Repeat)
+                    _nextChantAt = Math.Max(_clock, Math.Max(_chantEndsAt, _cheerEndsAt)) + ChantGap();
+                if (mode == ChantMode.Once) _roundOverChanted = false;
+                _chantMode = mode;
+            }
+
+            if (mode == ChantMode.Repeat && _clock >= _nextChantAt - Epsilon)
+            {
+                PlayChant();
+                _nextChantAt = _chantEndsAt + ChantGap();
+            }
+            else if (mode == ChantMode.Once && !_roundOverChanted && _clock >= _cheerEndsAt - Epsilon)
+            {
+                PlayChant();
+                _roundOverChanted = true;
+            }
+        }
+
+        private void PlayChant()
+        {
+            _cues.Add(SoundCue.Chant);
+            _chantEndsAt = _clock + _cueSeconds(SoundCue.Chant);
+        }
+
+        private double ChantGap() => ChantGapMinSeconds + (ChantGapMaxSeconds - ChantGapMinSeconds) * _chantRandom.Next();
 
         /// <summary>
         /// Cues to start this frame. puckArrived is true on the frame the on-screen puck reaches the net
@@ -111,7 +228,7 @@ namespace HockeyGame.Core
                 if (round.LastResult.Value.Kind == ShotResultKind.TooLate)
                 {
                     _cues.Add(SoundCue.Buzzer);
-                    _cues.Add(SoundCue.Groan);
+                    _cues.Add(SoundCue.SmallGroan);
                 }
                 else
                 {
@@ -168,8 +285,16 @@ namespace HockeyGame.Core
                     _cues.Add(SoundCue.Groan);
                     break;
                 default:
-                    _cues.Add(NetFrame.At(result.X, result.Y) == FrameHit.None ? SoundCue.MissImpact : _pendingContact ?? SoundCue.PostPing);
-                    _cues.Add(SoundCue.Groan);
+                    if (NetFrame.At(result.X, result.Y) == FrameHit.None)
+                    {
+                        _cues.Add(SoundCue.MissImpact);
+                        _cues.Add(SoundCue.SmallGroan);
+                    }
+                    else
+                    {
+                        _cues.Add(_pendingContact ?? SoundCue.PostPing);
+                        _cues.Add(SoundCue.Ooh);
+                    }
                     break;
             }
             _pendingImpact = null;
