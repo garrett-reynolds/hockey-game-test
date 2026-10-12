@@ -36,6 +36,8 @@ namespace HockeyGame
         /// <summary>The Replay picture both boards show.</summary>
         public RenderTexture Picture { get; private set; }
         public bool Showing => _showing;
+        /// <summary>Moments recorded of the last Shot that gets a Replay (0 after a Wide Miss or Too late).</summary>
+        public int RecordedMoments => _track.SampleCount;
 
         /// <summary>
         /// Sets the Replay up. parts: what the Replay plays back (the goalie, the save block, then the puck last, since the puck
@@ -72,7 +74,12 @@ namespace HockeyGame
 
         void LateUpdate()
         {
-            if (_round == null) return;
+            if (_round != null) Step();
+        }
+
+        /// <summary>One frame, after the views have posed the scene: records the Shot, and plays the Replay while the Arena Show says so.</summary>
+        public void Step()
+        {
             Record();
             bool play = _show.Camera == CameraMode.Replay && _track.SampleCount > 0;
             if (play) _track.Apply(ReplayTiming.ShotSecondsAt(_show.ReplaySeconds, _round.ResultDelaySeconds));
@@ -85,7 +92,9 @@ namespace HockeyGame
             bool hold = _round.Phase == RoundPhase.ResultHold && ReplayTiming.Follows(_round.LastResult);
             if (!hold)
             {
-                _begun = _recording = false;
+                if (_round.Phase == RoundPhase.ResultHold && !_begun) { _track.Begin(); _begun = true; } // no Replay: drop the last one
+                if (_round.Phase != RoundPhase.ResultHold) _begun = false;
+                _recording = false;
                 return;
             }
             double seconds = _round.PhaseSecondsElapsed;

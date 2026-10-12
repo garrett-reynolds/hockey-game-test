@@ -1,4 +1,5 @@
 using HockeyGame;
+using HockeyGame.Core;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -91,6 +92,65 @@ namespace HockeyGame.Core.Tests
             track.Apply(0.5);
             Assert.IsFalse(track.Applied);
             Assert.AreEqual(Vector3.one, _puck.transform.position);
+        }
+
+        // ---- playing it ----
+
+        [Test]
+        public void The_Replay_camera_and_both_boards_show_the_Replay_only_while_it_plays_and_never_after_a_Wide_Miss()
+        {
+            var rink = new GameObject("Rink");
+            var driver = new GameObject("Driver");
+            try
+            {
+                VideoBoards boards = VideoBoards.Build(rink.transform);
+                Camera shooter = _eye.AddComponent<Camera>();
+                var flow = new ScreenFlow(ScriptedRandom.Halves(), new SaveData(), FakeReach.NeverReaches());
+                var replay = driver.AddComponent<ReplayView>();
+                replay.Init(flow.Round, boards, shooter, _goalie.transform, _puck.transform);
+                const double frame = 1.0 / 60;
+
+                int Play(out int recorded)
+                {
+                    int shown = 0;
+                    recorded = 0;
+                    for (int f = 0; f < 60 * 6 && flow.Round.Phase == RoundPhase.ResultHold; f++)
+                    {
+                        replay.RestoreLive();
+                        flow.Tick(frame);
+                        _puck.transform.position = new Vector3(0, 0.5f, (float)flow.Round.PhaseSecondsElapsed); // the live puck moves on
+                        ArenaState show = ArenaShow.From(flow);
+                        replay.Show(show);
+                        replay.Step();
+                        bool replaying = show.Camera == CameraMode.Replay;
+                        Assert.AreEqual(replaying, replay.Showing, "frame " + f);
+                        Assert.AreEqual(replaying, replay.ReplayCamera.enabled, "the camera draws only in the Replay, frame " + f);
+                        for (int screen = 0; screen < boards.ScreenCount; screen++)
+                            Assert.AreEqual(replaying ? replay.Picture : null, boards.PictureOn(screen).mainTexture, "screen " + screen + ", frame " + f);
+                        if (replaying) shown++;
+                        recorded = replay.RecordedMoments;
+                    }
+                    return shown;
+                }
+
+                flow.Press();
+                flow.Tick(3.7 + 0.5);
+                flow.SubmitShot(50, 90, 100, false); // a Goal
+                flow.Round.DelayResult(0.3);
+                Assert.AreEqual(120, Play(out int goalMoments), 1, "2 s of Replay at 60 fps");
+                Assert.Greater(goalMoments, 30, "the clip was recorded");
+
+                flow.Tick(3.7 + 0.5 - frame);
+                Assert.AreEqual(RoundPhase.ShootingWindow, flow.Round.Phase);
+                flow.SubmitShot(-20, 50, 100, false); // a Wide Miss
+                Assert.AreEqual(0, Play(out int missMoments), "no Replay after a Wide Miss");
+                Assert.AreEqual(0, missMoments, "and nothing kept of the last one");
+            }
+            finally
+            {
+                Object.DestroyImmediate(driver);
+                Object.DestroyImmediate(rink);
+            }
         }
 
         // ---- the cameras ----
