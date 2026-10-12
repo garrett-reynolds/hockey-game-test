@@ -69,6 +69,57 @@ namespace HockeyGame.Editor
             return inner == 0 ? 0 : (double)edges / inner;
         }
 
+        /// <summary>How many mask pixels have all 8 neighbours in the mask too: the pixels Edges measures (0: nothing to measure).</summary>
+        public static int InnerPixels(bool[] mask, int width, int height)
+        {
+            int inner = 0;
+            for (int y = 1; y < height - 1; y++)
+            for (int x = 1; x < width - 1; x++)
+                if (InnerPixel(mask, width, x, y)) inner++;
+            return inner;
+        }
+
+        /// <summary>
+        /// Each Gap: a group of Gap cells that touch side by side (not only at a corner), as cell indexes (row * columns +
+        /// column, row 0 at the bottom) in order. The groups come in the order of their first cell.
+        /// </summary>
+        public static List<List<int>> Groups(bool[] isGap, int columns, int rows)
+        {
+            var groups = new List<List<int>>();
+            var seen = new bool[isGap.Length];
+            for (int start = 0; start < isGap.Length; start++)
+            {
+                if (!isGap[start] || seen[start]) continue;
+                var group = new List<int>();
+                var open = new Stack<int>();
+                open.Push(start);
+                seen[start] = true;
+                while (open.Count > 0)
+                {
+                    int cell = open.Pop();
+                    group.Add(cell);
+                    int column = cell % columns, row = cell / columns;
+                    if (column > 0) Visit(cell - 1);
+                    if (column < columns - 1) Visit(cell + 1);
+                    if (row > 0) Visit(cell - columns);
+                    if (row < rows - 1) Visit(cell + columns);
+                }
+                group.Sort();
+                groups.Add(group);
+
+                void Visit(int next)
+                {
+                    if (!isGap[next] || seen[next]) return;
+                    seen[next] = true;
+                    open.Push(next);
+                }
+            }
+            return groups;
+        }
+
+        /// <summary>A Gap's name from its first cell, for example "Gap c3r2" (column 3, row 2 from the bottom).</summary>
+        public static string GapName(List<int> gap, int columns) => "Gap c" + gap[0] % columns + "r" + gap[0] / columns;
+
         static bool InnerPixel(bool[] mask, int width, int x, int y)
         {
             for (int dy = -1; dy <= 1; dy++)

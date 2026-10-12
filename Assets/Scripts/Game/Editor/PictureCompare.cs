@@ -5,6 +5,18 @@ using System.Text;
 
 namespace HockeyGame.Editor
 {
+    /// <summary>One Gap's stand-out from the gear in one view (PictureMeasures.GapStandOut).</summary>
+    [Serializable]
+    public sealed class GapMeasure
+    {
+        /// <summary>The Gap's name, from its first cell (PictureMeasures.GapName), for example "Gap c3r2".</summary>
+        public string Gap;
+        /// <summary>How many Net Face cells the Gap spans (for reading the numbers; not checked).</summary>
+        public int Cells;
+        /// <summary>The brightness difference between the Gap and the gear, 0 to 1. Lower is worse.</summary>
+        public double StandOut;
+    }
+
     /// <summary>One view's measures (PictureMeasures): saved in the baseline file and in each run's file.</summary>
     [Serializable]
     public sealed class ViewMeasures
@@ -14,10 +26,8 @@ namespace HockeyGame.Editor
         public double Contrast;
         /// <summary>Calm Area busy-ness: the share of its pixels on an edge, 0 to 1. Higher is worse.</summary>
         public double Edges;
-        /// <summary>Gap stand-out: the brightness difference between the Gaps and the gear, 0 to 1. Lower is worse.</summary>
-        public double GapStandOut;
-        /// <summary>How many Net Face cells were Gaps (for reading the numbers; not checked).</summary>
-        public int GapCells;
+        /// <summary>Each Gap's stand-out from the gear.</summary>
+        public List<GapMeasure> Gaps = new List<GapMeasure>();
     }
 
     /// <summary>Every view's measures, and the picture size they were rendered at.</summary>
@@ -28,15 +38,17 @@ namespace HockeyGame.Editor
         public List<ViewMeasures> Views = new List<ViewMeasures>();
     }
 
-    /// <summary>One measure of one view against the baseline.</summary>
+    /// <summary>One measure of one view against the baseline. Every number is finite.</summary>
     [Serializable]
     public sealed class MeasureCheck
     {
         public string View, Measure;
         public double Baseline, Now;
-        /// <summary>(Now - Baseline) / Baseline, in percent.</summary>
+        /// <summary>False when the baseline is 0: no percent of it exists, so the percents are 0 and any worse change fails.</summary>
+        public bool PercentApplies;
+        /// <summary>(Now - Baseline) / Baseline, in percent (0 when PercentApplies is false).</summary>
         public double ChangePercent;
-        /// <summary>How much worse than the baseline, in percent (negative: better).</summary>
+        /// <summary>How much worse than the baseline, in percent (negative: better; 0 when PercentApplies is false).</summary>
         public double WorsePercent;
         public bool Fails;
     }
@@ -57,12 +69,15 @@ namespace HockeyGame.Editor
         public string BaselineFolder;
         public List<MeasureCheck> Checks = new List<MeasureCheck>();
         public List<PictureChange> Pictures = new List<PictureChange>();
+        /// <summary>Anything that kept a check from being made (a missing view, Gap, picture or number). Any problem fails.</summary>
         public List<string> Problems = new List<string>();
     }
 
     /// <summary>
-    /// The picture test's fail rule (#84, #85): it fails when any measure of any view is more than FailPercent worse than the
-    /// baseline, or when a view is missing on either side, or the picture size differs. Exactly FailPercent worse passes.
+    /// The picture test's fail rule (#84, #85): it fails when any measure of any view (each Gap's stand-out on its own) is
+    /// more than FailPercent worse than the baseline, or when anything is missing on either side (a view, a Gap, a picture),
+    /// a number is not finite, or the picture size differs. Exactly FailPercent worse passes. From a baseline of 0 any worse
+    /// change fails. The result never holds an infinite or not-a-number value.
     /// </summary>
     public static class PictureCompare
     {
@@ -72,19 +87,22 @@ namespace HockeyGame.Editor
         /// <summary>Which way a measure gets worse.</summary>
         public enum Worse { Higher, Lower }
 
-        /// <summary>
-        /// How much worse now is than the baseline, in percent of the baseline (negative: better). From a baseline of 0, any
-        /// change the worse way is infinitely worse and any other is 0.
-        /// </summary>
-        public static double WorsePercent(double baseline, double now, Worse worse)
-        {
-            double worseBy = worse == Worse.Higher ? now - baseline : baseline - now;
-            if (baseline == 0) return worseBy > 0 ? double.PositiveInfinity : 0;
-            return 100.0 * worseBy / Math.Abs(baseline);
-        }
+        /// <summary>How much worse now is than the baseline, in percent of the baseline (negative: better); 0 from a baseline of 0.</summary>
+        public static double WorsePercent(double baseline, double now, Worse worse) =>
+            baseline == 0 ? 0 : 100.0 * WorseBy(baseline, now, worse) / Math.Abs(baseline);
 
-        /// <summary>True when worsePercent is more than FailPercent (rounding error aside: 10% worse passes).</summary>
-        public static bool Fails(double worsePercent) => worsePercent > FailPercent + 1e-9;
+        /// <summary>True when now is more than FailPercent worse than the baseline (rounding error aside: 10% passes); from 0, when any worse.</summary>
+        public static bool Fails(double baseline, double now, Worse worse) =>
+            baseline == 0 ? WorseBy(baseline, now, worse) > 0 : WorsePercent(baseline, now, worse) > FailPercent + 1e-9;
+
+        static double WorseBy(double baseline, double now, Worse worse) => worse == Worse.Higher ? now - baseline : baseline - now;
+
+        /// <summary>Adds a problem: the result then fails.</summary>
+        public static void AddProblem(PictureTestResult result, string problem)
+        {
+            result.Problems.Add(problem);
+            result.Pass = false;
+        }
 
         public static PictureTestResult Compare(PictureMeasureSet baseline, PictureMeasureSet now)
         {
@@ -100,9 +118,19 @@ namespace HockeyGame.Editor
                     result.Problems.Add("View " + view.View + " has no baseline.");
                     continue;
                 }
-                result.Checks.Add(Check(view.View, ContrastName, before.Contrast, view.Contrast, Worse.Higher));
-                result.Checks.Add(Check(view.View, EdgesName, before.Edges, view.Edges, Worse.Higher));
-                result.Checks.Add(Check(view.View, GapStandOutName, before.GapStandOut, view.GapStandOut, Worse.Lower));
+                Check(result, view.View, ContrastName, before.Contrast, view.Contrast, Worse.Higher);
+                Check(result, view.View, EdgesName, before.Edges, view.Edges, Worse.Higher);
+                foreach (GapMeasure gap in view.Gaps)
+                {
+                    GapMeasure gapBefore = before.Gaps.Find(g => g.Gap == gap.Gap);
+                    if (gapBefore == null)
+                        result.Problems.Add("View " + view.View + ": " + gap.Gap + " has no baseline.");
+                    else
+                        Check(result, view.View, GapStandOutName + " " + gap.Gap, gapBefore.StandOut, gap.StandOut, Worse.Lower);
+                }
+                foreach (GapMeasure gapBefore in before.Gaps)
+                    if (!view.Gaps.Exists(g => g.Gap == gapBefore.Gap))
+                        result.Problems.Add("View " + view.View + ": " + gapBefore.Gap + " is in the baseline but was not measured.");
             }
             foreach (ViewMeasures before in baseline.Views)
                 if (!now.Views.Exists(v => v.View == before.View))
@@ -111,17 +139,25 @@ namespace HockeyGame.Editor
             return result;
         }
 
-        static MeasureCheck Check(string view, string measure, double baseline, double now, Worse worse)
+        static void Check(PictureTestResult result, string view, string measure, double baseline, double now, Worse worse)
         {
-            double worsePercent = WorsePercent(baseline, now, worse);
-            return new MeasureCheck
+            if (!IsFinite(baseline) || !IsFinite(now))
+            {
+                result.Problems.Add("View " + view + ": " + measure + " is not a number (baseline " + Num(baseline) + ", now " + Num(now) + ").");
+                return;
+            }
+            bool percentApplies = baseline != 0;
+            result.Checks.Add(new MeasureCheck
             {
                 View = view, Measure = measure, Baseline = baseline, Now = now,
-                ChangePercent = baseline == 0 ? (now == 0 ? 0 : double.PositiveInfinity * Math.Sign(now)) : 100.0 * (now - baseline) / Math.Abs(baseline),
-                WorsePercent = worsePercent,
-                Fails = Fails(worsePercent)
-            };
+                PercentApplies = percentApplies,
+                ChangePercent = percentApplies ? 100.0 * (now - baseline) / Math.Abs(baseline) : 0,
+                WorsePercent = WorsePercent(baseline, now, worse),
+                Fails = Fails(baseline, now, worse)
+            });
         }
+
+        static bool IsFinite(double v) => !double.IsNaN(v) && !double.IsInfinity(v);
 
         /// <summary>The result as lines to read: PASS or FAIL, then each measure against the baseline.</summary>
         public static string Text(PictureTestResult result)
@@ -132,7 +168,9 @@ namespace HockeyGame.Editor
             foreach (string problem in result.Problems) text.AppendLine("  Problem: " + problem);
             foreach (MeasureCheck c in result.Checks)
                 text.AppendLine("  " + (c.Fails ? "FAIL " : "ok   ") + c.View + "  " + c.Measure + ": " + Num(c.Now) + " vs baseline " +
-                                Num(c.Baseline) + " (" + Signed(c.ChangePercent) + "%, " + Signed(c.WorsePercent) + "% worse)");
+                                Num(c.Baseline) + (c.PercentApplies
+                                    ? " (" + Signed(c.ChangePercent) + "%, " + Signed(c.WorsePercent) + "% worse)"
+                                    : " (baseline 0: any worse change fails)"));
             foreach (PictureChange p in result.Pictures)
                 text.AppendLine("  picture " + p.View + ": " + Num(p.PixelsChangedPercent) + "% of pixels changed");
             return text.ToString();

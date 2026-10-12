@@ -21,10 +21,10 @@ namespace HockeyGame.Editor
     /// on the same machine. It opens Assets/Scenes/Rink.unity and builds the rink as the game does, then leaves it unsaved.
     /// </para>
     /// <para>
-    /// The Calm Area is the screen area over the ice from x -4.27 to 4.27 m and from the crease front (z -1.9) to the end
-    /// boards, from the ice up to the top of the view. Its measures leave out the goalie and the Easy mode glow, so they
-    /// measure the arena alone. Gap stand-out compares the Gap cells' pixels (less the gear) with the gear's pixels on the
-    /// Net Face. Each run writes the pictures, a picture of the masks for each view, measures.json and result.json to
+    /// The Calm Area is the ice from x -4.27 to 4.27 m and from the crease front (z -1.9) to the end boards, and over the end
+    /// boards a strip as wide, up to the top of the view. Its measures leave out the goalie and the Easy mode glow, so they
+    /// measure the arena alone. Gap stand-out is measured for each Gap (a group of touching Gap cells) on its own: its pixels
+    /// (less the gear) against the gear's pixels on the Net Face. An empty Calm Area or Gap is an error. Each run writes the pictures, a picture of the masks for each view, measures.json and result.json to
     /// PictureTest/Latest; the baseline (pictures and measures.json) lives in PictureTest/Baseline.
     /// </para>
     /// From the menu (Hockey Game/Picture Test/...) or batch mode (no -nographics: it must render):
@@ -187,12 +187,16 @@ namespace HockeyGame.Editor
                 foreach (ViewMeasures view in now.Views)
                 {
                     string before = Path.Combine(BaselineFolder, view.View + ".png"), after = Path.Combine(RunFolder, view.View + ".png");
-                    if (File.Exists(before))
-                        result.Pictures.Add(new PictureChange
-                        {
-                            View = view.View,
-                            PixelsChangedPercent = 100.0 * PictureMeasures.ChangedShare(ReadPng(before), ReadPng(after))
-                        });
+                    if (!File.Exists(before))
+                    {
+                        PictureCompare.AddProblem(result, "Baseline picture " + before + " is missing.");
+                        continue;
+                    }
+                    result.Pictures.Add(new PictureChange
+                    {
+                        View = view.View,
+                        PixelsChangedPercent = 100.0 * PictureMeasures.ChangedShare(ReadPng(before), ReadPng(after))
+                    });
                 }
             }
             else
@@ -357,30 +361,44 @@ namespace HockeyGame.Editor
             PictureMeasures.AddTo(inFront, glow);
             bool[] calm = PictureMeasures.Without(CalmArea(rig.Camera, view), inFront);
             bool[] gear = PictureMeasures.And(gearSeen, PictureMeasures.Polygon(NetFaceCorners(rig.Camera, 0, 0, 100, 100), Width, Height));
-            var gapCells = new bool[Width * Height];
-            for (int column = 0; column < NetFaceGaps.Columns; column++)
-            for (int row = 0; row < NetFaceGaps.Rows; row++)
-            {
-                if (!gaps.IsGap(column, row)) continue;
-                NetFaceGaps.Cell(column, row, out double minX, out double minY, out double maxX, out double maxY);
-                PictureMeasures.AddTo(gapCells, PictureMeasures.Polygon(NetFaceCorners(rig.Camera, minX, minY, maxX, maxY), Width, Height));
-            }
-            bool[] gapPixels = PictureMeasures.Without(gapCells, gearSeen);
+            if (PictureMeasures.InnerPixels(calm, Width, Height) == 0)
+                throw new InvalidOperationException("View " + view + " shows no Calm Area: its contrast and edges cannot be measured.");
 
             float[] luma = PictureMeasures.Luma(picture);
             var measures = new ViewMeasures
             {
                 View = view,
                 Contrast = PictureMeasures.Contrast(luma, calm),
-                Edges = PictureMeasures.Edges(luma, calm, Width, Height),
-                GapStandOut = PictureMeasures.GapStandOut(luma, gapPixels, gear),
-                GapCells = gaps.Count
+                Edges = PictureMeasures.Edges(luma, calm, Width, Height)
             };
-            if (double.IsNaN(measures.GapStandOut))
-                throw new InvalidOperationException("View " + view + " shows no Gap or no gear pixels: Gap stand-out cannot be measured.");
+
+            // Each Gap on its own: its cells' pixels (less the gear seen) against the gear's pixels on the Net Face.
+            var isGap = new bool[NetFaceGaps.Cells];
+            for (int column = 0; column < NetFaceGaps.Columns; column++)
+            for (int row = 0; row < NetFaceGaps.Rows; row++)
+                isGap[NetFaceGaps.Index(column, row)] = gaps.IsGap(column, row);
+            var allGapPixels = new bool[Width * Height];
+            foreach (List<int> cells in PictureMeasures.Groups(isGap, NetFaceGaps.Columns, NetFaceGaps.Rows))
+            {
+                string name = PictureMeasures.GapName(cells, NetFaceGaps.Columns);
+                var gapCells = new bool[Width * Height];
+                foreach (int cell in cells)
+                {
+                    NetFaceGaps.Cell(cell % NetFaceGaps.Columns, cell / NetFaceGaps.Columns, out double minX, out double minY, out double maxX, out double maxY);
+                    PictureMeasures.AddTo(gapCells, PictureMeasures.Polygon(NetFaceCorners(rig.Camera, minX, minY, maxX, maxY), Width, Height));
+                }
+                bool[] gapPixels = PictureMeasures.Without(gapCells, gearSeen);
+                double standOut = PictureMeasures.GapStandOut(luma, gapPixels, gear);
+                if (double.IsNaN(standOut))
+                    throw new InvalidOperationException("View " + view + ": " + name + " shows no pixels, or there are no gear pixels: its stand-out cannot be measured.");
+                measures.Gaps.Add(new GapMeasure { Gap = name, Cells = cells.Count, StandOut = standOut });
+                PictureMeasures.AddTo(allGapPixels, gapPixels);
+            }
+            if (measures.Gaps.Count == 0)
+                throw new InvalidOperationException("View " + view + " has no Gaps: pick a point with Gaps.");
 
             WritePng(texture, picture, Path.Combine(folder, view + ".png"));
-            WritePng(texture, Overlay(picture, calm, gear, gapPixels), Path.Combine(folder, view + "-masks.png"));
+            WritePng(texture, Overlay(picture, calm, gear, allGapPixels), Path.Combine(folder, view + "-masks.png"));
             return measures;
         }
 
