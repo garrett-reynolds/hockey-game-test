@@ -10,7 +10,7 @@ namespace HockeyGame
     /// (#103) makes contacts a step ahead: a puck flying a few centimetres past a post's or a box's edge gets a contact
     /// pointing at it, and the solver pushes it off as if it would hit ("ghost push"). Before each physics step this sweeps
     /// the puck's own hit shapes along the step's travel (on the main thread) and keeps the colliders it really reaches; while
-    /// the step runs, Unity's contact modification ignores the puck's foreseen contacts with anything else, so they push not.
+    /// the step runs, Unity's contact modification ignores the puck's foreseen contacts with anything else, so they give no push.
     /// Contacts already touching (within Slop) are always kept, and so are contacts with something moving (the sweep only saw
     /// where it was before the step). Works for any collider the puck meets: the posts, crossbar and catch now, the boards
     /// (#110) and the goalie's gear (#111) later. Dispose when done: it stops listening.

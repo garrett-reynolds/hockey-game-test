@@ -167,7 +167,7 @@ namespace HockeyGame
                 ContactPair pair = headers[i].GetContactPair(j);
                 Collider other = _ownShapes.Contains(pair.collider) ? pair.otherCollider : _ownShapes.Contains(pair.otherCollider) ? pair.collider : null;
                 // A real hit pushes: ContinuousSpeculative also reports contacts it only foresaw, with no push, up to a step's travel
-                // away; and those the puck would never reach PuckReach ignores, so they push not either (#114). The ice is known
+                // away; and those the puck would never reach PuckReach ignores, so they give no push either (#114). The ice is known
                 // by its material, not its name: anything else with a push is a hit.
                 if (other == null || other.sharedMaterial == ShotColliders.Ice || pair.impulseSum == Vector3.zero) continue;
                 if (!_touched)
