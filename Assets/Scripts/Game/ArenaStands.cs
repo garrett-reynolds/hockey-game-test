@@ -6,7 +6,7 @@ using UnityEngine.Rendering;
 namespace HockeyGame
 {
     /// <summary>
-    /// The arena round the whole rink: stands full of fans, the empty benches and penalty boxes, an LED ribbon board and a
+    /// The arena round the whole rink: stands full of fans, the empty benches and penalty boxes, a Ribbon Board and a
     /// roof, from the arena model (Assets/Resources/Models/arena.obj) when there is one, so the shooter never sees the edge
     /// of the world.
     /// With no model the dark backdrop stays as it was. The arena casts no shadows (its roof would shade the ice), and
@@ -19,7 +19,7 @@ namespace HockeyGame
         public const float Reach = 31f;
         /// <summary>Height of the roof above the ice (metres), from the Rink Layout.</summary>
         public const float RoofHeight = (float)RinkLayout.RoofHeight;
-        /// <summary>Name of the glowing LED ribbon board part in the arena model.</summary>
+        /// <summary>Name of the glowing Ribbon Board part in the arena model.</summary>
         public const string GlowPart = "Ribbon";
         /// <summary>Name of the seats part in the arena model (the stepped treads the 3D fans sit on).</summary>
         public const string SeatsPart = "Risers";

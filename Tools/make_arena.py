@@ -10,7 +10,7 @@
 #   players' benches. Outer box: the outline + 0.2 m, y 0 to the end glass top. The "Glass" part is made see-through by
 #   the game.
 #   arena.obj: a dark floor round the boards, two tiers of plain stepped seating all round the bowl (the game seats its
-#   3D fans there: Crowd.cs, CrowdSeats.cs), an LED ribbon board between the tiers ("Ribbon", made to glow by the game),
+#   3D fans there: Crowd.cs, CrowdSeats.cs), a Ribbon Board between the tiers ("Ribbon", made to glow by the game),
 #   a back wall and a roof at ROOF_HEIGHT (30 m).
 #   Near centre ice the stands step back BENCH_DEPTH for the two empty players' benches (one side) and the two empty
 #   penalty boxes (the other). Outer box: the outline + 31.2 m all round, y 0 to ROOF_HEIGHT.

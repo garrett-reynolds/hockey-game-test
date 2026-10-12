@@ -23,7 +23,7 @@ namespace HockeyGame.Core.Tests
             return bounds;
         }
 
-        /// <summary>A stand-in arena file: a 10 m stands block, a roof slab above it and an LED ribbon board.</summary>
+        /// <summary>A stand-in arena file: a 10 m stands block, a roof slab above it and a Ribbon Board.</summary>
         static GameObject FakeArenaFile()
         {
             var model = new GameObject("arena");

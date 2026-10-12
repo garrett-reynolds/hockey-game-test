@@ -107,8 +107,16 @@ The slow-motion view of a Shot from behind the net, played on both the Video Boa
 _Avoid_: Instant replay, highlight
 
 **Goal Show**:
-What the arena does on a Goal: the goal horn, the red goal light, GOAL! on the Ribbon Board and the roof lights pulsing with the horn. It is the same on every Goal.
+What the arena does on a Goal: the goal horn, the red goal light, GOAL! on the Ribbon Board and the roof lights pulsing red. It starts with the horn, when the puck lands, and the lights pulse until the result hold ends (about 4.5 s, through the Replay). It is the same on every Goal.
 _Avoid_: Goal celebration, light show
+
+**Arena Show**:
+What the whole arena does at each moment of a Round, worked out from the Round alone: its phase and the time in it, the last Shot's result, a new best and the score. It decides the Video Board, the Ribbon Board, the crowd, the Goal Show lights, the camera, the Clap Chant and when the Calm Area holds still; every arena part only follows it.
+_Avoid_: Arena state machine, show controller, effects
+
+**Rink Layout**:
+The one source of the rink's NHL sizes and places: the rink and its corners, the lines and the trapezoid, the boards and glass, the ad slots and ice logos, the Calm Area's bounds, the far net, the benches and penalty boxes, and where the Video Board and Centre Board hang. Nothing else holds its own copy of a size.
+_Avoid_: Rink dimensions, rink config
 
 **Calm Area**:
 The part of the arena behind the net, as wide as the back of the trapezoid, from the ice to the top of the view at the Shot. From when the goalie is set until the Shot it stays still, soft and dim, so the goalie and each Gap are easy to read.
