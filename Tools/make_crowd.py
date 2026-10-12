@@ -287,7 +287,7 @@ def stand_cheer(arm, t, f):
 
 def oh(arm, t, f):
     """Seated: an 'oh!': both hands up to the head and the body rocks back, then all back to the seated pose."""
-    frames = CLIPS[3][1]
+    frames = next(c[1] for c in CLIPS if c[0] == "oh")
     e = math.sin(math.pi * f / (frames - 1)) ** 2 if frames > 1 else 0.0   # 0 at both ends: starts and ends seated
     if e <= 0: return
     turn(arm, "spine_01", (1, 0, 0), -9 * e)
