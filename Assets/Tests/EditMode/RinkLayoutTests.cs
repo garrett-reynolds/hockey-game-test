@@ -209,6 +209,8 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(RinkLayout.EndGlassTop, Py("END_GLASS_TOP"), 1e-4);
             Assert.AreEqual(RinkLayout.SideGlassTop, Py("SIDE_GLASS_TOP"), 1e-4);
             Assert.AreEqual(RinkLayout.IceSize, Py("ICE_SIZE"), 1e-4);
+            Assert.AreEqual(RinkLayout.CalmAreaHalfWidth, Py("CALM_AREA_HALF_WIDTH"), 1e-4);
+            Assert.AreEqual(RinkLayout.CalmAreaFrontZ, Py("CALM_AREA_FRONT_Z"), 1e-4);
             Assert.AreEqual(RinkLayout.IceCentreZ, Py("ICE_CENTRE_Z"), 1e-4);
             Assert.AreEqual(RinkLayout.Benches[0].Side, Py("BENCH_SIDE"), 1e-9);
             Assert.AreEqual(RinkLayout.BenchDepth, Py("BENCH_DEPTH"), 1e-4);
