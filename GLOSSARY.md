@@ -36,7 +36,7 @@ A visible gap in a Set-up that the shooter can read: a Cheat (set off the angle 
 _Avoid_: Weakness, tell, hole
 
 **Gap**:
-Part of the Net Face the goalie's set gear leaves open, so the shooter can see it. A Set-up Mistake makes a bigger Gap; a Clean Set-up leaves only small ones. A Shot into a Gap is not a sure Goal: Reach in time still decides.
+Part of the Net Face the goalie's set gear leaves open, so the shooter can see it. A Set-up Mistake makes a bigger Gap; a Clean Set-up leaves only small ones. A Shot into a Gap is not a sure Goal: the goalie may still get his gear in the puck's way.
 _Avoid_: hole, weak spot
 
 **Easy mode**:
@@ -56,8 +56,12 @@ How long the puck takes from the Shot to the goalie. A faster or closer Shot has
 _Avoid_: Travel time
 
 **Reach in time**:
-The rule that decides a Shot on the Net Face: a Save when the Reach Time is no longer than the Flight Time, otherwise a Goal. Shot speed matters only through the Flight Time. It does not decide a Miss or a Frame Hit: where the Shot goes decides those.
+The goalie's race against the puck: he is expected to get there when the Reach Time is no longer than the Flight Time. It drives how he moves and the hints (Easy mode, the Annoyed Gesture), but it does not decide the Shot: the puck's real path does, and the puck can still beat a gear that arrives in time, or hit one that does not.
 _Avoid_: Save chance
+
+**Goal**:
+A Shot whose whole puck crosses the goal line, however it got there (straight in, off a post, off the goalie).
+_Avoid_: Score
 
 **Ready Stance**:
 The goalie's crouch before the Shot, the same for every Set-up and Attack Side. The goalie holds it through the skate-in and slow-down, reacts out of it on the Shot, and keeps it when there is no Shot in time. In it the goalie turns on its spot to face the shooter (up to 30 degrees either way) and shuffles across and in or out to play the angle and get set into his Set-up, and it keeps that turn through its reaction. In it he shows Stance Life; the goalie character also stands in it on the start and end screens.
@@ -83,9 +87,17 @@ _Avoid_: Reset, return to idle
 The goalie character's small, steady motion in the Ready Stance: breathing, weight shifts from skate to skate (the skates stay put) and now and then a stick tap. It runs on real time (so it carries on at full speed through the slow-down) from a clock alone, never from the Set-up, the Attack Side or the Shot, so it gives no hint. It fades out as he reacts (none once he has fully reacted) and back in during Recovery.
 _Avoid_: Idle animation, idle pose (Idle is the start screen's phase)
 
+**Save**:
+A Shot whose puck touches the goalie's gear and does not go in.
+_Avoid_: Stop
+
 **Miss**:
-A Shot that does not reach the Net Face, or no Shot in time. It uses one of the Round's 6 Shots.
+Any Shot that is neither a Goal nor a Save: the puck never gets in and never touches the goalie's gear (a Frame Hit that stays out too), or no Shot in time. It uses one of the Round's 6 Shots.
+
+**Whistle**:
+The moment a Shot's result is fixed: a Goal the moment the whole puck is past the goal line inside the net, otherwise when the puck is dead (very slow for about 0.3 s), gone (behind the goal line outside the net, or out of the camera's view) or about 3 s after the Shot. Nothing after the Whistle changes the result. The result shows at the Whistle and is held 2.5 s.
+_Avoid_: Final whistle, play dead
 
 **Frame Hit**:
-A Miss whose position lands on a post or the crossbar: just outside the Net Face, within the frame's 0.08 m thickness. It pings and the puck deflects off the frame, but it is still a Miss. The goalie's reach on a Miss keeps off the puck, so a Frame Hit always rings off the frame. Should the stick, the blocker or a skate stand in front of a Save Reaction's gear on the puck's line, the puck stops on that and sounds like it.
+A Shot whose puck strikes a post or the crossbar. It pings and the puck bounces off the frame; where it then goes decides a Goal or a Miss. Should the stick, the blocker or a skate stand in front of a Save Reaction's gear on the puck's line, the puck stops on that and sounds like it.
 _Avoid_: Iron, post shot

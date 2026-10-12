@@ -2,6 +2,8 @@
 
 _Supersedes docs/adr/0001 and docs/adr/0002._
 
+_What decides the Shot changed in [docs/adr/0004](0004-unity-physics-decides-the-shot.md): Unity physics and the puck's real path decide it. The Set-up, the hint and how the goalie moves still hold._
+
 ADR 0001 and ADR 0002 kept a hidden Goalie Pose, picked before the Shot, as what decided it: a Zone table on the Net Face said Save or Goal, and speed only nudged one roll. The result was fixed before the puck moved, the shooter could not read the goalie, and what the goalie did on the Shot did not look like racing the puck. With spec #61 (map #49) the Goalie Pose and the Zones are gone. Reach in time decides every Shot on the Net Face: a Save when the Reach Time (Reaction Time plus his quickest gear's move into the puck's line) is no longer than the Flight Time, otherwise a Goal. Where the Shot goes still decides a Miss or a Frame Hit.
 
 Each Shot the goalie shows an honest Set-up: a Clean Set-up or one Set-up Mistake (Cheat, Depth or Late Settle). The Set-up is a visible hint before the Shot, so this ends ADR 0001's "no hint before the Shot" rule: reading the goalie and shooting hard at a Gap is the skill. The only hidden variation left is the small Reaction Time wobble, so a close call cannot be solved.
