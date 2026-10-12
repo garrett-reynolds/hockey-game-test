@@ -69,15 +69,19 @@ namespace HockeyGame.Core.Tests
             public Vector3 Highest;
             public float FarthestZ = float.NegativeInfinity;
             public Vector3 FirstTouchAt;          // where the puck was on the step it first hit something (not the ice)
+            public Vector3 OutsideAt;             // where the puck's centre first went past the boards line, never having flown over the glass
+            public bool WentOutside;
+            public readonly HashSet<PhysicsMaterial> Walls = new HashSet<PhysicsMaterial>(); // the boards and glass it hit
         }
 
         Flight Fly(double x, double y, double kmh, int seed, double seconds = 4.0)
         {
             var shot = new PhysicsShot(_root.transform, _camera, Defaults, new SeededRandom(seed), name => null);
             _shots.Add(shot);
+            var flight = new Flight { Shot = shot };
+            shot.Hit += (other, impulse) => flight.Walls.Add(other.sharedMaterial);
             shot.Launch(x, y, kmh);
             Physics.SyncTransforms();
-            var flight = new Flight { Shot = shot };
             Vector3 before = shot.Puck.position;
             var planes = new Plane[6];
             bool wentIn = false;
@@ -101,6 +105,7 @@ namespace HockeyGame.Core.Tests
                         flight.OutOfViewInTheAir = true;
                 }
                 if (p.y > flight.Highest.y) flight.Highest = p;
+                if (!flight.WentOutside && flight.Highest.y < OverTheGlass && OutsideBoards(p)) { flight.WentOutside = true; flight.OutsideAt = p; }
                 flight.FarthestZ = Mathf.Max(flight.FarthestZ, p.z);
                 if (shot.Touched && flight.FirstTouchAt == Vector3.zero) flight.FirstTouchAt = p;
                 if (ShotColliders.InsideCatch(p)) wentIn = true;
@@ -108,6 +113,20 @@ namespace HockeyGame.Core.Tests
                 before = p;
             }
             return flight;
+        }
+
+        /// <summary>Below the lowest glass (the sides': 2.9 m): a puck that never got this high did not fly over a wall.</summary>
+        const float OverTheGlass = (float)RinkLayout.SideGlassTop - 0.1f;
+
+        /// <summary>The puck's centre is past the inside face of the boards (the corner arcs are round), by more than 2 cm.</summary>
+        static bool OutsideBoards(Vector3 p)
+        {
+            const float slack = 0.02f;
+            float ax = Mathf.Abs(p.x), cx = (float)RinkLayout.CornerX, r = (float)RinkLayout.CornerRadius;
+            float nearZ = (float)RinkLayout.NearCornerZ, farZ = (float)RinkLayout.FarCornerZ;
+            if (ax > cx && p.z > nearZ) return new Vector2(ax - cx, p.z - nearZ).magnitude > r + slack;
+            if (ax > cx && p.z < farZ) return new Vector2(ax - cx, p.z - farZ).magnitude > r + slack;
+            return ax > (float)RinkLayout.HalfWidth + slack || p.z > (float)RinkLayout.NearEndBoardsZ + slack || p.z < (float)RinkLayout.FarEndBoardsZ - slack;
         }
 
         /// <summary>
@@ -322,6 +341,84 @@ namespace HockeyGame.Core.Tests
             }
             Assert.IsEmpty(through, string.Join("\n", through));
             Assert.Greater(goals, shots * 9 / 10, "most Shots at the open Net Face go in (" + goals + " of " + shots + ")");
+        }
+
+        // Wide Shots at the boards, the corners and the glass (Net Face units: 100 is 1.83 m across, so x of 500 is 9 m wide
+        // and 900 reaches the side boards before the goal line; y of 200 is 2.4 m up, over the boards, on the glass).
+        static readonly double[] WideX = { -900, -700, -500, -300, 300, 500, 700, 900 };
+
+        [Test]
+        public void No_puck_ends_up_through_the_boards_or_glass_over_many_seeded_Shots()
+        {
+            var random = new System.Random(110);
+            AttackSide[] sides = { AttackSide.Left, AttackSide.Middle, AttackSide.Right };
+            int shots = 0, boards = 0, glass = 0;
+            var through = new List<string>();
+            for (int n = 0; n < 160; n++)
+            {
+                PlaceEye(sides[n % 3], random.NextDouble() * Defaults.ShootingWindowSeconds);
+                double x = WideX[n % WideX.Length] + random.NextDouble() * 150 - 75, y = random.NextDouble() * 230;
+                double kmh = n % 4 == 0 ? TestShotSpeed.MaxKmh : 20 + random.NextDouble() * (TestShotSpeed.MaxKmh - 20);
+                Flight flight = Fly(x, y, kmh, seed: n, seconds: 3.0);
+                shots++;
+                if (flight.Walls.Contains(ShotColliders.Boards)) boards++;
+                if (flight.Walls.Contains(ShotColliders.Glass)) glass++;
+                if (flight.WentOutside && through.Count < 5)
+                    through.Add($"({x:0.#}, {y:0.#}) at {kmh:0} km/h from {sides[n % 3]} outside at {flight.OutsideAt:F3}");
+                Assert.AreNotEqual(ShotResultKind.Goal, flight.Shot.Result, $"({x:0.#}, {y:0.#}) is far outside the net");
+                flight.Shot.Dispose();
+                _shots.Remove(flight.Shot);
+            }
+            Assert.IsEmpty(through, string.Join("\n", through));
+            Assert.Greater(boards, shots / 4, "enough Shots hit the boards (" + boards + " of " + shots + ")");
+            Assert.Greater(glass, shots / 4, "enough Shots hit the glass (" + glass + " of " + shots + ")");
+        }
+
+        [Test]
+        public void A_control_run_without_walls_sees_the_puck_leave_the_rink()
+        {
+            // The same detector must see a tunnel: with the boards and glass taken away a wide, fast Shot leaves the rink.
+            foreach (BoxCollider box in _root.GetComponentsInChildren<BoxCollider>())
+                if (box.name == ShotColliders.BoardsName || box.name == ShotColliders.GlassName) box.enabled = false;
+            Physics.SyncTransforms();
+            Flight flight = Fly(-900, 60, TestShotSpeed.MaxKmh, seed: 1, seconds: 3.0);
+            Assert.IsTrue(flight.WentOutside, "the detector never saw the puck leave the rink");
+        }
+
+        [Test]
+        public void The_boards_and_glass_stand_all_round_the_rink_0_4_m_thick_with_the_C_Dead_feel()
+        {
+            int boards = 0, glass = 0;
+            foreach (BoxCollider box in _root.GetComponentsInChildren<BoxCollider>())
+            {
+                if (box.name == ShotColliders.BoardsName) { boards++; Assert.AreEqual(ShotColliders.Boards, box.sharedMaterial); }
+                else if (box.name == ShotColliders.GlassName) { glass++; Assert.AreEqual(ShotColliders.Glass, box.sharedMaterial); }
+                else continue;
+                Assert.AreEqual(0.4f, box.size.x, 1e-4f, box.name + " thickness");
+            }
+            Assert.AreEqual(5 + 4 * ShotColliders.CornerSegments, boards, "five straight runs and 16 pieces a corner");
+            Assert.AreEqual(boards, glass);
+            Assert.AreEqual(0.35f, ShotColliders.Boards.bounciness);
+            Assert.AreEqual(0.3f, ShotColliders.Boards.dynamicFriction);
+            Assert.AreEqual(0.3f, ShotColliders.Glass.bounciness);
+            Assert.AreEqual(0.15f, ShotColliders.Glass.dynamicFriction);
+            Assert.AreEqual(PhysicsMaterialCombine.Maximum, ShotColliders.Glass.bounceCombine);
+            Assert.AreEqual(PhysicsMaterialCombine.Minimum, ShotColliders.Glass.frictionCombine);
+        }
+
+        // Behind the net outside it, before any wall: "gone" at the goal line, a Miss, with the boards 3.35 m behind it.
+        [TestCase(-200, 50, 100)]
+        [TestCase(200, 30, 100)]
+        [TestCase(-400, 120, 150)]
+        [TestCase(300, 60, 60)]
+        public void A_Shot_wide_behind_the_net_is_a_Miss_at_the_gone_Whistle_with_the_boards_present(double x, double y, double kmh)
+        {
+            Flight flight = Fly(x, y, kmh, seed: 12, seconds: 3.0);
+            PhysicsShot shot = flight.Shot;
+
+            Assert.AreEqual(ShotResultKind.Miss, shot.Result);
+            Assert.IsTrue(shot.LastFacts.Gone, "the Whistle came from the gone fact");
+            Assert.Less(shot.WhistleSeconds, flight.CrossedAt + 0.1, "gone as it passed the goal line outside the net");
         }
 
         [Test]

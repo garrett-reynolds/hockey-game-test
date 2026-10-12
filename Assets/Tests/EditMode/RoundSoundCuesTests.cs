@@ -118,7 +118,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void Miss_that_hit_nothing_plays_boards_clang_and_small_groan_at_the_Whistle()
+        public void Miss_that_hit_nothing_plays_a_small_groan_at_the_Whistle()
         {
             var round = StartedRound();
             var cues = new RoundSoundCues(new SaveData());
@@ -126,7 +126,22 @@ namespace HockeyGame.Core.Tests
             round.SubmitShot(150, 90, 100, false);       // off the Net Face
             cues.Update(round);
             round.Whistle(ShotResultKind.Miss);
-            CollectionAssert.AreEquivalent(new[] { SoundCue.MissImpact, SoundCue.SmallGroan }, cues.Update(round));
+            CollectionAssert.AreEquivalent(new[] { SoundCue.SmallGroan }, cues.Update(round));
+        }
+
+        // Board and glass sounds come from the physics contacts (#110), when they happen; the Miss then gets only the small groan.
+        [TestCase(SoundCue.MissImpact)]
+        [TestCase(SoundCue.GlassImpact)]
+        public void A_board_or_glass_hit_sounds_when_it_happens_and_the_Miss_gets_a_small_groan(SoundCue hit)
+        {
+            var round = StartedRound();
+            var cues = new RoundSoundCues(new SaveData());
+            Run(round, cues, 3.8);
+            round.SubmitShot(150, 90, 100, false);
+            cues.Update(round);
+            CollectionAssert.AreEquivalent(new[] { hit }, cues.Update(round, hit));
+            round.Whistle(ShotResultKind.Miss);
+            CollectionAssert.AreEquivalent(new[] { SoundCue.SmallGroan }, cues.Update(round));
         }
 
         // Post and crossbar sounds come from the physics contacts (PhysicsShotEffects.HitSound), when they happen.
@@ -159,7 +174,7 @@ namespace HockeyGame.Core.Tests
             round.SubmitShot(150, 90, 100, false);
             cues.Update(round);
             round.Whistle(ShotResultKind.Miss);
-            CollectionAssert.AreEquivalent(new[] { SoundCue.MissImpact, SoundCue.SmallGroan }, cues.Update(round));
+            CollectionAssert.AreEquivalent(new[] { SoundCue.SmallGroan }, cues.Update(round));
         }
 
         // Plays one Shot at (x, y) with the race's result at its Whistle (ScriptedShot) and returns the cues on the Whistle frame.
@@ -243,10 +258,10 @@ namespace HockeyGame.Core.Tests
         [TestCase(106, 50, TestName = "Just wide of the right post")]
         [TestCase(50, 108, TestName = "Just over the crossbar")]
         [TestCase(-2, -3, TestName = "Below the ice by the post")]
-        public void Miss_wide_of_the_frame_clangs_off_the_boards(double x, double y)
+        public void Miss_wide_of_the_frame_gets_a_small_groan_and_no_clang_of_its_own(double x, double y)
         {
             var heard = ArrivalCues(StartedRound(), x, y);
-            CollectionAssert.AreEquivalent(new[] { SoundCue.MissImpact, SoundCue.SmallGroan }, heard);
+            CollectionAssert.AreEquivalent(new[] { SoundCue.SmallGroan }, heard);
         }
 
         [Test]

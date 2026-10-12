@@ -21,6 +21,7 @@ namespace HockeyGame
         public static AudioClip Horn() => Make("Goal Horn", Horn(1.6f));
         public static AudioClip PadThud() => Make("Pad Thud", Thud(0.35f));
         public static AudioClip BoardsClang() => Make("Boards Clang", Clang(0.9f));
+        public static AudioClip GlassBang() => Make("Glass Bang", Bang(0.5f));
         public static AudioClip PostPing() => Make("Post Ping", Ping(0.8f));
         public static AudioClip GloveCatch() => Make("Glove Catch", NoiseBurst(0.18f, 0.6f, 0.75f, 35f, 13));
         public static AudioClip BlockerHit() => Make("Blocker Hit", NoiseBurst(0.2f, 0.6f, 0.45f, 30f, 17));
@@ -258,6 +259,22 @@ namespace HockeyGame
             var hit = NoiseBurst(0.05f, 1f, 0f, 80f, 11);
             for (int i = 0; i < hit.Length; i++) s[i] += 0.5f * hit[i];
             Normalise(s, 0.55f);
+            return s;
+        }
+
+        /// <summary>A bang on glass: a dull, short thump over a low rattle (lower and shorter than the boards' clang).</summary>
+        static float[] Bang(float seconds)
+        {
+            var s = NoiseBurst(seconds, 0.6f, 0.7f, 22f, 19);
+            AddThump(s, 0f, 140f, 0.8f);
+            float[] partials = { 310f, 740f }; // a pane's low modes
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = (float)i / Rate;
+                for (int p = 0; p < partials.Length; p++)
+                    s[i] += 0.25f * Mathf.Sin(2 * Mathf.PI * partials[p] * t) * Mathf.Exp(-t * (14f + 8f * p));
+            }
+            Normalise(s, 0.6f);
             return s;
         }
 

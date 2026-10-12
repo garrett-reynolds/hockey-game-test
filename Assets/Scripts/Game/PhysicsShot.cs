@@ -125,8 +125,9 @@ namespace HockeyGame
         /// <summary>
         /// The puck may go from the screen: it is out of the camera's view now, after it has crossed the Net Face or hit
         /// something. Before that it is never out of sight: it starts below the view, and a slow Shot may lob over its top.
+        /// Once the puck is hidden it stays out of sight (a hidden body reads position zero).
         /// </summary>
-        public bool OutOfSight => Launched && (CrossedNetFace || _touched) && OutOfView(Puck.position);
+        public bool OutOfSight => Launched && (!Puck.gameObject.activeSelf || (CrossedNetFace || _touched) && OutOfView(Puck.position));
 
         PuckFacts Facts(double secondsSinceShot)
         {

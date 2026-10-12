@@ -13,7 +13,7 @@ namespace HockeyGame.Core.Tests
             {
                 PlaceholderSounds.CrowdLoop(), PlaceholderSounds.HeartbeatLoop(), PlaceholderSounds.Tick(),
                 PlaceholderSounds.FastTick(), PlaceholderSounds.Buzzer(), PlaceholderSounds.NetHit(),
-                PlaceholderSounds.Horn(), PlaceholderSounds.PadThud(), PlaceholderSounds.BoardsClang(),
+                PlaceholderSounds.Horn(), PlaceholderSounds.PadThud(), PlaceholderSounds.BoardsClang(), PlaceholderSounds.GlassBang(),
                 PlaceholderSounds.Cheer(), PlaceholderSounds.Groan(), PlaceholderSounds.NewBestCheer(),
                 PlaceholderSounds.PostPing(), PlaceholderSounds.GloveCatch(), PlaceholderSounds.BlockerHit(),
                 PlaceholderSounds.HockeyStop(), PlaceholderSounds.Stride(0), PlaceholderSounds.Chant(), PlaceholderSounds.Ooh()

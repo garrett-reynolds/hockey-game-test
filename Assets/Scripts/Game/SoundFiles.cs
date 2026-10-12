@@ -8,7 +8,7 @@ namespace HockeyGame
     /// Assets/Resources/Sounds/ named after the sound below, for example Assets/Resources/Sounds/goal-horn.wav.
     /// A sound with no file plays its code-made placeholder from PlaceholderSounds. No code change is needed.
     /// File names: crowd-loop, heartbeat-loop, tick, fast-tick, buzzer, net-hit, goal-horn, pad-thud,
-    /// boards-clang, cheer, groan, ooh, small-groan, new-best-cheer, post-ping, glove-catch, blocker-hit, hockey-stop,
+    /// boards-clang, glass-bang, cheer, groan, ooh, small-groan, new-best-cheer, post-ping, glove-catch, blocker-hit, hockey-stop,
     /// stride-1 .. stride-4, chant. The goal horn, goal song and Clap Chant file names come from the Team Skin (the League
     /// Skin's are goal-horn and chant).
     /// </summary>
@@ -25,6 +25,8 @@ namespace HockeyGame
         public const string NetHit = "net-hit";
         public const string PadThud = "pad-thud";
         public const string BoardsClang = "boards-clang";
+        /// <summary>The puck banging on the glass; with no file, a placeholder plays.</summary>
+        public const string GlassBang = "glass-bang";
         public const string Cheer = "cheer";
         /// <summary>The home crowd's groan on a Save.</summary>
         public const string Groan = "groan";
