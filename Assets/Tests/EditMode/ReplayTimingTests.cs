@@ -1,0 +1,226 @@
+using HockeyGame.Core;
+using NUnit.Framework;
+
+namespace HockeyGame.Core.Tests
+{
+    /// <summary>The Replay's timing (#91): which results get one, how long the result holds, and the camera's part in it.</summary>
+    public class ReplayTimingTests
+    {
+        const double Tol = 1e-9;
+        const double Flight = 0.3; // the on-screen puck flight the scene reports (Round.DelayResult)
+
+        static readonly double PostX = -NetFrame.PostWidth / 2, BarY = 100 + NetFrame.CrossbarHeight / 2;
+
+        static Round InWindow(IGoalieReach reach)
+        {
+            var settings = new RoundSettings();
+            var round = new Round(ScriptedRandom.Forcing(AttackSide.Middle), settings, reach, 0);
+            round.StartRound();
+            round.Tick(settings.SkateInSeconds + settings.SlowDownSeconds + 1.0);
+            Assert.AreEqual(RoundPhase.ShootingWindow, round.Phase);
+            return round;
+        }
+
+        /// <summary>A Round just after this Shot (null x: no Shot in time), its puck flight Flight long.</summary>
+        static Round After(string shot)
+        {
+            Round round = InWindow(shot == "save" ? FakeReach.InTheWay() : FakeReach.NeverReaches());
+            switch (shot)
+            {
+                case "goal": round.SubmitShot(50, 50, 100, false); break;
+                case "save": round.SubmitShot(50, 50, 100, false); break;
+                case "post": round.SubmitShot(PostX, 50, 100, false); break;
+                case "bar": round.SubmitShot(50, BarY, 100, false); break;
+                case "wide": round.SubmitShot(-20, 50, 100, false); break;
+                case "late": round.Tick(round.Settings.ShootingWindowSeconds - 1.0); break; // to the end of the window
+            }
+            Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
+            if (shot != "late") round.DelayResult(Flight);
+            return round;
+        }
+
+        static readonly string[] WithReplay = { "goal", "save", "post", "bar" };
+        static readonly string[] WithoutReplay = { "wide", "late" };
+
+        // ---- which results get a Replay ----
+
+        [Test]
+        public void A_Replay_follows_a_Goal_a_Save_and_a_Frame_Hit_but_not_a_Wide_Miss_or_Too_late()
+        {
+            Assert.IsTrue(ReplayTiming.Follows(ArenaResult.Goal));
+            Assert.IsTrue(ReplayTiming.Follows(ArenaResult.Save));
+            Assert.IsTrue(ReplayTiming.Follows(ArenaResult.FrameHitPost));
+            Assert.IsTrue(ReplayTiming.Follows(ArenaResult.FrameHitBar));
+            Assert.IsFalse(ReplayTiming.Follows(ArenaResult.WideMiss));
+            Assert.IsFalse(ReplayTiming.Follows(ArenaResult.TooLate));
+            Assert.IsFalse(ReplayTiming.Follows(ArenaResult.None));
+            foreach (string shot in WithReplay)
+                Assert.IsTrue(ReplayTiming.Follows(After(shot).LastResult), shot);
+            foreach (string shot in WithoutReplay)
+                Assert.IsFalse(ReplayTiming.Follows(After(shot).LastResult), shot);
+        }
+
+        // ---- the result time ----
+
+        [Test]
+        public void The_Replay_hold_is_1_5_s_on_the_net_0_5_s_up_2_s_of_Replay_and_0_5_s_back()
+        {
+            Assert.AreEqual(1.5, ReplayTiming.OnNetSeconds);
+            Assert.AreEqual(0.5, ReplayTiming.LookUpSeconds);
+            Assert.AreEqual(2.0, ReplayTiming.ShowSeconds);
+            Assert.AreEqual(0.5, ReplayTiming.LookBackSeconds);
+            Assert.AreEqual(4.5, ReplayTiming.HoldSeconds, Tol);
+        }
+
+        [Test]
+        public void The_result_holds_about_4_5_s_with_a_Replay_from_when_the_puck_lands()
+        {
+            foreach (string shot in WithReplay)
+            {
+                Round round = After(shot);
+                Assert.AreEqual(4.5, round.ResultHoldLength, Tol, shot);
+                round.Tick(Flight + 4.5 - 0.01);
+                Assert.AreEqual(RoundPhase.ResultHold, round.Phase, shot + ": still holding just before 4.5 s");
+                round.Tick(0.02);
+                Assert.AreEqual(RoundPhase.SkateIn, round.Phase, shot + ": the next Shot after 4.5 s");
+                Assert.AreEqual(2, round.ShotNumber, shot);
+            }
+        }
+
+        [Test]
+        public void The_result_holds_2_5_s_with_no_Replay()
+        {
+            foreach (string shot in WithoutReplay)
+            {
+                Round round = After(shot);
+                double flight = round.ResultDelaySeconds;
+                Assert.AreEqual(2.5, round.ResultHoldLength, Tol, shot);
+                round.Tick(flight + 2.5 - 0.01);
+                Assert.AreEqual(RoundPhase.ResultHold, round.Phase, shot);
+                round.Tick(0.02);
+                Assert.AreEqual(RoundPhase.SkateIn, round.Phase, shot + ": the next Shot after 2.5 s");
+            }
+        }
+
+        [Test]
+        public void The_shooting_window_and_the_normal_hold_do_not_change()
+        {
+            var settings = new RoundSettings();
+            Assert.AreEqual(2.5, settings.ResultHoldSeconds);
+            Assert.AreEqual(3.0, settings.ShootingWindowSeconds);
+        }
+
+        // ---- the camera, from the Arena Show ----
+
+        static ArenaState Show(ArenaResult result, double landedSeconds, bool hidden = false) =>
+            ArenaShow.At(new ArenaShowInput
+            {
+                Phase = RoundPhase.ResultHold,
+                PhaseSeconds = Flight + landedSeconds,
+                Result = result,
+                ResultHidden = hidden,
+                ResultDelaySeconds = Flight,
+                ShotNumber = 1
+            });
+
+        static readonly ArenaResult[] ReplayResults = { ArenaResult.Goal, ArenaResult.Save, ArenaResult.FrameHitPost, ArenaResult.FrameHitBar };
+
+        [Test]
+        public void After_a_Goal_Save_or_Frame_Hit_the_camera_stays_on_the_net_looks_up_shows_the_Replay_and_looks_back()
+        {
+            foreach (ArenaResult result in ReplayResults)
+            {
+                Assert.AreEqual(CameraMode.OnNet, Show(result, -0.2, hidden: true).Camera, result + ": puck in flight");
+                Assert.AreEqual(CameraMode.OnNet, Show(result, 0.0).Camera, result.ToString());
+                Assert.AreEqual(CameraMode.OnNet, Show(result, 1.49).Camera, result.ToString());
+                Assert.AreEqual(CameraMode.LookUp, Show(result, 1.51).Camera, result.ToString());
+                Assert.AreEqual(CameraMode.LookUp, Show(result, 1.99).Camera, result.ToString());
+                Assert.AreEqual(CameraMode.Replay, Show(result, 2.01).Camera, result.ToString());
+                Assert.AreEqual(CameraMode.Replay, Show(result, 3.99).Camera, result.ToString());
+                Assert.AreEqual(CameraMode.LookBack, Show(result, 4.01).Camera, result.ToString());
+                Assert.AreEqual(CameraMode.LookBack, Show(result, 4.49).Camera, result.ToString());
+            }
+        }
+
+        [Test]
+        public void After_a_Wide_Miss_or_Too_late_the_camera_stays_on_the_net()
+        {
+            foreach (ArenaResult result in new[] { ArenaResult.WideMiss, ArenaResult.TooLate })
+                for (double t = 0; t <= 2.5; t += 0.05)
+                {
+                    ArenaState state = Show(result, t);
+                    Assert.AreEqual(CameraMode.OnNet, state.Camera, result + " at " + t);
+                    Assert.AreEqual(0, state.CameraLookUp, result + " at " + t);
+                    Assert.AreNotEqual(VideoBoardContent.Replay, state.VideoBoard, result + " at " + t);
+                }
+        }
+
+        [Test]
+        public void The_camera_eases_up_to_the_Video_Board_and_back_down()
+        {
+            Assert.AreEqual(0, Show(ArenaResult.Save, 1.0).CameraLookUp, Tol);
+            Assert.AreEqual(0.5, Show(ArenaResult.Save, 1.75).CameraLookUp, Tol);
+            Assert.AreEqual(1, Show(ArenaResult.Save, 2.0).CameraLookUp, Tol);
+            Assert.AreEqual(1, Show(ArenaResult.Save, 3.0).CameraLookUp, Tol);
+            Assert.AreEqual(0.5, Show(ArenaResult.Save, 4.25).CameraLookUp, Tol);
+            Assert.AreEqual(0, Show(ArenaResult.Save, 4.5).CameraLookUp, Tol);
+            double last = 0;
+            for (double t = 1.5; t <= 2.0; t += 0.01)
+            {
+                double up = Show(ArenaResult.Goal, t).CameraLookUp;
+                Assert.GreaterOrEqual(up, last - Tol, "never turns back down on the way up, at " + t);
+                last = up;
+            }
+        }
+
+        [Test]
+        public void Both_boards_play_the_Replay_only_while_the_Replay_shows()
+        {
+            Assert.AreEqual(VideoBoardContent.Goal, Show(ArenaResult.Goal, 1.0).VideoBoard, "the Goal first");
+            Assert.AreEqual(VideoBoardContent.Goal, Show(ArenaResult.Goal, 1.8).VideoBoard);
+            Assert.AreEqual(VideoBoardContent.Replay, Show(ArenaResult.Goal, 2.5).VideoBoard, "then the Replay");
+            Assert.AreEqual(VideoBoardContent.Replay, Show(ArenaResult.Save, 2.5).VideoBoard);
+            Assert.AreEqual(VideoBoardContent.Replay, Show(ArenaResult.FrameHitPost, 2.5).VideoBoard);
+            Assert.AreEqual(0.5, Show(ArenaResult.Save, 2.5).ReplaySeconds, Tol);
+            Assert.AreEqual(0, Show(ArenaResult.Save, 1.0).ReplaySeconds, Tol);
+        }
+
+        [Test]
+        public void From_the_screen_flow_a_Goal_runs_the_whole_Replay_and_then_the_next_Shot()
+        {
+            var flow = new ScreenFlow(ScriptedRandom.Halves(), new SaveData(), FakeReach.NeverReaches());
+            flow.Press();
+            flow.Tick(3.7 + 0.5);
+            flow.SubmitShot(50, 90, 100, false); // nothing reaches: a Goal
+            flow.Round.DelayResult(Flight);
+            Assert.AreEqual(CameraMode.OnNet, ArenaShow.From(flow).Camera);
+            flow.Tick(Flight + 1.75);
+            Assert.AreEqual(CameraMode.LookUp, ArenaShow.From(flow).Camera);
+            flow.Tick(1.0);
+            Assert.AreEqual(CameraMode.Replay, ArenaShow.From(flow).Camera);
+            Assert.AreEqual(VideoBoardContent.Replay, ArenaShow.From(flow).VideoBoard);
+            flow.Tick(1.5);
+            Assert.AreEqual(CameraMode.LookBack, ArenaShow.From(flow).Camera);
+            flow.Tick(0.26);
+            Assert.AreEqual(RoundPhase.SkateIn, flow.Round.Phase);
+            Assert.AreEqual(CameraMode.OnNet, ArenaShow.From(flow).Camera);
+        }
+
+        // ---- what the Replay shows ----
+
+        [Test]
+        public void The_Replay_plays_the_Shot_from_just_before_the_puck_lands_to_just_after_in_slow_motion()
+        {
+            Assert.AreEqual(0.0, ReplayTiming.ShotSecondsAt(0, 0.3), Tol, "a quick Shot: from the Shot itself");
+            Assert.AreEqual(0.6, ReplayTiming.ShotSecondsAt(ReplayTiming.ShowSeconds, 0.3), Tol);
+            Assert.AreEqual(0.6 - ReplayTiming.LeadSeconds, ReplayTiming.ShotSecondsAt(0, 0.6), Tol, "a slow Shot: from just before it lands");
+            Assert.AreEqual(0.6 + ReplayTiming.TailSeconds, ReplayTiming.ShotSecondsAt(ReplayTiming.ShowSeconds, 0.6), Tol);
+            foreach (double flight in new[] { 0.1, 0.3, 0.6, 1.0 })
+            {
+                double clip = ReplayTiming.ClipEnd(flight) - ReplayTiming.ClipStart(flight);
+                Assert.Less(clip / ReplayTiming.ShowSeconds, 0.5, "slow motion at " + flight);
+                Assert.Less(ReplayTiming.ClipStart(flight), flight, "starts before the puck lands, at " + flight);
+            }
+        }
+    }
+}

@@ -33,6 +33,8 @@ namespace HockeyGame
         RoofLights _roofLights; // pulse in the Goal Show and the new-best show
         Crowd _crowd; // follows the Arena Show (null without the crowd body file)
         VideoBoards _boards;   // follow the Arena Show
+        BreakawayView _breakaway; // the camera: looks up at the Video Board for the Replay
+        ReplayView _replay;    // the Replay on both boards
         Plane _netFacePlane;
         bool _testShotsOn;
         int _testShotSpeedKmh = TestShotSpeed.DefaultKmh;
@@ -62,13 +64,17 @@ namespace HockeyGame
             _flow.BestScoreChanged += SaveStore.Save;
             _round = _flow.Round;
             _sound = new RoundSound(_camera.gameObject, _save, _round.Settings, new SystemRandomSource()); // the chant rolls on its own source
-            gameObject.AddComponent<BreakawayView>().Init(_round, _camera, _goalie);
+            _breakaway = gameObject.AddComponent<BreakawayView>();
+            _breakaway.Init(_round, _camera, _goalie);
+            _replay = gameObject.AddComponent<ReplayView>(); // the puck last: it can ride in the goalie's glove
+            _replay.Init(_round, _boards, _camera, _goalie.Body, _effects.SaveBlock, _effects.Puck);
             _usb = gameObject.AddComponent<UsbShotSource>();
             _usb.Init(_save);
         }
 
         void Update()
         {
+            _replay.RestoreLive(); // last frame's Replay poses go back before anything moves
             _flow.Tick(Time.unscaledDeltaTime);
 
             // Real Shots count whether Test Shots are on or off; on the start or end screen one acts as a Press.
@@ -93,6 +99,8 @@ namespace HockeyGame
             _effects.GoalLight.SetOn(show.GoalShow.GoalLight);
             _roofLights.Show(show.GoalShow);
             if (_crowd != null) _crowd.Show(show, Time.unscaledTimeAsDouble);
+            _breakaway.LookUp(show.CameraLookUp);
+            _replay.Show(show);
 
             bool playing = _flow.Screen == FlowScreen.Playing;
             bool pressed = false; // key or click outside a Round: at most one Press per frame

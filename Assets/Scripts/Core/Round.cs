@@ -110,6 +110,11 @@ namespace HockeyGame.Core
         /// </summary>
         public bool ResultShowing => Phase != RoundPhase.ResultHold || _phaseElapsed >= _resultDelay;
 
+        /// <summary>
+        /// How long the current result holds once it shows (after any DelayResult): ReplayTiming.HoldSeconds (about 4.5 s)
+        /// when a Replay follows (a Goal, a Save or a Frame Hit), otherwise ResultHoldSeconds (2.5 s: a Wide Miss, Too late).
+        /// </summary>
+        public double ResultHoldLength => ReplayTiming.Follows(LastResult) ? ReplayTiming.HoldSeconds : _settings.ResultHoldSeconds;
         /// <summary>Real seconds the current result is held back (see DelayResult): the on-screen puck flight, 0 if none.</summary>
         public double ResultDelaySeconds => _resultDelay;
 
@@ -255,7 +260,7 @@ namespace HockeyGame.Core
                 case RoundPhase.SkateIn: return _settings.SkateInSeconds;
                 case RoundPhase.SlowDown: return _settings.SlowDownSeconds;
                 case RoundPhase.ShootingWindow: return _settings.ShootingWindowSeconds;
-                default: return _resultDelay + _settings.ResultHoldSeconds;
+                default: return _resultDelay + ResultHoldLength;
             }
         }
     }

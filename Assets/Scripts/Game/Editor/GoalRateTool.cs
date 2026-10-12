@@ -167,7 +167,7 @@ namespace HockeyGame.Editor
                     SetUp setUp = round.SetUp;
                     round.SubmitShot(x, y, speed, false);
                     Count(tally, setUp, speed, round.LastResult.Value.Kind);
-                    round.Tick(settings.ResultHoldSeconds);
+                    round.Tick(round.ResultHoldLength);
                 }
             }
             return tally;

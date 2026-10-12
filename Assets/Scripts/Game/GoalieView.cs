@@ -211,6 +211,9 @@ namespace HockeyGame
         /// <summary>True when the rigged goalie character is drawn (not the block goalie).</summary>
         public bool HasCharacter => _character != null;
 
+        /// <summary>The goalie as drawn: the character's root, or the block goalie (the Replay records it).</summary>
+        public Transform Body => _character != null ? _character.Root.transform : _block.transform;
+
         /// <summary>The parent of Easy mode's glow cells (the picture test tells the glow apart from the arena).</summary>
         public GameObject GapGlow => _gapGlow;
 

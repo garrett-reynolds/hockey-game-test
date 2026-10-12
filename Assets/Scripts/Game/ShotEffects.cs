@@ -40,6 +40,10 @@ namespace HockeyGame
 
         readonly ShotResultWatch _newResult = new ShotResultWatch();
 
+        /// <summary>The puck and the save block, as drawn (the Replay records them).</summary>
+        public Transform Puck => _puck.transform;
+        public Transform SaveBlock => _glove.transform;
+
         /// <summary>True on the frame the puck reaches the Net Face (or passes it on a Miss). Sound times the result to this.</summary>
         public bool PuckArrivedThisFrame { get; private set; }
 

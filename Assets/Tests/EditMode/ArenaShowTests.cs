@@ -434,11 +434,12 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void The_camera_stays_on_the_net_until_the_Replay_is_timed()
+        public void The_camera_is_on_the_net_outside_the_result_hold()
         {
             foreach (RoundPhase phase in Phases)
             foreach (ArenaResult result in Results)
-                Assert.AreEqual(CameraMode.OnNet, At(phase, 1.0, result).Camera, phase + ", " + result);
+                if (phase != RoundPhase.ResultHold)
+                    Assert.AreEqual(CameraMode.OnNet, At(phase, 3.0, result).Camera, phase + ", " + result);
         }
 
         // ---- Score Box ----
@@ -516,7 +517,7 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual("", ArenaShow.From(flow).VideoBoardWords.Details, "shot 1: no last Shot yet");
             flow.Tick(3.7 + 0.5);
             flow.SubmitShot(50, 90, 87.6, false);
-            flow.Tick(2.5 + 0.01); // the result hold, into shot 2's skate-in
+            flow.Tick(ReplayTiming.HoldSeconds + 0.01); // a Goal's result hold (with its Replay), into shot 2's skate-in
             Assert.AreEqual(RoundPhase.SkateIn, flow.Round.Phase);
             Assert.AreEqual("LAST SHOT 88 km/h", ArenaShow.From(flow).VideoBoardWords.Details);
 
