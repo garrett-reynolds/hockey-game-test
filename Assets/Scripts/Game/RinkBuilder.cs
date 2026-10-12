@@ -19,6 +19,7 @@ namespace HockeyGame
             RinkIce.Build(root);
             RinkBoards.Build(root);   // boards and glass round the rink (none without the model)
             ArenaStands.Build(root);  // stands and roof round the boards (none without the model)
+            RibbonBoards.Build(root); // on the stands' ribbon ring; they follow the Arena Show
 
             NetBuilder.Build(root); // the net around the Net Face, back at z = +NetDepth
             NetBuilder.BuildFar(root); // the still far net, no goalie

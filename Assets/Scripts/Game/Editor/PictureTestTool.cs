@@ -249,11 +249,13 @@ namespace HockeyGame.Editor
             public readonly RoundSettings Settings = new RoundSettings();
             readonly IGoalieReach _reach;
             readonly Volume _look;
+            readonly RibbonBoards _ribbons;
 
             public Rig(RenderTexture target)
             {
                 RinkBuilder.Build(out Camera);
                 Transform rink = GameObject.Find("Rink").transform;
+                _ribbons = rink.GetComponentInChildren<RibbonBoards>();
                 var character = new GoalieCharacter(rink);
                 if (!character.Present) throw new InvalidOperationException("The goalie model did not load: the picture test needs it.");
                 Goalie = new GoalieView(rink, character);
@@ -294,6 +296,9 @@ namespace HockeyGame.Editor
                     (float)BeforeTheShot.Settled(phase, t, Settings), Settings);
                 Goalie.Live(LifeSeconds);
                 Goalie.SetProgress((float)Breakaway.GoalieSet(phase, t, false, 0));
+
+                // The arena as the Arena Show has it in the shooting window (the ads' clock fixed at 0).
+                _ribbons.Show(ArenaShow.At(new ArenaShowInput { Phase = phase, PhaseSeconds = t, ShotNumber = 1 }), 0.0);
                 return gaps;
             }
 
