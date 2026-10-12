@@ -23,7 +23,8 @@ namespace HockeyGame.Core
         Replay,
         Final,     // the final score at Round over
         NewBest,   // "NEW BEST!" with a small light show
-        AdSlide    // a brand ad slide: never in the shooting window
+        AdSlide,   // a brand ad slide: never in the shooting window
+        CalmStill  // from goalie set to the Shot: one dim still colour, no words (the Calm Area rules, as for the Ribbon Boards)
     }
 
     public enum RibbonMessage
@@ -376,7 +377,8 @@ namespace HockeyGame.Core
                         case ArenaResult.TooLate: return VideoBoardContent.AdSlide;
                         default: return VideoBoardContent.Score;
                     }
-                default: return VideoBoardContent.Score; // skate-in, slow-down and shooting window
+                case RoundPhase.ShootingWindow: return VideoBoardContent.CalmStill; // the Video Board is in the Calm Area's view
+                default: return VideoBoardContent.Score; // skate-in and slow-down
             }
         }
 
@@ -392,7 +394,8 @@ namespace HockeyGame.Core
                 case VideoBoardContent.Replay: return new VideoBoardWords("REPLAY", score); // the Replay picture covers it while the Replay plays
                 case VideoBoardContent.Final: return new VideoBoardWords("FINAL SCORE", goalsOf + "\nBEST " + best);
                 case VideoBoardContent.NewBest: return new VideoBoardWords("NEW BEST!", goalsOf);
-                case VideoBoardContent.AdSlide: return new VideoBoardWords("", "");
+                case VideoBoardContent.AdSlide:
+                case VideoBoardContent.CalmStill: return new VideoBoardWords("", "");
                 default: // the score, still, from the skate-in to the Shot
                     double? kmh = input.LastShotSpeedKmh;
                     return new VideoBoardWords(score, kmh.HasValue ? "LAST SHOT " + ShotResultText.Speed(kmh.Value) : "");

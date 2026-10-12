@@ -251,6 +251,7 @@ namespace HockeyGame.Editor
             readonly Volume _look;
             readonly RibbonBoards _ribbons;
             readonly Crowd _crowd;
+            readonly VideoBoards _boards;
 
             public Rig(RenderTexture target)
             {
@@ -258,6 +259,7 @@ namespace HockeyGame.Editor
                 Transform rink = GameObject.Find("Rink").transform;
                 _ribbons = rink.GetComponentInChildren<RibbonBoards>();
                 _crowd = rink.GetComponentInChildren<Crowd>();
+                _boards = rink.GetComponentInChildren<VideoBoards>();
                 if (_crowd == null) throw new InvalidOperationException("The 3D crowd did not load: the picture test needs it.");
                 var character = new GoalieCharacter(rink);
                 if (!character.Present) throw new InvalidOperationException("The goalie model did not load: the picture test needs it.");
@@ -303,6 +305,7 @@ namespace HockeyGame.Editor
                 // The arena as the Arena Show has it in the shooting window (the ads' clock fixed at 0).
                 ArenaState arena = ArenaShow.At(new ArenaShowInput { Phase = phase, PhaseSeconds = t, ShotNumber = 1 });
                 _ribbons.Show(arena, 0.0);
+                _boards.Show(arena, 0.0); // the Video Board is one dim still colour in the shooting window
                 _crowd.Show(arena, 0.0); // the Calm Area's fans still and dim
                 return gaps;
             }

@@ -36,7 +36,8 @@ namespace HockeyGame.Core.Tests
             float side = ring + (float)RinkLayout.BenchDepth; // the stands step back beside the benches and boxes, which reach the side extremes
             Assert.AreEqual(RinkBoards.HalfWidth + side, maxX, 0.2f);
             Assert.AreEqual(-RinkBoards.HalfWidth - side, minX, 0.2f);
-            Assert.AreEqual(RinkBoards.EndZ + ring, maxZ, 0.2f);
+            // The near end's own panels are wholly behind the Video Board and left out: a corner's panel reaches furthest back.
+            Assert.That(maxZ, Is.InRange(RinkBoards.EndZ + ring - 1f, RinkBoards.EndZ + ring + 0.2f));
             Assert.AreEqual(RinkBoards.FarZ - ring, minZ, 0.2f);
         }
 
@@ -71,7 +72,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void The_Calm_Area_panels_include_the_ones_straight_behind_the_near_net()
+        public void The_Calm_Area_panels_straight_behind_the_near_net_are_left_out_behind_the_Video_Board()
         {
             RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
             int behindNet = 0;
@@ -86,7 +87,7 @@ namespace HockeyGame.Core.Tests
                 }
                 else Assert.AreNotEqual(ArenaZone.CalmArea, ribbons.ZoneOf(i), "panel " + i);
             }
-            Assert.Greater(behindNet, 0, "a Calm panel inside the Calm Area's x bounds");
+            Assert.AreEqual(0, behindNet, "the panels straight behind the net are wholly behind the Video Board: left out");
         }
 
         [Test]
