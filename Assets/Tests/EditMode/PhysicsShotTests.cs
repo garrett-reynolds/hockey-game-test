@@ -219,11 +219,13 @@ namespace HockeyGame.Core.Tests
         // box; over the crossbar it passes over the catch roof's front edge and on along its top.
         [TestCase(-1, 0.02f, 100)]
         [TestCase(-1, 0.05f, 100)]
+        [TestCase(-1, 0.02f, 200)]
         [TestCase(-1, 0.10f, 200)]
         [TestCase(1, 0.02f, 150)]
         [TestCase(1, 0.05f, 200)]
         [TestCase(1, 0.10f, 100)]
         [TestCase(0, 0.02f, 100)] // side 0: over the crossbar
+        [TestCase(0, 0.02f, 200)]
         [TestCase(0, 0.05f, 150)]
         [TestCase(0, 0.10f, 200)]
         [TestCase(0, 0.16f, 100)]

@@ -12,8 +12,9 @@ namespace HockeyGame
     /// the puck's own hit shapes along the step's travel (on the main thread) and keeps the colliders it really reaches; while
     /// the step runs, Unity's contact modification ignores the puck's foreseen contacts with anything else, so they give no push.
     /// Contacts already touching (within Slop) are always kept, and so are contacts with something moving (the sweep only saw
-    /// where it was before the step). Works for any collider the puck meets: the posts, crossbar and catch now, the boards
-    /// (#110) and the goalie's gear (#111) later. Dispose when done: it stops listening.
+    /// where it was before the step). The contact's body velocity is the one the physics had at the step's start: a kinematic
+    /// body moved (MovePosition) for the first step reads as still for that step. Works for any collider the puck meets: the
+    /// posts, crossbar and catch now, the boards (#110) and the goalie's gear (#111) later. Dispose when done: it stops listening.
     /// </summary>
     public sealed class PuckReach : IDisposable
     {
