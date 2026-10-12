@@ -4,123 +4,123 @@
     "Views": [
         {
             "View": "left-cheat-easy-on",
-            "Contrast": 0.2544518190594853,
-            "Edges": 0.043255651783227995,
+            "Contrast": 0.27490709225578536,
+            "Edges": 0.04697631644837987,
             "Gaps": [
                 {
                     "Gap": "Gap c3r0",
                     "Cells": 3,
-                    "StandOut": 0.38438285595343524
+                    "StandOut": 0.3701169145478492
                 },
                 {
                     "Gap": "Gap c9r0",
                     "Cells": 16,
-                    "StandOut": 0.3807850988510879
+                    "StandOut": 0.3638335640573101
                 }
             ]
         },
         {
             "View": "left-cheat-easy-off",
-            "Contrast": 0.25500983845633224,
-            "Edges": 0.04791845553001135,
+            "Contrast": 0.2753987649303875,
+            "Edges": 0.051613900968525236,
             "Gaps": [
                 {
                     "Gap": "Gap c3r0",
                     "Cells": 3,
-                    "StandOut": 0.30516444903799556
+                    "StandOut": 0.31415909078920634
                 },
                 {
                     "Gap": "Gap c9r0",
                     "Cells": 16,
-                    "StandOut": 0.2451574507461799
+                    "StandOut": 0.24470415066278328
                 }
             ]
         },
         {
             "View": "middle-depth-easy-on",
-            "Contrast": 0.25450048883910925,
-            "Edges": 0.044170717886009125,
+            "Contrast": 0.2739382503865998,
+            "Edges": 0.04608410170759182,
             "Gaps": [
                 {
                     "Gap": "Gap c0r0",
                     "Cells": 13,
-                    "StandOut": 0.3782206542634842
+                    "StandOut": 0.3608082985369824
                 },
                 {
                     "Gap": "Gap c6r0",
                     "Cells": 3,
-                    "StandOut": 0.379998206330221
+                    "StandOut": 0.3643822092901481
                 },
                 {
                     "Gap": "Gap c11r0",
                     "Cells": 6,
-                    "StandOut": 0.3748352463952483
+                    "StandOut": 0.35846624893061096
                 }
             ]
         },
         {
             "View": "middle-depth-easy-off",
-            "Contrast": 0.254216752288946,
-            "Edges": 0.05109471006252275,
+            "Contrast": 0.27351820221808226,
+            "Edges": 0.052951065044341265,
             "Gaps": [
                 {
                     "Gap": "Gap c0r0",
                     "Cells": 13,
-                    "StandOut": 0.22492589211075914
+                    "StandOut": 0.21987693706062456
                 },
                 {
                     "Gap": "Gap c6r0",
                     "Cells": 3,
-                    "StandOut": 0.1712880812530448
+                    "StandOut": 0.17152178665624646
                 },
                 {
                     "Gap": "Gap c11r0",
                     "Cells": 6,
-                    "StandOut": 0.24285154415754456
+                    "StandOut": 0.24578498694100476
                 }
             ]
         },
         {
             "View": "right-late-settle-easy-on",
-            "Contrast": 0.254548179870177,
-            "Edges": 0.0456922096468826,
+            "Contrast": 0.27480975620671694,
+            "Edges": 0.04933456140595708,
             "Gaps": [
                 {
                     "Gap": "Gap c5r0",
                     "Cells": 2,
-                    "StandOut": 0.3855331149720364
+                    "StandOut": 0.3736346442484636
                 },
                 {
                     "Gap": "Gap c11r0",
                     "Cells": 4,
-                    "StandOut": 0.38633431973221505
+                    "StandOut": 0.3706094991211295
                 },
                 {
                     "Gap": "Gap c0r3",
                     "Cells": 5,
-                    "StandOut": 0.356852578727003
+                    "StandOut": 0.3417492714830056
                 }
             ]
         },
         {
             "View": "right-late-settle-easy-off",
-            "Contrast": 0.25485616553983453,
-            "Edges": 0.04926156036407113,
+            "Contrast": 0.27508176608792073,
+            "Edges": 0.05287140254002041,
             "Gaps": [
                 {
                     "Gap": "Gap c5r0",
                     "Cells": 2,
-                    "StandOut": 0.405927700094347
+                    "StandOut": 0.42138824967810024
                 },
                 {
                     "Gap": "Gap c11r0",
                     "Cells": 4,
-                    "StandOut": 0.25488370558828877
+                    "StandOut": 0.262251854277695
                 },
                 {
                     "Gap": "Gap c0r3",
                     "Cells": 5,
-                    "StandOut": 0.22066745953539046
+                    "StandOut": 0.21207596376537835
                 }
             ]
         }
