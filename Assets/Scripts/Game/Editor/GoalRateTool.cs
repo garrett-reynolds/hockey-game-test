@@ -96,7 +96,7 @@ namespace HockeyGame.Editor
             }
         }
 
-        sealed class SystemRandom : IRandomSource
+        internal sealed class SystemRandom : IRandomSource
         {
             readonly System.Random _random;
             public SystemRandom(int seed) { _random = new System.Random(seed); }
@@ -168,7 +168,7 @@ namespace HockeyGame.Editor
                     round.SubmitShot(x, y, speed, false);
                     round.Whistle(ScriptedShot.Result(round).Kind); // no puck here: the Whistle with today's result
                     Count(tally, setUp, speed, round.LastResult.Value.Kind);
-                    round.Tick(settings.ResultHoldSeconds);
+                    round.Tick(round.ResultHoldLength);
                 }
             }
             return tally;
@@ -180,7 +180,7 @@ namespace HockeyGame.Editor
         /// the one the puck gets to soonest. With no Gap at all, it falls back to the Net Face cell with the biggest Late Margin
         /// (the old best-margin aim, on the Gaps' cells). True when it aimed at a Gap.
         /// </summary>
-        static bool AimAtAGap(Round round, RoundSettings settings, IGoalieReach reach, double speedKmh, out double bestX, out double bestY)
+        internal static bool AimAtAGap(Round round, RoundSettings settings, IGoalieReach reach, double speedKmh, out double bestX, out double bestY)
         {
             double t = round.PhaseSecondsElapsed;
             RinkPoint from = Breakaway.ShotStart(round.AttackSide, t, settings);

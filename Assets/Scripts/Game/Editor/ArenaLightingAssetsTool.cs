@@ -24,6 +24,22 @@ namespace HockeyGame.Editor
             Save(GlowTemplate(), ArenaLighting.GlowMaterial);
             Save(new Material(Shader.Find("Universal Render Pipeline/Unlit")), ArenaLighting.UnlitMaterial);
             BuildEasyGlow();
+            BuildIce();
+            AssetDatabase.SaveAssets();
+        }
+
+        /// <summary>
+        /// Recreates only the ice template (RinkIce.IceMaterial): URP Lit with the smoothness map (Models/ice-smoothness,
+        /// Tools/make_ice_wear.py) that makes the Calm Area matte. RinkIce copies it and adds the markings texture.
+        /// </summary>
+        public static void BuildIce()
+        {
+            Directory.CreateDirectory(Folder);
+            var m = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            m.SetTexture("_MetallicGlossMap", AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Resources/Models/ice-smoothness.png"));
+            m.EnableKeyword("_METALLICSPECGLOSSMAP");
+            m.SetFloat("_Smoothness", RinkIce.Gloss);
+            Save(m, RinkIce.IceMaterial);
             AssetDatabase.SaveAssets();
         }
 

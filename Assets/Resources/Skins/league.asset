@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 02c0e15e784f44f781b7b2cb280ea6e2, type: 3}
+  m_Name: league
+  m_EditorClassIdentifier: 
+  Rail: {r: 0.0784678236, g: 0.235330999, b: 0.588246286, a: 1}
+  KickPlate: {r: 0.90982765, g: 0.745086551, b: 0.156783581, a: 1}
+  Seats: {r: 0.109731428, g: 0.117740981, b: 0.140981883, a: 1}
+  RibbonEdgesOn: 0
+  RibbonEdge: {r: 0, g: 0, b: 0, a: 1}
+  CentreIceLogo: centre-ice-all-star-hockey
+  RoofBanners: []
+  HomeJersey:
+    serializedVersion: 2
+    rgba: 4281212528
+  VideoBoardBack: {r: 0.0392156877, g: 0.0627451017, b: 0.13333334, a: 1}
+  VideoBoardWords: {r: 1, g: 1, b: 1, a: 1}
+  VideoBoardFrame: {r: 0.0549019612, g: 0.0588235296, b: 0.0705882385, a: 1}
+  VideoBoardFrameLit: {r: 1, g: 0.843137264, b: 0.313725501, a: 1}
+  ScoreBoxBack: {r: 0.05, g: 0.08, b: 0.18, a: 0.85}
+  ScoreBoxText: {r: 1, g: 1, b: 1, a: 1}
+  GoalHorn: goal-horn
+  GoalSong: 
+  Chant: chant

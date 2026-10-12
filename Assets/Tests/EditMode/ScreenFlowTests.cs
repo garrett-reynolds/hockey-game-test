@@ -20,7 +20,7 @@ namespace HockeyGame.Core.Tests
                 else
                     flow.SubmitShot(-10, 50, 100, false);
                 flow.Round.WhistleNow();
-                flow.Tick(2.5);
+                flow.Tick(flow.Round.ResultHoldLength); // 4.5 s after a Goal (its Replay), 2.5 s after a Wide Miss
             }
         }
 

@@ -136,7 +136,7 @@ namespace HockeyGame.Core.Tests
                 if (askForGaps) for (int i = 0; i < 5; i++) round.GapsNow();
                 round.SubmitShotAndWhistle(70, 80, 120, false);
                 ShotRace race = round.LastRace.Value;
-                round.Tick(settings.ResultHoldSeconds + 0.001);
+                round.Tick(round.ResultHoldLength + 0.001);
                 nextReaction = round.ReactionSeconds;
                 return race;
             }

@@ -101,3 +101,51 @@ _Avoid_: Call, end of the Shot
 **Frame Hit**:
 A Shot whose puck strikes a post or the crossbar. It pings and the puck bounces off the frame; where it then goes decides a Goal or a Miss. Should the stick, the blocker or a skate stand in front of a Save Reaction's gear on the puck's line, the puck stops on that and sounds like it.
 _Avoid_: Iron, post shot
+
+**Video Board**:
+The big screen hung in front of the near end's crowd, at the Ribbon Board's height. It shows the score during the skate-in, one dim still colour from goalie set to the Shot, and the Replay after a Shot.
+_Avoid_: Jumbotron, scoreboard, centre-hung
+
+**Ribbon Board**:
+The thin LED strip that runs around the stands. It shows ads, and words such as GOAL! after a Shot.
+_Avoid_: LED ribbon, ticker
+
+**Score Box**:
+The small score in a corner of the screen, like on TV. It stays on screen all Round.
+_Avoid_: HUD, score bug
+
+**Replay**:
+The slow-motion view of a Shot from behind the net, played on both the Video Board and the Centre Board after a Goal, a Save or a Frame Hit (never after a wide Miss or no Shot in time).
+_Avoid_: Instant replay, highlight
+
+**Goal Show**:
+What the arena does on a Goal: the goal horn, the red goal light, GOAL! on the Ribbon Board and the roof lights pulsing red. It starts with the horn, when the puck lands, and the lights pulse until the result hold ends (about 4.5 s, through the Replay). It is the same on every Goal.
+_Avoid_: Goal celebration, light show
+
+**Arena Show**:
+What the whole arena does at each moment of a Round, worked out from the Round alone: its phase and the time in it, the last Shot's result, a new best and the score. It decides the Video Board, the Ribbon Board, the crowd, the Goal Show lights, the camera, the Clap Chant and when the Calm Area holds still; every arena part only follows it.
+_Avoid_: Arena state machine, show controller, effects
+
+**Rink Layout**:
+The one source of the rink's NHL sizes and places: the rink and its corners, the lines and the trapezoid, the boards and glass, the ad slots and ice logos, the Calm Area's bounds, the far net, the benches and penalty boxes, and where the Video Board and Centre Board hang. Nothing else holds its own copy of a size.
+_Avoid_: Rink dimensions, rink config
+
+**Calm Area**:
+The part of the arena behind the net, as wide as the back of the trapezoid, from the ice to the top of the view at the Shot. From when the goalie is set until the Shot it stays still, soft and dim, so the goalie and each Gap are easy to read.
+_Avoid_: Read zone, quiet zone, background
+
+**Centre Board**:
+The four-screen box hung high over centre ice. Every screen shows the same picture as the Video Board.
+_Avoid_: Jumbotron, scoreboard, centre-hung
+
+**Team Skin**:
+One package that holds a team's look and sound: the team colours, the centre-ice logo and roof banners, the crowd's jersey colours, the Video Board and Score Box look, and the goal horn, goal song and Clap Chant. A setting picks the skin before play. A skin never changes the ice lines, the brands, the rink shape, the goalie, the Goal Show timing or the Calm Area.
+_Avoid_: Theme, team pack
+
+**League Skin**:
+The generic look, and the first Team Skin: no real team, with the "All-Star Hockey" placeholder mark.
+_Avoid_: Default skin, generic theme
+
+**Clap Chant**:
+The crowd's "Let's go!" chant with its clap-clap, clap-clap-clap. It repeats with a quiet gap on the start screen and plays once at Round over, after the cheer or horn; never in the skate-in. A Team Skin can swap it, for example for "Let's go Bears!".
+_Avoid_: Cheer (the crowd cheers on a Goal), chant loop

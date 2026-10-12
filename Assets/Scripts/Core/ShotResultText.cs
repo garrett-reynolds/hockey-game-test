@@ -9,8 +9,13 @@ namespace HockeyGame.Core
         /// <summary>The Shot speed, e.g. "92 km/h", for a Shot with a puck; null for Too Late.</summary>
         public static string Speed(ShotResult result)
         {
-            if (!result.HasShot) return null;
-            long kmh = (long)Math.Round(result.SpeedKmh, MidpointRounding.AwayFromZero);
+            return result.HasShot ? Speed(result.SpeedKmh) : null;
+        }
+
+        /// <summary>A Shot speed to the nearest km/h, e.g. "92 km/h".</summary>
+        public static string Speed(double speedKmh)
+        {
+            long kmh = (long)Math.Round(speedKmh, MidpointRounding.AwayFromZero);
             return kmh.ToString(CultureInfo.InvariantCulture) + " km/h";
         }
     }

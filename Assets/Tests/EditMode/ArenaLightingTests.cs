@@ -110,6 +110,65 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void The_light_banks_share_one_glow_and_leave_no_stray_material_per_bank()
+        {
+            var probe = GameObject.CreatePrimitive(PrimitiveType.Cube); // a bank starts as a plain cube
+            string plain = probe.GetComponent<Renderer>().sharedMaterial.name;
+            Object.DestroyImmediate(probe);
+            int Copies() => Resources.FindObjectsOfTypeAll<Material>().Count(m => m.name == plain);
+            int before = Copies();
+            ArenaLighting.Build(_rink.transform);
+            int made = Copies() - before;
+            Renderer[] banks = _rink.GetComponentsInChildren<Renderer>().Where(r => r.name == ArenaLighting.LightBank).ToArray();
+            Assert.That(banks.Length, Is.GreaterThan(20));
+            Assert.AreEqual(1, banks.Select(r => r.sharedMaterial).Distinct().Count(), "one shared glow");
+            Assert.That(made, Is.LessThan(banks.Length), "no plain cube material copied and dropped for each bank");
+        }
+
+        [Test]
+        public void The_roof_lights_pulse_in_the_Goal_Show_colour_while_lit_and_come_back_exactly_after()
+        {
+            ArenaLighting.Build(_rink.transform);
+            var roof = new RoofLights(_rink.transform);
+            Renderer[] banks = _rink.GetComponentsInChildren<Renderer>().Where(r => r.name == ArenaLighting.LightBank).ToArray();
+            Light[] lights = _rink.GetComponentsInChildren<Light>();
+            Light[] overhead = lights.Where(l => l.name == ArenaLighting.OverheadLight).ToArray();
+            Assert.That(overhead.Length, Is.GreaterThanOrEqualTo(2));
+            Color[] bankGlows = banks.Select(r => r.sharedMaterial.GetColor("_EmissionColor")).ToArray();
+            Color[] lightColours = lights.Select(l => l.color).ToArray();
+            float[] intensities = lights.Select(l => l.intensity).ToArray();
+
+            var lit = new GoalShowLights(true, true, ArenaShow.GoalShowFlashesPerSecond, true, ArenaShow.GoalRed);
+            var dark = new GoalShowLights(true, true, ArenaShow.GoalShowFlashesPerSecond, false, ArenaShow.GoalRed);
+
+            roof.Show(lit);
+            foreach (Renderer r in banks)
+            {
+                Color glow = r.sharedMaterial.GetColor("_EmissionColor");
+                Assert.Greater(glow.r, glow.g * 3f, "the banks glow Goal red");
+                Assert.Greater(glow.maxColorComponent, 1f, "still bright enough to bloom");
+            }
+            foreach (Light l in overhead)
+                Assert.Greater(l.color.r, l.color.g * 3f, l.name + " shines Goal red");
+            for (int i = 0; i < lights.Length; i++)
+                if (lights[i].name != ArenaLighting.OverheadLight)
+                    Assert.AreEqual(lightColours[i], lights[i].color, lights[i].name + " never pulses (the goalie's shadows)");
+
+            foreach (GoalShowLights after in new[] { dark, default(GoalShowLights) })
+            {
+                roof.Show(lit);
+                roof.Show(after);
+                for (int i = 0; i < banks.Length; i++)
+                    Assert.AreEqual(bankGlows[i], banks[i].sharedMaterial.GetColor("_EmissionColor"), "bank back to its white after " + after);
+                for (int i = 0; i < lights.Length; i++)
+                {
+                    Assert.AreEqual(lightColours[i], lights[i].color, lights[i].name + " after " + after);
+                    Assert.AreEqual(intensities[i], lights[i].intensity, lights[i].name + " after " + after);
+                }
+            }
+        }
+
+        [Test]
         public void The_ice_and_glass_reflect_a_cubemap_of_the_arena_rendered_once_at_start()
         {
             ArenaLighting.Build(_rink.transform);
@@ -117,8 +176,16 @@ namespace HockeyGame.Core.Tests
             Texture cube = RenderSettings.customReflectionTexture;
             Assert.IsNotNull(cube, "the arena is rendered into the scene's reflection");
             Assert.AreEqual(TextureDimension.Cube, cube.dimension);
-            Assert.That(cube.width, Is.LessThanOrEqualTo(256), "cheap: one small render at start");
+            Assert.AreEqual(256, cube.width, "sharp enough to show the boards and ads in the ice, cheap enough for one render at start");
             Assert.IsNull(_rink.GetComponentInChildren<Camera>(), "the reflection camera is gone after the render");
+        }
+
+        [Test]
+        public void No_light_shines_back_toward_the_shooter_so_the_Calm_Area_has_no_glare()
+        {
+            ArenaLighting.Build(_rink.transform);
+            foreach (Light light in _rink.GetComponentsInChildren<Light>())
+                Assert.That(light.transform.forward.z, Is.GreaterThan(-0.01f), light.name + " is aimed back at the camera");
         }
 
         [Test]

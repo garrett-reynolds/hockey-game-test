@@ -47,8 +47,8 @@ namespace HockeyGame.Core
 
     /// <summary>
     /// The goalie's motion after the Shot, as a pure function of the time since the puck got there (the Whistle: on a GOAL!
-    /// the line crossing) and, on a GOAL!, since it met the netting. The result hold always runs ResultHoldSeconds (2.5 s)
-    /// after the Whistle (Round.Whistle), so it starts on the same clock as this motion. Every reaction plays out, glides back to the goalie's spot (on a GOAL! before the Annoyed Gesture,
+    /// the line crossing) and, on a GOAL!, since it met the netting. The result hold always runs ResultHoldSeconds (2.5 s;
+    /// 4.5 s with a Replay) after the Whistle (Round.Whistle), so it starts on the same clock as this motion. Every reaction plays out, glides back to the goalie's spot (on a GOAL! before the Annoyed Gesture,
     /// so it reads on its own) and recovers into the Ready Stance by RecoveredBy (#44), so the hold ends, and the next Shot
     /// starts, in the Ready Stance with no snap.
     /// </summary>

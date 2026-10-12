@@ -30,7 +30,7 @@ namespace HockeyGame.Core.Tests
             if (shoot)
             {
                 round.SubmitShotAndWhistle(x, y, 100, false);
-                round.Tick(2.5);
+                round.Tick(round.ResultHoldLength); // 4.5 s with a Replay, 2.5 s without
             }
             else
             {
@@ -252,7 +252,7 @@ namespace HockeyGame.Core.Tests
             round.Tick(3.7);
             round.SubmitShotAndWhistle(50, 50, 100, false);
             Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
-            round.Tick(2.49);
+            round.Tick(round.ResultHoldLength - 0.01);
             Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
             round.Tick(0.02);
             Assert.AreEqual(RoundPhase.RoundOver, round.Phase);
@@ -399,13 +399,13 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void The_result_is_held_2_5_seconds_after_the_Whistle_not_after_the_Shot()
+        public void The_result_is_held_after_the_Whistle_not_after_the_Shot()
         {
             var round = InWindow();
             round.SubmitShot(50, 90, 100, false);
             round.Tick(2.9);                           // the puck flies for 2.9 s
-            round.Whistle(ShotResultKind.Goal);
-            round.Tick(2.4);
+            round.Whistle(ShotResultKind.Goal);        // a Goal: 4.5 s with its Replay, from the Whistle
+            round.Tick(4.4);
             Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
             round.Tick(0.2);
             Assert.AreEqual(RoundPhase.SkateIn, round.Phase);
@@ -439,10 +439,10 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void A_Whistle_at_once_holds_2_5_seconds()
+        public void A_Whistle_at_once_holds_2_5_seconds_with_no_Replay()
         {
             var round = InWindow();
-            round.SubmitShotAndWhistle(50, 90, 100, false);
+            round.SubmitShotAndWhistle(150, 50, 100, false); // a Wide Miss: no Replay
             Assert.IsTrue(round.ResultShowing);
             round.Tick(2.4);
             Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
@@ -502,7 +502,7 @@ namespace HockeyGame.Core.Tests
         {
             var round = InWindow();
             round.SubmitShotAndWhistle(50, 90, 100, false);
-            round.Tick(2.5 + 3.7);                     // hold ends, next Shot's window opens
+            round.Tick(round.ResultHoldLength + 3.7 + 0.01); // hold ends (a Goal: with its Replay), next Shot's window opens
             Assert.AreEqual(RoundPhase.ShootingWindow, round.Phase);
             Assert.IsFalse(round.AwaitingWhistle);
             Assert.IsFalse(round.LastShot.HasValue);
@@ -537,10 +537,10 @@ namespace HockeyGame.Core.Tests
             round.SubmitShot(50, 90, 100, false);
             round.Tick(0.4);
             round.Whistle(ShotResultKind.Goal);
-            Assert.Less(AfterShot.RecoveredBy, round.Settings.ResultHoldSeconds);
+            Assert.Less(AfterShot.RecoveredBy, round.Settings.ResultHoldSeconds); // the shortest hold (no Replay) too
             round.Tick(AfterShot.RecoveredBy);
             Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
-            round.Tick(round.Settings.ResultHoldSeconds - AfterShot.RecoveredBy + 0.01);
+            round.Tick(round.ResultHoldLength - AfterShot.RecoveredBy + 0.01);
             Assert.AreEqual(RoundPhase.SkateIn, round.Phase);
         }
     }

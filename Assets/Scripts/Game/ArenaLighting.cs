@@ -1,3 +1,5 @@
+using System.Linq;
+using HockeyGame.Core;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -10,7 +12,8 @@ namespace HockeyGame
     /// start, is the scene's reflection: the glossy ice mirrors the light banks, boards and net. Post-processing
     /// (tonemapping, bloom, vignette) and the material templates come from assets in Assets/Resources/Lighting, so a
     /// player build keeps their shaders.
-    /// Cost: 6 realtime lights (Forward+), 3 of them with soft shadows, and one 128 px cubemap rendered at start.
+    /// Cost: 6 realtime lights (Forward+), 3 of them with soft shadows, and one 256 px cubemap rendered at start.
+    /// No planar or screen-space reflections. No light is aimed back at the shooter, so none glares in the Calm Area.
     /// </summary>
     public static class ArenaLighting
     {
@@ -27,12 +30,17 @@ namespace HockeyGame
         public const string EasyGlowMaterial = "EasyGlow";
         /// <summary>Name of each glowing overhead light bank under the roof.</summary>
         public const string LightBank = "Light Bank";
+        /// <summary>Name of each spot over the skate-in (the roof lights that pulse in the Goal Show, with the light banks).</summary>
+        public const string OverheadLight = "Overhead Light";
 
         /// <summary>Cool arena white, about 6,000 K.</summary>
         static readonly Color ArenaWhite = new Color(0.93f, 0.97f, 1f);
         /// <summary>HDR glow of a light bank: well above the bloom threshold.</summary>
-        const float BankGlow = 16f;
+        public const float BankGlow = 16f;
         const float BankHeight = 20f;
+        static readonly Vector3 BankSize = new Vector3(5f, 0.3f, 1.4f);
+        /// <summary>How far a light bank keeps clear of the Centre Board's box (metres).</summary>
+        public const float CentreBoardClearance = 0.4f;
 
         /// <summary>Adds the lights under rink and sets the scene's ambient light and fog. Returns the main light.</summary>
         public static Light Build(Transform rink)
@@ -57,7 +65,7 @@ namespace HockeyGame
 
             // Along the skate-in: brighter pools and highlights on the glossy ice. No shadows (cost).
             foreach (float z in new[] { -8f, -16f, -24f })
-                Spot(rink, "Overhead Light", new Vector3(0f, 16f, z), new Vector3(0f, 0f, z), 110f, 30f, 70f);
+                Spot(rink, OverheadLight, new Vector3(0f, 16f, z), new Vector3(0f, 0f, z), 110f, 30f, 70f);
 
             AddLightBanks(rink);
             AddReflections(rink);
@@ -115,6 +123,19 @@ namespace HockeyGame
             return spot;
         }
 
+        /// <summary>
+        /// A bank's z, moved out along the rink past the Centre Board (with CentreBoardClearance) when its footprint would
+        /// fall under the board's box; the board hangs at the banks' height, so the bank keeps lighting the ice beside it.
+        /// </summary>
+        static float ClearOfCentreBoard(float x, float z)
+        {
+            float half = (float)RinkLayout.CentreBoardScreenWidth / 2f, centre = (float)RinkLayout.CentreBoard.Z;
+            bool under = Mathf.Abs(x) - BankSize.x / 2f < half + CentreBoardClearance
+                         && Mathf.Abs(z - centre) - BankSize.z / 2f < half + CentreBoardClearance;
+            if (!under) return z;
+            return centre + Mathf.Sign(z - centre) * (half + CentreBoardClearance + BankSize.z / 2f);
+        }
+
         /// <summary>Rows of glowing light banks under the roof: seen when looking up, mirrored in the ice.</summary>
         static void AddLightBanks(Transform rink)
         {
@@ -122,11 +143,14 @@ namespace HockeyGame
             banks.SetParent(rink, false);
             Material glow = Glow(new Color(0.2f, 0.2f, 0.2f), ArenaWhite * BankGlow);
             // A rig over the whole bowl, not just the ice: from the shooter's eye, the far banks are what the ice mirrors.
-            foreach (float z in new[] { -26f, -18f, -10f, -2f, 6f, 14f, 22f })
+            // The near half's rows, and their mirror over the far half of the full rink.
+            float[] near = { -26f, -18f, -10f, -2f, 6f, 14f, 22f };
+            foreach (float z in near.Concat(near.Select(z => (float)RinkLayout.Mirror(z))))
                 foreach (float x in new[] { -12f, -4f, 4f, 12f })
                 {
-                    GameObject bank = RinkBuilder.Cube(banks, LightBank, new Vector3(x, BankHeight, z), new Vector3(5f, 0.3f, 1.4f), Color.white);
+                    GameObject bank = RinkBuilder.Cube(banks, LightBank, new Vector3(x, BankHeight, ClearOfCentreBoard(x, z)), BankSize, Color.white);
                     var r = bank.GetComponent<Renderer>();
+                    SceneObjects.DestroySafely(r.sharedMaterial); // Cube's own painted copy: every bank shares the one glow
                     r.sharedMaterial = glow;
                     r.shadowCastingMode = ShadowCastingMode.Off;
                     r.receiveShadows = false;
@@ -134,14 +158,23 @@ namespace HockeyGame
         }
 
         /// <summary>
-        /// What glossy surfaces (the ice, the glass) reflect: a cubemap of the arena seen from the middle of the rink at eye
+        /// Where along the rink the reflection cubemap is seen from: over the skate-in, the middle of the half rink the
+        /// shooter sees (the cubemap was taken here before the rink grew to full length, so the Calm Area keeps its look).
+        /// </summary>
+        public const float ReflectionEyeZ = -13.125f;
+        /// <summary>Pixels along each side of the reflection cubemap: the boards and ads show in the ice's soft sheen (#88).</summary>
+        const int ReflectionSize = 256;
+
+        /// <summary>
+        /// What glossy surfaces (the ice, the glass) reflect: a cubemap of the arena seen from over the skate-in (ReflectionEyeZ) at eye
         /// height, rendered once, here, by a temporary camera, and used as the scene's reflection. It holds the stands,
         /// light banks, boards and net but not the goalie or puck (they move). Rendered in code, so it needs neither baked
-        /// lighting nor Realtime Reflection Probes on in the Quality settings.
+        /// lighting nor Realtime Reflection Probes on in the Quality settings. RinkBuilder builds the lights after the boards
+        /// and ads, so they are in it.
         /// </summary>
         static void AddReflections(Transform rink)
         {
-            var cube = new RenderTexture(128, 128, 24, RenderTextureFormat.ARGBHalf)
+            var cube = new RenderTexture(ReflectionSize, ReflectionSize, 24, RenderTextureFormat.ARGBHalf)
             {
                 dimension = TextureDimension.Cube,
                 useMipMap = true,      // blurrier mips for rougher surfaces
@@ -150,7 +183,7 @@ namespace HockeyGame
             };
             var camera = new GameObject("Reflection Camera").AddComponent<Camera>();
             camera.transform.SetParent(rink, false);
-            camera.transform.position = new Vector3(0f, 1.5f, RinkBoards.Box.center.z);
+            camera.transform.position = new Vector3(0f, 1.5f, ReflectionEyeZ);
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = Backdrop;
             camera.nearClipPlane = 0.1f;

@@ -73,6 +73,9 @@ namespace HockeyGame
         /// </summary>
         public float FlightSeconds { get; private set; }
 
+        /// <summary>The goal light at the far net (built with the rink's Shot parts).</summary>
+        public GoalLight GoalLight => _goalLight;
+
         /// <summary>The goal light is on: from a GOAL!'s Whistle (the line crossing) to the end of its result hold.</summary>
         public bool GoalLightOn { get; private set; }
 

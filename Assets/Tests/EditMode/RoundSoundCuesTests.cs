@@ -64,13 +64,13 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void Too_late_plays_buzzer_and_groan_at_once()
+        public void Too_late_plays_buzzer_and_small_groan_at_once()
         {
             var round = StartedRound();
             var cues = new RoundSoundCues(new SaveData());
             var heard = Run(round, cues, 3.7 + 3.0 + Frame);
             Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
-            CollectionAssert.IsSubsetOf(new[] { SoundCue.Buzzer, SoundCue.Groan }, heard);
+            CollectionAssert.IsSubsetOf(new[] { SoundCue.Buzzer, SoundCue.SmallGroan }, heard);
         }
 
         [Test]
@@ -118,7 +118,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void Miss_that_hit_nothing_plays_boards_clang_and_groan_at_the_Whistle()
+        public void Miss_that_hit_nothing_plays_boards_clang_and_small_groan_at_the_Whistle()
         {
             var round = StartedRound();
             var cues = new RoundSoundCues(new SaveData());
@@ -126,12 +126,12 @@ namespace HockeyGame.Core.Tests
             round.SubmitShot(150, 90, 100, false);       // off the Net Face
             cues.Update(round);
             round.Whistle(ShotResultKind.Miss);
-            CollectionAssert.AreEquivalent(new[] { SoundCue.MissImpact, SoundCue.Groan }, cues.Update(round));
+            CollectionAssert.AreEquivalent(new[] { SoundCue.MissImpact, SoundCue.SmallGroan }, cues.Update(round));
         }
 
         // Post and crossbar sounds come from the physics contacts (PhysicsShotEffects.HitSound), when they happen.
         [Test]
-        public void A_post_hit_pings_when_it_happens_and_the_Miss_then_only_groans()
+        public void A_post_hit_pings_when_it_happens_and_the_Miss_then_gets_an_ooh()
         {
             var round = StartedRound();
             var cues = new RoundSoundCues(new SaveData());
@@ -141,7 +141,7 @@ namespace HockeyGame.Core.Tests
             CollectionAssert.AreEquivalent(new[] { SoundCue.PostPing }, cues.Update(round, SoundCue.PostPing));
             Assert.IsEmpty(cues.Update(round, null));
             round.Whistle(ShotResultKind.Miss);
-            CollectionAssert.AreEquivalent(new[] { SoundCue.Groan }, cues.Update(round));
+            CollectionAssert.AreEquivalent(new[] { SoundCue.Ooh }, cues.Update(round));
         }
 
         [Test]
@@ -153,13 +153,13 @@ namespace HockeyGame.Core.Tests
             round.SubmitShot(-2, 50, 100, false);
             cues.Update(round, SoundCue.PostPing);
             round.Whistle(ShotResultKind.Miss);
-            Run(round, cues, 2.6 + 3.8);                 // the hold, then the next Shot's skate-in, slow-down and window
+            Run(round, cues, round.ResultHoldLength + 0.1 + 3.8); // the hold (a Frame Hit: with its Replay), then the next Shot's skate-in, slow-down and window
             Assert.AreEqual(2, round.ShotNumber);
             Assert.AreEqual(RoundPhase.ShootingWindow, round.Phase);
             round.SubmitShot(150, 90, 100, false);
             cues.Update(round);
             round.Whistle(ShotResultKind.Miss);
-            CollectionAssert.AreEquivalent(new[] { SoundCue.MissImpact, SoundCue.Groan }, cues.Update(round));
+            CollectionAssert.AreEquivalent(new[] { SoundCue.MissImpact, SoundCue.SmallGroan }, cues.Update(round));
         }
 
         // Plays one Shot at (x, y) with the race's result at its Whistle (ScriptedShot) and returns the cues on the Whistle frame.
@@ -246,7 +246,7 @@ namespace HockeyGame.Core.Tests
         public void Miss_wide_of_the_frame_clangs_off_the_boards(double x, double y)
         {
             var heard = ArrivalCues(StartedRound(), x, y);
-            CollectionAssert.AreEquivalent(new[] { SoundCue.MissImpact, SoundCue.Groan }, heard);
+            CollectionAssert.AreEquivalent(new[] { SoundCue.MissImpact, SoundCue.SmallGroan }, heard);
         }
 
         [Test]
@@ -273,7 +273,7 @@ namespace HockeyGame.Core.Tests
             {
                 heard.AddRange(Run(round, cues, 3.8));
                 round.SubmitShotAndWhistle(i < goals ? 50 : 150, 90, 100, false);
-                heard.AddRange(Run(round, cues, 2.6));
+                heard.AddRange(Run(round, cues, round.ResultHoldLength + 0.1));
             }
             return heard;
         }

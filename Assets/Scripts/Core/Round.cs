@@ -66,6 +66,9 @@ namespace HockeyGame.Core
         /// <summary>Result of the current Shot; null until it has one.</summary>
         public ShotResult? LastResult { get; private set; }
 
+        /// <summary>The last finished Shot's speed this Round (kept into the next Shot); null before the first, or when it was Too late.</summary>
+        public double? LastShotSpeedKmh { get; private set; }
+
         /// <summary>Result per finished Shot, in order (TooLate counts as a Miss in the tally).</summary>
         public IReadOnlyList<ShotResultKind> Results => _results;
 
@@ -110,10 +113,15 @@ namespace HockeyGame.Core
 
         /// <summary>True from a Shot on the clock until the game reports its Whistle (Whistle). The result hold has not started.</summary>
         public bool AwaitingWhistle { get; private set; }
+        /// <summary>
+        /// How long the current result holds once it shows (after the Whistle): ReplayTiming.HoldSeconds (about 4.5 s)
+        /// when a Replay follows (a Goal, a Save or a Frame Hit), otherwise ResultHoldSeconds (2.5 s: a Wide Miss, Too late).
+        /// </summary>
+        public double ResultHoldLength => ReplayTiming.Follows(LastResult) ? ReplayTiming.HoldSeconds : _settings.ResultHoldSeconds;
 
         /// <summary>
         /// Real seconds from the Shot to its Whistle (Shot-to-Whistle, since #108: not the puck's flight); 0 until the Whistle.
-        /// The result hold runs ResultHoldSeconds after it. (Named before the Whistle; kept, as other code reads it.)
+        /// The result hold runs ResultHoldLength after it. (Named before the Whistle; kept, as other code reads it.)
         /// </summary>
         public double ResultDelaySeconds => _resultDelay;
 
@@ -139,6 +147,7 @@ namespace HockeyGame.Core
             IsNewBest = false;
             LastResult = null;
             ShotsSubmitted = 0;
+            LastShotSpeedKmh = null;
             ShotNumber = 1;
             StartShot();
             EnterPhase(RoundPhase.SkateIn);
@@ -164,7 +173,7 @@ namespace HockeyGame.Core
 
         /// <summary>
         /// The game reports the Whistle with the Shot's result (Goal, Save or Miss). The Round records it and holds it
-        /// ResultHoldSeconds from now. Counts only while waiting for a Whistle: a later call changes nothing. A Whistle is
+        /// ResultHoldLength from now (2.5 s; 4.5 s with a Replay). Counts only while waiting for a Whistle: a later call changes nothing. A Whistle is
         /// never Too Late (that comes from the shooting window running out): it throws.
         /// </summary>
         public void Whistle(ShotResultKind kind)
@@ -251,6 +260,7 @@ namespace HockeyGame.Core
         private void Record(ShotResult result)
         {
             LastResult = result;
+            LastShotSpeedKmh = result.HasShot ? result.SpeedKmh : (double?)null;
             _results.Add(result.Kind);
             if (result.Kind == ShotResultKind.Goal)
                 Goals++;
@@ -281,7 +291,7 @@ namespace HockeyGame.Core
                 case RoundPhase.SkateIn: return _settings.SkateInSeconds;
                 case RoundPhase.SlowDown: return _settings.SlowDownSeconds;
                 case RoundPhase.ShootingWindow: return _settings.ShootingWindowSeconds;
-                default: return AwaitingWhistle ? double.PositiveInfinity : _resultDelay + _settings.ResultHoldSeconds;
+                default: return AwaitingWhistle ? double.PositiveInfinity : _resultDelay + ResultHoldLength;
             }
         }
     }

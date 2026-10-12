@@ -92,6 +92,6 @@ namespace HockeyGame.Core.Tests
         }
 
         static bool InsideBoards(Vector3 p) =>
-            Mathf.Abs(p.x) <= RinkBoards.HalfWidth + 0.01f && p.z <= RinkBoards.EndZ + 0.01f && p.z >= RinkBoards.NearZ - 0.01f;
+            Mathf.Abs(p.x) <= RinkBoards.HalfWidth + 0.01f && p.z <= RinkBoards.EndZ + 0.01f && p.z >= RinkBoards.FarZ - 0.01f;
     }
 }
