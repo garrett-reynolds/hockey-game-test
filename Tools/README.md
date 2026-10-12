@@ -10,7 +10,7 @@ Install the packages once: `py -3 -m pip install -r Tools/requirements.txt` (Pil
 | Script | Makes | Needs |
 |---|---|---|
 | `make_ads.py` | the board ad and ice logo art in `Assets/Resources/Ads` (`py -3 Tools/make_ads.py Assets/Resources/Ads C:/Windows/Fonts`) | Pillow, Windows fonts |
-| `make_arena.py` | `boards.obj`, `arena.obj` (+ `.mtl`), `crowd.png` | Pillow, numpy |
+| `make_arena.py` | `boards.obj`, `arena.obj` (+ `.mtl`) | none |
 | `make_goal_light.py` | `goal-light.obj` (+ `.mtl`) | - |
 | `make_goalie_gear.py` | `save-glove.obj` (+ `.mtl`) | - |
 | `make_ice.py` | `ice.obj` (+ `.mtl`) | - |
@@ -28,7 +28,7 @@ These run inside Blender 4.5 (`bpy`), not plain Python. Each needs a downloaded 
 
 | Script | Makes |
 |---|---|
-| `make_crowd.py` | a 3D crowd fan body and its clips (`Assets/Resources/Crowd/*.bytes`) from a Quaternius base character |
+| `make_crowd.py` | one 3D crowd fan body at one level, with its body shapes, hair styles, clips and (far) card pictures (`Assets/Resources/Crowd/*.bytes`), from a Quaternius base character and its hair; `make_crowd.sh` makes all four |
 | `make_lifelike_goalie.py` | `goalie-dressing.fbx` and its textures |
 | `make_supplied_net.py` | `net.fbx` |
 | `make_supplied_puck.py` | `puck.fbx` |

@@ -59,6 +59,9 @@ ROW_DEPTH = 0.85
 LOWER_ROWS = 20
 LOWER_RISE = 0.42
 RIBBON_HEIGHT = 1.2
+# The upper tier above the Ribbon Board ring: rows each ROW_DEPTH deep and UPPER_RISE higher than the one in front.
+UPPER_ROWS = 13
+UPPER_RISE = 0.55
 
 
 def _pair(gap, length):

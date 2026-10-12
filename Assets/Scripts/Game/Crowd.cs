@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using HockeyGame.Core;
 using UnityEngine;
@@ -7,28 +8,34 @@ using UnityEngine.Rendering;
 namespace HockeyGame
 {
     /// <summary>
-    /// The 3D crowd (first test, #94): real fans in the lower stand behind the near net (CrowdSeats), in place of the
-    /// arena's flat crowd picture there. Every fan is one instance of a static body mesh, all drawn in one call
-    /// (Graphics.RenderMeshPrimitives) with the crowd shader, which poses each fan from its clip's vertex animation texture.
-    /// A per-fan buffer holds each fan's seat, random phase, shirt, skin and hair (CrowdLooks).
-    /// It follows the Arena Show: Show sets each zone's clip clock and light; the shader works out each fan's pose. The
-    /// fans behind the near net (the Calm Area zone) sit still and dim from goalie set to the Shot.
+    /// The 3D crowd: a fan in every seat of both tiers all round the bowl (CrowdSeats), each one of six body types made
+    /// from the two Quaternius bodies, with its own hair style and colours (CrowdLooks). Near fans (the lower tier in the
+    /// near half) use the full body (about 1.5k triangles), far fans (the upper tier and the far half) the light one (about
+    /// 400), or flat camera-facing cards when FarCards is on. Every fan is an instance of a static body mesh; the fans are
+    /// kept in one per-fan buffer, sorted into slices by body, level and part of the bowl, and each slice the camera can
+    /// see is drawn in one call (Graphics.RenderMeshPrimitives) with the crowd shader, which poses each fan from its body's
+    /// vertex animation texture.
+    /// It follows the Arena Show: Show moves each zone's clips on (CrowdMotion) and sets its light; the shader works out
+    /// each fan's pose. The fans behind the near net (the Calm Area zone) sit still and dim from goalie set to the Shot.
     /// </summary>
     [ExecuteAlways]
     public sealed class Crowd : MonoBehaviour
     {
-        /// <summary>Folder under Assets/Resources with the crowd's body files and shader.</summary>
+        /// <summary>Folder under Assets/Resources with the crowd's body files and shaders.</summary>
         public const string Folder = "Crowd";
-        /// <summary>The first body (Tools/make_crowd.py makes it from a Quaternius base character).</summary>
-        public const string BodyFile = "fan-superhero-male";
-        public const string ShaderFile = "CrowdFan";
-        public const string SitIdle = "sit-idle";
-        /// <summary>The longest step a zone's clip clock takes in one Show (a pause or a hitch does not jump the fans).</summary>
+        public const string ShaderFile = "CrowdFan", CardShaderFile = "CrowdCard";
+        /// <summary>The body files (Tools/make_crowd.py): [base (0 man, 1 woman), level (0 near, 1 far)].</summary>
+        public static readonly string[,] BodyFiles = { { "fan-male-near", "fan-male-far" }, { "fan-female-near", "fan-female-far" } };
+        /// <summary>The clips every body file holds, in CrowdClip order.</summary>
+        public static readonly string[] ClipNames = { "sit-idle", "wave", "stand-cheer", "oh", "clap" };
+        /// <summary>The longest step a zone's clips take in one Show (a pause or a hitch does not jump the fans).</summary>
         const double MaxStep = 0.25;
-        /// <summary>The fans' size spread (1 = the body's own 1.8 m).</summary>
-        const float MinScale = 0.92f, MaxScale = 1.02f;
         /// <summary>Each fan turns a little off straight ahead (radians, either way).</summary>
         const float YawSpread = 0.15f;
+        /// <summary>The bowl is cut into this many slices round its middle (per tier) so a camera draws only what it sees.</summary>
+        const int Sectors = 16;
+        /// <summary>A fan reaches this far round its seat (metres) and this high, standing with its arms up.</summary>
+        const float Reach = 0.8f, Top = 2.5f;
 
         [StructLayout(LayoutKind.Sequential)]
         struct FanData
@@ -36,100 +43,232 @@ namespace HockeyGame
             public Vector4 Place; // x, y, z (crowd space), yaw
             public Vector4 Shirt; // rgb (linear), phase 0..1
             public Vector4 Skin;  // rgb (linear), zone
-            public Vector4 Hair;  // rgb (linear), scale
+            public Vector4 Hair;  // rgb (linear; or the cap), height
+            public Vector4 Look;  // body shape, hair style, waves (1) or not (0), 0
+        }
+
+        /// <summary>A slice of the fan buffer drawn in one call: one body at one level, one part of the bowl.</summary>
+        sealed class Slice
+        {
+            public int Group, Start, Count;
+            public Bounds Bounds;
+            public MaterialPropertyBlock Props;
         }
 
         static readonly int FansId = Shader.PropertyToID("_Fans"), VatId = Shader.PropertyToID("_Vat"),
-            ClipSecondsId = Shader.PropertyToID("_ClipSeconds"), ClipFramesId = Shader.PropertyToID("_ClipFrames"),
-            ZoneClockId = Shader.PropertyToID("_ZoneClock"), ZoneLightId = Shader.PropertyToID("_ZoneLight"),
-            CrowdToWorldId = Shader.PropertyToID("_CrowdToWorld"), FanCountId = Shader.PropertyToID("_FanCount"),
-            CopyStepId = Shader.PropertyToID("_CopyStep");
+            ClipInfoId = Shader.PropertyToID("_ClipInfo"), RowsPerShapeId = Shader.PropertyToID("_RowsPerShape"),
+            ZonesId = Shader.PropertyToID("_Zones"), ZoneBlendId = Shader.PropertyToID("_ZoneBlend"),
+            ZoneLightId = Shader.PropertyToID("_ZoneLight"), ZoneContrastId = Shader.PropertyToID("_ZoneContrast"),
+            FlatToneId = Shader.PropertyToID("_FlatTone"), CrowdToWorldId = Shader.PropertyToID("_CrowdToWorld"),
+            FanStartId = Shader.PropertyToID("_FanStart"), OhSpreadId = Shader.PropertyToID("_OhSpread"),
+            PantsId = Shader.PropertyToID("_Pants"), ShoesId = Shader.PropertyToID("_Shoes"),
+            CardsId = Shader.PropertyToID("_Cards"), CardSizeId = Shader.PropertyToID("_CardSize"),
+            CardSeatedTopId = Shader.PropertyToID("_CardSeatedTop");
 
         static readonly ArenaZone[] Zones = { ArenaZone.CalmArea, ArenaZone.Near, ArenaZone.Far };
 
-        CrowdBody _body;
-        CrowdBody.Clip _clip;
-        Material _material;
+        // Groups: base * 2 + level.
+        readonly CrowdBody[] _bodies = new CrowdBody[4];
+        readonly Material[] _materials = new Material[4], _cardMaterials = new Material[4];
+        Mesh _card;
+        readonly List<Slice> _slices = new List<Slice>();
+        FanData[] _data;
         GraphicsBuffer _fans;
-        Bounds _bounds;
         FanSeat[] _seats;
-        readonly double[] _clock = new double[3];
-        readonly float[] _light = { 1f, 1f, 1f };
+        FanLook[] _looks;
+        Bounds _bounds;
+        readonly CrowdMotion[] _motion = new CrowdMotion[3];
+        readonly float[] _light = { 1f, 1f, 1f }, _contrast = { 1f, 1f, 1f };
+        readonly Vector4[] _zones = new Vector4[3];
+        readonly Plane[] _planes = new Plane[6];
         double _lastSeconds = double.NaN;
 
         public int FanCount => _seats?.Length ?? 0;
+        /// <summary>Fan i's seat and look (in the crowd's own order).</summary>
         public FanSeat SeatOf(int fan) => _seats[fan];
-        public CrowdBody Body => _body;
+        public FanLook LookOf(int fan) => _looks[fan];
+        /// <summary>The body of one base (0 man, 1 woman) at one level (0 near, 1 far).</summary>
+        public CrowdBody BodyOf(int @base, int level) => _bodies[@base * 2 + level];
         /// <summary>The fans' bounds in the crowd's (the rink's) space.</summary>
         public Bounds Bounds => _bounds;
+        /// <summary>The clip the zone's fans play (the fans who do not wave sit-idle instead of waving).</summary>
+        public CrowdClip ClipIn(ArenaZone zone) => _motion[(int)zone].Clip;
         /// <summary>Where the zone's fans are in their clip (seconds played; it stops while they are still).</summary>
-        public double ClockIn(ArenaZone zone) => _clock[(int)zone];
+        public double ClockIn(ArenaZone zone) => _motion[(int)zone].Clock;
         /// <summary>The zone's fans' brightness (1 = as lit).</summary>
         public float LightIn(ArenaZone zone) => _light[(int)zone];
+        /// <summary>How much of their own colour and shading the zone's fans show (1 = all).</summary>
+        public float ContrastIn(ArenaZone zone) => _contrast[(int)zone];
         /// <summary>Off: no fans are drawn (the crowd GPU cost tool draws with and without).</summary>
         public bool Drawn { get; set; } = true;
-        /// <summary>How many times over each fan is drawn (1). The crowd GPU cost tool draws more, each copy of the stand
-        /// beside the last, to guess the full crowd's cost.</summary>
-        public int Copies { get; set; } = 1;
+        /// <summary>On: far fans are flat camera-facing cards instead of the light body (the first cut if the crowd goes
+        /// over its 2 ms GPU limit).</summary>
+        public bool FarCards { get; set; }
+        /// <summary>Fans drawn for the last camera (the slices it could see).</summary>
+        public int LastDrawnFans { get; private set; }
 
-        /// <summary>Adds the crowd under rink, or nothing when the body file or the shader is missing.</summary>
+        /// <summary>Adds the crowd under rink, or nothing when a body file or a shader is missing.</summary>
         public static Crowd Build(Transform rink)
         {
-            CrowdBody body = CrowdBody.Load(BodyFile);
             var shader = Resources.Load<Shader>(Folder + "/" + ShaderFile);
-            if (body == null || shader == null || body.ClipNamed(SitIdle) == null)
+            var cardShader = Resources.Load<Shader>(Folder + "/" + CardShaderFile);
+            var bodies = new CrowdBody[4];
+            bool ok = shader != null && cardShader != null;
+            for (int g = 0; g < 4 && ok; g++)
             {
-                Debug.LogWarning("No 3D crowd: Assets/Resources/" + Folder + "/" + BodyFile + ".bytes or its shader is missing.");
-                body?.Destroy();
+                bodies[g] = CrowdBody.Load(BodyFiles[g / 2, g % 2]);
+                ok = bodies[g] != null && HasClips(bodies[g]) && (g % 2 == 0 || bodies[g].Cards != null);
+            }
+            if (!ok)
+            {
+                Debug.LogWarning("No 3D crowd: a body file in Assets/Resources/" + Folder + " (Tools/make_crowd.sh) or a crowd shader is missing.");
+                foreach (CrowdBody b in bodies) b?.Destroy();
                 return null;
             }
 
             var root = new GameObject("Crowd");
             root.transform.SetParent(rink, false);
             var crowd = root.AddComponent<Crowd>();
-            crowd.Fill(body, shader, CrowdSeats.BehindNearNet(), new System.Random(94));
-            crowd.Show(ArenaShow.At(new ArenaShowInput { Phase = RoundPhase.Idle }), 0.0);
+            crowd.Fill(bodies, shader, cardShader, new System.Random(95));
             return crowd;
         }
 
-        void Fill(CrowdBody body, Shader shader, FanSeat[] seats, System.Random random)
+        static bool HasClips(CrowdBody body)
         {
-            _body = body;
-            _clip = body.ClipNamed(SitIdle);
-            _seats = seats;
-            _material = new Material(shader) { name = "Crowd" };
-            _material.SetTexture(VatId, _clip.Texture);
-            _material.SetFloat(ClipSecondsId, _clip.Seconds);
-            _material.SetFloat(ClipFramesId, _clip.Frames);
-            _material.SetFloat(FanCountId, seats.Length);
-            _material.SetFloat(CopyStepId, (float)(CrowdSeats.SeatsPerRowBehindNearNet * CrowdSeats.SeatWidth));
+            if (body.Clips.Length != ClipNames.Length) return false;
+            for (int i = 0; i < ClipNames.Length; i++)
+                if (body.Clips[i].Name != ClipNames[i] || body.Clips[i].Loops != CrowdMotion.Loops((CrowdClip)i)) return false;
+            return true;
+        }
 
-            FanLook[] looks = CrowdLooks.Make(seats.Length, random);
-            var data = new FanData[seats.Length];
-            var min = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
-            Vector3 max = -min;
+        void Fill(CrowdBody[] bodies, Shader shader, Shader cardShader, System.Random random)
+        {
+            var seconds = new double[ClipNames.Length];
+            for (int i = 0; i < seconds.Length; i++) seconds[i] = bodies[0].Clips[i].Seconds;
+            for (int z = 0; z < 3; z++) _motion[z] = new CrowdMotion(seconds);
+            _card = CardMesh();
+
+            for (int g = 0; g < 4; g++)
+            {
+                CrowdBody body = _bodies[g] = bodies[g];
+                var clipInfo = new Vector4[ClipNames.Length];
+                for (int i = 0; i < clipInfo.Length; i++)
+                {
+                    CrowdBody.Clip c = body.Clips[i];
+                    clipInfo[i] = new Vector4(c.FirstRow, c.Frames, c.FramesPerSecond, c.Loops ? 1 : 0);
+                }
+                _materials[g] = Configure(new Material(shader) { name = "Crowd " + BodyFiles[g / 2, g % 2] }, clipInfo);
+                _materials[g].SetTexture(VatId, body.Vat);
+                _materials[g].SetFloat(RowsPerShapeId, body.RowsPerShape);
+                if (body.Cards != null)
+                {
+                    _cardMaterials[g] = Configure(new Material(cardShader) { name = "Crowd cards " + BodyFiles[g / 2, g % 2] }, clipInfo);
+                    _cardMaterials[g].SetTexture(CardsId, body.Cards);
+                    _cardMaterials[g].SetVector(CardSizeId, new Vector4(body.CardSize.x, body.CardSize.y, body.Cards.width / 2f, body.Cards.height));
+                    _cardMaterials[g].SetFloat(CardSeatedTopId, body.CardSeatedTop);
+                }
+            }
+
+            FanSeat[] seats = CrowdSeats.All();
+            FanLook[] looks = CrowdLooks.Make(seats, CrowdSeats.Neighbours(seats), random);
+            var yaw = new float[seats.Length];
+            for (int i = 0; i < yaw.Length; i++) yaw[i] = (float)seats[i].Yaw + YawSpread * (2f * (float)random.NextDouble() - 1f);
+
+            // Sort the fans into slices: group (body base and level), then part of the bowl.
+            var order = new int[seats.Length];
+            var keys = new long[seats.Length];
             for (int i = 0; i < seats.Length; i++)
             {
-                FanSeat s = seats[i];
+                order[i] = i;
+                keys[i] = (long)SliceKey(seats[i], looks[i]) * seats.Length + i; // stable
+            }
+            Array.Sort(keys, order);
+
+            _seats = new FanSeat[seats.Length];
+            _looks = new FanLook[seats.Length];
+            _data = new FanData[seats.Length];
+            var min = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
+            Vector3 max = -min;
+            Slice slice = null;
+            int lastKey = -1;
+            for (int k = 0; k < order.Length; k++)
+            {
+                int i = order[k];
+                FanSeat s = _seats[k] = seats[i];
+                FanLook l = _looks[k] = looks[i];
+                BodyType type = CrowdLooks.BodyTypes[l.Body];
                 var place = new Vector3((float)s.X, (float)s.Y, (float)s.Z);
-                float yaw = (float)s.Yaw + YawSpread * (2f * (float)random.NextDouble() - 1f);
-                float scale = Mathf.Lerp(MinScale, MaxScale, (float)random.NextDouble());
-                data[i] = new FanData
+                _data[k] = new FanData
                 {
-                    Place = new Vector4(place.x, place.y, place.z, yaw),
-                    Shirt = Linear(looks[i].Shirt, (float)looks[i].Phase),
-                    Skin = Linear(looks[i].Skin, (int)s.Zone),
-                    Hair = Linear(looks[i].Hair, scale)
+                    Place = new Vector4(place.x, place.y, place.z, yaw[i]),
+                    Shirt = Linear(l.Shirt, (float)l.Phase),
+                    Skin = Linear(l.Skin, (int)s.Zone),
+                    Hair = Linear(l.Hair, (float)l.Height),
+                    Look = new Vector4(type.Shape, l.HairStyle, l.Waves ? 1 : 0, 0)
                 };
+                int key = SliceKey(s, l);
+                if (key != lastKey)
+                {
+                    slice = new Slice { Group = Group(s, l), Start = k, Props = new MaterialPropertyBlock() };
+                    slice.Props.SetFloat(FanStartId, k);
+                    slice.Bounds = new Bounds(place, Vector3.zero);
+                    _slices.Add(slice);
+                    lastKey = key;
+                }
+                slice.Count++;
+                slice.Bounds.Encapsulate(place);
                 min = Vector3.Min(min, place);
                 max = Vector3.Max(max, place);
             }
-            // A seated fan reaches about 0.6 m round its seat and 1.5 m up.
+            foreach (Slice sl in _slices) sl.Bounds.SetMinMax(sl.Bounds.min - new Vector3(Reach, 0, Reach), sl.Bounds.max + new Vector3(Reach, Top, Reach));
             _bounds = new Bounds();
-            _bounds.SetMinMax(min - new Vector3(0.6f, 0f, 0.8f), max + new Vector3(0.6f, 1.6f, 0.6f));
-            _fans = new GraphicsBuffer(GraphicsBuffer.Target.Structured, data.Length, Marshal.SizeOf<FanData>());
-            _fans.SetData(data);
-            _material.SetBuffer(FansId, _fans);
+            _bounds.SetMinMax(min - new Vector3(Reach, 0, Reach), max + new Vector3(Reach, Top, Reach));
+            MakeBuffer();
+        }
+
+        static int Group(FanSeat s, FanLook l) => CrowdLooks.BodyTypes[l.Body].Base * 2 + (CrowdSeats.IsNearFan(s) ? 0 : 1);
+
+        static int SliceKey(FanSeat s, FanLook l)
+        {
+            double angle = Math.Atan2(s.Z - RinkLayout.CentreLineZ, s.X) + Math.PI;
+            int sector = Math.Min(Sectors - 1, (int)(angle / (2 * Math.PI) * Sectors));
+            int tier = s.Row < RinkLayout.LowerRows ? 0 : 1;
+            return (Group(s, l) * 2 + tier) * Sectors + sector;
+        }
+
+        static Material Configure(Material m, Vector4[] clipInfo)
+        {
+            m.SetVectorArray(ClipInfoId, clipInfo);
+            m.SetFloat(OhSpreadId, (float)CrowdMotion.OhSpreadSeconds);
+            m.SetColor(PantsId, ((Color)RibbonBoards.ColourOf(CrowdLooks.Pants)).linear);
+            m.SetColor(ShoesId, ((Color)RibbonBoards.ColourOf(CrowdLooks.Shoes)).linear);
+            m.SetColor(FlatToneId, ((Color)RibbonBoards.ColourOf(CrowdLooks.FlatTone)).linear);
+            return m;
+        }
+
+        static Mesh CardMesh()
+        {
+            var mesh = new Mesh { name = "Crowd card" };
+            mesh.SetVertices(new[] { new Vector3(0, 0, 0), new Vector3(1, 0, 0), new Vector3(1, 1, 0), new Vector3(0, 1, 0) });
+            mesh.SetUVs(0, new[] { new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 1) });
+            mesh.SetTriangles(new[] { 0, 2, 1, 0, 3, 2 }, 0);
+            mesh.bounds = new Bounds(Vector3.zero, Vector3.one * 4);
+            return mesh;
+        }
+
+        void MakeBuffer()
+        {
+            if (_data == null || _fans != null) return;
+            _fans = new GraphicsBuffer(GraphicsBuffer.Target.Structured, _data.Length, Marshal.SizeOf<FanData>());
+            _fans.SetData(_data);
+            foreach (Material m in _materials) if (m != null) m.SetBuffer(FansId, _fans);
+            foreach (Material m in _cardMaterials) if (m != null) m.SetBuffer(FansId, _fans);
+        }
+
+        void ReleaseBuffer()
+        {
+            _fans?.Release();
+            _fans = null;
         }
 
         static Vector4 Linear(ArenaColour c, float w)
@@ -138,60 +277,103 @@ namespace HockeyGame
             return new Vector4(linear.r, linear.g, linear.b, w);
         }
 
-        /// <summary>Follows the Arena Show: each zone's clip clock runs at its state's speed (CrowdLooks.Motion) and its
-        /// fans take its light (CrowdLooks.Light). seconds: a running clock (real time).</summary>
+        /// <summary>Follows the Arena Show: each zone's clips move on (CrowdMotion; the first Show starts straight in its
+        /// clips) and its fans take its light (CrowdLooks.Light). seconds: a running clock (real time).</summary>
         public void Show(ArenaState state, double seconds)
         {
-            double step = double.IsNaN(_lastSeconds) ? 0 : Math.Max(0, Math.Min(MaxStep, seconds - _lastSeconds));
+            bool first = double.IsNaN(_lastSeconds);
+            double step = first ? 0 : Math.Max(0, Math.Min(MaxStep, seconds - _lastSeconds));
             _lastSeconds = seconds;
+            var blend = new Vector4();
+            var light = new Vector4(1, 1, 1, 1);
+            var contrast = new Vector4(1, 1, 1, 1);
             foreach (ArenaZone zone in Zones)
             {
+                int z = (int)zone;
                 CrowdState s = state.CrowdIn(zone);
-                _clock[(int)zone] = (_clock[(int)zone] + step * CrowdLooks.Motion(s)) % _clip.Seconds; // float-safe in the shader
-                _light[(int)zone] = (float)CrowdLooks.Light(s);
+                CrowdMotion m = _motion[z];
+                if (first) m.Snap(s);
+                else m.Step(s, step);
+                _light[z] = (float)CrowdLooks.Light(s);
+                _zones[z] = new Vector4((int)m.Clip, (float)m.Clock, (int)m.FromClip, (float)m.FromClock);
+                blend[z] = (float)m.Blend;
+                light[z] = _light[z];
+                contrast[z] = _contrast[z] = (float)CrowdLooks.Contrast(s);
             }
-            _material.SetVector(ZoneClockId, new Vector4((float)_clock[0], (float)_clock[1], (float)_clock[2], 0));
-            _material.SetVector(ZoneLightId, new Vector4(_light[0], _light[1], _light[2], 1));
+            foreach (Material mat in AllMaterials())
+            {
+                mat.SetVectorArray(ZonesId, _zones);
+                mat.SetVector(ZoneBlendId, blend);
+                mat.SetVector(ZoneLightId, light);
+                mat.SetVector(ZoneContrastId, contrast);
+            }
         }
 
-        void OnEnable() => RenderPipelineManager.beginCameraRendering += Draw;
+        IEnumerable<Material> AllMaterials()
+        {
+            foreach (Material m in _materials) if (m != null) yield return m;
+            foreach (Material m in _cardMaterials) if (m != null) yield return m;
+        }
 
-        void OnDisable() => RenderPipelineManager.beginCameraRendering -= Draw;
+        void OnEnable()
+        {
+            MakeBuffer();
+            RenderPipelineManager.beginCameraRendering += Draw;
+        }
 
-        /// <summary>Draws every fan for this camera in one call, just before the camera renders, so a Camera.Render with no
-        /// player loop (the picture test) gets the fans too.</summary>
+        /// <summary>Lets go of the GPU buffer too (and so before a domain reload); OnEnable makes it again.</summary>
+        void OnDisable()
+        {
+            RenderPipelineManager.beginCameraRendering -= Draw;
+            ReleaseBuffer();
+        }
+
+        /// <summary>Draws the fans this camera can see, a slice per call, just before the camera renders, so a Camera.Render
+        /// with no player loop (the picture test) gets the fans too.</summary>
         void Draw(ScriptableRenderContext context, Camera camera)
         {
-            if (!Drawn || _fans == null || camera.cameraType == CameraType.Preview || camera.cameraType == CameraType.Reflection) return;
-            _material.SetMatrix(CrowdToWorldId, transform.localToWorldMatrix);
-            var rp = new RenderParams(_material)
+            LastDrawnFans = 0;
+            if (!Drawn || _fans == null || double.IsNaN(_lastSeconds)
+                || camera.cameraType == CameraType.Preview || camera.cameraType == CameraType.Reflection) return;
+            Matrix4x4 toWorld = transform.localToWorldMatrix;
+            foreach (Material m in AllMaterials()) m.SetMatrix(CrowdToWorldId, toWorld);
+            GeometryUtility.CalculateFrustumPlanes(camera, _planes);
+            foreach (Slice s in _slices)
             {
-                camera = camera,
-                worldBounds = WorldBounds(),
-                shadowCastingMode = ShadowCastingMode.Off,
-                receiveShadows = false,
-                layer = gameObject.layer
-            };
-            Graphics.RenderMeshPrimitives(rp, _body.Mesh, 0, _seats.Length * Math.Max(1, Copies));
+                Bounds world = WorldBounds(s.Bounds);
+                if (!GeometryUtility.TestPlanesAABB(_planes, world)) continue;
+                bool card = FarCards && s.Group % 2 == 1;
+                var rp = new RenderParams(card ? _cardMaterials[s.Group] : _materials[s.Group])
+                {
+                    camera = camera,
+                    worldBounds = world,
+                    shadowCastingMode = ShadowCastingMode.Off,
+                    receiveShadows = false,
+                    layer = gameObject.layer,
+                    matProps = s.Props
+                };
+                Graphics.RenderMeshPrimitives(rp, card ? _card : _bodies[s.Group].Mesh, 0, s.Count);
+                LastDrawnFans += s.Count;
+            }
         }
 
-        Bounds WorldBounds()
+        Bounds WorldBounds(Bounds local)
         {
-            var world = new Bounds(transform.TransformPoint(_bounds.center), Vector3.zero);
+            var world = new Bounds(transform.TransformPoint(local.center), Vector3.zero);
             for (int i = 0; i < 8; i++)
                 world.Encapsulate(transform.TransformPoint(new Vector3(
-                    (i & 1) == 0 ? _bounds.min.x : _bounds.max.x,
-                    (i & 2) == 0 ? _bounds.min.y : _bounds.max.y,
-                    (i & 4) == 0 ? _bounds.min.z : _bounds.max.z)));
+                    (i & 1) == 0 ? local.min.x : local.max.x,
+                    (i & 2) == 0 ? local.min.y : local.max.y,
+                    (i & 4) == 0 ? local.min.z : local.max.z)));
             return world;
         }
 
         void OnDestroy()
         {
-            _fans?.Release();
-            _fans = null;
-            SceneObjects.DestroySafely(_material);
-            _body?.Destroy();
+            ReleaseBuffer();
+            foreach (Material m in AllMaterials()) SceneObjects.DestroySafely(m);
+            foreach (CrowdBody b in _bodies) b?.Destroy();
+            if (_card != null) SceneObjects.DestroySafely(_card);
         }
     }
 }
