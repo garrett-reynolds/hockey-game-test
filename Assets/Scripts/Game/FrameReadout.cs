@@ -5,7 +5,7 @@ namespace HockeyGame
 {
     /// <summary>
     /// The dev-only frame readout (#85): the GPU and CPU (main thread) milliseconds of a recent frame, from the
-    /// FrameTimingManager, in a screen corner. Only in the Editor and development builds (Shows); a normal build has none.
+    /// FrameTimingManager, in a screen corner. Only in the Editor and development builds (AddTo); a normal build has none.
     /// Times the platform does not measure (often the GPU in the Editor) show as n/a.
     /// </summary>
     public sealed class FrameReadout : MonoBehaviour
@@ -14,13 +14,13 @@ namespace HockeyGame
         string _text = Text(double.NaN, double.NaN);
         GUIStyle _style;
 
-        /// <summary>True when the readout shows: in the Editor and development builds (Debug.isDebugBuild), never in a normal build.</summary>
-        public static bool Shows(bool debugBuild) => debugBuild;
+        /// <summary>Adds the readout to target in the Editor and development builds (Debug.isDebugBuild); a normal build gets none.</summary>
+        public static void AddTo(GameObject target) => AddTo(target, Debug.isDebugBuild);
 
-        /// <summary>Adds the readout to target when it shows in this build.</summary>
-        public static void AddTo(GameObject target)
+        /// <summary>Adds the readout to target only when debugBuild (the Editor or a development build).</summary>
+        public static void AddTo(GameObject target, bool debugBuild)
         {
-            if (Shows(Debug.isDebugBuild)) target.AddComponent<FrameReadout>();
+            if (debugBuild) target.AddComponent<FrameReadout>();
         }
 
         /// <summary>The readout's line: each time in ms to one decimal, or n/a when not measured (0, negative or NaN).</summary>

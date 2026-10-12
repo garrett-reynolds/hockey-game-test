@@ -164,37 +164,92 @@ namespace HockeyGame.Core.Tests
             CollectionAssert.AreEqual(new[] { false, true, false }, mask);
         }
 
+        [Test]
+        public void Inner_pixels_are_the_mask_pixels_whose_8_neighbours_are_in_the_mask_too()
+        {
+            Assert.AreEqual(36, PictureMeasures.InnerPixels(All(), W, H), "x and y 1 to 6");
+            Assert.AreEqual(0, PictureMeasures.InnerPixels(All(false), W, H));
+        }
+
+        [Test]
+        public void Each_Gap_is_a_group_of_touching_Gap_cells_named_by_its_first_cell()
+        {
+            // 4 columns x 3 rows, row 0 at the bottom. Cells (0,0) (1,0) (1,1) touch; (3,0) is alone; (3,2) is alone.
+            var cells = new bool[12];
+            cells[0] = cells[1] = cells[4 + 1] = true;
+            cells[3] = true;
+            cells[8 + 3] = true;
+            List<List<int>> gaps = PictureMeasures.Groups(cells, 4, 3);
+            Assert.AreEqual(3, gaps.Count);
+            CollectionAssert.AreEqual(new[] { 0, 1, 5 }, gaps[0]);
+            CollectionAssert.AreEqual(new[] { 3 }, gaps[1]);
+            CollectionAssert.AreEqual(new[] { 11 }, gaps[2]);
+            Assert.AreEqual("Gap c0r0", PictureMeasures.GapName(gaps[0], 4));
+            Assert.AreEqual("Gap c3r2", PictureMeasures.GapName(gaps[2], 4));
+        }
+
+        [Test]
+        public void Cells_touching_only_at_a_corner_are_two_Gaps()
+        {
+            var cells = new bool[4]; // 2 x 2
+            cells[0] = cells[3] = true;
+            Assert.AreEqual(2, PictureMeasures.Groups(cells, 2, 2).Count);
+        }
+
         // ---- The fail rule ----
+
+        static bool Fails(double baseline, double now, PictureCompare.Worse worse) => PictureCompare.Fails(baseline, now, worse);
 
         [Test]
         public void Exactly_10_percent_worse_passes_and_more_fails()
         {
-            double worse = PictureCompare.WorsePercent(1.0, 1.1, PictureCompare.Worse.Higher);
-            Assert.AreEqual(10.0, worse, 1e-9);
-            Assert.IsFalse(PictureCompare.Fails(worse), "exactly 10% worse passes");
-            Assert.IsTrue(PictureCompare.Fails(PictureCompare.WorsePercent(1.0, 1.1001, PictureCompare.Worse.Higher)));
+            Assert.AreEqual(10.0, PictureCompare.WorsePercent(1.0, 1.1, PictureCompare.Worse.Higher), 1e-9);
+            Assert.IsFalse(Fails(1.0, 1.1, PictureCompare.Worse.Higher), "exactly 10% worse passes");
+            Assert.IsTrue(Fails(1.0, 1.1001, PictureCompare.Worse.Higher));
 
-            double lower = PictureCompare.WorsePercent(0.5, 0.45, PictureCompare.Worse.Lower);
-            Assert.AreEqual(10.0, lower, 1e-9);
-            Assert.IsFalse(PictureCompare.Fails(lower));
-            Assert.IsTrue(PictureCompare.Fails(PictureCompare.WorsePercent(0.5, 0.4499, PictureCompare.Worse.Lower)));
+            Assert.AreEqual(10.0, PictureCompare.WorsePercent(0.5, 0.45, PictureCompare.Worse.Lower), 1e-9);
+            Assert.IsFalse(Fails(0.5, 0.45, PictureCompare.Worse.Lower));
+            Assert.IsTrue(Fails(0.5, 0.4499, PictureCompare.Worse.Lower));
         }
 
         [Test]
         public void Better_than_the_baseline_passes_however_far()
         {
-            double worse = PictureCompare.WorsePercent(1.0, 0.2, PictureCompare.Worse.Higher);
-            Assert.AreEqual(-80.0, worse, 1e-9);
-            Assert.IsFalse(PictureCompare.Fails(worse));
-            Assert.IsFalse(PictureCompare.Fails(PictureCompare.WorsePercent(0.5, 2.0, PictureCompare.Worse.Lower)));
+            Assert.AreEqual(-80.0, PictureCompare.WorsePercent(1.0, 0.2, PictureCompare.Worse.Higher), 1e-9);
+            Assert.IsFalse(Fails(1.0, 0.2, PictureCompare.Worse.Higher));
+            Assert.IsFalse(Fails(0.5, 2.0, PictureCompare.Worse.Lower));
         }
 
         [Test]
-        public void A_baseline_of_0_passes_only_when_it_stays_0_or_gets_better()
+        public void From_a_baseline_of_0_any_worse_change_fails_and_the_percent_stays_a_number()
         {
-            Assert.AreEqual(0.0, PictureCompare.WorsePercent(0, 0, PictureCompare.Worse.Higher));
-            Assert.IsTrue(PictureCompare.Fails(PictureCompare.WorsePercent(0, 0.01, PictureCompare.Worse.Higher)));
-            Assert.IsFalse(PictureCompare.Fails(PictureCompare.WorsePercent(0, 0.01, PictureCompare.Worse.Lower)));
+            Assert.AreEqual(0.0, PictureCompare.WorsePercent(0, 0.01, PictureCompare.Worse.Higher), "no percent of 0: never infinity");
+            Assert.IsFalse(Fails(0, 0, PictureCompare.Worse.Higher));
+            Assert.IsTrue(Fails(0, 0.01, PictureCompare.Worse.Higher));
+            Assert.IsFalse(Fails(0, 0.01, PictureCompare.Worse.Lower));
+
+            PictureTestResult result = PictureCompare.Compare(Set(View("a", edges: 0)), Set(View("a", edges: 0.01)));
+            Assert.IsFalse(result.Pass);
+            MeasureCheck failed = result.Checks.Find(c => c.Fails);
+            Assert.AreEqual(PictureCompare.EdgesName, failed.Measure);
+            Assert.IsFalse(failed.PercentApplies);
+            foreach (MeasureCheck check in result.Checks)
+            {
+                Assert.IsFalse(double.IsInfinity(check.ChangePercent) || double.IsNaN(check.ChangePercent));
+                Assert.IsFalse(double.IsInfinity(check.WorsePercent) || double.IsNaN(check.WorsePercent));
+            }
+        }
+
+        [Test]
+        public void A_measure_that_is_not_a_number_fails_as_a_problem_and_is_not_written_as_a_check()
+        {
+            PictureTestResult result = PictureCompare.Compare(Set(View("a")), Set(View("a", contrast: double.NaN)));
+            Assert.IsFalse(result.Pass);
+            StringAssert.Contains(PictureCompare.ContrastName, result.Problems[0]);
+            Assert.IsFalse(result.Checks.Exists(c => c.Measure == PictureCompare.ContrastName));
+
+            PictureTestResult infinite = PictureCompare.Compare(Set(View("a", standOut: double.PositiveInfinity)), Set(View("a")));
+            Assert.IsFalse(infinite.Pass);
         }
 
         static PictureMeasureSet Set(params ViewMeasures[] views)
@@ -204,15 +259,21 @@ namespace HockeyGame.Core.Tests
             return set;
         }
 
-        static ViewMeasures View(string name, double contrast = 0.2, double edges = 0.05, double standOut = 0.3) =>
-            new ViewMeasures { View = name, Contrast = contrast, Edges = edges, GapStandOut = standOut, GapCells = 4 };
+        /// <summary>A view with two Gaps.</summary>
+        static ViewMeasures View(string name, double contrast = 0.2, double edges = 0.05, double standOut = 0.3, double secondStandOut = 0.3)
+        {
+            var view = new ViewMeasures { View = name, Contrast = contrast, Edges = edges };
+            view.Gaps.Add(new GapMeasure { Gap = "Gap c1r1", Cells = 3, StandOut = standOut });
+            view.Gaps.Add(new GapMeasure { Gap = "Gap c7r4", Cells = 2, StandOut = secondStandOut });
+            return view;
+        }
 
         [Test]
         public void An_unchanged_rink_passes_with_0_percent_change_on_every_measure()
         {
             PictureTestResult result = PictureCompare.Compare(Set(View("a"), View("b")), Set(View("a"), View("b")));
             Assert.IsTrue(result.Pass);
-            Assert.AreEqual(6, result.Checks.Count, "3 measures for each of 2 views");
+            Assert.AreEqual(8, result.Checks.Count, "contrast, edges and 2 Gaps for each of 2 views");
             foreach (MeasureCheck check in result.Checks)
             {
                 Assert.AreEqual(0.0, check.ChangePercent, 0.0);
@@ -239,9 +300,34 @@ namespace HockeyGame.Core.Tests
             PictureTestResult result = PictureCompare.Compare(Set(View("a")), Set(View("a", standOut: 0.26)));
             Assert.IsFalse(result.Pass);
             MeasureCheck failed = result.Checks.Find(c => c.Fails);
-            Assert.AreEqual(PictureCompare.GapStandOutName, failed.Measure);
+            Assert.AreEqual(PictureCompare.GapStandOutName + " Gap c1r1", failed.Measure);
             Assert.AreEqual(-13.333333, failed.ChangePercent, 1e-5);
             Assert.AreEqual(13.333333, failed.WorsePercent, 1e-5);
+        }
+
+        [Test]
+        public void Each_Gap_is_checked_so_one_fading_Gap_fails_even_when_the_average_holds()
+        {
+            // Mean stand-out 0.3 -> 0.305: better on average, but the second Gap is 16.7% worse.
+            PictureTestResult result = PictureCompare.Compare(Set(View("a")), Set(View("a", standOut: 0.36, secondStandOut: 0.25)));
+            Assert.IsFalse(result.Pass);
+            MeasureCheck failed = result.Checks.Find(c => c.Fails);
+            Assert.AreEqual(PictureCompare.GapStandOutName + " Gap c7r4", failed.Measure);
+            Assert.AreEqual(1, result.Checks.FindAll(c => c.Fails).Count);
+        }
+
+        [Test]
+        public void A_Gap_missing_on_either_side_fails()
+        {
+            ViewMeasures oneGap = View("a");
+            oneGap.Gaps.RemoveAt(1);
+            PictureTestResult gone = PictureCompare.Compare(Set(View("a")), Set(oneGap));
+            Assert.IsFalse(gone.Pass);
+            StringAssert.Contains("Gap c7r4", gone.Problems[0]);
+
+            PictureTestResult noBaseline = PictureCompare.Compare(Set(oneGap), Set(View("a")));
+            Assert.IsFalse(noBaseline.Pass);
+            StringAssert.Contains("Gap c7r4", noBaseline.Problems[0]);
         }
 
         [Test]
@@ -264,6 +350,15 @@ namespace HockeyGame.Core.Tests
             PictureTestResult result = PictureCompare.Compare(Set(View("a")), now);
             Assert.IsFalse(result.Pass);
             CollectionAssert.IsNotEmpty(result.Problems);
+        }
+
+        [Test]
+        public void A_problem_added_after_comparing_fails_the_result()
+        {
+            PictureTestResult result = PictureCompare.Compare(Set(View("a")), Set(View("a")));
+            Assert.IsTrue(result.Pass);
+            PictureCompare.AddProblem(result, "Baseline picture a.png is missing.");
+            Assert.IsFalse(result.Pass);
         }
     }
 }

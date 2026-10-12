@@ -6,43 +6,123 @@
             "View": "left-cheat-easy-on",
             "Contrast": 0.2544518190594853,
             "Edges": 0.043255651783227995,
-            "GapStandOut": 0.38142483448374065,
-            "GapCells": 19
+            "Gaps": [
+                {
+                    "Gap": "Gap c3r0",
+                    "Cells": 3,
+                    "StandOut": 0.38438285595343524
+                },
+                {
+                    "Gap": "Gap c9r0",
+                    "Cells": 16,
+                    "StandOut": 0.3807850988510879
+                }
+            ]
         },
         {
             "View": "left-cheat-easy-off",
             "Contrast": 0.25500983845633224,
             "Edges": 0.04791845553001135,
-            "GapStandOut": 0.25556425884154366,
-            "GapCells": 19
+            "Gaps": [
+                {
+                    "Gap": "Gap c3r0",
+                    "Cells": 3,
+                    "StandOut": 0.30516444903799556
+                },
+                {
+                    "Gap": "Gap c9r0",
+                    "Cells": 16,
+                    "StandOut": 0.2451574507461799
+                }
+            ]
         },
         {
             "View": "middle-depth-easy-on",
             "Contrast": 0.25450048883910925,
             "Edges": 0.044170717886009125,
-            "GapStandOut": 0.37754394985264633,
-            "GapCells": 22
+            "Gaps": [
+                {
+                    "Gap": "Gap c0r0",
+                    "Cells": 13,
+                    "StandOut": 0.3782206542634842
+                },
+                {
+                    "Gap": "Gap c6r0",
+                    "Cells": 3,
+                    "StandOut": 0.379998206330221
+                },
+                {
+                    "Gap": "Gap c11r0",
+                    "Cells": 6,
+                    "StandOut": 0.3748352463952483
+                }
+            ]
         },
         {
             "View": "middle-depth-easy-off",
             "Contrast": 0.254216752288946,
             "Edges": 0.05109471006252275,
-            "GapStandOut": 0.22264514714668976,
-            "GapCells": 22
+            "Gaps": [
+                {
+                    "Gap": "Gap c0r0",
+                    "Cells": 13,
+                    "StandOut": 0.22492589211075914
+                },
+                {
+                    "Gap": "Gap c6r0",
+                    "Cells": 3,
+                    "StandOut": 0.1712880812530448
+                },
+                {
+                    "Gap": "Gap c11r0",
+                    "Cells": 6,
+                    "StandOut": 0.24285154415754456
+                }
+            ]
         },
         {
             "View": "right-late-settle-easy-on",
             "Contrast": 0.254548179870177,
             "Edges": 0.0456922096468826,
-            "GapStandOut": 0.3740481361464633,
-            "GapCells": 11
+            "Gaps": [
+                {
+                    "Gap": "Gap c5r0",
+                    "Cells": 2,
+                    "StandOut": 0.3855331149720364
+                },
+                {
+                    "Gap": "Gap c11r0",
+                    "Cells": 4,
+                    "StandOut": 0.38633431973221505
+                },
+                {
+                    "Gap": "Gap c0r3",
+                    "Cells": 5,
+                    "StandOut": 0.356852578727003
+                }
+            ]
         },
         {
             "View": "right-late-settle-easy-off",
             "Contrast": 0.25485616553983453,
             "Edges": 0.04926156036407113,
-            "GapStandOut": 0.26721854262475464,
-            "GapCells": 11
+            "Gaps": [
+                {
+                    "Gap": "Gap c5r0",
+                    "Cells": 2,
+                    "StandOut": 0.405927700094347
+                },
+                {
+                    "Gap": "Gap c11r0",
+                    "Cells": 4,
+                    "StandOut": 0.25488370558828877
+                },
+                {
+                    "Gap": "Gap c0r3",
+                    "Cells": 5,
+                    "StandOut": 0.22066745953539046
+                }
+            ]
         }
     ]
 }
