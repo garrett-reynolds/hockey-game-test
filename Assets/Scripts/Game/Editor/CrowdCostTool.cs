@@ -85,12 +85,14 @@ namespace HockeyGame.Editor
             bool asyncShaders = ShaderUtil.allowAsyncCompilation;
             ShaderUtil.allowAsyncCompilation = false;
             RenderTexture target = null;
+            Camera camera = null;
+            Crowd crowd = null;
             try
             {
                 EditorSceneManager.OpenScene(RinkScene, OpenSceneMode.Single);
                 target = new RenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
-                RinkBuilder.Build(out Camera camera);
-                Crowd crowd = GameObject.Find("Rink").GetComponentInChildren<Crowd>();
+                RinkBuilder.Build(out camera);
+                crowd = GameObject.Find("Rink").GetComponentInChildren<Crowd>();
                 if (crowd == null) throw new InvalidOperationException("No crowd in the rink: a crowd body file or shader is missing.");
                 camera.targetTexture = target;
                 crowd.Show(ArenaShow.At(new ArenaShowInput { Phase = RoundPhase.ResultHold, Result = ArenaResult.Goal, ShotNumber = 1 }), 0.0);
@@ -109,19 +111,24 @@ namespace HockeyGame.Editor
                 cost.Views.Add(MeasureView("shooter", camera, target, crowd));
                 camera.transform.SetPositionAndRotation(new Vector3(0f, 4f, 1f), Quaternion.Euler(8f, 180f, 0f));
                 cost.Views.Add(MeasureView("up-ice", camera, target, crowd));
-
-                crowd.Drawn = true;
-                crowd.FarCards = false;
                 return cost;
             }
             finally
             {
+                // On every exit, a pass, a throw or a failed read-back: the crowd back as the game draws it, the picture freed.
                 ShaderUtil.allowAsyncCompilation = asyncShaders;
+                if (crowd != null)
+                {
+                    crowd.Drawn = true;
+                    crowd.FarCards = false;
+                }
+                if (camera != null) camera.targetTexture = null;
                 if (target != null)
                 {
                     target.Release();
                     UnityEngine.Object.DestroyImmediate(target);
                 }
+                EditorUtility.UnloadUnusedAssetsImmediate();
             }
         }
 
@@ -162,7 +169,7 @@ namespace HockeyGame.Editor
             for (int i = 0; i < frames; i++)
             {
                 camera.Render();
-                AsyncGPUReadback.Request(target).WaitForCompletion();
+                FrameBudgetTool.WaitForGpu(target); // one pixel, checked: a whole-picture read-back per frame runs out of memory (#97)
                 double now = clock.Elapsed.TotalMilliseconds;
                 if (i >= SettleFrames) each?.Add(now - last); // not the first frames after a mode switch
                 last = now;

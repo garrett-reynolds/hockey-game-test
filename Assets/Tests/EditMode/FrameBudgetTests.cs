@@ -51,8 +51,40 @@ namespace HockeyGame.Core.Tests
             Assert.IsFalse(gpu.CpuOver || gpu.CrowdOver);
             Assert.IsFalse(gpu.Within);
 
-            Assert.IsTrue(FrameBudget.Judge(1, 8.5, 0).CpuOver);
-            Assert.IsTrue(FrameBudget.Judge(1, 1, 2.0).CrowdOver);
+            MomentVerdict cpu = FrameBudget.Judge(1, 8.5, 0);
+            Assert.IsTrue(cpu.CpuOver);
+            Assert.IsFalse(cpu.GpuOver || cpu.CrowdOver);
+
+            MomentVerdict crowd = FrameBudget.Judge(1, 1, 2.0);
+            Assert.IsTrue(crowd.CrowdOver);
+            Assert.IsFalse(crowd.GpuOver || crowd.CpuOver);
+        }
+
+        [Test]
+        public void No_frames_is_an_error_not_a_zero()
+        {
+            Assert.Throws<System.ArgumentException>(() => FrameBudget.Slowest1Pct(new double[0]));
+            Assert.Throws<System.ArgumentException>(() => FrameBudget.Median(new double[0]));
+        }
+
+        [Test]
+        public void The_first_Shot_warms_up_with_the_crowd_on()
+        {
+            Assert.IsTrue(FrameBudgetTool.CrowdOnNext(true, 0, 0, false));
+        }
+
+        [Test]
+        public void The_crowd_mode_with_fewer_Goals_goes_next()
+        {
+            Assert.IsTrue(FrameBudgetTool.CrowdOnNext(false, 1, 2, true));
+            Assert.IsFalse(FrameBudgetTool.CrowdOnNext(false, 3, 2, false));
+        }
+
+        [Test]
+        public void With_Goals_even_the_crowd_mode_swaps_each_Shot()
+        {
+            Assert.IsFalse(FrameBudgetTool.CrowdOnNext(false, 2, 2, true));
+            Assert.IsTrue(FrameBudgetTool.CrowdOnNext(false, 2, 2, false));
         }
 
         [Test]
@@ -71,19 +103,22 @@ namespace HockeyGame.Core.Tests
             result.Moments.Add(new FrameBudgetTool.Moment
             {
                 Name = "skate-in", Frames = 600, GpuSlowest1PctMs = 9.5, CpuSlowest1PctMs = 3.25, CrowdCostMs = 1.0, GpuMedianMs = 6.0, CpuMedianMs = 2.0,
+                GpuWaitSlowest1PctMs = 7.0, CrowdCostWaitMs = 0.5,
                 GpuOver = false, CpuOver = false, CrowdOver = false
             });
             result.Moments.Add(new FrameBudgetTool.Moment
             {
                 Name = "Replay after a Goal", Frames = 900, GpuSlowest1PctMs = 14.0, CpuSlowest1PctMs = 4.0, CrowdCostMs = 2.5, GpuMedianMs = 10.0, CpuMedianMs = 3.0,
+                GpuWaitSlowest1PctMs = 11.0, CrowdCostWaitMs = 1.5,
                 GpuOver = true, CpuOver = false, CrowdOver = true
             });
 
             string text = FrameBudgetTool.Markdown(result);
 
             StringAssert.Contains("Test GPU", text);
-            StringAssert.Contains("| skate-in | 600 | 9.50 | 3.25 | 1.00 | within | 6.00 | 2.00 |", text);
-            StringAssert.Contains("| Replay after a Goal | 900 | 14.00 | 4.00 | 2.50 | over: GPU, crowd | 10.00 | 3.00 |", text);
+            StringAssert.Contains("| skate-in | 600 | 9.50 | 3.25 | 1.00 | within | 6.00 | 2.00 | 7.00 | 0.50 |", text);
+            StringAssert.Contains("| Replay after a Goal | 900 | 14.00 | 4.00 | 2.50 | over: GPU, crowd | 10.00 | 3.00 | 11.00 | 1.50 |", text);
+            StringAssert.Contains("GPU slowest 1% ms (upper bound)", text);
             StringAssert.Contains("far fans", text);
         }
     }

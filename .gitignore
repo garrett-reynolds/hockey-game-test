@@ -115,5 +115,5 @@ __pycache__/
 # The picture test's latest run (#85); its baseline in PictureTest/Baseline is kept
 /PictureTest/Latest/
 
-# The frame budget tool's latest run (#97)
-/FrameBudget/Latest/
+# The frame budget tool's runs and logs (#97)
+/FrameBudget/

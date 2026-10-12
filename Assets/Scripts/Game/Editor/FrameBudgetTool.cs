@@ -22,13 +22,16 @@ namespace HockeyGame.Editor
     /// It builds the rink as RoundDriver.Awake does (the goalie character, Easy mode on: the glow is drawn) and steps it frame by
     /// frame as RoundDriver.Update and the views' LateUpdate do, at a fixed 1/60 s, with no sound, USB or input. Keep it in step
     /// with RoundDriver. A Gap-reading shooter (GoalRateTool.AimAtAGap) shoots hard 1 s into each shooting window; only Shots
-    /// that are Goals count for the Replay moment. Each Shot's crowd is on or off in turn (on: as in the game; off: for the
-    /// crowd's cost), so the machine's load and heat hit both alike. The first Shot only warms up.
+    /// that are Goals count for the Replay moment. Each Shot's crowd is on (as in the game) or off (for the crowd's cost): the
+    /// mode with fewer Replay Goals goes next, and with Goals even it swaps every Shot (CrowdOnNext), so the machine's load and
+    /// heat hit both alike. The first Shot only warms up.
     /// </para>
     /// <para>
     /// The times are wall-clock, as the crowd cost tool's (#95): CPU ms is the frame's game step plus the render calls; GPU ms
     /// is from the render calls until the frame is back from the GPU (a read-back waited for), so it is an upper bound on the
-    /// GPU's own time. In the Editor's Play mode the dev readout (FrameReadout) shows the FrameTimingManager's GPU and CPU ms.
+    /// GPU's own time. The wait alone (after the render calls return) is also kept: near a lower bound. So the GPU time, and
+    /// the crowd's cost, lie between the wait-only and the render-and-wait numbers. In the Editor's Play mode the dev readout
+    /// (FrameReadout) shows the FrameTimingManager's GPU and CPU ms.
     /// The crowd cost is the median of the crowd-on Shots' mean GPU ms less that of the crowd-off Shots.
     /// </para>
     /// From the menu (Hockey Game/Frame Budget/Run) or batch mode (no -nographics: it must render):
@@ -44,7 +47,7 @@ namespace HockeyGame.Editor
         public const string JsonFile = "frame-budget.json", MarkdownFile = "frame-budget.md";
         public const int WithinExit = 0, ErrorExit = 1, OverExit = 2;
 
-        /// <summary>Goals (and skate-ins) measured with the crowd on, and as many with it off.</summary>
+        /// <summary>Shots measured for each moment with the crowd on, and as many with it off (Replay: Goals only).</summary>
         const int ShotsPerMode = 5;
         const int MaxShots = 80;
         const float FrameSeconds = 1f / 60f;
@@ -58,9 +61,10 @@ namespace HockeyGame.Editor
         public sealed class Moment
         {
             public string Name;
-            public int Frames, CrowdOffFrames, Shots;
-            public double GpuSlowest1PctMs, CpuSlowest1PctMs, GpuMedianMs, CpuMedianMs;
-            public double CrowdOffGpuSlowest1PctMs, CrowdCostMs, CrowdCostSlowest1PctMs;
+            public int Frames, CrowdOffFrames, OnShots, OffShots;
+            /// <summary>GPU: render calls until the frame is back (upper bound). GpuWait: the wait after the render calls only (near a lower bound).</summary>
+            public double GpuSlowest1PctMs, CpuSlowest1PctMs, GpuMedianMs, CpuMedianMs, GpuWaitSlowest1PctMs;
+            public double CrowdOffGpuSlowest1PctMs, CrowdCostMs, CrowdCostSlowest1PctMs, CrowdCostWaitMs;
             public bool GpuOver, CpuOver, CrowdOver;
         }
 
@@ -92,7 +96,31 @@ namespace HockeyGame.Editor
                     EditorSceneManager.RestoreSceneManagerSetup(scenes);
                 else
                     EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
+                EditorUtility.UnloadUnusedAssetsImmediate(); // the run's render textures and materials, on every exit
             }
+        }
+
+        /// <summary>
+        /// The crowd mode for the next Shot: on for the warm-up Shot; else the mode with fewer Replay Goals so far; with Goals even,
+        /// the other mode from the last Shot's, so the skate-ins swap too.
+        /// </summary>
+        public static bool CrowdOnNext(bool warmUp, int onGoals, int offGoals, bool lastOn)
+        {
+            if (warmUp) return true;
+            if (onGoals != offGoals) return onGoals < offGoals;
+            return !lastOn;
+        }
+
+        /// <summary>
+        /// Waits until the GPU has finished drawing target, by reading back one pixel of it. Only one pixel: a whole-picture read-back
+        /// holds about 8 MB that is not freed until the Editor's loop runs, so thousands of frames in one call would run out of
+        /// memory. Throws when the read-back fails, so a failed one never passes for a fast frame.
+        /// </summary>
+        internal static void WaitForGpu(RenderTexture target)
+        {
+            AsyncGPUReadbackRequest request = AsyncGPUReadback.Request(target, 0, 0, 1, 0, 1, 0, 1);
+            request.WaitForCompletion();
+            if (request.hasError) throw new InvalidOperationException("GPU read-back failed: the frame's time is unknown.");
         }
 
         public static void RunFromCommandLine()
@@ -152,11 +180,12 @@ namespace HockeyGame.Editor
                          " ms CPU; crowd under " + Ms(FrameBudget.CrowdGpuMs) + " ms GPU");
             s.AppendLine("- Verdict: " + (result.Within ? "within budget" : "OVER budget"));
             s.AppendLine();
-            s.AppendLine("| Moment | Frames | GPU slowest 1% ms | CPU slowest 1% ms | Crowd GPU ms | Verdict | GPU median ms | CPU median ms |");
-            s.AppendLine("|---|---|---|---|---|---|---|---|");
+            s.AppendLine("| Moment | Frames | GPU slowest 1% ms (upper bound) | CPU slowest 1% ms | Crowd GPU ms (upper bound) | Verdict | " +
+                         "GPU median ms | CPU median ms | GPU wait-only slowest 1% ms (lower bound) | Crowd wait-only ms (lower bound) |");
+            s.AppendLine("|---|---|---|---|---|---|---|---|---|---|");
             foreach (Moment m in result.Moments)
                 s.AppendLine("| " + m.Name + " | " + m.Frames + " | " + Ms(m.GpuSlowest1PctMs) + " | " + Ms(m.CpuSlowest1PctMs) +
-                             " | " + Ms(m.CrowdCostMs) + " | " + Verdict(m) + " | " + Ms(m.GpuMedianMs) + " | " + Ms(m.CpuMedianMs) + " |");
+                             " | " + Ms(m.CrowdCostMs) + " | " + Verdict(m) + " | " + Ms(m.GpuMedianMs) + " | " + Ms(m.CpuMedianMs) + " | " + Ms(m.GpuWaitSlowest1PctMs) + " | " + Ms(m.CrowdCostWaitMs) + " |");
             s.AppendLine();
             s.AppendLine("A slowest 1% many times its median means a few frames stalled (another program, shader loading, heat): close " +
                          "other programs and run it again before cutting.");
@@ -183,25 +212,29 @@ namespace HockeyGame.Editor
         /// <summary>A moment's frames, crowd on and off, and each Shot's mean GPU ms (for the crowd's cost).</summary>
         sealed class Frames
         {
-            public readonly List<double> Gpu = new List<double>(), Cpu = new List<double>(), OffGpu = new List<double>();
+            public readonly List<double> Gpu = new List<double>(), Cpu = new List<double>(), Wait = new List<double>(), OffGpu = new List<double>();
             public readonly List<double> ShotMeans = new List<double>(), OffShotMeans = new List<double>();
-            public int Goals, OffGoals; // Shots measured, crowd on and off
+            public readonly List<double> WaitMeans = new List<double>(), OffWaitMeans = new List<double>();
+            public int OnShots, OffShots; // Shots measured, crowd on and off
 
-            public void Add(bool crowdOn, List<double> gpu, List<double> cpu)
+            public void Add(bool crowdOn, List<double> gpu, List<double> cpu, List<double> wait)
             {
                 if (gpu.Count == 0) return;
                 if (crowdOn)
                 {
                     Gpu.AddRange(gpu);
                     Cpu.AddRange(cpu);
+                    Wait.AddRange(wait);
                     ShotMeans.Add(gpu.Average());
-                    Goals++;
+                    WaitMeans.Add(wait.Average());
+                    OnShots++;
                 }
                 else
                 {
                     OffGpu.AddRange(gpu);
                     OffShotMeans.Add(gpu.Average());
-                    OffGoals++;
+                    OffWaitMeans.Add(wait.Average());
+                    OffShots++;
                 }
             }
 
@@ -209,13 +242,16 @@ namespace HockeyGame.Editor
             {
                 var m = new Moment
                 {
-                    Name = name, Frames = Gpu.Count, CrowdOffFrames = OffGpu.Count, Shots = Goals,
+                    Name = name, Frames = Gpu.Count, CrowdOffFrames = OffGpu.Count, OnShots = OnShots, OffShots = OffShots,
                     GpuSlowest1PctMs = FrameBudget.Slowest1Pct(Gpu), CpuSlowest1PctMs = FrameBudget.Slowest1Pct(Cpu),
                     GpuMedianMs = FrameBudget.Median(Gpu), CpuMedianMs = FrameBudget.Median(Cpu),
+                    GpuWaitSlowest1PctMs = FrameBudget.Slowest1Pct(Wait),
                     CrowdOffGpuSlowest1PctMs = FrameBudget.Slowest1Pct(OffGpu),
-                    CrowdCostMs = FrameBudget.Median(ShotMeans) - FrameBudget.Median(OffShotMeans)
+                    CrowdCostMs = FrameBudget.Median(ShotMeans) - FrameBudget.Median(OffShotMeans),
+                    CrowdCostWaitMs = FrameBudget.Median(WaitMeans) - FrameBudget.Median(OffWaitMeans)
                 };
                 m.CrowdCostSlowest1PctMs = m.GpuSlowest1PctMs - m.CrowdOffGpuSlowest1PctMs;
+                // Judged on the upper bounds: a moment within on them is within for sure.
                 MomentVerdict v = FrameBudget.Judge(m.GpuSlowest1PctMs, m.CpuSlowest1PctMs, m.CrowdCostMs);
                 m.GpuOver = v.GpuOver;
                 m.CpuOver = v.CpuOver;
@@ -316,12 +352,13 @@ namespace HockeyGame.Editor
             {
                 var gpu = new List<double>();
                 var cpu = new List<double>();
+                var wait = new List<double>();
                 bool crowdOn = true, warmUp = true;
                 int shots = 0;
                 bool shot = false, goal = false;
                 RoundPhase last = RoundPhase.Idle;
-                while (skateIn.Goals < ShotsPerMode || skateIn.OffGoals < ShotsPerMode ||
-                       replay.Goals < ShotsPerMode || replay.OffGoals < ShotsPerMode)
+                while (skateIn.OnShots < ShotsPerMode || skateIn.OffShots < ShotsPerMode ||
+                       replay.OnShots < ShotsPerMode || replay.OffShots < ShotsPerMode)
                 {
                     if (_flow.Screen == FlowScreen.Start || _flow.EndAcceptsInput) _flow.Press();
                     var clock = Stopwatch.StartNew();
@@ -332,17 +369,17 @@ namespace HockeyGame.Editor
 
                     // A moment ends: its frames go to its Shot's crowd mode, before a new Shot picks the next.
                     if (last == RoundPhase.SkateIn && phase != RoundPhase.SkateIn)
-                        Take(warmUp ? null : skateIn, crowdOn, gpu, cpu);
+                        Take(warmUp ? null : skateIn, crowdOn, gpu, cpu, wait);
                     if (last == RoundPhase.ResultHold && phase != RoundPhase.ResultHold)
-                        Take(warmUp || !goal ? null : replay, crowdOn, gpu, cpu);
+                        Take(warmUp || !goal ? null : replay, crowdOn, gpu, cpu, wait);
                     if (playing && phase == RoundPhase.SkateIn && last != RoundPhase.SkateIn)
                     {
-                        // A new Shot: the crowd mode the Replay moment still needs most (the warm-up Shot: on).
+                        // A new Shot: its crowd mode (CrowdOnNext).
                         if (++shots > MaxShots)
                             throw new InvalidOperationException("Frame budget: too few Goals after " + MaxShots + " Shots (" +
-                                                                replay.Goals + " crowd on, " + replay.OffGoals + " off).");
+                                                                replay.OnShots + " crowd on, " + replay.OffShots + " off).");
                         warmUp = shots == 1;
-                        crowdOn = warmUp || replay.Goals <= replay.OffGoals; // every Shot skates in; only Goals get the Replay moment
+                        crowdOn = CrowdOnNext(warmUp, replay.OnShots, replay.OffShots, crowdOn);
                         _crowd.Drawn = crowdOn;
                         shot = false;
                     }
@@ -355,21 +392,22 @@ namespace HockeyGame.Editor
                     if (_replay.Showing) _replay.ReplayCamera.Render(); // the game's Replay camera draws before the shooter's (depth -1)
                     _camera.Render();
                     double renderMs = clock.Elapsed.TotalMilliseconds;
-                    // Waits for the GPU to finish the frame. One pixel only: a whole-picture read-back holds about 8 MB that is
-                    // not freed until the Editor's loop runs, so thousands of frames would run out of memory.
-                    AsyncGPUReadback.Request(_target, 0, 0, 1, 0, 1, 0, 1).WaitForCompletion();
+                    WaitForGpu(_target);
+                    double doneMs = clock.Elapsed.TotalMilliseconds;
                     cpu.Add(stepMs + renderMs);
-                    gpu.Add(clock.Elapsed.TotalMilliseconds);
+                    gpu.Add(doneMs);
+                    wait.Add(doneMs - renderMs);
                 }
             }
 
             /// <summary>Hands a finished moment's frames (less the settling ones) to frames (null: dropped) and starts afresh.</summary>
-            static void Take(Frames frames, bool crowdOn, List<double> gpu, List<double> cpu)
+            static void Take(Frames frames, bool crowdOn, List<double> gpu, List<double> cpu, List<double> wait)
             {
                 if (frames != null && gpu.Count > SettleFrames)
-                    frames.Add(crowdOn, gpu.Skip(SettleFrames).ToList(), cpu.Skip(SettleFrames).ToList());
+                    frames.Add(crowdOn, gpu.Skip(SettleFrames).ToList(), cpu.Skip(SettleFrames).ToList(), wait.Skip(SettleFrames).ToList());
                 gpu.Clear();
                 cpu.Clear();
+                wait.Clear();
             }
 
             /// <summary>One game frame, as RoundDriver.Update then BreakawayView's and ReplayView's LateUpdate; shoots once in each window.</summary>
