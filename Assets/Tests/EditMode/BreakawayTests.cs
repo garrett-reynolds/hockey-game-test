@@ -277,11 +277,13 @@ namespace HockeyGame.Core.Tests
             RinkPoint later = Breakaway.ShotStart(AttackSide.Middle, 1.0, Defaults);
             RinkPoint last = Breakaway.ShotStart(AttackSide.Middle, 3.0, Defaults);
             double eyeOut = Breakaway.StopDistance - Breakaway.Drift(AttackSide.Middle, 1.2, 0, Defaults);
-            Assert.AreEqual(-eyeOut + 0.9, opening.Z, 0.1, "about a metre ahead of the eye");
+            // On the ice just below the view's bottom edge (60 degrees high): about 1.8 m ahead of the eye at the window's start, 1.3 m at 3 m,
+            // where the eye looks down more steeply at the Net Face centre.
+            Assert.AreEqual(-eyeOut + 1.84, opening.Z, 0.05, "about 1.8 m ahead of the eye");
             Assert.Greater(later.Z, opening.Z);
-            Assert.AreEqual(-Breakaway.ClosestDrift + 0.9, last.Z, 0.1);
+            Assert.AreEqual(-Breakaway.ClosestDrift + 1.31, last.Z, 0.05);
             Assert.AreEqual(0, opening.X, Tol);
-            Assert.Less(opening.Y, Breakaway.EyeHeight - 0.3);
+            Assert.AreEqual(Breakaway.PuckThicknessMetres / 2, opening.Y, Tol, "lying on the ice");
         }
     }
 }

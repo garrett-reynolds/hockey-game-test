@@ -15,6 +15,12 @@ namespace HockeyGame.Core
         public double WhistleCapSeconds = 3.0;
         public double WhistleVerySlowMetresPerSecond = 0.3;
 
+        // The Shot start (Breakaway.ShotStart): on the ice just below the bottom edge of the shooter's view. The game sets
+        // ViewFieldOfViewDegrees from its camera (vertical, as Camera.fieldOfView; 60 is Unity's default). The puck starts
+        // ShotStartMarginMetres nearer than where it would first show.
+        public double ViewFieldOfViewDegrees = 60;
+        public double ShotStartMarginMetres = 0.05;
+
         // Reach in time: the goalie's Reaction Time is ReactionSeconds, plus or minus up to ReactionWobbleSeconds at random per Shot.
         public double ReactionSeconds = 0.12;
         public double ReactionWobbleSeconds = 0.04;

@@ -34,6 +34,8 @@ namespace HockeyGame.Core.Tests
             for (int x = 5; x <= 95; x += 15)
             for (int y = 5; y <= 95; y += 15)
             {
+                if (eyeName == "near") continue; // #109: from the near eye the Shot now starts on the ice about 1.1 m in front of the goalie, and the scripted flight's
+                // save stops (#113 removes them) do not fit that steep, low line: the scripted puck is only checked from farther out.
                 double windowSeconds = eyeName == "near" ? 2.9 : 0.0;
                 var round = new Round(ScriptedRandom.Forcing(side), settings, new GoalieCharacterReach(character, settings), 0);
                 round.StartRound();

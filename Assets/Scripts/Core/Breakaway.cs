@@ -150,49 +150,58 @@ namespace HockeyGame.Core
             SkateSpeed(side, settings) * (GameSeconds(RoundPhase.SlowDown, Math.Min(slowDownSeconds, settings.SlowDownSeconds))
                                           + GameSeconds(RoundPhase.ShootingWindow, windowSeconds));
 
-        /// <summary>The puck starts this far ahead of the shooter's eye, toward the net centre, and this far below it (camera-up).</summary>
-        public const double PuckAheadMetres = 1.0, PuckBelowMetres = 0.35;
+        /// <summary>A real puck: 7.6 cm across and 2.5 cm thick (metres). The physics puck is built and drawn to these.</summary>
+        public const double PuckDiameterMetres = 0.076, PuckThicknessMetres = 0.025;
 
         /// <summary>
-        /// Where the puck starts on a Shot taken windowSeconds (real) into the shooting window: just below the shooter's eye
-        /// (as ShotEffects starts it), the eye at the skate-in's stop drifted on toward the net, looking at the Net Face centre.
-        /// Leaves out the stride bob and roll (a few centimetres).
+        /// Where the puck starts on a Shot taken windowSeconds (real) into the shooting window: on the ice, straight ahead of the
+        /// shooter, just below the bottom edge of his view (StartBelowView), the eye at the skate-in's stop drifted on toward the
+        /// net, looking at the Net Face centre. The game launches the physics puck from the same point, worked out from its camera,
+        /// so the Flight Time (ShotFlight) runs from where the puck really starts. Leaves out the stride bob and roll (a few centimetres).
         /// </summary>
         public static RinkPoint ShotStart(AttackSide side, double windowSeconds, RoundSettings settings) =>
-            PuckBelowEye(1.0, Drift(side, settings.SlowDownSeconds, windowSeconds, settings), side);
+            PuckBelowView(1.0, Drift(side, settings.SlowDownSeconds, windowSeconds, settings), side, settings);
 
         /// <summary>
-        /// Where the puck is on the approach, phaseSeconds (real) into the skate-in, the slow-down or the shooting window: just
-        /// below the shooter's eye, as ShotStart (in the window it is ShotStart). The goalie plays the angle to it (SetUps.Approach).
+        /// Where the puck is on the approach, phaseSeconds (real) into the skate-in, the slow-down or the shooting window: on the
+        /// ice just below the shooter's view, as ShotStart (in the window it is ShotStart). The goalie plays the angle to it (SetUps.Approach).
         /// </summary>
         public static RinkPoint Puck(AttackSide side, RoundPhase phase, double phaseSeconds, RoundSettings settings)
         {
             switch (phase)
             {
-                case RoundPhase.SkateIn: return PuckBelowEye(SkateProgress(phaseSeconds, settings), 0, side);
-                case RoundPhase.SlowDown: return PuckBelowEye(1.0, Drift(side, phaseSeconds, 0, settings), side);
+                case RoundPhase.SkateIn: return PuckBelowView(SkateProgress(phaseSeconds, settings), 0, side, settings);
+                case RoundPhase.SlowDown: return PuckBelowView(1.0, Drift(side, phaseSeconds, 0, settings), side, settings);
                 default: return ShotStart(side, phaseSeconds, settings);
             }
         }
 
-        /// <summary>The puck below the shooter's eye at skate progress u, drifted on toward the net (metres, capped).</summary>
-        static RinkPoint PuckBelowEye(double u, double drift, AttackSide side)
+        /// <summary>
+        /// The Shot start for an eye at (eyeX, eyeY, eyeZ) looking along (forwardX, forwardY, forwardZ) with this vertical field of
+        /// view (degrees): the puck lying on the ice, straight ahead of the eye, marginMetres nearer than where its far top edge
+        /// would first show at the bottom edge of the view. So the puck is never seen appearing: it flies up into view. Plain
+        /// numbers: the game passes its camera's, Breakaway its own eye. The view is taken as unrolled.
+        /// </summary>
+        public static RinkPoint StartBelowView(double eyeX, double eyeY, double eyeZ, double forwardX, double forwardY, double forwardZ,
+            double fieldOfViewDegrees, double marginMetres)
+        {
+            double flat = Math.Sqrt(forwardX * forwardX + forwardZ * forwardZ);
+            double edgeDown = Math.Atan2(-forwardY, flat) + fieldOfViewDegrees / 2.0 * Math.PI / 180.0; // the view's bottom edge, below level
+            double edge = (eyeY - PuckThicknessMetres) / Math.Tan(edgeDown); // how far ahead it meets the puck's top
+            double ahead = Math.Max(0, edge - PuckDiameterMetres / 2.0 - marginMetres);
+            return new RinkPoint(eyeX + forwardX / flat * ahead, PuckThicknessMetres / 2.0, eyeZ + forwardZ / flat * ahead);
+        }
+
+        /// <summary>The puck below the view of the shooter's eye at skate progress u, drifted on toward the net (metres, capped).</summary>
+        static RinkPoint PuckBelowView(double u, double drift, AttackSide side, RoundSettings settings)
         {
             SkatePoint(side, u, out double x, out double distance);
             double toNet = Math.Sqrt(x * x + distance * distance);
             double along = CappedDrift(drift, toNet);
             double eyeX = x - x / toNet * along, eyeZ = -distance + distance / toNet * along, eyeY = EyeHeight;
-
-            // Looking at the Net Face centre (as Transform.LookAt): forward, then right = up x forward, then camera-up = forward x right.
-            double fx = -eyeX, fy = NetFrame.FaceHeightMetres / 2.0 - eyeY, fz = -eyeZ;
-            double f = Math.Sqrt(fx * fx + fy * fy + fz * fz);
-            fx /= f; fy /= f; fz /= f;
-            double rx = fz, rz = -fx, r = Math.Sqrt(rx * rx + rz * rz);
-            rx /= r; rz /= r;
-            double ux = fy * rz, uy = fz * rx - fx * rz, uz = -fy * rx;
-            return new RinkPoint(eyeX + fx * PuckAheadMetres - ux * PuckBelowMetres,
-                eyeY + fy * PuckAheadMetres - uy * PuckBelowMetres,
-                eyeZ + fz * PuckAheadMetres - uz * PuckBelowMetres);
+            // Looking at the Net Face centre (as Transform.LookAt).
+            return StartBelowView(eyeX, eyeY, eyeZ, -eyeX, NetFrame.FaceHeightMetres / 2.0 - eyeY, -eyeZ,
+                settings.ViewFieldOfViewDegrees, settings.ShotStartMarginMetres);
         }
 
         private static double EaseOut(double t) => 1 - (1 - t) * (1 - t);

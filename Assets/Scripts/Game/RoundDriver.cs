@@ -47,6 +47,7 @@ namespace HockeyGame
             _netFacePlane = new Plane(Vector3.back, Vector3.zero); // Net Face plane: z = 0
             _testShotsOn = _save.TestShotOnAtStart;
             var settings = new RoundSettings(); // shared: the Round runs on it, the goalie-reach port reads the gear speeds from it
+            settings.ViewFieldOfViewDegrees = _camera.fieldOfView; // the Shot starts just below this camera's view (Breakaway.ShotStart)
             _flow = new ScreenFlow(new SystemRandomSource(), _save, new GoalieCharacterReach(character, settings), settings);
             _flow.BestScoreChanged += SaveStore.Save;
             _round = _flow.Round;

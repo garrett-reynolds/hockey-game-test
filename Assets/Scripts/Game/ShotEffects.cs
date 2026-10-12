@@ -119,7 +119,7 @@ namespace HockeyGame
         }
 
         /// <summary>Today's black cylinder puck, used when Assets/Resources/Models has no puck model.</summary>
-        static GameObject PlaceholderPuck()
+        internal static GameObject PlaceholderPuck()
         {
             var puck = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             puck.name = "Puck Placeholder";
@@ -146,7 +146,7 @@ namespace HockeyGame
             if (isNew)
             {
                 if (round.LastRace.HasValue) _goalie?.StandFor(round.LastRace.Value); // he reacts from where the race measured him
-                Play(newShot ? ScriptedShot.Result(round) : round.LastResult.Value, round.LastRace, round.Settings.LateMarginLimitSeconds);
+                Play(newShot ? ScriptedShot.Result(round) : round.LastResult.Value, round.LastRace, round.Settings);
                 // The puck starts where it is on the Shot frame, with the Round's result-hold clock at 0, whichever way the
                 // Shot came in (a USB Shot before this call, a Test Shot after it): its flight keeps time with the goalie's
                 // move, which runs on the same clock as the race timed it (Breakaway.GoalieSet, #63).
@@ -161,8 +161,9 @@ namespace HockeyGame
 
         SoundCue _saveSound; // the save sound of the Shot's Save Reaction (Play)
 
-        void Play(ShotResult result, ShotRace? race, double lateMarginLimitSeconds)
+        void Play(ShotResult result, ShotRace? race, RoundSettings settings)
         {
+            double lateMarginLimitSeconds = settings.LateMarginLimitSeconds;
             SaveReaction? reaction = race?.SaveReaction;
             Clear();
             _result = result;
@@ -171,8 +172,7 @@ namespace HockeyGame
             _arrivedAt = _nettedAt = -1f;
             if (!result.HasShot) return; // Too Late: no puck
 
-            Transform cam = _camera.transform;
-            _start = cam.position + cam.forward * (float)Breakaway.PuckAheadMetres - cam.up * (float)Breakaway.PuckBelowMetres; // as Breakaway.ShotStart
+            _start = PhysicsPuck.Start(_camera, settings); // as Breakaway.ShotStart and the physics launch
             NetFaceMapping.ToMetres(result.X, result.Y, out double right, out double up);
             const float FrameFrontZ = -NetBuilder.Post / 2f - PuckThickness / 2f; // puck centre touching the front of a post or the crossbar
             float z = result.Kind == ShotResultKind.Save ? SaveZ

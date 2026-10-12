@@ -101,13 +101,14 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void A_high_glove_side_corner_is_won_by_the_glove()
         {
-            // At 0.6 m out a Clean Set-up covers nearly all the Net Face: only the very corner is left to reach (from the
-            // window's opening, farthest out: nearer in, he covers it too).
+            // At 0.6 m out a Clean Set-up covers nearly all the Net Face: only the corner is left to reach (from the window's
+            // opening, farthest out: nearer in, he covers it too). The Shot starts on the ice, so the puck's line rises to the
+            // corner and the very top of it (y 92 and up) is already behind his glove: the open part is a little lower.
             GoalieCharacterReach port = Port(out _);
             foreach (AttackSide side in new[] { AttackSide.Left, AttackSide.Middle, AttackSide.Right })
             {
                 RinkPoint start = Breakaway.ShotStart(side, 0, Defaults);
-                GoalieReachAnswer answer = port.Reach(SetUp.Clean, side, 0, start, RinkPoint.OnNetFace(99, 99));
+                GoalieReachAnswer answer = port.Reach(SetUp.Clean, side, 0, start, RinkPoint.OnNetFace(99, 85));
                 Assert.IsFalse(answer.InTheWay, side + ": " + answer);
                 Assert.AreEqual(SaveReaction.Glove, answer.QuickestGear, side + ": " + answer);
                 Assert.That(answer.MoveSeconds, Is.GreaterThan(0).And.LessThan(0.3), side + ": " + answer);
@@ -118,11 +119,12 @@ namespace HockeyGame.Core.Tests
         public void A_gear_wins_the_race_only_when_its_own_piece_reaches_the_puck_s_line()
         {
             // The high blocker-side corner: the stick (held in the blocker hand) must not win it because the hand is on the line.
+            // (85 up: from the ice start, the top of this corner from the Right is now won by the stick itself, see #109.)
             GoalieCharacterReach port = Port(out _);
             foreach (AttackSide side in new[] { AttackSide.Left, AttackSide.Middle, AttackSide.Right })
             {
                 RinkPoint start = Breakaway.ShotStart(side, 0, Defaults);
-                GoalieReachAnswer answer = port.Reach(SetUp.Clean, side, 0, start, RinkPoint.OnNetFace(1, 99));
+                GoalieReachAnswer answer = port.Reach(SetUp.Clean, side, 0, start, RinkPoint.OnNetFace(1, 85));
                 Assert.AreNotEqual(SaveReaction.Stick, answer.QuickestGear, side + ": " + answer);
                 if (!answer.InTheWay && answer.QuickestGear.HasValue)
                     Assert.IsTrue(SaveReactions.IsHand(answer.QuickestGear.Value) || answer.QuickestGear == SaveReaction.Body, side + ": " + answer);
@@ -282,6 +284,7 @@ namespace HockeyGame.Core.Tests
         {
             var camera = new GameObject("Camera (test)");
             camera.transform.SetParent(_parent.transform, false);
+            var eye = camera.AddComponent<Camera>(); // Unity's default field of view, as RoundSettings
             foreach (AttackSide side in new[] { AttackSide.Left, AttackSide.Middle, AttackSide.Right })
             foreach (double window in new[] { 0.0, 1.0, 3.0 })
             {
@@ -291,8 +294,7 @@ namespace HockeyGame.Core.Tests
                 ground += toNet.normalized * (float)Breakaway.CappedDrift(Breakaway.Drift(side, Defaults.SlowDownSeconds, window, Defaults), toNet.magnitude);
                 camera.transform.position = new Vector3(ground.x, (float)Breakaway.EyeHeight, ground.z);
                 camera.transform.LookAt(new Vector3(0f, (float)(NetFrame.FaceHeightMetres / 2.0), 0f));
-                Transform cam = camera.transform;
-                Vector3 expected = cam.position + cam.forward * (float)Breakaway.PuckAheadMetres - cam.up * (float)Breakaway.PuckBelowMetres;
+                Vector3 expected = PhysicsPuck.Start(eye, Defaults);
 
                 RinkPoint start = Breakaway.ShotStart(side, window, Defaults);
                 Assert.Less(Vector3.Distance(expected, new Vector3((float)start.X, (float)start.Y, (float)start.Z)), 1e-4f, side + " " + window);

@@ -181,7 +181,7 @@ namespace HockeyGame.Core.Tests
         public void Otherwise_the_Save_Reaction_is_the_quickest_gear_in_the_race_on_a_Save_and_on_a_Goal(double move, ShotResultKind kind)
         {
             var round = InWindow(new FakeReach(GoalieReachAnswer.Reaches(SaveReaction.Stick, move)), Fixed());
-            round.SubmitShotAndWhistle(90, 85, 100, false);
+            round.SubmitShotAndWhistle(90, 85, 60, false); // slow enough that a 0.01 s move beats the Flight Time
             Assert.AreEqual(kind, round.LastResult.Value.Kind);
             Assert.AreEqual(SaveReaction.Stick, round.LastRace.Value.SaveReaction);
         }
