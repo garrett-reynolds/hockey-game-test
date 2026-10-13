@@ -577,6 +577,22 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(built + 2, boards.WordsUploads, "a colour is a material value: no upload");
         }
 
+        [Test]
+        public void Words_that_equal_the_last_written_ones_cost_no_upload_even_after_the_Calm_Area()
+        {
+            VideoBoards boards = VideoBoards.Build(_rink.transform);
+            boards.Show(At(RoundPhase.SkateIn), 0.0);
+            int written = boards.WordsUploads;
+            boards.Show(At(RoundPhase.ShootingWindow), 1.0); // the Calm Area: empty words, never written
+            Assert.AreEqual(written, boards.WordsUploads, "the Calm Area writes nothing");
+            boards.Show(At(RoundPhase.SkateIn), 2.0);
+            Assert.AreEqual(written, boards.WordsUploads, "the same words as the last written: no upload");
+            boards.ShowWords("GOAL!", "");
+            Assert.AreEqual(written + 2, boards.WordsUploads, "new words: one upload each");
+            boards.ShowWords("GOAL!", "");
+            Assert.AreEqual(written + 2, boards.WordsUploads, "ShowWords with the words already written: no upload");
+        }
+
         // Cost (#121 Task 3c): the words textures and how often a Round uploads them. 60 frames of each phase, as the game runs them.
         [Test]
         public void A_Round_of_6_Shots_uploads_the_words_a_few_dozen_times_and_the_textures_take_under_20_KB()

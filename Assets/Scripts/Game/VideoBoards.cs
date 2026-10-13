@@ -56,6 +56,8 @@ namespace HockeyGame
             public bool[] Cells;
             public Screen Master;  // the screen whose words are written
             public bool Stale;     // its words changed since they were written
+            public bool Written;   // its texture holds WrittenHeadline and WrittenDetails
+            public string WrittenHeadline, WrittenDetails;
         }
 
         readonly List<Screen> _screens = new List<Screen>();
@@ -271,6 +273,14 @@ namespace HockeyGame
         void WriteWords(WordsBoard board)
         {
             Screen s = board.Master;
+            if (board.Written && s.Headline == board.WrittenHeadline && s.Details == board.WrittenDetails)
+            {
+                board.Stale = false; // the texture already holds these words (for example after the Calm Area): no upload
+                return;
+            }
+            board.Written = true;
+            board.WrittenHeadline = s.Headline;
+            board.WrittenDetails = s.Details;
             System.Array.Clear(board.Cells, 0, board.Cells.Length);
             LedWords.Plot(board.Cells, s.CellsX, s.CellsY, LedWords.Place(s.Headline, s.CellsX, s.CellsY, HeadlineShare, HeadlineY));
             LedWords.Plot(board.Cells, s.CellsX, s.CellsY, LedWords.Place(s.Details, s.CellsX, s.CellsY, DetailsShare, -DetailsY));

@@ -84,6 +84,48 @@ namespace HockeyGame.Core.Tests
             }
         }
 
+        // Hand-checked, no production layout code: "GO" is 5 + 1 + 5 = 11 font columns. On the Video Board (143 x 78) the Headline is
+        // scale 2 (floor(0.24 x 78 / 7) = 2), 22 cells wide, left edge floor((143 - 22) / 2) = 60, so columns 60..81. Capitals span
+        // 14 rows, top edge round(39 + 0.14 x 78 + 7) = 57, so rows 43..56. Each font dot is 2 x 2 cells. Written top row first.
+        static readonly string[] GoOnTheVideoBoard =
+        {
+            "..######......######..", // row 56
+            "..######......######..", // 55
+            "##......##..##......##", // 54
+            "##......##..##......##", // 53
+            "##..........##......##", // 52
+            "##..........##......##", // 51
+            "##..######..##......##", // 50
+            "##..######..##......##", // 49
+            "##......##..##......##", // 48
+            "##......##..##......##", // 47
+            "##......##..##......##", // 46
+            "##......##..##......##", // 45
+            "..######......######..", // 44
+            "..######......######..", // 43
+        };
+
+        [Test]
+        public void The_word_GO_lights_exactly_these_hand_written_cells_on_the_Video_Board()
+        {
+            VideoBoards boards = VideoBoards.Build(_rink.transform);
+            boards.ShowWords("GO", "");
+            Assert.AreEqual(143, boards.CellsAcross(0));
+            Assert.AreEqual(78, boards.CellsUp(0));
+            bool[] shown = boards.LitCellsOn(0);
+            int wrong = 0;
+            string first = "";
+            for (int y = 0; y < 78; y++)
+                for (int x = 0; x < 143; x++)
+                {
+                    bool expected = x >= 60 && x < 82 && y >= 43 && y < 57 && GoOnTheVideoBoard[56 - y][x - 60] == '#';
+                    if (shown[y * 143 + x] == expected) continue;
+                    wrong++;
+                    if (first.Length == 0) first = " (first at cell " + x + "," + y + ")";
+                }
+            Assert.AreEqual(0, wrong, "cells differing from the hand-written GO" + first);
+        }
+
         [Test]
         public void Mixed_case_brand_words_with_descenders_are_the_font_table_cell_for_cell()
         {
