@@ -34,7 +34,8 @@ namespace HockeyGame.Core.Tests
         public void The_Dev_part_lists_the_six_values_after_the_seven_already_there()
         {
             var menu = DevMenu(new SaveData());
-            Assert.AreEqual(13, menu.RowCount);
+            Assert.AreEqual(14, menu.RowCount, "the six values sit before the Test Mode button (#156), which stays last");
+            Assert.AreEqual("Test Mode", menu.Label(13));
             Assert.AreEqual("Show the block goalie", menu.Label(0));
             Assert.AreEqual("Reaction time", menu.Label(1));
             Assert.AreEqual("Shuffle max", menu.Label(6));
