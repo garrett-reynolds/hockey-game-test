@@ -17,7 +17,7 @@ namespace HockeyGame.Core.Tests
     /// <summary>
     /// Measures the crowd's GPU cost and memory at the Round's poses, the Replay camera and the 5 start-screen wide shots
     /// (#115). It renders the rink at 1920 x 1080 with the crowd off and on (Goal pose, the most costly), waiting for the GPU
-    /// each frame, and writes hockey-wt\_notes\t115-crowd.json and one PNG per wide shot. It runs only when the flag file
+    /// each frame, and writes hockey-wt\_notes\t116-crowd.json and one PNG per wide shot. It runs only when the flag file
     /// hockey-wt\_notes\t115-measure.go exists, so the full run skips it and changes no files.
     /// </summary>
     public class CrowdMeasureTests
@@ -115,16 +115,16 @@ namespace HockeyGame.Core.Tests
                     camera.fieldOfView = (float)pose.FieldOfViewDegrees;
                     camera.targetTexture = target;
                     result.Views.Add(MeasureView("Wide shot " + (i + 1) + ": " + StartShots.All[i].Name, camera, target, crowd));
-                    SavePng(camera, crowd, shotTarget, Path.Combine(Notes, "t115-shot-" + (i + 1) + ".png"));
+                    SavePng(camera, crowd, shotTarget, Path.Combine(Notes, "t116-shot-" + (i + 1) + ".png"));
                     camera.targetTexture = target;
                 }
 
                 // Memory, once, with the crowd on.
                 crowd.Drawn = true;
-                result.CrowdFanDataBytes = (long)crowd.FanCount * 112; // 7 Vector4s per fan (Crowd.cs FanData)
+                result.CrowdFanDataBytes = (long)crowd.FanCount * 96; // 6 Vector4s per fan (Crowd.cs FanData)
                 var counted = new HashSet<Object>();
-                for (int b = 0; b < 2; b++)
-                    for (int l = 0; l < 2; l++)
+                for (int b = 0; b < Crowd.BodyFiles.GetLength(0); b++)
+                    for (int l = 0; l < Crowd.BodyFiles.GetLength(1); l++)
                     {
                         CrowdBody body = crowd.BodyOf(b, l);
                         if (body == null) continue;
@@ -136,7 +136,7 @@ namespace HockeyGame.Core.Tests
                 result.GraphicsDriverBytes = Profiler.GetAllocatedMemoryForGraphicsDriver();
 
                 string json = JsonUtility.ToJson(result, true);
-                string file = Path.Combine(Notes, "t115-crowd.json");
+                string file = Path.Combine(Notes, "t116-crowd.json");
                 File.WriteAllText(file, json);
                 Debug.Log("Crowd measure: " + json);
 
