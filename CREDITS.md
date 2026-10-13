@@ -80,3 +80,7 @@ Its two inputs are decoded first with `ffmpeg -i oooooooooo.ogg -ac 1 -ar 44100 
 ### Notes
 
 - **Goal horn, buzzer, groan.** No free goal horn, arena buzzer, or crowd groan could be downloaded without a login (Freesound needs an account, and Pixabay blocks scripted downloads). These clips were made instead. To swap in a real recording, replace the WAV with a file of the same name. Keep exactly one file per name, because the game ignores the extension. Then credit the new clip here.
+
+## Logo
+
+- **Shootout logo (start screen).** Made in code for this project (`Assets/Scripts/Game/StartLogoArt.cs`): boxes drawn into a texture. No font, image or outside file is used, so there is nothing to license.
