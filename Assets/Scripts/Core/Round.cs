@@ -224,6 +224,7 @@ namespace HockeyGame.Core
             ShotsSubmitted = 0;
             LastShotSpeedKmh = null;
             ShotNumber = 0;
+            // ShotCount stays 6 (the Test Mode deck size) until the next StartRound(best, shots) sets it; nothing reads it on the start screen.
             EnterPhase(RoundPhase.Idle);
         }
 
@@ -321,6 +322,8 @@ namespace HockeyGame.Core
                     {
                         // Test Mode: endless. The decks run out every ShotCount Shots and are dealt again; the next Shot is in the window at once.
                         ShotNumber++;
+                        _results.Clear(); // endless: Results holds only the Shot now showing (Goals and ShotsSubmitted keep the totals)
+                        _speeds.Clear();
                         if ((ShotNumber - 1) % ShotCount == 0) DealDecks();
                         StartShot();
                         LastResult = null;

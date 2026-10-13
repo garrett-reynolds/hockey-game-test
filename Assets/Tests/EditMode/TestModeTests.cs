@@ -85,23 +85,33 @@ namespace HockeyGame.Core.Tests
                 Assert.AreEqual(FlowScreen.Playing, flow.Screen);
             }
             Assert.AreEqual(RoundPhase.ShootingWindow, flow.Round.Phase);
-            Assert.AreEqual(25, flow.Round.Results.Count);
+            Assert.AreEqual(25, flow.Round.ShotsSubmitted);
+            Assert.LessOrEqual(flow.Round.Results.Count, 1, "the lists do not grow without bound: only the Shot now showing");
         }
 
         [Test]
         public void Every_Shot_gets_a_Set_up_and_an_Attack_Side_from_a_deck_that_is_dealt_again_when_it_runs_out()
         {
-            ScreenFlow flow = NewTestModeFlow();
-            var sides = new System.Collections.Generic.HashSet<AttackSide>();
-            var kinds = new System.Collections.Generic.HashSet<SetUpKind>();
-            for (int shot = 1; shot <= 14; shot++)
+            var flow = new ScreenFlow(new SeededRandom(3), new SaveData(), FakeReach.NeverReaches());
+            flow.OpenSettings();
+            flow.StartTestMode();
+            var blockSides = new string[3];
+            for (int block = 0; block < 3; block++) // Shots 1-6, 7-12, 13-18: each block is one full deck
             {
-                sides.Add(flow.Round.AttackSide);
-                kinds.Add(flow.Round.SetUp.Kind);
-                ShootAndWait(flow);
+                int[] sides = new int[3], clean = new int[1];
+                var order = new System.Text.StringBuilder();
+                for (int shot = 0; shot < 6; shot++)
+                {
+                    sides[(int)flow.Round.AttackSide]++;
+                    if (flow.Round.SetUp.Kind == SetUpKind.Clean) clean[0]++;
+                    order.Append((int)flow.Round.AttackSide).Append((int)flow.Round.SetUp.Kind);
+                    ShootAndWait(flow);
+                }
+                CollectionAssert.AreEqual(new[] { 2, 2, 2 }, sides, "block " + (block + 1) + ": left, middle and right twice each");
+                Assert.AreEqual(2, clean[0], "block " + (block + 1) + ": 2 Clean Set-ups in a deck of 6");
+                blockSides[block] = order.ToString();
             }
-            Assert.AreEqual(3, sides.Count, "left, middle and right all come up");
-            Assert.GreaterOrEqual(kinds.Count, 3);
+            Assert.IsTrue(blockSides[1] != blockSides[0] || blockSides[2] != blockSides[0], "the decks are shuffled again, not replayed");
         }
 
         [Test]
@@ -112,7 +122,8 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(RoundPhase.ShootingWindow, flow.Round.Phase);
             Assert.IsNull(flow.Round.LastResult);
             Assert.AreEqual(0, flow.Round.Results.Count);
-            ShootAndWait(flow);
+            flow.SubmitShot(50, 90, 100, false);
+            flow.Round.WhistleNow();
             Assert.AreEqual(ShotResultKind.Goal, flow.Round.Results[0], "a Shot after the long wait still counts");
         }
 
@@ -271,19 +282,24 @@ namespace HockeyGame.Core.Tests
                 flow.Round.Settings.ApplySavedReplay(true);
                 flow.SubmitShot(x, x > 0 ? 90 : 50, 100, false);
                 flow.Round.WhistleNow();
-                for (double t = 0; t <= settings.TestModeHoldSeconds; t += 0.05)
+                int frames = 0;
+                while (flow.Round.Phase == RoundPhase.ResultHold) // every frame of the hold, until the next window opens
                 {
                     flow.Round.Settings.ApplySavedReplay(true);
                     ArenaState state = ArenaShow.From(flow);
-                    Assert.AreEqual(CameraMode.OnNet, state.Camera, "t " + t);
-                    Assert.AreEqual(0, state.CameraLookUp, "t " + t);
-                    Assert.AreNotEqual(VideoBoardContent.Replay, state.VideoBoard, "t " + t);
-                    Assert.AreEqual(0, state.ReplaySeconds, "t " + t);
-                    if (t == 0 && x > 0) Assert.AreEqual(VideoBoardContent.Goal, state.VideoBoard);
+                    string at = "x " + x + " frame " + frames;
+                    Assert.AreEqual(CameraMode.OnNet, state.Camera, at);
+                    Assert.AreEqual(0, state.CameraLookUp, at);
+                    Assert.AreNotEqual(VideoBoardContent.Replay, state.VideoBoard, at);
+                    Assert.AreEqual(0, state.ReplaySeconds, at);
+                    if (x > 0) Assert.AreEqual(VideoBoardContent.Goal, state.VideoBoard, at);
                     flow.Tick(0.05);
-                    if (flow.Round.Phase != RoundPhase.ResultHold) break;
+                    frames++;
                 }
-                flow.Tick(1);
+                Assert.Greater(frames, 10, "a hold of about 1 s is many frames");
+                ArenaState next = ArenaShow.From(flow); // the next Shot's window: still on the net
+                Assert.AreEqual(RoundPhase.ShootingWindow, flow.Round.Phase);
+                Assert.AreEqual(CameraMode.OnNet, next.Camera);
             }
             // The pure show too, whatever NoReplay says: the Test Mode flag alone keeps the Replay out.
             foreach (ArenaResult result in new[] { ArenaResult.Goal, ArenaResult.Save, ArenaResult.FrameHitPost, ArenaResult.FrameHitBar })

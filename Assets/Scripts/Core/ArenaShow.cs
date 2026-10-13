@@ -344,7 +344,7 @@ namespace HockeyGame.Core
             bool chant = input.Phase == RoundPhase.Idle || input.Phase == RoundPhase.RoundOver;
             int goalsShown = input.Goals; // the Round counts a Goal from its Whistle (the line crossing), when it shows
             // The Replay's part of the hold counts from the Whistle (the puck lands), like the Goal Show.
-            bool noReplay = input.NoReplay || input.TestMode; // Test Mode (#156) reuses the Replay-off path
+            bool noReplay = input.NoReplay || input.TestMode; // Test Mode (#156) reuses the Replay-off path; From already folds it into NoReplay, this keeps the pure show safe on its own (tested)
             bool replayHold = !noReplay && ReplayTiming.Follows(result); // Replay off (#145): the camera stays on the net
             double landed = input.PhaseSeconds - input.ResultDelaySeconds;
             CameraMode camera = replayHold ? ReplayTiming.CameraAt(landed) : CameraMode.OnNet;
