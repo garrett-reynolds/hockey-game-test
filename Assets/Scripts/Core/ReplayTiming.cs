@@ -47,8 +47,12 @@ namespace HockeyGame.Core
         public static double ShowSecondsAt(double landedSeconds) =>
             Math.Max(0, Math.Min(ShowSeconds, landedSeconds - OnNetSeconds - LookUpSeconds));
 
-        /// <summary>When the Replay's clip starts, in seconds after the Shot: the release, whatever the flight (#132; it began 0.45 s before the puck landed).</summary>
-        public static double ClipStart(double flightSeconds) => 0;
+        /// <summary>
+        /// When the Replay's clip starts, in seconds after the Shot: the release (#132; it began 0.45 s before the puck landed).
+        /// A flight too long for ShowSeconds of real time (flight + TailSeconds over ShowSeconds) starts ShowSeconds before the
+        /// clip's end instead, so the Replay never plays faster than real time.
+        /// </summary>
+        public static double ClipStart(double flightSeconds) => Math.Max(0, ClipEnd(flightSeconds) - ShowSeconds);
 
         /// <summary>When the Replay's clip ends, in seconds after the Shot.</summary>
         public static double ClipEnd(double flightSeconds) => Math.Max(0, flightSeconds) + TailSeconds;

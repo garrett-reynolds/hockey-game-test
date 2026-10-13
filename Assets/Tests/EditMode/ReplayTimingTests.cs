@@ -215,10 +215,13 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void The_Replay_plays_the_Shot_from_its_release_to_just_after_the_puck_lands()
         {
-            foreach (double flight in new[] { 0.036, 0.3, 0.6, 1.0, 2.5, 7.0 })
+            foreach (double flight in new[] { 0.036, 0.3, 0.6, 1.0, 1.7 }) // the clip (flight + tail) fits ShowSeconds: from the release
             {
                 Assert.AreEqual(0.0, ReplayTiming.ClipStart(flight), Tol, "starts at the release, flight " + flight);
                 Assert.AreEqual(0.0, ReplayTiming.ShotSecondsAt(0, flight), Tol, "the first frame is the release, flight " + flight);
+            }
+            foreach (double flight in new[] { 0.036, 0.3, 0.6, 1.0, 1.7, 2.5, 7.0 })
+            {
                 Assert.AreEqual(flight + ReplayTiming.TailSeconds, ReplayTiming.ClipEnd(flight), Tol, "ends TailSeconds after the puck lands, flight " + flight);
                 Assert.AreEqual(flight + ReplayTiming.TailSeconds, ReplayTiming.ShotSecondsAt(ReplayTiming.ShowSeconds, flight), Tol, "fills ShowSeconds, flight " + flight);
                 Assert.AreEqual(flight + ReplayTiming.TailSeconds, ReplayTiming.ShotSecondsAt(ReplayTiming.ShowSeconds * 3, flight), Tol, "holds the last frame after ShowSeconds, flight " + flight);
@@ -232,7 +235,13 @@ namespace HockeyGame.Core.Tests
             Assert.Less(Rate(0.1), 0.25, "slow motion for a quick Shot");
             Assert.Less(Rate(1.0), 1.0, "a 1 s flight still plays slower than real time");
             // The slowest game Shot: 10 km/h from the far start (Breakaway.StartDistance), about 8 s of flight.
-            Assert.Less(Rate(ShotFlight.Seconds(Breakaway.StartDistance, ShotFlight.MinSpeedKmh)), 5.0, "the slowest Shot plays at a readable rate");
+            double slowest = ShotFlight.Seconds(Breakaway.StartDistance, ShotFlight.MinSpeedKmh);
+            Assert.LessOrEqual(Rate(slowest), 1.0 + Tol, "the slowest Shot never plays faster than real time");
+            Assert.AreEqual(slowest + ReplayTiming.TailSeconds, ReplayTiming.ClipEnd(slowest), Tol, "and still ends where it did");
+            Assert.AreEqual(ReplayTiming.ClipEnd(slowest) - ReplayTiming.ShowSeconds, ReplayTiming.ClipStart(slowest), Tol, "starting ShowSeconds before the end");
+            Assert.Greater(ReplayTiming.ClipStart(slowest), 0.0, "after the release");
+            foreach (double flight in new[] { 0.036, 0.5, 1.7, 2.0, 3.0, 7.9 })
+                Assert.LessOrEqual(Rate(flight), 1.0 + Tol, "never faster than real time, flight " + flight);
         }
     }
 }
