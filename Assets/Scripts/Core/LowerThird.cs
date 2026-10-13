@@ -11,7 +11,7 @@ namespace HockeyGame.Core
         public LowerThirdText(string kicker, string headline, string speedLine = "") { Kicker = kicker; Headline = headline; SpeedLine = speedLine ?? ""; }
     }
 
-    /// <summary>The lower third this frame: how far it has slid in (0 off screen .. 1 in place) and its words.</summary>
+    /// <summary>The lower third this frame: whether it is on screen (Amount 1; 0 off) and its words. It never slides.</summary>
     public readonly struct LowerThirdShow
     {
         public double Amount { get; }
@@ -20,13 +20,12 @@ namespace HockeyGame.Core
     }
 
     /// <summary>
-    /// The lower third (#141): a TV-style bar with a true number about the player's Round, after each Shot. Which number
-    /// (Choose) and when it is on screen (SlideAmount, Of) are decided here; the game only draws it.
+    /// The lower third (#141): a TV-style bar with a true number about the player's Round. Which number
+    /// (Choose) and when it is on screen (Of) are decided here; the game only draws it.
     /// <para>
-    /// It shows in the first part of the result hold, once the result shows (the Whistle): it slides in InDelaySeconds after
-    /// the Whistle, holds, and is out when the camera looks up at the Video Board for the Replay (ReplayTiming.OnNetSeconds,
-    /// the Arena Show's timing: there is no copy of that time here). The timing never asks whether a Replay follows, so a Round
-    /// with the Replay turned off (#145) shows it just the same. It is never on screen while the player aims or the puck flies.
+    /// It stays on screen, in the bottom-left corner, all through a Round (Garrett, 2026-10-13: "It should always be on the screen in
+    /// the bottom left corner"): no slide in or out. Only its words change, with each Shot's result (before the first, the tally is
+    /// Fresh). It is off on the start and end screens and in Test Mode.
     /// </para>
     /// It says nothing about the player's best score (#151: people play once, they never need to beat it).
     /// </summary>
@@ -34,9 +33,9 @@ namespace HockeyGame.Core
     {
         /// <summary>This many Goals in a row, ending with the last Shot, is a streak worth a lower third.</summary>
         public const int StreakToShow = 3;
-        /// <summary>Real seconds after the Whistle that the slide in starts; the slide takes SlideSeconds. It is fully out at ReplayTiming.OnNetSeconds.</summary>
-        public const double InDelaySeconds = 0.2, SlideSeconds = 0.25;
 
+        /// <summary>The words before the first Shot's result: the tally with nothing in it yet.</summary>
+        public static readonly LowerThirdText Fresh = new LowerThirdText("YOUR ROUND", "0 Goals from 0 Shots");
         /// <summary>Between the Shot's speed and the Round's average on the speed line.</summary>
         public const string SpeedSeparator = "  |  ";
 
@@ -79,28 +78,16 @@ namespace HockeyGame.Core
 
         static string Plural(int n, string word) => n == 1 ? word : word + "s";
 
-        /// <summary>How far in (0 off screen .. 1 in place, eased) the lower third is, secondsSinceWhistle real seconds after the Whistle.</summary>
-        public static double SlideAmount(double secondsSinceWhistle)
-        {
-            double t = secondsSinceWhistle - InDelaySeconds;
-            double slideIn = Numbers.SmoothStep01(t / SlideSeconds);
-            double slideOut = Numbers.SmoothStep01((secondsSinceWhistle - (ReplayTiming.OnNetSeconds - SlideSeconds)) / SlideSeconds);
-            return slideIn * (1 - slideOut);
-        }
-
-        /// <summary>The lower third now, from the Round: off (Amount 0, no words) until a result shows, and after the first part of the result hold. Builds its words every call.</summary>
+        /// <summary>The lower third now, from the Round: on (Amount 1) all through a Round, off (Amount 0, no words) on the start and end screens and in Test Mode. Builds its words every call.</summary>
         public static LowerThirdShow Of(Round round) => Of(round, null);
 
         /// <summary>As Of, but the words come from words (built once per Shot, no garbage per frame); null builds them every call.</summary>
         public static LowerThirdShow Of(Round round, LowerThirdWords words)
         {
-            if (round.TestMode || round.Phase != RoundPhase.ResultHold || !round.ResultShowing)
+            if (round.TestMode || round.Phase == RoundPhase.Idle || round.Phase == RoundPhase.RoundOver)
                 return default; // none in Test Mode (#157): there is no Round to tally
-            double amount = SlideAmount(round.PhaseSecondsElapsed - round.ResultDelaySeconds);
-            if (amount <= 0) return default; // off screen: no words built (this runs every frame)
             LowerThirdText? text = words != null ? words.Get(round.Results, round.ShotSpeedsKmh) : Choose(round.Results, round.ShotSpeedsKmh);
-            if (!text.HasValue) return default;
-            return new LowerThirdShow(amount, text.Value);
+            return new LowerThirdShow(1.0, text ?? Fresh);
         }
     }
 

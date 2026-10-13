@@ -289,7 +289,7 @@ namespace HockeyGame
                     break;
             }
 
-            if (_flow.Screen == FlowScreen.Playing) // early in the result hold only (LowerThird): never over the Replay or the result word
+            if (_flow.Screen == FlowScreen.Playing) // on all through a Round, in the bottom-left corner (LowerThird)
                 _lowerThird.Draw(w, h, LowerThird.Of(_round, _lowerThirdWords));
 
             switch (_flow.Screen)

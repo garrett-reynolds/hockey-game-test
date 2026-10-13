@@ -263,39 +263,61 @@ namespace HockeyGame.Core.Tests
 
         // ---- when it is on screen ----
 
+        // Garrett, 2026-10-13: "There is a bottom thirds graphic that whips on and off screen. It should always be on the screen in the
+        // bottom left corner." In a game it never slides: every frame of a Round has it fully in place; only its words change.
         [Test]
-        public void It_slides_in_after_the_Whistle_holds_then_slides_out_before_the_Replay_looks_up()
+        public void It_is_on_screen_every_frame_of_a_Round_from_the_first_skate_in_to_the_last_hold()
         {
-            Assert.AreEqual(0, LowerThird.SlideAmount(0), 1e-9);
-            Assert.AreEqual(0, LowerThird.SlideAmount(LowerThird.InDelaySeconds), 1e-9);
-            Assert.AreEqual(1, LowerThird.SlideAmount(LowerThird.InDelaySeconds + LowerThird.SlideSeconds), 1e-9);
-            Assert.AreEqual(1, LowerThird.SlideAmount(1.0), 1e-9);
-            Assert.AreEqual(0, LowerThird.SlideAmount(ReplayTiming.OnNetSeconds), 1e-9, "out when the camera looks up: the Arena Show's time");
-            Assert.AreEqual(0, LowerThird.SlideAmount(ReplayTiming.OnNetSeconds + ReplayTiming.LookUpSeconds), 1e-9);
-            Assert.AreEqual(0, LowerThird.SlideAmount(ReplayTiming.OnNetSeconds + ReplayTiming.LookUpSeconds + 1.0), 1e-9, "the Replay itself");
-            Assert.AreEqual(0, LowerThird.SlideAmount(-1), 1e-9);
+            var round = new Round(ScriptedRandom.Halves(), new RoundSettings(), FakeReach.NeverReaches(), 0);
+            round.StartRound(0, 3);
+            var phases = new HashSet<RoundPhase>();
+            int frames = 0;
+            while (round.Phase != RoundPhase.RoundOver && frames++ < 20000)
+            {
+                if (round.Phase == RoundPhase.ShootingWindow && round.PhaseSecondsElapsed > 0.5) round.SubmitShot(50, 50, 100, false);
+                if (round.AwaitingWhistle && round.Phase == RoundPhase.ResultHold && round.PhaseSecondsElapsed > 1.0) round.WhistleNow();
+                phases.Add(round.Phase);
+                LowerThirdShow show = LowerThird.Of(round, new LowerThirdWords());
+                Assert.AreEqual(1, show.Amount, 1e-9, "fully in place, never sliding, in " + round.Phase + " at " + round.PhaseSecondsElapsed);
+                Assert.IsNotEmpty(show.Text.Headline, "words in " + round.Phase);
+                round.Tick(0.02);
+            }
+            Assert.AreEqual(RoundPhase.RoundOver, round.Phase);
+            foreach (RoundPhase p in new[] { RoundPhase.SkateIn, RoundPhase.SlowDown, RoundPhase.ShootingWindow, RoundPhase.ResultHold })
+                Assert.IsTrue(phases.Contains(p), "the run covered " + p);
         }
 
         [Test]
-        public void It_is_off_the_screen_before_the_camera_looks_up_at_the_Video_Board()
-        {
-            for (double t = ReplayTiming.OnNetSeconds; t < ReplayTiming.HoldSeconds; t += 0.05)
-                Assert.AreEqual(0, LowerThird.SlideAmount(t), 1e-9, "at " + t);
-        }
-
-        [Test]
-        public void It_is_off_while_the_player_aims_and_while_the_puck_flies()
+        public void It_is_on_while_the_player_aims_and_while_the_puck_flies_with_the_tally_so_far()
         {
             var round = new Round(ScriptedRandom.Halves(), new RoundSettings(), FakeReach.NeverReaches(), 0);
             round.StartRound();
-            Assert.AreEqual(0, LowerThird.Of(round).Amount, "skating in");
+            Assert.AreEqual(1, LowerThird.Of(round).Amount, "skating in");
+            Assert.AreEqual(LowerThird.Fresh.Headline, LowerThird.Of(round).Text.Headline, "no Shot yet: an empty tally");
             round.Tick(3.7);
             Assert.AreEqual(RoundPhase.ShootingWindow, round.Phase);
-            Assert.AreEqual(0, LowerThird.Of(round).Amount, "aiming");
+            Assert.AreEqual(1, LowerThird.Of(round).Amount, "aiming");
             round.SubmitShot(50, 50, 100, false);
             round.Tick(1.0);
             Assert.IsTrue(round.AwaitingWhistle);
-            Assert.AreEqual(0, LowerThird.Of(round).Amount, "the puck flies");
+            Assert.AreEqual(1, LowerThird.Of(round).Amount, "the puck flies");
+            Assert.AreEqual("0 Goals from 0 Shots", LowerThird.Of(round).Text.Headline, "the result is not known yet");
+        }
+
+        [Test]
+        public void It_is_off_on_the_start_screen_and_the_end_screen()
+        {
+            var round = new Round(ScriptedRandom.Halves(), new RoundSettings(), FakeReach.NeverReaches(), 0);
+            Assert.AreEqual(RoundPhase.Idle, round.Phase);
+            Assert.AreEqual(0, LowerThird.Of(round).Amount, "the start screen");
+            round.StartRound(0, 3);
+            for (int i = 0; i < 20000 && round.Phase != RoundPhase.RoundOver; i++)
+            {
+                if (round.Phase == RoundPhase.ShootingWindow) round.SubmitShotAndWhistle(50, 50, 100, false);
+                round.Tick(0.1);
+            }
+            Assert.AreEqual(RoundPhase.RoundOver, round.Phase);
+            Assert.AreEqual(0, LowerThird.Of(round).Amount, "the end screen");
         }
 
         [Test]
@@ -310,27 +332,30 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void It_counts_from_the_Whistle_not_from_the_Shot()
+        public void Its_words_change_at_the_Whistle_and_it_does_not_move()
         {
             var round = InWindow();
             round.SubmitShot(50, 50, 100, false);
             round.Tick(2.0); // a long flight
+            Assert.AreEqual("0 Goals from 0 Shots", LowerThird.Of(round).Text.Headline, "before the Whistle");
             round.WhistleNow();
-            Assert.AreEqual(0, LowerThird.Of(round).Amount, 1e-9, "just whistled");
+            Assert.AreEqual(1, LowerThird.Of(round).Amount, 1e-9, "just whistled: in place already");
+            Assert.AreEqual("1 Goal from 1 Shot", LowerThird.Of(round).Text.Headline, "the words change");
             round.Tick(0.8);
             Assert.AreEqual(1, LowerThird.Of(round).Amount, 1e-9);
         }
 
         [Test]
-        public void It_is_gone_by_the_end_of_the_hold_and_in_the_next_Shot()
+        public void It_stays_through_the_end_of_the_hold_and_the_next_Shot()
         {
             var round = InWindow();
             round.SubmitShotAndWhistle(50, 50, 100, false);
             round.Tick(2.0);
-            Assert.AreEqual(0, LowerThird.Of(round).Amount, 1e-9);
+            Assert.AreEqual(1, LowerThird.Of(round).Amount, 1e-9, "over the Replay's look-up and the Replay");
             round.Tick(round.ResultHoldLength);
             Assert.AreEqual(RoundPhase.SkateIn, round.Phase);
-            Assert.AreEqual(0, LowerThird.Of(round).Amount, 1e-9);
+            Assert.AreEqual(1, LowerThird.Of(round).Amount, 1e-9, "the next turn");
+            Assert.AreEqual("1 Goal from 1 Shot", LowerThird.Of(round).Text.Headline, "still the tally so far");
         }
 
         [Test]

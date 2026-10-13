@@ -7,7 +7,7 @@ namespace HockeyGame
     /// Draws the lower third (#141) in look C "TV graphic" of #137: a red tab with the label, a navy bar with the number, slanted
     /// ends, a blue cap and a gold stripe. The art is made once on the CPU as a Texture2D (like the Shootout logo, #140); the words
     /// are IMGUI labels over it, like the rest of the HUD. What it says and when (LowerThird) is decided in the core; this only draws
-    /// it, sliding in from the left.
+    /// it, in place in the bottom-left corner (it does not slide).
     /// <para>
     /// The colours are look C's (LookC, one list). Where the words go is LowerThirdLayout (a test checks it at several screen sizes).
     /// The words' GUIContent and font sizes are made once per Shot (when the text changes), not on every OnGUI call.
@@ -129,8 +129,7 @@ namespace HockeyGame
             if (_art == null) Make();
 
             float s = LowerThirdLayout.Scale(w);
-            Rect bar = LowerThirdLayout.Bar(w, h);
-            bar.x = Mathf.Lerp(-bar.width, bar.x, (float)show.Amount); // slides in from the left edge
+            Rect bar = LowerThirdLayout.Bar(w, h); // always in place: no slide in or out
             GUI.DrawTexture(bar, _art);
 
             Label(LowerThirdLayout.Kicker(bar, s), show.Text.Kicker, _kicker, ref _kickerWords, (int)(32 * s));
