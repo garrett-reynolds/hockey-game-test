@@ -25,7 +25,6 @@ namespace HockeyGame
         public static Rect BestScore(float w, float h) => new Rect(0, TextTop(w, h), w, 40);
         public static Rect Prompt(float w, float h) => new Rect(0, TextTop(w, h) + 50, w, 40);
         public static Rect UsbStatus(float w, float h) => new Rect(0, TextTop(w, h) + 100, w, 40);
-        public static Rect SettingsHint(float w, float h) => new Rect(10, h - 64, w, 30);
         public static Rect TestShots(float w, float h) => new Rect(10, h - 34, w, 30);
     }
 }

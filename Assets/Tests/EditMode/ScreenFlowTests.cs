@@ -216,6 +216,45 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void Esc_is_the_Settings_key_on_the_start_screen_only_and_counts_as_any_key_on_the_end_screen()
+        {
+            var flow = NewFlow();
+            Assert.IsTrue(flow.EscapeIsSettingsKey, "start screen");
+            flow.Press();
+            Assert.IsFalse(flow.EscapeIsSettingsKey, "during a Round");
+            PlayRound(flow, 1);
+            Assert.AreEqual(FlowScreen.End, flow.Screen);
+            Assert.IsFalse(flow.EscapeIsSettingsKey, "end screen: Esc is an ordinary key again");
+            flow.Tick(3); // past the input-ignore time
+            flow.Press(); // what RoundDriver does with the Esc key there
+            Assert.AreEqual(FlowScreen.Start, flow.Screen);
+        }
+
+        [Test]
+        public void The_Settings_button_opens_the_page_on_the_start_screen_and_a_second_click_leaves_it_open()
+        {
+            var flow = NewFlow();
+            flow.OpenSettings();
+            Assert.IsTrue(flow.SettingsOpen);
+            flow.OpenSettings();
+            Assert.IsTrue(flow.SettingsOpen, "the button never closes the page");
+            flow.Press();
+            Assert.AreEqual(FlowScreen.Start, flow.Screen, "a press on the page never starts a Round");
+        }
+
+        [Test]
+        public void The_Settings_button_does_nothing_during_a_Round_or_on_the_end_screen()
+        {
+            var flow = NewFlow();
+            flow.Press();
+            flow.OpenSettings();
+            Assert.IsFalse(flow.SettingsOpen);
+            PlayRound(flow, 1);
+            flow.OpenSettings();
+            Assert.IsFalse(flow.SettingsOpen);
+        }
+
+        [Test]
         public void F2_does_nothing_during_a_Round()
         {
             var flow = NewFlow();

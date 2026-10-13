@@ -24,7 +24,7 @@ namespace HockeyGame
         ScreenFlow _flow;
         Round _round; // the flow's one Round; each start reuses it
         SaveData _save;
-        SettingsScreen _settingsScreen; // made fresh each time F2 opens it (port list refreshed); null when closed
+        SettingsScreen _settingsScreen; // the Settings page and start-screen button (UI Toolkit); Open() makes a fresh menu (port list refreshed)
         GoalieView _goalie; // the goalie character, or the block goalie with no model or the forceGoalieBlocks developer flag
         readonly EasyGlow _easyGlow = new EasyGlow(); // the Gaps Easy mode glows, a few cells measured each frame
         PhysicsShotEffects _effects; // the physics puck of each Shot, and the Round's Whistle
@@ -65,6 +65,7 @@ namespace HockeyGame
             _effects = new PhysicsShotEffects(rink, _camera, new SystemRandomSource(), _goalie);
             _netFacePlane = new Plane(Vector3.back, Vector3.zero); // Net Face plane: z = 0
             _testShotsOn = _save.TestShotOnAtStart;
+            _settingsScreen = new SettingsScreen(_save);
             var settings = new RoundSettings(); // shared: the Round runs on it, the goalie-reach port reads the gear speeds from it
             settings.ViewFieldOfViewDegrees = _camera.fieldOfView; // the Shot starts just below this camera's view (Breakaway.ShotStart)
             _flow = new ScreenFlow(new SystemRandomSource(), _save, new GoalieCharacterReach(character, settings), settings);
@@ -128,26 +129,39 @@ namespace HockeyGame
             bool playing = _flow.Screen == FlowScreen.Playing;
             bool pressed = false; // key or click outside a Round: at most one Press per frame
 
+            bool openedNow = false; // the page opened this frame: the click or key that opened it goes no further
             if (keyboard != null)
             {
-                if (keyboard.f2Key.wasPressedThisFrame)
+                // Esc is a Settings key on the start screen only; on the end screen it is "any key" again. F2 never starts anything.
+                if (keyboard.f2Key.wasPressedThisFrame || (keyboard.escapeKey.wasPressedThisFrame && _flow.EscapeIsSettingsKey))
                 {
                     _flow.ToggleSettings(); // does nothing during a Round or on the end screen
-                    _settingsScreen = _flow.SettingsOpen ? new SettingsScreen(_save) : null;
+                    openedNow = _flow.SettingsOpen;
+                    if (openedNow) _settingsScreen.Open(); else _settingsScreen.Close();
                 }
                 else if (keyboard.f1Key.wasPressedThisFrame)
                     _testShotsOn = !_testShotsOn;
-                else if (_flow.SettingsOpen)
-                {
-                    if (_settingsScreen.UpdateKeys(keyboard))
-                        SaveStore.Save();
-                }
-                else if (!playing && keyboard.anyKey.wasPressedThisFrame)
+                else if (!_flow.SettingsOpen && !playing && keyboard.anyKey.wasPressedThisFrame)
                     pressed = true;
             }
 
+            // The Settings button on the start screen (a click on it never starts a Round).
+            if (!_flow.SettingsOpen && mouse != null && mouse.leftButton.wasPressedThisFrame
+                && _flow.Screen == FlowScreen.Start && _settingsScreen.PointerOverStartButton(mouse.position.ReadValue()))
+            {
+                _flow.OpenSettings();
+                _settingsScreen.Open();
+                openedNow = true;
+            }
+            _settingsScreen.ShowStartButton(_flow.Screen == FlowScreen.Start && !_flow.SettingsOpen);
+
             if (_flow.SettingsOpen)
-                return; // the settings screen takes no clicks, wheel or Shots
+            {
+                // The page takes the keys and the mouse; no clicks, wheel or Shots reach the Round.
+                if (!openedNow && _settingsScreen.UpdateInput(keyboard, mouse))
+                    SaveStore.Save();
+                return;
+            }
 
             if (mouse != null)
             {
@@ -198,6 +212,8 @@ namespace HockeyGame
         {
             if (_flow == null) return;
             if (_big == null) MakeStyles();
+            if (_flow.SettingsOpen)
+                return; // the Settings page (UI Toolkit) draws over the arena; no HUD text on top of it
             float w = Screen.width, h = Screen.height;
 
             if (_flow.Screen != FlowScreen.Start) // the start screen shows no old Round
@@ -222,12 +238,6 @@ namespace HockeyGame
                 GUI.color = StartLogoArt.Gold;
                 GUI.DrawTexture(new Rect(strip.x, strip.y, strip.width, StartLogoArt.StripEdgeHeight), Texture2D.whiteTexture);
                 GUI.color = was;
-            }
-
-            if (_flow.SettingsOpen)
-            {
-                _settingsScreen.Draw(w, h, _big, _small);
-                return;
             }
 
             string phase = _flow.Screen == FlowScreen.Playing ? _round.Phase.ToString() : _flow.Screen + " screen";
@@ -256,7 +266,6 @@ namespace HockeyGame
                     GUI.Label(StartScreenLayout.BestScore(w, h), "Best score: " + _save.BestScore + " / " + Round.ShotsPerRound, _mid);
                     GUI.Label(StartScreenLayout.Prompt(w, h), "Shoot or press any key", _mid);
                     GUI.Label(StartScreenLayout.UsbStatus(w, h), _usb.StatusText, _mid);
-                    GUI.Label(StartScreenLayout.SettingsHint(w, h), "F2: settings", _small);
                     break;
                 case FlowScreen.End:
                     GUI.Label(new Rect(0, h * 0.2f, w, 60), _round.Goals + " / " + Round.ShotsPerRound + " goals", _big);

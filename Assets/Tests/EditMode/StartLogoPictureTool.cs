@@ -49,7 +49,6 @@ namespace HockeyGame.Core.Tests
                 Text(px, "BEST SCORE: 0 / 6", StartScreenLayout.BestScore(W, H), 4, false);
                 Text(px, "SHOOT OR PRESS ANY KEY", StartScreenLayout.Prompt(W, H), 4, false);
                 Text(px, "NO ELECTRONICS FOUND", StartScreenLayout.UsbStatus(W, H), 4, false);
-                Text(px, "F2: SETTINGS", StartScreenLayout.SettingsHint(W, H), 2, true);
                 Text(px, "TEST SHOTS: OFF  (F1 ON)", StartScreenLayout.TestShots(W, H), 2, true);
 
                 texture.SetPixels32(px);

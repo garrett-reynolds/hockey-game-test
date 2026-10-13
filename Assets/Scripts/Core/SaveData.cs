@@ -55,8 +55,8 @@ namespace HockeyGame.Core
         public double MasterVolume = 1.0;
         public bool Mute = false;
         /// <summary>
-        /// Developer flag, not on the settings screen: shows the block goalie instead of the goalie character.
-        /// Set forceGoalieBlocks=true in the settings file to turn it on. The old goalieCharacterOn key is ignored.
+        /// Developer flag, a toggle in the Settings page's Dev part: shows the block goalie instead of the goalie character
+        /// (read when the game starts). Or set forceGoalieBlocks=true in the settings file. The old goalieCharacterOn key is ignored.
         /// </summary>
         public bool ForceGoalieBlocks = false;
         /// <summary>

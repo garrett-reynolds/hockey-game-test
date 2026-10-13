@@ -63,7 +63,6 @@ namespace HockeyGame.Core.Tests
                     { "best score", StartScreenLayout.BestScore(s.x, s.y) },
                     { "press to play prompt", StartScreenLayout.Prompt(s.x, s.y) },
                     { "usb status", StartScreenLayout.UsbStatus(s.x, s.y) },
-                    { "F2 settings hint", StartScreenLayout.SettingsHint(s.x, s.y) },
                     { "test shots line", StartScreenLayout.TestShots(s.x, s.y) }
                 };
                 foreach (var o in others)
@@ -96,7 +95,6 @@ namespace HockeyGame.Core.Tests
                 Assert.GreaterOrEqual(strip.xMin, 0f, at);
                 Assert.LessOrEqual(strip.xMax, s.x, at);
                 Assert.IsFalse(strip.Overlaps(StartScreenLayout.Logo(s.x, s.y)), at + ": strip on the logo");
-                Assert.IsFalse(strip.Overlaps(StartScreenLayout.SettingsHint(s.x, s.y)), at + ": strip on the F2 hint");
                 Assert.IsFalse(strip.Overlaps(StartScreenLayout.TestShots(s.x, s.y)), at + ": strip on the test shots line");
                 foreach (Rect line in new[] { StartScreenLayout.BestScore(s.x, s.y), StartScreenLayout.Prompt(s.x, s.y), StartScreenLayout.UsbStatus(s.x, s.y) })
                 {

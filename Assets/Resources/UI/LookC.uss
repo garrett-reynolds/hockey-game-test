@@ -1,0 +1,216 @@
+/*
+  Look C "TV graphic" (#137, #143): the one style sheet for the League-coloured broadcast look. The Settings page uses the
+  lc-* classes below; the Shootout logo on the start screen (#140) can use the same colours and class prefix.
+  Colours: navy rgb(10,16,34), rail blue rgb(20,60,150), gold rgb(232,190,40), red rgb(200,30,45), white.
+  Sizes are for a 1920 x 1080 panel (the panel scales to the screen).
+*/
+
+.lc-hidden { display: none; }
+
+.lc-root {
+    position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+}
+
+/* ---- the Settings page ---- */
+
+.lc-page {
+    position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+    background-color: rgba(10, 16, 34, 0.80);
+}
+
+.lc-topbar {
+    /* Fully opaque, and 150 px tall (down to the cards): the arena's Video Board text no longer shows through under the header. */
+    position: absolute; left: 0; top: 0; right: 0; height: 150px;
+    background-color: rgb(10, 16, 34);
+}
+
+.lc-title {
+    position: absolute; left: 0; top: 0; width: 620px; height: 120px;
+    padding-left: 48px;
+    background-color: rgb(200, 30, 45);
+    color: rgb(255, 255, 255);
+    font-size: 76px;
+    -unity-font-style: bold-and-italic;
+    -unity-text-align: middle-left;
+}
+
+.lc-title-stripe {
+    position: absolute; left: 620px; top: 0; width: 24px; height: 120px;
+    background-color: rgb(232, 190, 40);
+}
+
+/* Header stripes: SlantShape draws them turned -18 degrees (USS cannot rotate a box); `color` is the stripe's colour. */
+.lc-stripes { position: absolute; left: 0; top: 0; width: 1920px; height: 120px; overflow: hidden; }
+.lc-stripes > * { left: 0; top: 0; right: 0; bottom: 0; }
+.lc-stripe-red { color: rgb(200, 30, 45); }
+.lc-stripe-white { color: rgb(255, 255, 255); }
+.lc-stripe-gold { color: rgb(232, 190, 40); }
+
+/* Tabs: slanted shapes (SlantShape, colour from `color`) with upright text on top. */
+.lc-tab { position: absolute; top: 22px; width: 370px; height: 76px; }
+.lc-tab-player { left: 1130px; }
+.lc-tab-dev { left: 1520px; }
+
+.lc-tab-fill { left: 0; top: 0; right: 0; bottom: 0; color: rgb(20, 60, 150); }
+.lc-tab-on .lc-tab-fill { color: rgb(232, 190, 40); }
+
+.lc-tab-border { left: -6px; top: -6px; right: -6px; bottom: -6px; color: rgba(255, 255, 255, 0); }
+.lc-tab-on .lc-tab-border { color: rgb(255, 255, 255); }
+
+.lc-tab-text {
+    position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+    color: rgb(255, 255, 255);
+    font-size: 46px;
+    -unity-font-style: bold-and-italic;
+    -unity-text-align: middle-center;
+}
+.lc-tab-on .lc-tab-text { color: rgb(10, 16, 34); }
+
+.lc-column { position: absolute; top: 150px; width: 880px; }
+.lc-left { left: 60px; }
+.lc-right { left: 980px; }
+
+.lc-card {
+    margin-bottom: 26px;
+    background-color: rgb(14, 22, 52);
+}
+
+.lc-card-head {
+    height: 52px;
+    padding-left: 38px;
+    color: rgb(255, 255, 255);
+    font-size: 34px;
+    -unity-font-style: italic;
+    -unity-text-align: middle-left;
+    border-left-width: 18px;
+    border-left-color: rgb(255, 255, 255);
+}
+
+.lc-c0 .lc-card-head { background-color: rgb(20, 60, 150); }
+.lc-c1 .lc-card-head { background-color: rgb(200, 30, 45); }
+.lc-c2 .lc-card-head { background-color: rgb(232, 190, 40); color: rgb(10, 16, 34); }
+
+.lc-row {
+    flex-direction: row; align-items: center;
+    height: 62px;
+    margin-left: 10px; margin-right: 10px;
+    border-bottom-width: 2px; border-bottom-color: rgb(30, 40, 78);
+}
+
+.lc-selected { background-color: rgba(255, 255, 255, 0.14); }
+
+.lc-row-label {
+    width: 480px;
+    margin-left: 20px;
+    white-space: nowrap;
+    overflow: hidden;
+    color: rgb(255, 255, 255);
+    font-size: 28px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-left;
+}
+
+.lc-control { flex-grow: 1; flex-direction: row; align-items: center; justify-content: flex-end; height: 62px; }
+
+.lc-track {
+    width: 220px; height: 16px;
+    margin-right: 20px;
+    background-color: rgb(40, 50, 90);
+}
+
+.lc-fill { position: absolute; left: 0; top: 0; bottom: 0; background-color: rgb(60, 120, 255); }
+.lc-c1 .lc-fill { background-color: rgb(200, 30, 45); }
+.lc-c2 .lc-fill { background-color: rgb(232, 190, 40); }
+
+.lc-thumb {
+    position: absolute; top: -8px; width: 10px; height: 32px;
+    margin-left: -5px;
+    background-color: rgb(255, 255, 255);
+}
+
+.lc-valuebox {
+    width: 130px; height: 40px;
+    margin-right: 10px;
+    background-color: rgb(255, 255, 255);
+    color: rgb(10, 16, 34);
+    font-size: 28px;
+    -unity-font-style: italic;
+    -unity-text-align: middle-center;
+}
+
+.lc-cell {
+    width: 110px; height: 40px;
+    background-color: rgb(50, 62, 110);
+    color: rgb(255, 255, 255);
+    font-size: 28px;
+    -unity-font-style: italic;
+    -unity-text-align: middle-center;
+}
+
+.lc-cell-on { background-color: rgb(0, 170, 70); }
+.lc-cell-off { background-color: rgb(200, 30, 45); }
+
+.lc-hint {
+    margin-right: 16px;
+    white-space: nowrap;
+    color: rgb(232, 190, 40);
+    font-size: 22px;
+    -unity-font-style: italic;
+}
+
+.lc-wide-cell {
+    min-width: 220px; height: 40px;
+    margin-right: 10px;
+    padding-left: 12px; padding-right: 12px;
+    background-color: rgb(232, 190, 40);
+    color: rgb(10, 16, 34);
+    font-size: 28px;
+    -unity-font-style: italic;
+    -unity-text-align: middle-center;
+}
+
+.lc-bottombar {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 106px;
+    background-color: rgb(10, 16, 34);
+    border-top-width: 6px; border-top-color: rgb(232, 190, 40);
+}
+
+.lc-reset {
+    position: absolute; left: 60px; top: 8px; width: 560px; height: 46px;
+    background-color: rgb(200, 30, 45);
+    color: rgb(255, 255, 255);
+    font-size: 30px;
+    -unity-font-style: bold-and-italic;
+    -unity-text-align: middle-center;
+}
+
+.lc-hints {
+    position: absolute; right: 60px; top: 8px; width: 900px; height: 46px;
+    color: rgb(255, 255, 255);
+    font-size: 26px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-right;
+}
+
+/* ---- the Settings button on the start screen ---- */
+
+.lc-start-button {
+    position: absolute; right: 40px; bottom: 90px; width: 360px; height: 80px;
+    flex-direction: row; align-items: center; justify-content: center;
+    background-color: rgb(10, 16, 34);
+    border-width: 4px; border-color: rgb(232, 190, 40);
+    border-left-width: 20px; border-left-color: rgb(20, 60, 150);
+}
+
+.lc-start-text {
+    color: rgb(255, 255, 255);
+    font-size: 44px;
+    -unity-font-style: bold-and-italic;
+}
+
+.lc-start-key {
+    margin-left: 16px;
+    color: rgb(232, 190, 40);
+    font-size: 24px;
+    -unity-font-style: bold;
+}

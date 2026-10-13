@@ -167,3 +167,15 @@ _Avoid_: Default skin, generic theme
 **Clap Chant**:
 The crowd's "Let's go!" chant with its clap-clap, clap-clap-clap. It repeats with a quiet gap on the start screen and plays once at Round over, after the cheer or horn; never in the skate-in. A Team Skin can swap it, for example for "Let's go Bears!".
 _Avoid_: Cheer (the crowd cheers on a Goal), chant loop
+
+**Settings page**:
+The broadcast-style page, in the TV graphic look, where the settings are changed. A Settings button on the start screen, Esc and F2 open and close it, and it opens on the start screen only, so every change reaches the next Round. The mouse and the keys both work, and every value is saved between runs. It has two parts.
+_Avoid_: Operator screen, options menu, settings screen
+
+**Player part**:
+The part of the Settings page open to everyone: sound, Round and operator settings. Its "Reset to default" sets every player value back (not the best score, which has its own Reset best score row).
+_Avoid_: Basic settings, user tab
+
+**Dev part**:
+The part of the Settings page for Garrett's tuning, such as showing the block goalie. Switched to by Tab or the tab at the top. Its own "Reset to default" sets only the dev values back.
+_Avoid_: Debug part, advanced tab
