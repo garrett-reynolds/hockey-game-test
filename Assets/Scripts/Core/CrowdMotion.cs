@@ -10,15 +10,15 @@ namespace HockeyGame.Core
         StandCheer, // stand, arms up, cheering
         Oh,         // a short seated "oh!" (hands to the head), ending seated
         Clap,       // sit and clap
-        Miss,            // a short seated "miss" (a swing of the arms), ending seated (no state plays it yet)
+        Miss,            // a short seated "miss" (a swing of the arms), ending seated (CrowdState.Miss plays it)
         StandCheerRight, // stand-cheer with the other fist (a fan's pick swaps it in)
         OhBack           // oh, leaning back instead (a fan's pick swaps it in)
     }
 
     /// <summary>
     /// What one zone's fans play, from its Arena Show crowd state: the clip, where its clock is, and the clip it fades in
-    /// from. Sit and Still play sit-idle, Wave wave, Cheer stand-cheer, Clap clap; Oh plays the oh once (each fan up to
-    /// OhSpreadSeconds late) and then sits. A new clip fades in over FadeSeconds. Still stops every clock where it is (and
+    /// from. Sit and Still play sit-idle, Wave wave, Cheer stand-cheer, Clap clap; Oh plays the oh once and Miss the miss swipe once
+    /// (each fan up to OhSpreadSeconds late), and then they sit. A new clip fades in over FadeSeconds. Still stops every clock where it is (and
     /// is always the seated pose: from any other clip it starts sit-idle at once). The shader adds each fan's own phase.
     /// </summary>
     public sealed class CrowdMotion
@@ -29,7 +29,10 @@ namespace HockeyGame.Core
         public const double OhSpreadSeconds = 0.3;
 
         readonly double[] _seconds;
-        bool _ohDone;
+        bool _onceDone;
+        CrowdState _lastState = CrowdState.Sit;
+
+        static bool PlaysOnce(CrowdState s) => s == CrowdState.Oh || s == CrowdState.Miss;
 
         public CrowdClip Clip { get; private set; } = CrowdClip.SitIdle;
         /// <summary>Seconds played of Clip (wrapped at LoopPeriod for the loops).</summary>
@@ -70,6 +73,7 @@ namespace HockeyGame.Core
                 case CrowdState.Cheer: return CrowdClip.StandCheer;
                 case CrowdState.Oh: return CrowdClip.Oh;
                 case CrowdState.Clap: return CrowdClip.Clap;
+                case CrowdState.Miss: return CrowdClip.Miss;
                 default: return CrowdClip.SitIdle; // Sit and Still
             }
         }
@@ -77,14 +81,15 @@ namespace HockeyGame.Core
         /// <summary>Moves on by step seconds in this state.</summary>
         public void Step(CrowdState state, double step)
         {
-            if (state != CrowdState.Oh) _ohDone = false;
+            if (state != _lastState) _onceDone = false;
+            _lastState = state;
             if (state == CrowdState.Still)
             {
                 if (Clip != CrowdClip.SitIdle || Blend < 1) { Clip = FromClip = CrowdClip.SitIdle; Clock = FromClock = 0; Blend = 1; }
                 return;
             }
 
-            CrowdClip target = state == CrowdState.Oh && _ohDone ? CrowdClip.SitIdle : ClipFor(state);
+            CrowdClip target = PlaysOnce(state) && _onceDone ? CrowdClip.SitIdle : ClipFor(state);
             if (target != Clip) Start(target);
 
             double run = step * CrowdLooks.Motion(state);
@@ -92,9 +97,9 @@ namespace HockeyGame.Core
             FromClock = Advance(FromClip, FromClock, run);
             Blend = Math.Min(1, Blend + run / FadeSeconds);
 
-            if (Clip == CrowdClip.Oh && Clock >= _seconds[(int)CrowdClip.Oh] + OhSpreadSeconds - 1e-9)
+            if (!Loops(Clip) && Clock >= _seconds[(int)Clip] + OhSpreadSeconds - 1e-9)
             {
-                _ohDone = true;
+                _onceDone = true;
                 Start(CrowdClip.SitIdle);
             }
         }
@@ -102,7 +107,8 @@ namespace HockeyGame.Core
         /// <summary>Starts straight in this state's clip, with no fade (the crowd's first moment).</summary>
         public void Snap(CrowdState state)
         {
-            _ohDone = false;
+            _onceDone = false;
+            _lastState = state;
             Clip = FromClip = ClipFor(state);
             Clock = FromClock = 0;
             Blend = 1;

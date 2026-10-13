@@ -298,8 +298,8 @@ namespace HockeyGame.Core.Tests
                 Assert.AreEqual(CrowdState.Wave, At(RoundPhase.SkateIn).CrowdIn(zone), "skate-in, " + zone);
                 Assert.AreEqual(CrowdState.Sit, At(RoundPhase.SlowDown).CrowdIn(zone), "slow-down, " + zone);
                 Assert.AreEqual(CrowdState.Cheer, Showing(ArenaResult.Goal).CrowdIn(zone), "Goal, " + zone);
-                Assert.AreEqual(CrowdState.Sit, Showing(ArenaResult.WideMiss).CrowdIn(zone), "Wide Miss, " + zone);
-                Assert.AreEqual(CrowdState.Sit, Showing(ArenaResult.TooLate).CrowdIn(zone), "Too late, " + zone);
+                Assert.AreEqual(CrowdState.Miss, Showing(ArenaResult.WideMiss).CrowdIn(zone), "Wide Miss, " + zone);
+                Assert.AreEqual(CrowdState.Miss, Showing(ArenaResult.TooLate).CrowdIn(zone), "Too late, " + zone);
                 Assert.AreEqual(CrowdState.Clap, At(RoundPhase.RoundOver).CrowdIn(zone), "Round over, " + zone);
             }
             Assert.AreEqual(CrowdState.Sit, At(RoundPhase.ShootingWindow).CrowdIn(ArenaZone.Near));

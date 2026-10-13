@@ -53,7 +53,8 @@ namespace HockeyGame.Core
         Still, // sit still and dim (the Calm Area rules)
         Cheer, // stand and cheer
         Oh,    // a short "oh!"
-        Clap   // clap with the chant
+        Clap,  // clap with the chant
+        Miss   // a frustrated seated swipe, once, then sit (a wide Miss or no Shot in time)
     }
 
     public enum CameraMode
@@ -430,11 +431,15 @@ namespace HockeyGame.Core
                         case ArenaResult.Save:
                         case ArenaResult.FrameHitPost:
                         case ArenaResult.FrameHitBar: return CrowdState.Oh;
-                        default: return CrowdState.Sit;
+                        default: return CrowdForMiss(result);
                     }
                 default: return CrowdState.Sit;
             }
         }
+
+        /// <summary>A Miss's crowd (a wide Shot or no Shot in time): a frustrated swipe; nothing else shows a result here.</summary>
+        private static CrowdState CrowdForMiss(ArenaResult result) =>
+            result == ArenaResult.WideMiss || result == ArenaResult.TooLate ? CrowdState.Miss : CrowdState.Sit;
 
         /// <summary>
         /// The Goal Show runs from when the puck lands (the horn), so its flashes fall the same on every Goal however long the

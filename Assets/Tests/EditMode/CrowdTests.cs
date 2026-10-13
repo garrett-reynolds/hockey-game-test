@@ -271,6 +271,9 @@ namespace HockeyGame.Core.Tests
                 Assert.That(Settled(In(RoundPhase.Idle).CrowdIn(z)), Is.EqualTo(CrowdClip.Clap), "start screen: clap with the chant");
                 Assert.That(Settled(In(RoundPhase.RoundOver).CrowdIn(z)), Is.EqualTo(CrowdClip.Clap), "Round over: clap with the chant");
                 Assert.That(Settled(In(RoundPhase.SlowDown).CrowdIn(z)), Is.EqualTo(CrowdClip.SitIdle));
+                var miss = new CrowdMotion(ClipSeconds);
+                miss.Step(In(RoundPhase.ResultHold, ArenaResult.WideMiss).CrowdIn(z), 0.1);
+                Assert.That(miss.Clip, Is.EqualTo(CrowdClip.Miss), "Miss: a frustrated swipe, " + z);
             }
             var save = new CrowdMotion(ClipSeconds);
             save.Step(In(RoundPhase.ResultHold, ArenaResult.Save).CrowdIn(ArenaZone.Near), 0.1);
@@ -290,6 +293,37 @@ namespace HockeyGame.Core.Tests
             Assert.That(t, Is.EqualTo(ClipSeconds[(int)CrowdClip.Oh] + CrowdMotion.OhSpreadSeconds).Within(0.06));
             for (int i = 0; i < 100; i++) m.Step(CrowdState.Oh, 0.05);
             Assert.That(m.Clip, Is.EqualTo(CrowdClip.SitIdle), "no second oh in the same result hold");
+        }
+
+        [Test]
+        public void On_a_Miss_fans_swipe_once_then_sit()
+        {
+            var m = new CrowdMotion(ClipSeconds);
+            m.Step(CrowdState.Miss, 0.0);
+            Assert.That(m.Clip, Is.EqualTo(CrowdClip.Miss));
+            double t = 0;
+            while (m.Clip == CrowdClip.Miss && t < 10) { m.Step(CrowdState.Miss, 0.05); t += 0.05; }
+            Assert.That(m.Clip, Is.EqualTo(CrowdClip.SitIdle));
+            Assert.That(t, Is.EqualTo(ClipSeconds[(int)CrowdClip.Miss] + CrowdMotion.OhSpreadSeconds).Within(0.06));
+            for (int i = 0; i < 100; i++) m.Step(CrowdState.Miss, 0.05);
+            Assert.That(m.Clip, Is.EqualTo(CrowdClip.SitIdle), "no second swipe in the same result hold");
+        }
+
+        [Test]
+        public void A_Miss_after_an_Oh_still_swipes()
+        {
+            var m = new CrowdMotion(ClipSeconds);
+            for (int i = 0; i < 100; i++) m.Step(CrowdState.Oh, 0.05);
+            m.Step(CrowdState.Sit, 0.05);
+            m.Step(CrowdState.Miss, 0.05);
+            Assert.That(m.Clip, Is.EqualTo(CrowdClip.Miss));
+        }
+
+        [Test]
+        public void Once_clips_do_not_loop_and_the_rest_do()
+        {
+            Assert.That(Enum.GetValues(typeof(CrowdClip)).Cast<CrowdClip>().Where(c => !CrowdMotion.Loops(c)),
+                Is.EquivalentTo(new[] { CrowdClip.Oh, CrowdClip.Miss, CrowdClip.OhBack }));
         }
 
         [Test]
