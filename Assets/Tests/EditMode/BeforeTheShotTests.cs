@@ -31,10 +31,14 @@ namespace HockeyGame.Core.Tests
         [TearDown]
         public void TearDown()
         {
+            foreach (GoalieView v in _views) v?.Dispose();
+            _views.Clear();
             Object.DestroyImmediate(_parent);
             Physics.simulationMode = _oldMode;
             Time.timeScale = 1f;
         }
+
+        readonly List<GoalieView> _views = new List<GoalieView>(); // every view a test built outside a try/finally, disposed in TearDown
 
         static RoundSettings AllOff() => new RoundSettings { HeadOnPuck = false, SkateInShuffles = false, StillOnceSet = false };
 
@@ -180,6 +184,7 @@ namespace HockeyGame.Core.Tests
             character = new GoalieCharacter(_parent.transform);
             Assume.That(character.Present, "needs the goalie model");
             var view = new GoalieView(_parent.transform, character);
+            _views.Add(view);
             view.Show(true);
             view.Stand(new Vector3(0f, 0f, -0.6f));
             view.Face(0f, 0f);

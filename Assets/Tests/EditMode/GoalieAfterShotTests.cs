@@ -30,14 +30,19 @@ namespace HockeyGame.Core.Tests
         [TearDown]
         public void TearDown()
         {
+            foreach (GoalieView v in _views) v?.Dispose();
+            _views.Clear();
             Object.DestroyImmediate(_parent);
             Physics.simulationMode = _oldMode;
         }
+
+        readonly List<GoalieView> _views = new List<GoalieView>(); // every view Make built, disposed in TearDown
 
         GoalieView Make(out GoalieCharacter character)
         {
             character = new GoalieCharacter(_parent.transform);
             var view = new GoalieView(_parent.transform, character);
+            _views.Add(view);
             view.Show(true);
             view.Face(0f, 0f);
             view.SetProgress(0f);

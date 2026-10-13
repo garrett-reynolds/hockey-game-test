@@ -39,9 +39,13 @@ namespace HockeyGame.Core.Tests
         {
             _effects?.Dispose();
             _effects = null;
+            foreach (GoalieView v in _views) v?.Dispose();
+            _views.Clear();
             Object.DestroyImmediate(_root);
             Physics.simulationMode = _oldMode;
         }
+
+        readonly List<GoalieView> _views = new List<GoalieView>(); // every view a test built outside a try/finally, disposed in TearDown
 
         /// <summary>The camera where the Round has the shooter's eye on a middle attack, a second into the shooting window.</summary>
         void PlaceEye()
@@ -268,6 +272,7 @@ namespace HockeyGame.Core.Tests
             var character = new GoalieCharacter(_root.transform);
             Assume.That(character.Present, "needs the goalie model");
             var view = new GoalieView(_root.transform, character);
+            _views.Add(view);
             view.Show(true);
             view.Face(0f, 0f);
             view.SetProgress(0f);
@@ -564,10 +569,11 @@ namespace HockeyGame.Core.Tests
         {
             RinkBuilder.Build(out Camera camera);
             GameObject rink = GameObject.Find("Rink");
+            GoalieView view = null;
             try
             {
                 var character = new GoalieCharacter(rink.transform);
-                var view = new GoalieView(rink.transform, character);
+                view = new GoalieView(rink.transform, character);
                 view.Show(true);
                 using (var effects = new PhysicsShotEffects(rink.transform, camera, new SeededRandom(1), view))
                 {
@@ -583,6 +589,7 @@ namespace HockeyGame.Core.Tests
             }
             finally
             {
+                view?.Dispose();
                 Object.DestroyImmediate(rink);
                 Object.DestroyImmediate(camera.gameObject);
             }

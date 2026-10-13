@@ -377,6 +377,7 @@ namespace HockeyGame
         const string BareSkin = "Skin";
 
         /// <summary>Holds the hidden-parts mesh copies on the model so they are destroyed with the goalie.</summary>
+        [ExecuteAlways]
         sealed class MeshOwner : MonoBehaviour
         {
             public Mesh[] Meshes = new Mesh[0];

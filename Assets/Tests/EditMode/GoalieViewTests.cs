@@ -16,7 +16,14 @@ namespace HockeyGame.Core.Tests
         public void SetUp() { _parent = new GameObject("Rink (test)"); }
 
         [TearDown]
-        public void TearDown() { Object.DestroyImmediate(_parent); }
+        public void TearDown()
+        {
+            foreach (GoalieView v in _views) v?.Dispose();
+            _views.Clear();
+            Object.DestroyImmediate(_parent);
+        }
+
+        readonly List<GoalieView> _views = new List<GoalieView>(); // every view a test built, disposed in TearDown
 
         Transform Group(string name) => _parent.transform.Find(name);
 
@@ -32,6 +39,7 @@ namespace HockeyGame.Core.Tests
         {
             var character = new GoalieCharacter(_parent.transform);
             var view = new GoalieView(_parent.transform, character);
+            _views.Add(view);
             view.Show(true);
 
             Assert.IsFalse(AnyDrawn(Group(GoalieView.BlockName)), "the goalie block is hidden");
@@ -45,6 +53,7 @@ namespace HockeyGame.Core.Tests
         public void Easy_mode_glow_still_shows_with_the_character()
         {
             var view = new GoalieView(_parent.transform, new GoalieCharacter(_parent.transform));
+            _views.Add(view);
             view.Show(true);
             view.ShowGaps(NetFaceGaps.Where((x, y) => x > 70));
             Transform glow = Group("Gap glow");
@@ -57,10 +66,12 @@ namespace HockeyGame.Core.Tests
         {
             var character = new GoalieCharacter(_parent.transform, name => null);
             var view = new GoalieView(_parent.transform, character);
+            _views.Add(view);
             view.Show(true);
             Assert.IsTrue(AnyDrawn(Group(GoalieView.BlockName)));
 
             var noCharacter = new GoalieView(_parent.transform);
+            _views.Add(noCharacter);
             Assert.DoesNotThrow(() => noCharacter.Show(true));
         }
 
@@ -68,6 +79,7 @@ namespace HockeyGame.Core.Tests
         public void The_goalie_block_stands_across_the_Net_Face_where_the_goalie_stands_and_hides_with_him()
         {
             var view = new GoalieView(_parent.transform);
+            _views.Add(view);
             view.Show(true);
             Transform block = Group(GoalieView.BlockName);
             Vector3 before = block.position;
@@ -100,6 +112,7 @@ namespace HockeyGame.Core.Tests
             var reference = new GoalieCharacter(new GameObject("Reference").transform);
             var character = new GoalieCharacter(_parent.transform);
             var view = new GoalieView(_parent.transform, character);
+            _views.Add(view);
             Transform hips = character.Bone(HumanBodyBones.Hips), referenceHips = reference.Bone(HumanBodyBones.Hips);
             view.Show(true);
             reference.ShowReaction(0f);
@@ -127,6 +140,7 @@ namespace HockeyGame.Core.Tests
         {
             var character = new GoalieCharacter(_parent.transform);
             var view = new GoalieView(_parent.transform, character);
+            _views.Add(view);
             view.Show(true);
             view.SetProgress(0f);
             Transform left = character.Bone(HumanBodyBones.LeftUpperArm), right = character.Bone(HumanBodyBones.RightUpperArm);
@@ -160,6 +174,7 @@ namespace HockeyGame.Core.Tests
         {
             var character = new GoalieCharacter(_parent.transform);
             var view = new GoalieView(_parent.transform, character);
+            _views.Add(view);
             var from = new Vector3(0f, 1.15f, -9f);
             view.Show(true);
             foreach (var (x, y, piece) in new[] { (85.0, 85.0, GearPiece.Catcher), (15.0, 85.0, GearPiece.Blocker), (15.0, 10.0, GearPiece.RightPad),
@@ -178,6 +193,7 @@ namespace HockeyGame.Core.Tests
             reference.ShowReaction(0f);
             var character = new GoalieCharacter(_parent.transform);
             var view = new GoalieView(_parent.transform, character);
+            _views.Add(view);
             view.Show(true);
             Transform hand = character.Bone(HumanBodyBones.LeftHand), referenceHand = reference.Bone(HumanBodyBones.LeftHand);
 
@@ -214,6 +230,7 @@ namespace HockeyGame.Core.Tests
         {
             var character = new GoalieCharacter(_parent.transform);
             var view = new GoalieView(_parent.transform, character);
+            _views.Add(view);
             view.Show(true);
             var failures = new List<string>();
             int shots = 0;

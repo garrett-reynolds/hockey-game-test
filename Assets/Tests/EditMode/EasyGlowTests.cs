@@ -19,6 +19,7 @@ namespace HockeyGame.Core.Tests
 
         GameObject _parent;
         readonly List<Object> _made = new List<Object>();
+        readonly List<GoalieView> _views = new List<GoalieView>(); // every view a test built, disposed in TearDown
         readonly Dictionary<Collider, Renderer> _bakedFor = new Dictionary<Collider, Renderer>(); // a baked body collider: its renderer
 
         [SetUp]
@@ -27,6 +28,8 @@ namespace HockeyGame.Core.Tests
         [TearDown]
         public void RemoveRink()
         {
+            foreach (GoalieView v in _views) v?.Dispose();
+            _views.Clear();
             foreach (Object o in _made) if (o != null) Object.DestroyImmediate(o);
             _made.Clear();
             Object.DestroyImmediate(_parent);
@@ -222,6 +225,7 @@ namespace HockeyGame.Core.Tests
         public void The_glow_lights_exactly_the_Gaps_and_nothing_once_they_are_gone()
         {
             var view = new GoalieView(_parent.transform, new GoalieCharacter(_parent.transform));
+            _views.Add(view);
             view.Show(true);
             NetFaceGaps gaps = NetFaceGaps.Where((x, y) => x > 75 && y > 60);
             Assert.Greater(gaps.Count, 0);
@@ -282,6 +286,7 @@ namespace HockeyGame.Core.Tests
             var character = blocks ? new GoalieCharacter(_parent.transform, name => null) : new GoalieCharacter(_parent.transform);
             if (!blocks) Assert.IsTrue(character.Present, "the goalie model loads");
             var view = new GoalieView(_parent.transform, character);
+            _views.Add(view);
             var port = new GoalieCharacterReach(character, Defaults);
             int covered = 0, glowing = 0;
             var problems = new List<string>();
@@ -348,6 +353,7 @@ namespace HockeyGame.Core.Tests
         public void Once_the_goalie_reacts_the_glow_is_depth_tested_so_the_puck_stays_in_front()
         {
             var view = new GoalieView(_parent.transform, new GoalieCharacter(_parent.transform));
+            _views.Add(view);
             view.Show(true);
             view.ShowGaps(NetFaceGaps.Where((x, y) => true));
             Renderer glow = GlowCell(0, 0);

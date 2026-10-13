@@ -159,46 +159,70 @@ namespace HockeyGame.Core.Tests
                 bool hit = shape.Cast(eye, net + new Vector3(d.x, d.y, 0f), 0.01f, out Vector3 at, out _);
                 values.AddRange(new[] { hit ? 1f : 0f, hit ? at.x : 0f, hit ? at.y : 0f, hit ? at.z : 0f });
             }
+            // Lines aimed straight at the left hand and both feet, meeting only the body and clothes: a reach built from the
+            // hidden mesh would let them through where the hands and feet were.
+            foreach (HumanBodyBones b in new[] { HumanBodyBones.LeftHand, HumanBodyBones.LeftFoot, HumanBodyBones.RightFoot, HumanBodyBones.LeftToes, HumanBodyBones.RightToes })
+            {
+                Transform bone = character.Bone(b);
+                if (bone == null) continue;
+                bool hit = shape.Cast(eye, bone.position, 0.01f, out Vector3 at, out _, new[] { GearPiece.Body });
+                values.AddRange(new[] { hit ? 1f : 0f, hit ? at.x : 0f, hit ? at.y : 0f, hit ? at.z : 0f });
+            }
             return values;
         }
 
         [Test]
         public void Hiding_the_hands_and_feet_changes_no_gear_hit_shape_or_reach()
         {
-            var character = new GoalieCharacter(_parent.transform);
-            Assume.That(character.Present, "needs the goalie model");
-            var view = new GoalieView(_parent.transform, character);
+            // A fresh character and view per state, with the state set before the first Show: the character measures the gear and
+            // body once (Prepare), so only a fresh one measures again from the drawn mesh.
+            var parents = new List<GameObject>();
+            var views = new List<GoalieView>();
             try
             {
-                view.Show(true);
                 Vector3 eye = Eyes[0];
-                var done = new HashSet<SaveReaction>();
-                character.ShowReaction(0f);
-                var failures = new List<string>();
-                void Compare(string name, Vector3 net, bool reaction)
+                var states = new List<(string name, List<float> values)>[2];
+                for (int state = 0; state < 2; state++)
                 {
-                    character.ShowUnderGear(false);
-                    List<float> hidden = HitsAndReach(character, view, eye, net, reaction);
-                    character.ShowUnderGear(true);
-                    List<float> shown = HitsAndReach(character, view, eye, net, reaction);
-                    character.ShowUnderGear(false);
-                    if (hidden.Count != shown.Count) { failures.Add(name + ": " + hidden.Count + " values hidden, " + shown.Count + " shown"); return; }
-                    for (int i = 0; i < hidden.Count; i++)
-                        if (Mathf.Abs(hidden[i] - shown[i]) > 1e-5f) { failures.Add(name + ": value " + i + " differs " + hidden[i] + " vs " + shown[i]); return; }
+                    var parent = new GameObject("Rink (test " + state + ")");
+                    parents.Add(parent);
+                    var character = new GoalieCharacter(parent.transform);
+                    Assume.That(character.Present, "needs the goalie model");
+                    character.ShowUnderGear(state == 1); // 0: hidden (the default), 1: the model's own mesh drawn
+                    var view = new GoalieView(parent.transform, character);
+                    views.Add(view);
+                    view.Show(true);
+                    states[state] = new List<(string, List<float>)>();
+                    character.ShowReaction(0f);
+                    states[state].Add(("Ready Stance", HitsAndReach(character, view, eye, NetPoint(50, 50), false)));
+                    var done = new HashSet<SaveReaction>();
+                    foreach (var (x, y) in Saves)
+                    {
+                        SaveReaction reaction = SaveReactions.For(x, y);
+                        if (!done.Add(reaction)) continue;
+                        character.React(reaction, eye, NetPoint(x, y), 0f, true);
+                        character.ShowReaction(1f);
+                        states[state].Add((reaction.ToString(), HitsAndReach(character, view, eye, NetPoint(x, y), true)));
+                    }
                 }
-                Compare("Ready Stance", NetPoint(50, 50), false);
-                foreach (var (x, y) in Saves)
+                var failures = new List<string>();
+                Assert.Greater(states[0].Count, 4, "several poses were compared");
+                Assert.AreEqual(states[0].Count, states[1].Count);
+                for (int p = 0; p < states[0].Count; p++)
                 {
-                    SaveReaction reaction = SaveReactions.For(x, y);
-                    if (!done.Add(reaction)) continue;
-                    character.React(reaction, eye, NetPoint(x, y), 0f, true);
-                    character.ShowReaction(1f);
-                    Compare(reaction.ToString(), NetPoint(x, y), true);
+                    List<float> a = states[0][p].values, b = states[1][p].values;
+                    string name = states[0][p].name;
+                    if (a.Count != b.Count) { failures.Add(name + ": " + a.Count + " values hidden, " + b.Count + " shown"); continue; }
+                    for (int i = 0; i < a.Count; i++)
+                        if (Mathf.Abs(a[i] - b[i]) > 1e-5f) { failures.Add(name + ": value " + i + " differs " + a[i] + " vs " + b[i]); break; }
                 }
                 Assert.IsEmpty(failures, string.Join("\n", failures));
-                Assert.Greater(done.Count, 3, "several Save Reactions were compared");
             }
-            finally { view.Dispose(); }
+            finally
+            {
+                foreach (GoalieView v in views) v.Dispose();
+                foreach (GameObject p in parents) Object.DestroyImmediate(p);
+            }
         }
 
         // The pieces that are hard gear; the rest (body, clothes, mask, visor) is "soft" and measured stiff on each bone.
