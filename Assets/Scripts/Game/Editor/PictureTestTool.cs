@@ -98,6 +98,15 @@ namespace HockeyGame.Editor
             new PushPicture("push-reaction", 0, 0, true),
         };
 
+        /// <summary>(#131) The poses whose pads and skates are pictured (the Ready stance is a move of 0), front and side.</summary>
+        static readonly PushPicture[] PadViews =
+        {
+            new PushPicture("ready", 0, 0, false),
+            new PushPicture("shuffle", -0.2, 0.15, false),
+            new PushPicture("tpush-lead", -0.5, 0.2, false),
+            new PushPicture("tpush-square", -0.5, 0.8, false),
+        };
+        const float SideCameraMetres = 1.6f, SideCameraHeight = 0.45f, SideLookHeight = 0.4f;
         const float PushCameraMetres = 2.5f, PushCameraHeight = 0.55f, PushLookHeight = 0.5f, PushFieldOfView = 50f, PushReactionSet = 0.25f;
         // Far to the glove side (+X): the Shot comes from 3 m out to that side at the net's corner, so the arm alone cannot reach and he
         // slides (0.15 m at set 0.25, 0.6 m at full). From the middle the same aim needs no slide.
@@ -347,7 +356,7 @@ namespace HockeyGame.Editor
             }
 
             /// <summary>Poses the close push camera and the goalie for a push view (a function of the push shown and the set).</summary>
-            public void PosePush(PushPicture p)
+            public void PosePush(PushPicture p, bool side = false)
             {
                 const RoundPhase phase = RoundPhase.ShootingWindow;
                 const double t = WindowSeconds;
@@ -359,7 +368,7 @@ namespace HockeyGame.Editor
                 RinkPoint puck = Breakaway.Puck(AttackSide.Middle, phase, t, Settings);
                 float toShooter = puck.Z >= spot.Z ? 1f : -1f;
                 float x = 0f;
-                if (!p.Reaction)
+                if (!p.Reaction && p.MetresSigned != 0)
                 {
                     var move = new SkatePush(p.MetresSigned, Settings);
                     x = (float)move.Position(p.U * move.TotalSeconds);
@@ -371,8 +380,16 @@ namespace HockeyGame.Editor
                 Goalie.Live(LifeSeconds);
                 Transform cam = Camera.transform;
                 Camera.fieldOfView = PushFieldOfView;
-                cam.position = new Vector3(at.x, at.y + PushCameraHeight, at.z + toShooter * PushCameraMetres);
-                cam.LookAt(new Vector3(at.x, at.y + PushLookHeight, at.z));
+                if (side) // (#131) a close view from the goalie's +X side, at the legs
+                {
+                    cam.position = new Vector3(at.x + SideCameraMetres, at.y + SideCameraHeight, at.z);
+                    cam.LookAt(new Vector3(at.x, at.y + SideLookHeight, at.z));
+                }
+                else
+                {
+                    cam.position = new Vector3(at.x, at.y + PushCameraHeight, at.z + toShooter * PushCameraMetres);
+                    cam.LookAt(new Vector3(at.x, at.y + PushLookHeight, at.z));
+                }
                 if (!p.Reaction) return;
                 var result = new ShotResult(ShotResultKind.Save, true, PushReactionX, PushReactionY, 100, false);
                 Goalie.React(result, new Vector3(PushReactionFromX, 1.15f, (float)puck.Z), SaveReaction.Glove, double.PositiveInfinity, Settings.LateMarginLimitSeconds);
@@ -451,6 +468,13 @@ namespace HockeyGame.Editor
                     rig.PosePushStrip(StripMetres, k * StripEvery);
                     WritePng(texture, Capture(rig.Camera, target, texture, ~0, true), Path.Combine(folder, "push-strip-" + k.ToString("00") + ".png"));
                 }
+                // (#131) Pad and skate views: the Ready stance and the push poses, close from the shooter and from the side.
+                foreach (PushPicture view in PadViews)
+                    foreach (bool side in new[] { false, true })
+                    {
+                        rig.PosePush(view, side);
+                        WritePng(texture, Capture(rig.Camera, target, texture, ~0, true), Path.Combine(folder, "pad-" + (side ? "side-" : "front-") + view.Name + ".png"));
+                    }
                 foreach (PushPicture push in PushViews)
                 {
                     rig.PosePush(push); // picture only, like middle-clean: not in the measures or the comparison

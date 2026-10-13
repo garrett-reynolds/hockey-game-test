@@ -182,7 +182,14 @@ namespace HockeyGame
         {
             { GearPiece.LeftPad, new Vector3(1.12f, 1f, 1f) }, { GearPiece.RightPad, new Vector3(1.12f, 1f, 1f) },
             { GearPiece.Blocker, Vector3.one * 1.05f }, { GearPiece.Catcher, Vector3.one * 1.1f },
+            { GearPiece.LeftSkate, new Vector3(1f, 1f, SkateLength) }, { GearPiece.RightSkate, new Vector3(1f, 1f, SkateLength) },
         };
+
+        /// <summary>
+        /// The skates (#131): x the length in the model file (a real boot is about 30 cm; the file's is 35), and metres back, away
+        /// from the shooter, so the toe sits inside the pad's lower end and never shows through its face.
+        /// </summary>
+        const float SkateLength = 0.88f, SkateBackMetres = 0.04f;
 
         /// <summary>The piece's own axis (0 x, 1 y, 2 z) that lies nearest the world direction, and its sign.</summary>
         static (int axis, float sign) AxisNearest(Transform piece, Vector3 world)
@@ -222,6 +229,7 @@ namespace HockeyGame
                 Vector3 centre = r.bounds.center;
                 r.transform.localScale = Vector3.Scale(r.transform.localScale, scale);
                 r.transform.position += centre - r.bounds.center;
+                if (piece == GearPiece.LeftSkate || piece == GearPiece.RightSkate) r.transform.position -= world[2] * SkateBackMetres;
             }
         }
 

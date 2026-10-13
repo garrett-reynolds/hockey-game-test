@@ -99,6 +99,7 @@ namespace HockeyGame
             {
                 _drift = 0f;
                 _gameTime = 0f;
+                _goalie.NewShot(); // under the cut's full black: the last Shot's legs-only push ends (#131)
             }
             // The goalie carries on from the facing he was shown at (after a Shot: squared up to that shooter), then turns to
             // the next shooter as they skate in: no snap between Shots (#44).

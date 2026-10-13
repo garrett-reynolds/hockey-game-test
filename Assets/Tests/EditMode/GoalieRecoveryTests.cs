@@ -280,6 +280,8 @@ namespace HockeyGame.Core.Tests
                 float worstBoundary = 0f, worstTurn = 0f, lastFacing = 0f, worstLate = 0f;
                 string worstWhere = "", lateWhere = "";
                 var boundaries = new List<string>();
+                var fade = new ShotFade();
+                var notBlackSnaps = new List<string>();
                 round.StartRound();
                 for (int frame = 0; frame < 60 * 80 && !(round.Phase == RoundPhase.RoundOver && afterHold >= 1.5f); frame++)
                 {
@@ -289,6 +291,7 @@ namespace HockeyGame.Core.Tests
                         effects.AfterPhysicsStep(PhysicsShot.StepSeconds);
                     }
                     round.Tick(Frame);
+                    double black = fade.Step(round, Frame); // stepped as BreakawayView steps its own: how black the screen is this frame
                     view.Show(true);
                     if (round.Phase == RoundPhase.ShootingWindow && round.PhaseSecondsElapsed > 0.5 && shot < shots.Length)
                     {
@@ -310,9 +313,11 @@ namespace HockeyGame.Core.Tests
                         float bodyStep = Mathf.Max(gearStep, hipsStep);
                         if (hipsStep > gearStep) bodyWhich = hipsWhich;
                         float skateStep = Most(before, now, out int skateWhich, SkateFrom, SkateTo);
-                        worstHipsBoundary = Mathf.Max(worstHipsBoundary, hipsStep);
-                        if (bodyStep > worstBodyBoundary) { worstBodyBoundary = bodyStep; bodyWhere = phase + " after Shot " + shot + ": the " + Name(bodyWhich); }
-                        if (skateStep > worstSkateBoundary) { worstSkateBoundary = skateStep; skateWhere = phase + " after Shot " + shot + ": the " + Name(skateWhich); }
+                        // Only a snap the player can SEE counts (#131): the cut into SkateIn is under full black since #129 (ShotFade).
+                        if (hipsStep > 0.03f && black < 1.0) notBlackSnaps.Add(phase + " after Shot " + shot + ": " + hipsStep.ToString("F4") + " m, fade " + black.ToString("F2"));
+                        if (black < 1.0) worstHipsBoundary = Mathf.Max(worstHipsBoundary, hipsStep);
+                        if (black < 1.0 && bodyStep > worstBodyBoundary) { worstBodyBoundary = bodyStep; bodyWhere = phase + " after Shot " + shot + ": the " + Name(bodyWhich); }
+                        if (black < 1.0 && skateStep > worstSkateBoundary) { worstSkateBoundary = skateStep; skateWhere = phase + " after Shot " + shot + ": the " + Name(skateWhich); }
                         afterHold = 0f;
                     }
                     else if (afterHold >= 0f) afterHold += Frame;
@@ -321,9 +326,9 @@ namespace HockeyGame.Core.Tests
                     if (before != null && afterHold >= 0f && afterHold < 1.5f)
                     {
                         float move = Most(before, now, out int movedMost);
-                        if (move > worstLate) { worstLate = move; lateWhere = phase + " after Shot " + shot + ", " + afterHold.ToString("F2") + " s in: the " + Name(movedMost); }
+                        if (black < 1.0 && move > worstLate) { worstLate = move; lateWhere = phase + " after Shot " + shot + ", " + afterHold.ToString("F2") + " s in: the " + Name(movedMost); }
                         worstTurn = Mathf.Max(worstTurn, Mathf.Abs(facing - lastFacing));
-                        if (beforeThat != null)
+                        if (beforeThat != null && black < 1.0)
                             for (int p = 0; p < now.Length; p++)
                             {
                                 float change = (now[p] - 2f * before[p] + beforeThat[p]).magnitude;
@@ -345,7 +350,8 @@ namespace HockeyGame.Core.Tests
                 // (#126) Only the two skates may add the push: the pushing skate goes out as the skate-in's first shuffle starts, at most its
                 // full reach (PushOutMetres and PushBackMetres) over PushInSeconds, a frame's share of it (3.5 cm). Every other point keeps the old limits.
                 float pushStep = (float)((GoalieSkatePush.PushOutMetres + GoalieSkatePush.PushBackMetres) / PushPose.PushInSeconds * Frame);
-                Assert.Less(worstHipsBoundary, 0.03f, "no hips snap as a hold ends");
+                Assert.Less(worstHipsBoundary, 0.03f, "no hips snap as a hold ends (a frame under full black is not counted)");
+                Assert.IsEmpty(notBlackSnaps, "every hips step over 0.03 m at a cut is under full black (ShotFade amount 1)");
                 Assert.Less(worstBodyBoundary, 0.03f, "no snap as a hold ends (only the start of the turn to the new shooter): " + bodyWhere);
                 Assert.Less(worstSkateBoundary, 0.03f + pushStep, "no skate snap as a hold ends (the push may add a step): " + skateWhere);
                 // 0.08, not 0.05 (#125): the skate-push model speeds up at PushAccel 40 m/s2 (3.2 m/s, 5.3 cm a frame, 0.08 s in; the
