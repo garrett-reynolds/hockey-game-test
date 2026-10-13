@@ -112,8 +112,11 @@ namespace HockeyGame
         /// <summary>
         /// The first surface the line puck's centre, moving from `from` to `to`, comes within `radius` of (only surfaces it is
         /// moving toward). at: where the centre is then; normal: the surface's, facing the puck. pieces: only these (null: all).
+        /// edgeReach (at most radius): a triangle also counts when the centre meets its plane this near its edge (the puck is round, so
+        /// a thin shape beside the line is met too; with 0 only the line itself crossing a triangle counts, and a shape thinner than
+        /// the gaps between casts slips through, #150).
         /// </summary>
-        public bool Cast(Vector3 from, Vector3 to, float radius, out Vector3 at, out Vector3 normal, string[] pieces = null)
+        public bool Cast(Vector3 from, Vector3 to, float radius, out Vector3 at, out Vector3 normal, string[] pieces = null, float edgeReach = 0f)
         {
             at = to;
             normal = default;
@@ -122,7 +125,7 @@ namespace HockeyGame
             if (length < 1e-7f) return false;
             Vector3 dir = move / length;
             float best = float.PositiveInfinity;
-            CastChunks(from, to, dir, length, radius, pieces, ref best, ref normal);
+            CastChunks(from, to, dir, length, radius, edgeReach, pieces, ref best, ref normal);
             foreach (var (shape, toWorld, toLocal) in _placed)
             {
                 if (!shape._meshes || (pieces != null && !shape.HasAny(pieces))) continue;
@@ -133,7 +136,7 @@ namespace HockeyGame
                 if ((!reach.IntersectRay(new Ray(localFrom, localDir), out float enter) || enter > length || enter >= best)) continue;
                 float before = best;
                 Vector3 n = default;
-                shape.CastChunks(localFrom, toLocal.MultiplyPoint3x4(to), localDir, length, radius, pieces, ref best, ref n);
+                shape.CastChunks(localFrom, toLocal.MultiplyPoint3x4(to), localDir, length, radius, edgeReach, pieces, ref best, ref n);
                 if (best < before) normal = toWorld.MultiplyVector(n);
             }
             if (float.IsPositiveInfinity(best)) return false;
@@ -151,7 +154,7 @@ namespace HockeyGame
         static readonly List<(float enter, int chunk)> NearChunks = new List<(float, int)>(); // CastChunks' scratch list
 
         /// <summary>Cast's test against this set's own triangles: improves best (distance along dir) and its normal.</summary>
-        void CastChunks(Vector3 from, Vector3 to, Vector3 dir, float length, float radius, string[] pieces, ref float best, ref Vector3 normal)
+        void CastChunks(Vector3 from, Vector3 to, Vector3 dir, float length, float radius, float edgeReach, string[] pieces, ref float best, ref Vector3 normal)
         {
             Vector3 move = to - from;
             var sweep = new Bounds((from + to) / 2f, new Vector3(Mathf.Abs(move.x), Mathf.Abs(move.y), Mathf.Abs(move.z)) + Vector3.one * (2f * radius));
@@ -187,7 +190,7 @@ namespace HockeyGame
                     if (d > length || d >= best) continue;
                     Vector3 onPlane = from + dir * d - n * Mathf.Min(height, radius);
                     Vector3 b = _corners[t * 3 + 1], c = _corners[t * 3 + 2];
-                    if (!Inside(onPlane, a, b, c, n))
+                    if (!Inside(onPlane, a, b, c, n) && !(edgeReach > 0f && NearTriangle(onPlane, a, b, c, edgeReach)))
                     {
                         // Not met face-on within the radius; the centre itself may still cross the triangle (it starts close
                         // beside it): stop at the crossing, kept back by the radius as far as the move allows.
@@ -200,6 +203,17 @@ namespace HockeyGame
                     normal = n;
                 }
             }
+        }
+
+        /// <summary>Whether p (on the triangle's plane) is within reach of one of its three edges.</summary>
+        static bool NearTriangle(Vector3 p, Vector3 a, Vector3 b, Vector3 c, float reach) =>
+            NearSegment(p, a, b, reach) || NearSegment(p, b, c, reach) || NearSegment(p, c, a, reach);
+
+        static bool NearSegment(Vector3 p, Vector3 a, Vector3 b, float reach)
+        {
+            Vector3 ab = b - a;
+            float along = Mathf.Clamp01(Vector3.Dot(p - a, ab) / Mathf.Max(ab.sqrMagnitude, 1e-12f));
+            return (p - (a + ab * along)).sqrMagnitude <= reach * reach;
         }
 
         static bool Inside(Vector3 p, Vector3 a, Vector3 b, Vector3 c, Vector3 n)

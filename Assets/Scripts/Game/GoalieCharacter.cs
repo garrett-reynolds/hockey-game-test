@@ -746,26 +746,36 @@ namespace HockeyGame
         /// A Gap leaves this much room (metres) all round the puck's edges (#134). The physics puck meets the goalie's hit shapes (a
         /// box round each piece of gear, a fat capsule on each limb), not the meshes this measure casts at, and his gear starts
         /// moving in as the Shot goes: a cell the puck only just fits would be saved too often. GapShotTests, 90 seeded Shots at the
-        /// centre of a shown Gap: Goal rate by room 0 m 61 %, 0.03 m 69 %, 0.06 m 72 %, 0.09 m 83 % (shown Gaps 15, 13, 11, 9 cells on average).
+        /// centre of a shown Gap: Goal rate by room 0 m 61 %, 0.03 m 69 %, 0.06 m 72 %, 0.09 m 83 % (shown Gaps 15, 13, 11, 9 cells on average). With the thin-shape casts (#150) 93 % (8.4 cells).
         /// </summary>
         public const float GapRoomMetres = 0.09f;
 
-        const int RoomRingPoints = 16;
-        const float RoomCastRadius = 0.04f;
+        const int RoomRingPoints = 16, RoomInnerPoints = 12;
+        const float RoomCastRadius = 0.04f, RoomInnerRadius = 0.08f;
 
-        /// <summary>A ring of points round the puck's line, so that with each cast RoomCastRadius wide their reach ends GapRoomMetres past the puck's edge (and neighbours overlap: nothing as thin as a stick shaft slips between).</summary>
+        /// <summary>
+        /// Points over the disc round the puck's line, each cast RoomCastRadius wide (and meeting a thin shape RoomCastRadius to its
+        /// side, GoalieShape.Cast's edgeReach): one in the middle, an inner ring, and an outer ring whose reach ends GapRoomMetres
+        /// past the puck's edge. Neighbours overlap, so nothing as thin as a stick shaft slips between (#150; the ring alone left
+        /// the inner disc open and, with only the line itself counting, thin shapes between the points).
+        /// </summary>
         static readonly Vector3[] RoomRing = MakeRoomRing();
 
         static Vector3[] MakeRoomRing()
         {
-            float radius = GoalieShape.LinePuckDiameter / 2f + GapRoomMetres + GoalieShape.LinePuckThickness / 2f - RoomCastRadius;
-            var ring = new Vector3[RoomRingPoints];
+            float outer = GoalieShape.LinePuckDiameter / 2f + GapRoomMetres + GoalieShape.LinePuckThickness / 2f - RoomCastRadius;
+            var ring = new List<Vector3> { Vector3.zero };
+            for (int i = 0; i < RoomInnerPoints; i++)
+            {
+                float angle = i * 2f * Mathf.PI / RoomInnerPoints;
+                ring.Add(new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0f) * RoomInnerRadius);
+            }
             for (int i = 0; i < RoomRingPoints; i++)
             {
                 float angle = i * 2f * Mathf.PI / RoomRingPoints;
-                ring[i] = new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0f) * radius;
+                ring.Add(new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0f) * outer);
             }
-            return ring;
+            return ring.ToArray();
         }
 
         /// <summary>
@@ -775,11 +785,18 @@ namespace HockeyGame
         /// </summary>
         bool InThePuckWay(Vector3 from, Vector3 to)
         {
-            if (Touches(from, to)) return true;
             GoalieShape obstacles = Placed();
             from = NearGoalie(from, to);
+            return HitsPuckOrRoom(obstacles, from, to);
+        }
+
+        /// <summary>Whether anything in obstacles meets the plain puck (its middle and edges) or the ring of room casts round it, moving from `from` to `to`.</summary>
+        public static bool HitsPuckOrRoom(GoalieShape obstacles, Vector3 from, Vector3 to)
+        {
+            foreach (Vector3 edge in PuckEdges)
+                if (obstacles.Cast(from + edge, to + edge, GoalieShape.LinePuckThickness / 2f, out _, out _, null)) return true;
             foreach (Vector3 point in RoomRing)
-                if (obstacles.Cast(from + point, to + point, RoomCastRadius, out _, out _, null)) return true;
+                if (obstacles.Cast(from + point, to + point, RoomCastRadius, out _, out _, null, RoomCastRadius)) return true;
             return false;
         }
 

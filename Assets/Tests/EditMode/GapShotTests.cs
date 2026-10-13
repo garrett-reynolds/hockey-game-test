@@ -19,7 +19,7 @@ namespace HockeyGame.Core.Tests
         const float Frame = 1f / 60f;
         const int Seeds = 90;
 
-        /// <summary>The bar (#134): a Shot into the centre of a shown Gap is a Goal at least this often. Measured 83 % after the fix, 59 % before.</summary>
+        /// <summary>The bar (#134): a Shot into the centre of a shown Gap is a Goal at least this often. Measured 83 % after the fix, 59 % before (#134); 93 % with the thin-shape casts (#150).</summary>
         public const double GapGoalBar = 0.75;
 
         /// <summary>A Shot into a cell that is not a Gap is saved at least this often (before and after the fix: 84 %).</summary>
