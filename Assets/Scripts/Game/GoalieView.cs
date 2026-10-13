@@ -208,7 +208,10 @@ namespace HockeyGame
             _bodyShare = _bodyShare < goal ? Mathf.Min(goal, _bodyShare + step) : Mathf.Max(goal, _bodyShare - step);
         }
 
-        float _bodyShare = 1f; // 1 the full push (hips lean, full reach) .. 0 a Save Reaction's push; stepped by ShowPush
+        float _bodyShare = 1f; // 1 the full push (hips lean, full reach) .. 0 a Save Reaction's push; stepped by ShowPush; 1 again when hidden
+
+        /// <summary>How much of the full push the pose shows (1 full, 0 a Save Reaction's legs-only push); back to 1 when hidden (#131).</summary>
+        public float BodyShare => _bodyShare;
 
         /// <summary>The push last given to ShowPush (PushShown.None before any, and after the goalie is hidden).</summary>
         public PushShown Push => _push;
@@ -258,6 +261,7 @@ namespace HockeyGame
             if (!visible)
             {
                 _pushTracker.Reset();
+                _bodyShare = 1f;
                 _push = PushShown.None;
                 _pushMoment = _pushTracker.Now;
             }

@@ -331,6 +331,20 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void The_legs_only_push_share_of_a_Save_Reaction_is_reset_when_the_goalie_is_hidden()
+        {
+            GoalieView view = PushView(out GoalieCharacter character);
+            var shown = new PushShown(PushKind.Shuffle, Skate.Right, PushPhase.Push, 1);
+            Assert.AreEqual(1f, view.BodyShare, "the full push before any Shot");
+            view.React(Result(ShotResultKind.Save, 90, 80), new Vector3(0f, 1.15f, -9f), null, double.PositiveInfinity, LateMarginLimit);
+            for (int i = 0; i < 30; i++) view.ShowPush(shown, PushFrame);
+            Assert.AreEqual(0f, view.BodyShare, 1e-4f, "legs only after a Save Reaction");
+
+            view.Show(false);
+            Assert.AreEqual(1f, view.BodyShare, "hidden: the full push again, not left at 0");
+        }
+
+        [Test]
         public void During_the_Done_frames_after_a_push_the_same_foot_stays_out_and_the_other_does_not_move()
         {
             GoalieView view = PushView(out GoalieCharacter character);
