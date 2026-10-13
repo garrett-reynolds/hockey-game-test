@@ -161,6 +161,12 @@ namespace HockeyGame.Core
         /// <summary>What a group's sound is scaled by in the end: its slider times the master volume, 0 when muted.</summary>
         public static double PlayedVolume(SaveData save, SoundGroup group) => GroupVolume(save, group) * ListenerVolume(save);
 
+        /// <summary>A cue's volume under a group's slider (before the master volume): the one rule for cues and the goal song.</summary>
+        public static double CueVolume(SaveData save, SoundCue cue, SoundGroup group) => Volume(cue) * GroupVolume(save, group);
+
+        /// <summary>The goal song's volume: the horn's cue volume under the Music slider. It follows the slider every frame.</summary>
+        public static double GoalSongVolume(SaveData save) => CueVolume(save, SoundCue.GoalImpact, SoundGroup.Music);
+
         /// <summary>How loud a cue plays (0..1, before the master volume): GoalImpact is the goal horn (and the net hit).</summary>
         public static double Volume(SoundCue cue)
         {
