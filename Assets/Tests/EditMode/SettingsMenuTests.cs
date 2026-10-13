@@ -26,7 +26,7 @@ namespace HockeyGame.Core.Tests
             string[] labels =
             {
                 "Master volume", "Crowd", "Game sounds", "Music", "Mute", "Tick",
-                "Easy mode", "Test Shots on at start", "Replay",
+                "Shots per Round", "Easy mode", "Test Shots on at start", "Replay",
                 "USB port", "End screen input-ignore time", "End screen auto-return time", "Reset best score"
             };
             Assert.AreEqual(labels.Length, menu.RowCount);
@@ -44,13 +44,14 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual("100%", menu.Value(3));
             Assert.AreEqual("OFF", menu.Value(4));
             Assert.AreEqual("ON", menu.Value(5));
-            Assert.AreEqual("OFF", menu.Value(6));
-            Assert.AreEqual("ON", menu.Value(7));
+            Assert.AreEqual("6", menu.Value(6)); // Shots per Round (#146)
+            Assert.AreEqual("OFF", menu.Value(7));
             Assert.AreEqual("ON", menu.Value(8));
-            Assert.AreEqual("Auto", menu.Value(9));
-            Assert.AreEqual("2.0 s", menu.Value(10));
-            Assert.AreEqual("15.0 s", menu.Value(11));
-            Assert.AreEqual("best 3", menu.Value(12));
+            Assert.AreEqual("ON", menu.Value(9));
+            Assert.AreEqual("Auto", menu.Value(10));
+            Assert.AreEqual("2.0 s", menu.Value(11));
+            Assert.AreEqual("15.0 s", menu.Value(12));
+            Assert.AreEqual("best 3", menu.Value(13));
         }
 
         // ---- Two parts, Tab, keys, Reset (#143) ----
@@ -74,7 +75,10 @@ namespace HockeyGame.Core.Tests
         {
             var menu = NewMenu(new SaveData());
             for (int i = 0; i < menu.RowCount; i++)
+            {
+                if (menu.Label(i) == "Reset best score") continue; // says it clears every Shots-per-Round number (#146)
                 Assert.IsNull(menu.Hint(i), menu.Label(i));
+            }
         }
 
         [Test]
@@ -132,14 +136,15 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(SettingsRowKind.Slider, menu.Kind(2));
             Assert.AreEqual(SettingsRowKind.Slider, menu.Kind(3));
             Assert.AreEqual(SettingsRowKind.Toggle, menu.Kind(4));
-            Assert.AreEqual(SettingsRowKind.Toggle, menu.Kind(8));
-            Assert.AreEqual(SettingsRowKind.Choice, menu.Kind(9));
-            Assert.AreEqual(SettingsRowKind.Button, menu.Kind(12));
+            Assert.AreEqual(SettingsRowKind.Slider, menu.Kind(6)); // Shots per Round
+            Assert.AreEqual(SettingsRowKind.Toggle, menu.Kind(9));
+            Assert.AreEqual(SettingsRowKind.Choice, menu.Kind(10));
+            Assert.AreEqual(SettingsRowKind.Button, menu.Kind(13));
             Assert.AreEqual("SOUND", menu.Group(0));
             Assert.AreEqual("SOUND", menu.Group(5));
             Assert.AreEqual("ROUND", menu.Group(6));
-            Assert.AreEqual("ROUND", menu.Group(8));
-            Assert.AreEqual("OPERATOR", menu.Group(9));
+            Assert.AreEqual("ROUND", menu.Group(9));
+            Assert.AreEqual("OPERATOR", menu.Group(10));
         }
 
         [Test]
@@ -155,9 +160,9 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(1.0, save.MasterVolume, 1e-9, "dragged past the end stays at the end");
             menu.SetFraction(0, -0.4);
             Assert.AreEqual(0.0, save.MasterVolume, 1e-9);
-            menu.SetFraction(11, 0.3);
+            menu.SetFraction(12, 0.3);
             Assert.AreEqual(37.0, save.AutoReturnSeconds, 1e-9, "a slider with its own range: 1 to 120 s, 30% along snaps to the whole second 37");
-            Assert.AreEqual(11, menu.Selected, "the mouse selects the row it works");
+            Assert.AreEqual(12, menu.Selected, "the mouse selects the row it works");
         }
 
         [Test]
@@ -168,13 +173,13 @@ namespace HockeyGame.Core.Tests
             menu.Select(4);
             Assert.IsTrue(menu.Activate());
             Assert.IsTrue(save.Mute);
-            menu.Select(8);
+            menu.Select(9);
             Assert.IsTrue(menu.Activate());
             Assert.IsFalse(save.ReplayOn);
-            menu.Select(9);
+            menu.Select(10);
             Assert.IsTrue(menu.Change(1));
             Assert.AreEqual("COM3", save.UsbPort);
-            menu.Select(12);
+            menu.Select(13);
             Assert.IsTrue(menu.Activate());
             Assert.AreEqual(0, save.BestScore);
         }

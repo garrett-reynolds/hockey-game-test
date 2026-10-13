@@ -197,6 +197,8 @@ namespace HockeyGame.Core
         public int ShotNumber;
         /// <summary>The saved best score (the start card shows it).</summary>
         public int BestScore;
+        /// <summary>Shots in the Round (ScreenFlow.ShotsPerRound); 0 reads as the default 6.</summary>
+        public int ShotsPerRound;
         /// <summary>The last finished Shot's speed this Round; null before the first Shot, or when it was Too late (no puck).</summary>
         public double? LastShotSpeedKmh;
         /// <summary>True with the Replay turned off (#145): no Replay and no look-up; the board shows the result word. False (the default) is Replay on.</summary>
@@ -322,6 +324,7 @@ namespace HockeyGame.Core
                 Goals = round.Goals,
                 ShotNumber = round.ShotNumber,
                 BestScore = flow.BestScore,
+                ShotsPerRound = flow.ShotsPerRound,
                 LastShotSpeedKmh = round.LastShotSpeedKmh,
                 NoReplay = !round.Settings.ReplayOn
             });
@@ -342,7 +345,7 @@ namespace HockeyGame.Core
             double landed = input.PhaseSeconds - input.ResultDelaySeconds;
             CameraMode camera = replayHold ? ReplayTiming.CameraAt(landed) : CameraMode.OnNet;
             VideoBoardContent board = camera == CameraMode.Replay ? VideoBoardContent.Replay : VideoBoardFor(input.Phase, result, input.IsNewBest, input.NoReplay);
-            string score = ScoreText(goalsShown, input.ShotNumber); // built once: the Score Box and the Video Board share it
+            string score = ScoreText(goalsShown, input.ShotNumber, ShotsOf(input)); // built once: the Score Box and the Video Board share it
 
             return new ArenaState(
                 board,
@@ -362,11 +365,14 @@ namespace HockeyGame.Core
         }
 
         /// <summary>The Score Box's words, e.g. "GOALS 2 · SHOT 4 OF 6".</summary>
-        public static string ScoreText(int goals, int shotNumber) =>
-            "GOALS " + goals + " · SHOT " + shotNumber + " OF " + Round.ShotsPerRound;
+        public static string ScoreText(int goals, int shotNumber) => ScoreText(goals, shotNumber, Round.ShotsPerRound);
 
-        private static string GoalsOf(int goalsShown) => goalsShown + " OF " + Round.ShotsPerRound + " GOALS";
-        private static string BestOf(ArenaShowInput input) => input.BestScore + " OF " + Round.ShotsPerRound;
+        public static string ScoreText(int goals, int shotNumber, int shotsPerRound) =>
+            "GOALS " + goals + " · SHOT " + shotNumber + " OF " + shotsPerRound;
+
+        private static int ShotsOf(ArenaShowInput input) => input.ShotsPerRound > 0 ? input.ShotsPerRound : Round.ShotsPerRound;
+        private static string GoalsOf(ArenaShowInput input, int goalsShown) => goalsShown + " OF " + ShotsOf(input) + " GOALS";
+        private static string BestOf(ArenaShowInput input) => input.BestScore + " OF " + ShotsOf(input);
 
         private static VideoBoardContent VideoBoardFor(RoundPhase phase, ArenaResult result, bool newBest, bool noReplay)
         {
@@ -399,8 +405,8 @@ namespace HockeyGame.Core
                 case VideoBoardContent.Goal: return new VideoBoardWords("GOAL!", score);
                 case VideoBoardContent.ResultWord: return new VideoBoardWords(RibbonFor(input.Result).Text, score); // Replay off: the ribbon's word (SAVE, OFF THE POST!, OFF THE BAR!)
                 case VideoBoardContent.Replay: return new VideoBoardWords("REPLAY", score); // the Replay picture covers it while the Replay plays
-                case VideoBoardContent.Final: return new VideoBoardWords("FINAL SCORE", GoalsOf(goalsShown) + "\nBEST " + BestOf(input));
-                case VideoBoardContent.NewBest: return new VideoBoardWords("NEW BEST!", GoalsOf(goalsShown));
+                case VideoBoardContent.Final: return new VideoBoardWords("FINAL SCORE", GoalsOf(input, goalsShown) + "\nBEST " + BestOf(input));
+                case VideoBoardContent.NewBest: return new VideoBoardWords("NEW BEST!", GoalsOf(input, goalsShown));
                 case VideoBoardContent.AdSlide:
                 case VideoBoardContent.CalmStill: return new VideoBoardWords("", "");
                 default: // the score, still, from the skate-in to the Shot

@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace HockeyGame.Core
 {
     /// <summary>
-    /// A Round of 6 Shots. Pure logic: time only enters through Tick(realSeconds).
+    /// A Round of ShotCount Shots (3 to 10, set by StartRound(best, shots); the default is 6). Pure logic: time only enters through Tick(realSeconds).
     /// <para>
     /// A Shot on the Net Face is raced by Reach in time: a Save when the goalie's Reach Time is no longer than the puck's
     /// Flight Time, otherwise a Goal (see ShotRace). The goalie-reach port says how his body, in the Shot's Set-up, gets gear
@@ -13,12 +13,14 @@ namespace HockeyGame.Core
     /// </para>
     /// <para>
     /// Random call order (public contract), all on the one IRandomSource:
+    /// (n = ShotCount, the Shots in this Round; the default is 6.)
     /// 1. When a Round starts, the Set-up deck (RoundDecks.SetUps): one Next() for the 4th Set-up Mistake's type (Cheat,
-    ///    Depth, Late Settle by (int)(Next() * 3)), then 5 shuffle rolls on Cheat, Depth, Late Settle, the 4th, Clean,
-    ///    Clean: for card i = 0 to 4, one Next(), and card i swaps with card i + (int)(Next() * (6 - i)). Shot n gets
-    ///    card n - 1.
-    /// 2. Then the Attack Sides (RoundDecks.AttackSides): the same 5 shuffle rolls on Left, Left, Middle, Middle, Right,
-    ///    Right. Shot n gets side n - 1.
+    ///    Depth, Late Settle by (int)(Next() * 3)), then n - 1 shuffle rolls over the deck (n / 3 Clean Set-ups, the rest
+    ///    Mistakes in turn Cheat, Depth, Late Settle, the 4th, Cheat ...): for card i = 0 to n - 2, one Next(), and card i
+    ///    swaps with card i + (int)(Next() * (n - i)). For 6: 5 rolls on Cheat, Depth, Late Settle, the 4th, Clean, Clean.
+    ///    Shot k gets card k - 1.
+    /// 2. Then the Attack Sides (RoundDecks.AttackSides): the same n - 1 shuffle rolls over Left, Middle and Right in equal
+    ///    runs (index i holds side i * 3 / n). For 6: Left, Left, Middle, Middle, Right, Right. Shot k gets side k - 1.
     /// 3. When each Shot starts (Shot 1 right after 2): one Next() for the post side, the left post when Next() &lt; 0.5,
     ///    else the right. It is rolled for every Shot; a Cheat sets toward that post and a Late Settle is still coming
     ///    across from it (on a middle attack too); a Clean Set-up and a Depth do not use it.
@@ -28,7 +30,11 @@ namespace HockeyGame.Core
     /// </summary>
     public sealed class Round
     {
-        public const int ShotsPerRound = 6;
+        /// <summary>The default number of Shots in a Round (SaveData.DefaultShotsPerRound). A Round plays ShotCount, set when it starts.</summary>
+        public const int ShotsPerRound = SaveData.DefaultShotsPerRound;
+
+        /// <summary>Shots in this Round (3 to 10): the number given to StartRound(best, shots), the default 6 until then.</summary>
+        public int ShotCount { get; private set; } = ShotsPerRound;
 
         private readonly IRandomSource _random;
         private readonly RoundSettings _settings;
@@ -54,7 +60,7 @@ namespace HockeyGame.Core
 
         public RoundPhase Phase { get; private set; }
 
-        /// <summary>Current Shot number, 1 to 6. 0 before the Round starts.</summary>
+        /// <summary>Current Shot number, 1 to ShotCount. 0 before the Round starts.</summary>
         public int ShotNumber { get; private set; }
 
         /// <summary>Real seconds left in the shooting window; 0 outside the window.</summary>
@@ -135,7 +141,7 @@ namespace HockeyGame.Core
         /// </summary>
         public double ResultHoldLength =>
             (ReplayTiming.Follows(LastResult) ? ReplayTiming.HoldSeconds : _settings.ResultHoldSeconds)
-            + (ReplayTiming.Follows(LastResult) && ShotNumber < ShotsPerRound ? ShotFade.LeadSeconds : 0);
+            + (ReplayTiming.Follows(LastResult) && ShotNumber < ShotCount ? ShotFade.LeadSeconds : 0);
 
         /// <summary>
         /// Real seconds from the Shot to its Whistle (Shot-to-Whistle, since #108: not the puck's flight); 0 until the Whistle.
@@ -149,17 +155,31 @@ namespace HockeyGame.Core
         /// <summary>How many Shots this Round has had submitted (Too Late is none).</summary>
         public int ShotsSubmitted { get; private set; }
 
-        /// <summary>Starts a Round against the given best score (for example after a reset on the settings screen).</summary>
+        /// <summary>
+        /// Starts a Round of `shots` Shots (clamped to 3 to 10) against the given best score for that number. The game starts every
+        /// Round this way (ScreenFlow), from the save's Shots per Round and the best score kept for it.
+        /// </summary>
+        public void StartRound(int bestScore, int shots)
+        {
+            ShotCount = (int)SaveData.ShotsPerRoundRange.Clamp(shots);
+            StartRound(bestScore);
+        }
+
+        /// <summary>
+        /// Starts a Round against the given best score (for example after a reset on the settings screen), with the SAME number of
+        /// Shots as the last Round started (ShotCount; 6 if none yet). It does not reset ShotCount: use StartRound(best, shots) to change it.
+        /// </summary>
         public void StartRound(int bestScore)
         {
             BestScore = bestScore;
             StartRound();
         }
 
+        /// <summary>Starts a Round with the best score and the number of Shots (ShotCount; 6 if none yet) the Round already holds.</summary>
         public void StartRound()
         {
-            _setUps = RoundDecks.SetUps(_random);
-            _sides = RoundDecks.AttackSides(_random);
+            _setUps = RoundDecks.SetUps(_random, ShotCount);
+            _sides = RoundDecks.AttackSides(_random, ShotCount);
             _results.Clear();
             _speeds.Clear();
             Goals = 0;
@@ -239,7 +259,7 @@ namespace HockeyGame.Core
                     Finish(new ShotResult(ShotResultKind.TooLate, false, 0, 0, 0, false));
                     break;
                 case RoundPhase.ResultHold:
-                    if (ShotNumber >= ShotsPerRound)
+                    if (ShotNumber >= ShotCount)
                     {
                         EndRound();
                     }
