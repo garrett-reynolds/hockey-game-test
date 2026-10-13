@@ -33,6 +33,8 @@ namespace HockeyGame
         Camera _camera;
         RibbonBoards _ribbons; // follow the Arena Show
         RoofLights _roofLights; // pulse in the Goal Show and the new-best show
+        WaterBottle _bottle; // knocked off the net by a hard Goal (#164)
+        readonly BottleKnock _bottleKnock = new BottleKnock();
         Crowd _crowd; // follows the Arena Show (null without the crowd body file)
         VideoBoards _boards;   // follow the Arena Show
         StartShotsView _startShots; // the start screen's wide shots
@@ -61,6 +63,7 @@ namespace HockeyGame
             _ribbons = rink.GetComponentInChildren<RibbonBoards>();
             _roofLights = new RoofLights(rink);
             _crowd = rink.GetComponentInChildren<Crowd>();
+            _bottle = WaterBottle.In(rink);
             _boards = rink.GetComponentInChildren<VideoBoards>();
             GoalieCharacter character = _save.ForceGoalieBlocks ? null : new GoalieCharacter(rink);
             _goalie = new GoalieView(rink, character);
@@ -129,6 +132,7 @@ namespace HockeyGame
             _breakaway.LookUp(show.CameraLookUp);
             _effects.CameraLookUp = show.CameraLookUp; // no hiding the puck while the camera looks up (the next physics steps see this look)
             _replay.Show(show);
+            if (_bottle != null) _bottle.Follow(_bottleKnock.Follow(_flow)); // a hard Goal knocks the bottle off; the next Round puts it back (#164)
 
             bool playing = _flow.Screen == FlowScreen.Playing;
             bool pressed = false; // key or click outside a Round: at most one Press per frame
