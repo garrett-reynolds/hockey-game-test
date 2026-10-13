@@ -304,6 +304,30 @@ namespace HockeyGame.Core.Tests
             finally { File.Delete(path); }
         }
 
+        [Test]
+        public void No_test_or_editor_tool_reads_the_save_file()
+        {
+            // The only readers of save.txt are SaveStore (the running game) and SaveData.Load itself. A test or tool that read the file
+            // would pick up Garrett's tuned goalie values, so this fails if one starts to.
+            string tools = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, "Scripts", "Game", "Editor"));
+            string tests = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, "Tests"));
+            int scanned = 0;
+            foreach (string folder in new[] { tools, tests })
+            {
+                if (!Directory.Exists(folder)) continue;
+                foreach (string file in Directory.GetFiles(folder, "*.cs", SearchOption.AllDirectories))
+                {
+                    string name = Path.GetFileName(file);
+                    if (name == "GoalieDevSettingsTests.cs" || name == "SaveDataTests.cs") continue; // these write temp files on purpose
+                    scanned++;
+                    string text = File.ReadAllText(file);
+                    Assert.IsFalse(text.Contains("SaveStore"), file + " uses SaveStore (the real save.txt)");
+                    Assert.IsFalse(text.Contains("SaveData.Load("), file + " loads a save file");
+                }
+            }
+            Assert.Greater(scanned, 5, "the scan found the tool and test files");
+        }
+
         static string TempFile(string text)
         {
             string path = Path.Combine(Path.GetTempPath(), "hockey-t147-" + System.Guid.NewGuid().ToString("N") + ".txt");

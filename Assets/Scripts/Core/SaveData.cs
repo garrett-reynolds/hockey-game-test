@@ -104,6 +104,8 @@ namespace HockeyGame.Core
         /// <summary>
         /// Puts the Dev part's goalie values on a RoundSettings (clamped to their ranges and linked limits). Called when a Round
         /// starts, never mid-Round. Everything else in the RoundSettings stays as the code made it.
+        /// Side effect: it first tidies THIS SaveData's six goalie values in memory (KeepGoalieLimits: clamp, then hold the links).
+        /// Nothing is saved to the file by that.
         /// </summary>
         public void ApplyGoalieTo(RoundSettings settings)
         {
