@@ -44,7 +44,7 @@ namespace HockeyGame.Core.Tests
         {
             _effects?.Dispose();
             _effects = null;
-            Object.DestroyImmediate(_root);
+            RinkTeardown.Destroy(_root);
             Physics.simulationMode = _oldMode;
         }
 
