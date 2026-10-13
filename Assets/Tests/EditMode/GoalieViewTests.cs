@@ -233,7 +233,41 @@ namespace HockeyGame.Core.Tests
             _views.Add(view);
             view.Show(true);
             var failures = new List<string>();
+            int shots = 0, inTheWay = 0;
+            foreach (var (eyeName, eye) in AllEyes())
+            {
+                float facing = GoalieCharacter.FacingToward(eye);
+                view.Face(facing, facing);
+                Vector3 from = eye + Vector3.down * 0.35f;
+                for (double x = -10; x <= 110; x += 15)
+                for (double y = 5; y <= 110; y += 15)
+                {
+                    bool inside = x >= 0 && x <= 100 && y <= 100;
+                    view.SetProgress(0f);
+                    // A line through the goalie standing in the Ready Stance is no Goal or Miss: the puck would hit him there (#45: he no longer
+                    // pushes 0.8 m out of its way). Only the lines the Ready Stance leaves clear are judged.
+                    if (GoalieTriangles.PuckTouches(GoalieTriangles.Of(character), from, NetPoint(x, y))) { inTheWay++; continue; }
+                    shots++;
+                    view.React(Result(inside ? ShotResultKind.Goal : ShotResultKind.Miss, x, y), from, null, double.PositiveInfinity, LateMarginLimit);
+                    Assert.IsNull(view.ReactionPiece);
+                    view.SetProgress(1f);
+                    if (GoalieTriangles.PuckTouches(GoalieTriangles.Of(character), from, NetPoint(x, y)))
+                        failures.Add(eyeName + " (" + x + ", " + y + ") " + (inside ? "goal" : "miss") + " " + SaveReactions.For(x, y) + " slide " + character.ReactionSlideMetres.ToString("0.00"));
+                }
+            }
+            Assert.IsEmpty(failures, failures.Count + " of " + shots + " touch the puck (" + inTheWay + " lines skipped: in the way in the Ready Stance):\n" + string.Join("\n", failures));
+        }
+
+        [Test]
+        public void A_goal_or_miss_reach_never_pushes_the_goalie_away_from_the_puck_and_moves_him_little()
+        {
+            var character = new GoalieCharacter(_parent.transform);
+            var view = new GoalieView(_parent.transform, character);
+            _views.Add(view);
+            view.Show(true);
+            var failures = new List<string>();
             int shots = 0;
+            float most = 0f;
             foreach (var (eyeName, eye) in AllEyes())
             {
                 float facing = GoalieCharacter.FacingToward(eye);
@@ -245,14 +279,16 @@ namespace HockeyGame.Core.Tests
                     bool inside = x >= 0 && x <= 100 && y <= 100;
                     shots++;
                     view.SetProgress(0f);
+                    float hipsX = character.Bone(HumanBodyBones.Hips).position.x;
                     view.React(Result(inside ? ShotResultKind.Goal : ShotResultKind.Miss, x, y), from, null, double.PositiveInfinity, LateMarginLimit);
-                    Assert.IsNull(view.ReactionPiece);
-                    view.SetProgress(1f);
-                    if (GoalieTriangles.PuckTouches(GoalieTriangles.Of(character), from, NetPoint(x, y)))
-                        failures.Add(eyeName + " (" + x + ", " + y + ") " + (inside ? "goal" : "miss"));
+                    float slide = character.ReactionSlideMetres;
+                    most = Mathf.Max(most, Mathf.Abs(slide));
+                    bool away = (hipsX - NetPoint(x, y).x) * slide > 0f; // the same side as the hips stand of the puck
+                    if (away || Mathf.Abs(slide) > GoalieCharacter.BeatenMaxSlide + 0.0001f)
+                        failures.Add(eyeName + " (" + x + ", " + y + ") " + (inside ? "goal" : "miss") + " slide " + slide.ToString("0.00"));
                 }
             }
-            Assert.IsEmpty(failures, failures.Count + " of " + shots + " touch the puck:\n" + string.Join("\n", failures));
+            Assert.IsEmpty(failures, failures.Count + " of " + shots + " push away or too far (largest " + most.ToString("0.00") + " m):\n" + string.Join("\n", failures));
         }
 
         // ---- The skate push (#126): the view steps it once per frame (ShowPush) and lays it on every pose after the reaction ----

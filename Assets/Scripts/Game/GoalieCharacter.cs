@@ -676,18 +676,18 @@ namespace HockeyGame
 
         /// <summary>How far a beaten hand gets from where it stood toward the puck's line (0: no reach), and how far the goalie may push away from it.</summary>
         static readonly float[] BeatenReach = { 0.5f, 0.25f, 0f };
-        static readonly float[] BeatenSlides = { 0f, 0.2f, 0.4f, MaxSlide, BeatenMaxSlide };
+        static readonly float[] BeatenSlides = { 0f, 0.1f, 0.2f, BeatenMaxSlide };
 
-        /// <summary>A beaten goalie may push this far out of the puck's way (metres; a save reaches at most MaxSlide).</summary>
-        const float BeatenMaxSlide = 0.8f;
+        /// <summary>A beaten goalie moves at most this far (metres), and only toward the puck's line, never away from it (#45).</summary>
+        public const float BeatenMaxSlide = 0.3f;
         static readonly float[] NoGaps = { 0f };
-        readonly float[] _sides = new float[2]; // BeatenPass: away from the puck's side first, then toward it
+        readonly float[] _sides = new float[1]; // BeatenPass: toward the puck's side
         static readonly float[] NoPush = { 1f };
 
         void Beaten(SaveReaction reaction, Vector3 from, Vector3 to, float facing)
         {
             // First the first reach whose gear and body boxes the puck passes clear of (quick, smallest push first); failing
-            // that, the first that truly misses the puck (exact, slower: largest push first and only a few tries); failing both,
+            // that, the first that truly misses the puck (exact, slower: the same order, only a few tries, so the hand reaches stop at no reach in the Ready Stance); failing both,
             // the last one tried. The beaten hand carries on only once the puck has gone by (AfterShot).
             if (BeatenPass(reaction, from, to, facing, true)) return;
             BeatenPass(reaction, from, to, facing, false);
@@ -703,26 +703,35 @@ namespace HockeyGame
             string piece = GearPiece.HandOf(reaction);
             Put(_ready);
             PlaceRoot(facing);
-            float away = Bone(HumanBodyBones.Hips).position.x >= to.x ? 1f : -1f; // push away from the puck's side
-            _sides[0] = away; _sides[1] = -away;
+            _sides[0] = Bone(HumanBodyBones.Hips).position.x >= to.x ? -1f : 1f; // toward the puck's side, never away
             for (int i = 0; i < BeatenSlides.Length; i++)
             {
-                float slide = BeatenSlides[quick ? i : BeatenSlides.Length - 1 - i];
+                float slide = BeatenSlides[i];
                 foreach (float sign in slide == 0f ? NoPush : _sides)
                 foreach (float share in hand ? BeatenReach : NoGaps)
                 {
-                    Put(_ready);
-                    PlaceRoot(facing);
-                    Slide(sign * slide, facing, BeatenMaxSlide);
-                    Vector3 target = OnLine(from, to, piece), stood = GearPoint(piece);
-                    if (share > 0f) ReachHand(reaction == SaveReaction.Glove, piece, Vector3.Lerp(stood, target, share), facing, false);
-                    Look(target);
-                    Finish(null, _readyBody);
+                    PoseBeaten(reaction, from, to, facing, piece, sign * slide, share);
                     if (quick ? !MayTouch(from, to) : !Touches(from, to)) return true;
-                    if (!quick && ++tries >= ExactTries) return false;
+                    if (!quick && ++tries >= ExactTries)
+                    {
+                        PoseBeaten(reaction, from, to, facing, piece, 0f, 0f); // none clear: stay put, no reach (the Ready Stance)
+                        return false;
+                    }
                 }
             }
             return false;
+        }
+
+        /// <summary>One beaten try: the Ready Stance pushed dx across (toward the puck only), the hand share of the way to the puck's line.</summary>
+        void PoseBeaten(SaveReaction reaction, Vector3 from, Vector3 to, float facing, string piece, float dx, float share)
+        {
+            Put(_ready);
+            PlaceRoot(facing);
+            Slide(dx, facing, BeatenMaxSlide);
+            Vector3 target = OnLine(from, to, piece), stood = GearPoint(piece);
+            if (share > 0f) ReachHand(reaction == SaveReaction.Glove, piece, Vector3.Lerp(stood, target, share), facing, false);
+            Look(target);
+            Finish(null, _readyBody);
         }
 
         /// <summary>Cautious and quick: false only when the puck surely passes clear of every gear and body box of the reaction.</summary>
