@@ -25,20 +25,25 @@ namespace HockeyGame.Core
         public double ReactionSeconds = 0.12;
         public double ReactionWobbleSeconds = 0.04;
 
-        // Gear speeds (m/s): hands (glove, blocker), legs (pads, stick), and a push across with the whole body, up to MaxPushMetres.
+        // Gear speeds (m/s): hands (glove, blocker) and legs (pads, stick); a push across takes the skate-push model's time
+        // (ShuffleMaxMetres, PushAccelMetresPerSecondSquared, GlideDecelMetresPerSecondSquared), up to MaxPushMetres.
         public double HandMetresPerSecond = 8;
         public double LegMetresPerSecond = 6;
-        public double PushMetresPerSecond = 4;
         public double MaxPushMetres = 0.6;
+        /// <summary>A move across up to this far is a shuffle (he stays square); a longer one is a T-push (metres).</summary>
+        public double ShuffleMaxMetres = 0.3;
+        /// <summary>How hard the pushing skate speeds him up from rest (m/s squared).</summary>
+        public double PushAccelMetresPerSecondSquared = 40;
+        /// <summary>How hard he slows to a stop while gliding (m/s squared).</summary>
+        public double GlideDecelMetresPerSecondSquared = 20;
 
         /// <summary>How far out from the Net Face (goal line) the goalie sets in a Clean Set-up (metres).</summary>
-        public double NormalDepthMetres = 0.6;
+        public double NormalDepthMetres = 0.2;
 
-        // Set-up Mistakes (see SetUps.Spot): a Cheat sets CheatMetres across toward a post; a Depth sets DepthMetres deeper (back
-        // toward the goal line); a Late Settle is LateSettleMetres across, short of his spot, when the window opens and closes
+        // Set-up Mistakes (see SetUps.Spot): a Cheat sets CheatMetres across toward a post; a Depth sets him on the goal line
+        // (depth 0); a Late Settle is LateSettleMetres across, short of his spot, when the window opens and closes
         // onto it over LateSettleSeconds.
         public double CheatMetres = 0.3;
-        public double DepthMetres = 0.5;
         public double LateSettleMetres = 0.4;
         public double LateSettleSeconds = 1.0;
 

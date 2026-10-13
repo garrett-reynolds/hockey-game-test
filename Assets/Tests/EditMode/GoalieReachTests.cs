@@ -21,17 +21,17 @@ namespace HockeyGame.Core.Tests
         // ---- The Set-up spot (Core) ----
 
         [Test]
-        public void A_Clean_Set_up_stands_on_the_line_from_the_puck_to_the_net_centre_0_6_m_out()
+        public void A_Clean_Set_up_stands_on_the_line_from_the_puck_to_the_net_centre_0_2_m_out()
         {
             var start = new RinkPoint(2.0, 1.1, -6.0);
             RinkPoint spot = SetUps.Spot(SetUp.Clean, AttackSide.Right, 0.5, start, Defaults);
-            Assert.AreEqual(-0.6, spot.Z, Tol);
-            Assert.AreEqual(0.2, spot.X, Tol, "on the line: 0.6 / 6 of the way across");
+            Assert.AreEqual(-0.2, spot.Z, Tol);
+            Assert.AreEqual(2.0 * 0.2 / 6, spot.X, Tol, "on the line: 0.2 / 6 of the way across, to the puck's 2.0 m");
             Assert.AreEqual(0.0, spot.Y, Tol);
 
             RinkPoint middle = SetUps.Spot(SetUp.Clean, AttackSide.Middle, 0, new RinkPoint(0, 1.1, -5), Defaults);
             Assert.AreEqual(0.0, middle.X, Tol);
-            Assert.AreEqual(-0.6, middle.Z, Tol);
+            Assert.AreEqual(-0.2, middle.Z, Tol);
 
             var deeper = new RoundSettings { NormalDepthMetres = 0.4 };
             Assert.AreEqual(-0.4, SetUps.Spot(SetUp.Clean, AttackSide.Right, 0, start, deeper).Z, Tol);
@@ -49,17 +49,31 @@ namespace HockeyGame.Core.Tests
         // ---- Gear speeds (Core) ----
 
         [Test]
-        public void Hands_move_at_8_legs_at_6_and_a_push_across_at_4_m_per_s_up_to_0_6_m()
+        public void Hands_move_at_8_legs_at_6_and_a_push_across_takes_the_skate_push_time_up_to_0_6_m()
         {
             Assert.AreEqual(0.05, GearSpeeds.MoveSeconds(SaveReaction.Glove, 0.4, 0, Defaults), Tol);
             Assert.AreEqual(0.05, GearSpeeds.MoveSeconds(SaveReaction.Blocker, 0.4, 0, Defaults), Tol);
             Assert.AreEqual(0.1, GearSpeeds.MoveSeconds(SaveReaction.Pads, 0.6, 0, Defaults), Tol);
             Assert.AreEqual(0.1, GearSpeeds.MoveSeconds(SaveReaction.Stick, 0.6, 0, Defaults), Tol);
-            Assert.AreEqual(0.1, GearSpeeds.MoveSeconds(SaveReaction.Body, 0.4, 0, Defaults), Tol);
-            // A push across first, then the rest of the glove's travel at hand speed.
-            Assert.AreEqual(0.3 / 4 + 0.2 / 8, GearSpeeds.MoveSeconds(SaveReaction.Glove, 0.5, 0.3, Defaults), Tol);
-            Assert.AreEqual(0.6 / 4, GearSpeeds.MoveSeconds(SaveReaction.Glove, 0.6, 0.6, Defaults), Tol);
+            Assert.AreEqual(SkatePush.SecondsFor(0.4, Defaults), GearSpeeds.MoveSeconds(SaveReaction.Body, 0.4, 0, Defaults), Tol);
+            // A push across first (the skate-push model's time), then the rest of the glove's travel at hand speed.
+            Assert.AreEqual(SkatePush.SecondsFor(0.3, Defaults) + 0.2 / 8, GearSpeeds.MoveSeconds(SaveReaction.Glove, 0.5, 0.3, Defaults), Tol);
+            Assert.AreEqual(SkatePush.SecondsFor(0.6, Defaults), GearSpeeds.MoveSeconds(SaveReaction.Glove, 0.6, 0.6, Defaults), Tol);
             Assert.IsTrue(double.IsPositiveInfinity(GearSpeeds.MoveSeconds(SaveReaction.Glove, 0.8, 0.7, Defaults)), "past the push limit");
+        }
+
+        [Test]
+        public void The_push_across_time_is_the_skate_push_time_for_that_distance()
+        {
+            foreach (double d in new[] { 0.1, 0.3, 0.45, 0.6 })
+                Assert.AreEqual(new SkatePush(d, Defaults).TotalSeconds, GearSpeeds.MoveSeconds(SaveReaction.Glove, d, d, Defaults), Tol, $"{d} m");
+        }
+
+        [Test]
+        public void A_push_is_slower_than_the_old_steady_speed()
+        {
+            // Was 0.6 / 4 = 0.15 s; the skate-push model takes 0.30 s.
+            Assert.Greater(GearSpeeds.MoveSeconds(SaveReaction.Glove, 0.6, 0.6, Defaults), 0.6 / 4);
         }
 
         // ---- The real port (Game) ----
@@ -101,7 +115,7 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void A_high_glove_side_corner_is_won_by_the_glove()
         {
-            // At 0.6 m out a Clean Set-up covers nearly all the Net Face: only the corner is left to reach (from the window's
+            // At 0.2 m out a Clean Set-up covers nearly all the Net Face: only the corner is left to reach (from the window's
             // opening, farthest out: nearer in, he covers it too). The Shot starts on the ice, so the puck's line rises to the
             // corner and the very top of it (y 92 and up) is already behind his glove: the open part is a little lower.
             GoalieCharacterReach port = Port(out _);

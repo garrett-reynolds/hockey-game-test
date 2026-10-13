@@ -47,7 +47,7 @@ namespace HockeyGame
             _goalie = goalie;
             _camera.GetUniversalAdditionalCameraData().renderPostProcessing = true;
             _look = MakeLookVolume(transform);
-            _shuffle = new GoalieShuffle(new RinkPoint(0, 0, -round.Settings.NormalDepthMetres)); // centred, at his normal depth
+            _shuffle = new GoalieShuffle(new RinkPoint(0, 0, -round.Settings.NormalDepthMetres), round.Settings); // centred, at his normal depth
             _steps = new SkateInShuffles(_shuffle.Shown);
             _goalie.Stand(ToVector(_shuffle.Shown));
         }

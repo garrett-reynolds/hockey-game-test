@@ -72,6 +72,7 @@ namespace HockeyGame.Editor
 
         public static readonly PicturePoint[] Points =
         {
+            new PicturePoint("middle-clean", AttackSide.Middle, SetUp.Clean),
             new PicturePoint("left-cheat", AttackSide.Left, SetUp.Cheat(Post.Left)),
             new PicturePoint("middle-depth", AttackSide.Middle, SetUp.Depth),
             new PicturePoint("right-late-settle", AttackSide.Right, SetUp.LateSettle(Post.Left)),
@@ -334,6 +335,13 @@ namespace HockeyGame.Editor
                 foreach (PicturePoint point in Points)
                 {
                     NetFaceGaps gaps = rig.Pose(point);
+                    if (!point.SetUp.IsMistake)
+                    {
+                        // A Clean Set-up has no Gaps to measure: only its picture, to set beside a Set-up Mistake's (not in the measures).
+                        rig.Goalie.ShowGaps(NetFaceGaps.None);
+                        WritePng(texture, Capture(rig.Camera, target, texture, ~0, true), Path.Combine(folder, ViewName(point, false) + ".png"));
+                        continue;
+                    }
                     if (gaps.Count == 0) throw new InvalidOperationException("View " + point.Name + " has no Gaps: pick a point with Gaps.");
                     foreach (bool easyMode in new[] { true, false })
                     {

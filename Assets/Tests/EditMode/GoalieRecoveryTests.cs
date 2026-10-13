@@ -269,7 +269,9 @@ namespace HockeyGame.Core.Tests
                 int shot = 0;
                 float afterHold = -1f; // seconds since the last hold ended (-1: in a hold, or none yet)
                 RoundPhase last = RoundPhase.Idle;
-                Vector3[] before = null;
+                Vector3[] before = null, beforeThat = null;
+                float worstChange = 0f;
+                string changeWhere = "";
                 float worstBoundary = 0f, worstTurn = 0f, lastFacing = 0f, worstLate = 0f;
                 string worstWhere = "", lateWhere = "";
                 var boundaries = new List<string>();
@@ -308,7 +310,14 @@ namespace HockeyGame.Core.Tests
                         float move = Most(before, now, out int movedMost);
                         if (move > worstLate) { worstLate = move; lateWhere = phase + " after Shot " + shot + ", " + afterHold.ToString("F2") + " s in: the " + Name(movedMost); }
                         worstTurn = Mathf.Max(worstTurn, Mathf.Abs(facing - lastFacing));
+                        if (beforeThat != null)
+                            for (int p = 0; p < now.Length; p++)
+                            {
+                                float change = (now[p] - 2f * before[p] + beforeThat[p]).magnitude;
+                                if (change > worstChange) { worstChange = change; changeWhere = phase + " after Shot " + shot + ", " + afterHold.ToString("F2") + " s in: the " + Name(p); }
+                            }
                     }
+                    beforeThat = before;
                     before = now;
                     lastFacing = facing;
                     last = phase;
@@ -319,7 +328,15 @@ namespace HockeyGame.Core.Tests
                 Assert.AreEqual(RoundPhase.RoundOver, round.Phase);
                 Assert.AreEqual(6, boundaries.Count, "five skate-ins and the end screen");
                 Assert.Less(worstBoundary, 0.03f, "no snap as a hold ends (only the start of the turn to the new shooter): " + worstWhere);
-                Assert.Less(worstLate, 0.05f, "smooth from the end of the hold into the next skate-in: " + lateWhere);
+                // 0.08, not 0.05 (#125): the skate-push model speeds up at PushAccel 40 m/s2 (3.2 m/s, 5.3 cm a frame, 0.08 s in; the
+                // Catcher also swings as he turns), not the old 3 m/s cap. Still a smooth start with no snap (the next test is the turn).
+                Assert.Less(worstLate, 0.08f, "smooth from the end of the hold into the next skate-in: " + lateWhere);
+                // Step to step he may change speed by at most the push's PushAccel * dt^2 (40 / 3600 = 1.1 cm: the second difference of
+                // his position), plus the Catcher's swing as the turn to the new shooter starts, which the boundary assert above
+                // already allows at 3 cm. Measured worst: 2.6 cm (the Catcher, on the first frame of the skate-in). Unlike the 8 cm
+                // step bound, this still catches a snap: a snap is a jump of one frame's step, not a change of speed.
+                float allowed = (float)(new RoundSettings().PushAccelMetresPerSecondSquared * Frame * Frame) + 0.03f;
+                Assert.Less(worstChange, allowed, "his speed changes smoothly from step to step: " + changeWhere);
                 Assert.Less(worstTurn, 2f, "turns to the next shooter at most 2 degrees a frame (no snap)");
             }
             finally

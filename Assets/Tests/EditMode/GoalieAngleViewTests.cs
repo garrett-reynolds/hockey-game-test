@@ -44,7 +44,7 @@ namespace HockeyGame.Core.Tests
         public void Through_a_Round_he_plays_the_angle_on_the_skate_in_is_set_on_his_Set_up_spot_at_the_window_and_reacts_from_the_raced_spot()
         {
             // Gliding with the angle: the skate-in shuffles (#70) wait until he is 8 cm off it; BeforeTheShotTests plays them.
-            var settings = new RoundSettings { NormalDepthMetres = 0.6, ReactionWobbleSeconds = 0, SkateInShuffles = false };
+            var settings = new RoundSettings { NormalDepthMetres = 0.2, ReactionWobbleSeconds = 0, SkateInShuffles = false };
             var cameraObject = new GameObject("Camera (test)", typeof(Camera));
             var driver = new GameObject("Breakaway (test)");
             PhysicsShotEffects effects = null;
@@ -105,7 +105,7 @@ namespace HockeyGame.Core.Tests
                         RinkPoint puck = Breakaway.Puck(side, phase, seconds, settings);
                         double off = OffTheLine(view.ShownSpot, puck);
                         if (off > worstOffLine) { worstOffLine = off; offWhere = side + " " + phase + " " + seconds.ToString("F2") + " s: spot " + view.ShownSpot.ToString("F3") + ", puck " + puck; }
-                        if (Math.Abs(view.ShownSpot.z + 0.6f) > 1e-3f) failures.Add(phase + " " + seconds.ToString("F2") + ": depth " + view.ShownSpot.z);
+                        if (Math.Abs(view.ShownSpot.z + 0.2f) > 1e-3f) failures.Add(phase + " " + seconds.ToString("F2") + ": depth " + view.ShownSpot.z);
                         skateChecks++;
                     }
                     if (phase == RoundPhase.ShootingWindow && last != RoundPhase.ShootingWindow)
@@ -133,7 +133,7 @@ namespace HockeyGame.Core.Tests
                 Assert.Less(worstOffLine, 0.01, "on the angle line through the second half of the skate-in and the slow-down: " + offWhere);
                 Assert.Less(worstFacing, 0.5, "squared up to the puck in the window: " + facingWhere);
                 Assert.Less(worstMistakeFacing, 2.0, "nearly squared up in a Set-up Mistake");
-                Assert.Greater(hipsAtWindow[AttackSide.Right] - hipsAtWindow[AttackSide.Left], 0.25f, "his body is across to the left on a left attack, to the right on a right one");
+                Assert.Greater(hipsAtWindow[AttackSide.Right] - hipsAtWindow[AttackSide.Left], 0.08f, "his body is across to the left on a left attack, to the right on a right one");
                 Assert.Less(Math.Abs(hipsAtWindow[AttackSide.Middle] - (hipsAtWindow[AttackSide.Left] + hipsAtWindow[AttackSide.Right]) / 2f), 0.05f, "centred on a middle attack");
             }
             finally

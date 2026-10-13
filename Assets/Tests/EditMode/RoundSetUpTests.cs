@@ -91,12 +91,14 @@ namespace HockeyGame.Core.Tests
             return round;
         }
 
-        [TestCase(0.25, 0.3)]
-        [TestCase(0.5, 0.2)]
-        [TestCase(1.5, 0.0)]
-        public void A_Late_Settle_is_measured_where_he_is_at_the_Shot_moment(double windowSeconds, double shortBy)
+        [TestCase(0.25)]
+        [TestCase(0.5)]
+        [TestCase(1.5)]
+        public void A_Late_Settle_is_measured_where_he_is_at_the_Shot_moment(double windowSeconds)
         {
             var settings = Fixed();
+            // 0.4 m short in 1.0 s (the defaults), closing in a push then a glide (#125).
+            double shortBy = 0.4 * (1 - SkatePush.Fraction(windowSeconds / 1.0, settings));
             var reach = FakeReach.NeverReaches();
             var round = InWindow(reach, settings, AttackSide.Right, SetUp.LateSettle(Post.Left), windowSeconds);
             round.SubmitShotAndWhistle(40, 60, 100, false);
@@ -111,14 +113,14 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void A_Depth_s_Flight_Time_runs_to_where_the_puck_passes_him_deeper_in()
+        public void A_Depth_s_Flight_Time_runs_to_where_the_puck_passes_him_on_the_goal_line()
         {
             var settings = Fixed();
             var clean = InWindow(FakeReach.NeverReaches(), settings, AttackSide.Middle, SetUp.Clean, 1.0);
             var depth = InWindow(FakeReach.NeverReaches(), settings, AttackSide.Middle, SetUp.Depth, 1.0);
             clean.SubmitShotAndWhistle(50, 50, 100, false);
             depth.SubmitShotAndWhistle(50, 50, 100, false);
-            Assert.AreEqual(-0.1, depth.LastRace.Value.Spot.Z, 1e-9);
+            Assert.AreEqual(0.0, depth.LastRace.Value.Spot.Z, 1e-9);
             Assert.Greater(depth.LastRace.Value.FlightSeconds, clean.LastRace.Value.FlightSeconds);
         }
     }

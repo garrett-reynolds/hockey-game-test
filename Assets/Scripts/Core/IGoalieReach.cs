@@ -56,10 +56,10 @@ namespace HockeyGame.Core
         public override string ToString() => InTheWay ? "in the way" : QuickestGear.HasValue ? $"{QuickestGear} in {MoveSeconds:0.000} s" : "no gear reaches";
     }
 
-    /// <summary>How fast the goalie's gear moves (RoundSettings): hands fastest, legs slower, a push across with the whole body slowest.</summary>
+    /// <summary>How fast the goalie's gear moves (RoundSettings): hands fastest, legs slower, a push across with the whole body slowest (the skate-push model's time).</summary>
     public static class GearSpeeds
     {
-        /// <summary>The speed (m/s) of the gear a Save Reaction moves: glove and blocker are hands, pads and stick legs, the body a push.</summary>
+        /// <summary>The speed (m/s) of the gear a Save Reaction moves: glove and blocker are hands, pads and stick legs. The body has none: its move is a push (MoveSeconds).</summary>
         public static double MetresPerSecond(SaveReaction gear, RoundSettings settings)
         {
             switch (gear)
@@ -68,19 +68,21 @@ namespace HockeyGame.Core
                 case SaveReaction.Blocker: return settings.HandMetresPerSecond;
                 case SaveReaction.Pads:
                 case SaveReaction.Stick: return settings.LegMetresPerSecond;
-                default: return settings.PushMetresPerSecond;
+                default: throw new ArgumentOutOfRangeException(nameof(gear), gear, "the body has no steady speed; its move is a skate push");
             }
         }
 
         /// <summary>
-        /// Seconds a gear move takes: the push across (pushMetres) at the push speed, then the rest of the gear's travel
-        /// (gearMetres, measured from the Ready Stance, the push included) at the gear's own speed. Infinity past the push limit.
+        /// Seconds a gear move takes: the push across (pushMetres) takes the skate-push model's time (SkatePush), then the rest of
+        /// the gear's travel (gearMetres, measured from the Ready Stance, the push included) at the gear's own speed. The body's
+        /// whole travel is a push. Infinity past the push limit.
         /// </summary>
         public static double MoveSeconds(SaveReaction gear, double gearMetres, double pushMetres, RoundSettings settings)
         {
             pushMetres = Math.Abs(pushMetres);
             if (pushMetres > settings.MaxPushMetres + 1e-6) return double.PositiveInfinity;
-            return pushMetres / settings.PushMetresPerSecond + Math.Max(0, gearMetres - pushMetres) / MetresPerSecond(gear, settings);
+            if (gear == SaveReaction.Body) return SkatePush.SecondsFor(Math.Max(gearMetres, pushMetres), settings);
+            return SkatePush.SecondsFor(pushMetres, settings) + Math.Max(0, gearMetres - pushMetres) / MetresPerSecond(gear, settings);
         }
     }
 }
