@@ -345,6 +345,23 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void After_a_Save_the_next_Shots_skate_in_push_has_the_full_body_share()
+        {
+            GoalieView view = PushView(out GoalieCharacter character);
+            var shown = new PushShown(PushKind.Shuffle, Skate.Right, PushPhase.Push, 1);
+            view.React(Result(ShotResultKind.Save, 90, 80), new Vector3(0f, 1.15f, -9f), null, double.PositiveInfinity, LateMarginLimit);
+            for (int i = 0; i < 30; i++) view.ShowPush(shown, PushFrame);
+            Assert.AreEqual(0f, view.BodyShare, 1e-4f, "recovery after a Save keeps the legs-only push");
+            Assert.IsNotNull(view.ReactionPiece);
+
+            view.NewShot(); // the cut into the next Shot's skate-in
+            Assert.AreEqual(1f, view.BodyShare, "the full push at once");
+            Assert.IsNull(view.ReactionPiece, "the last Shot's reaction is over");
+            for (int i = 0; i < 30; i++) view.ShowPush(shown, PushFrame);
+            Assert.AreEqual(1f, view.BodyShare, 1e-4f, "and it stays full through the skate-in's pushes");
+        }
+
+        [Test]
         public void During_the_Done_frames_after_a_push_the_same_foot_stays_out_and_the_other_does_not_move()
         {
             GoalieView view = PushView(out GoalieCharacter character);

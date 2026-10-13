@@ -213,6 +213,16 @@ namespace HockeyGame
         /// <summary>How much of the full push the pose shows (1 full, 0 a Save Reaction's legs-only push); back to 1 when hidden (#131).</summary>
         public float BodyShare => _bodyShare;
 
+        /// <summary>
+        /// The cut into a new Shot's skate-in, under full black (#131): the last Shot's reaction state ends (so its legs-only push does
+        /// not carry into this Shot) and the push is the full one at once. Not called in the Result Hold or recovery.
+        /// </summary>
+        public void NewShot()
+        {
+            _reacted = false;
+            _bodyShare = 1f;
+        }
+
         /// <summary>The push last given to ShowPush (PushShown.None before any, and after the goalie is hidden).</summary>
         public PushShown Push => _push;
 
