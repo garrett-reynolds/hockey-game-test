@@ -254,5 +254,118 @@ namespace HockeyGame.Core.Tests
             }
             Assert.IsEmpty(failures, failures.Count + " of " + shots + " touch the puck:\n" + string.Join("\n", failures));
         }
+
+        // ---- The skate push (#126): the view steps it once per frame (ShowPush) and lays it on every pose after the reaction ----
+
+        const double PushFrame = 1.0 / 60;
+
+        GoalieView PushView(out GoalieCharacter character)
+        {
+            character = new GoalieCharacter(_parent.transform);
+            Assume.That(character.Present, "needs the goalie model");
+            var view = new GoalieView(_parent.transform, character);
+            _views.Add(view);
+            view.Show(true);
+            view.SetProgress(0f);
+            return view;
+        }
+
+        /// <summary>The foot bone with the larger world X (Skate.Right).</summary>
+        static Transform RightSkate(GoalieCharacter c)
+        {
+            Transform l = c.Bone(HumanBodyBones.LeftFoot), r = c.Bone(HumanBodyBones.RightFoot);
+            return l.position.x > r.position.x ? l : r;
+        }
+
+        static void Settle(GoalieView view, PushShown shown)
+        {
+            for (int i = 0; i < 20; i++) view.ShowPush(shown, PushFrame);
+        }
+
+        [Test]
+        public void ShowPush_moves_a_foot_and_PoseForPhysics_keeps_it()
+        {
+            GoalieView view = PushView(out GoalieCharacter character);
+            float rest = RightSkate(character).position.x;
+
+            Settle(view, new PushShown(PushKind.Shuffle, Skate.Right, PushPhase.Push, 1));
+            view.SetProgress(0f);
+            view.MoveHitShapes();
+            float out1 = RightSkate(character).position.x;
+            PushPoseMoment moment = view.PushMoment;
+            Assert.Greater(out1 - rest, 0.05f, "the far-side skate is out toward +X");
+            Assert.AreEqual(1.0, moment.PushOut, 1e-9);
+
+            view.SetProgress(0f); // posed again with no ShowPush in between (BreakawayView.PoseForPhysics): the same moment
+            view.MoveHitShapes();
+            Assert.AreEqual(out1, RightSkate(character).position.x, 1e-6f, "the foot stays out");
+            Assert.AreEqual(moment.PushOut, view.PushMoment.PushOut, 0.0, "the pose was not stepped");
+            Assert.AreEqual(moment.LeadTurn, view.PushMoment.LeadTurn, 0.0);
+        }
+
+        [Test]
+        public void During_the_Done_frames_after_a_push_the_same_foot_stays_out_and_the_other_does_not_move()
+        {
+            GoalieView view = PushView(out GoalieCharacter character);
+            Transform l = character.Bone(HumanBodyBones.LeftFoot), r = character.Bone(HumanBodyBones.RightFoot);
+            Transform small = l.position.x < r.position.x ? l : r, large = small == l ? r : l;
+            float smallRest = small.position.x, largeRest = large.position.x;
+
+            Settle(view, new PushShown(PushKind.Shuffle, Skate.Right, PushPhase.Push, 1)); // a move toward -X: the larger-X foot pushes
+            int outFrames = 0;
+            for (int i = 0; i < 20; i++)
+            {
+                view.ShowPush(PushShown.None, PushFrame); // hold, then return
+                view.SetProgress(0f);
+                if (view.PushMoment.PushOut > 0.0)
+                {
+                    outFrames++;
+                    Assert.Greater(large.position.x - largeRest, 0.0f, "frame " + i + ": the pushing foot stays out toward +X");
+                    Assert.AreEqual(smallRest, small.position.x, 1e-5f, "frame " + i + ": the other foot does not move");
+                }
+            }
+            Assert.Greater(outFrames, 10, "the hold and the return were seen");
+        }
+
+        [Test]
+        public void A_hidden_goalie_forgets_the_push()
+        {
+            GoalieView view = PushView(out GoalieCharacter character);
+            float rest = RightSkate(character).position.x;
+            Settle(view, new PushShown(PushKind.TPush, Skate.Right, PushPhase.Push, 1));
+            Assert.Greater(view.PushMoment.PushOut, 0.9);
+
+            view.Show(false);
+            Assert.AreEqual(PushPhase.Done, view.Push.Phase);
+            Assert.AreEqual(0.0, view.PushMoment.PushOut);
+            Assert.AreEqual(0.0, view.PushMoment.LeadTurn);
+
+            view.Show(true);
+            view.SetProgress(0f);
+            Assert.AreEqual(rest, RightSkate(character).position.x, 1e-5f, "shown again, he is in the plain stance");
+        }
+
+        [Test]
+        public void No_push_gives_the_old_pose()
+        {
+            GoalieView view = PushView(out GoalieCharacter character);
+            var before = new Dictionary<HumanBodyBones, (Vector3 position, Quaternion rotation)>();
+            foreach (HumanBodyBones b in System.Enum.GetValues(typeof(HumanBodyBones)))
+            {
+                Transform t = b == HumanBodyBones.LastBone ? null : character.Bone(b);
+                if (t != null) before[b] = (t.position, t.rotation);
+            }
+            Assert.Greater(before.Count, 20, "the bones were read");
+
+            Settle(view, PushShown.None);
+            view.SetProgress(0f);
+
+            foreach (var pair in before)
+            {
+                Transform t = character.Bone(pair.Key);
+                Assert.Less(Vector3.Distance(pair.Value.position, t.position), 1e-5f, pair.Key + " position");
+                Assert.Less(Quaternion.Angle(pair.Value.rotation, t.rotation), 1e-3f, pair.Key + " rotation");
+            }
+        }
     }
 }

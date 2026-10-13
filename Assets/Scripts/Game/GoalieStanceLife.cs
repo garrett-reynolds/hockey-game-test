@@ -62,7 +62,7 @@ namespace HockeyGame
         }
 
         /// <summary>Keeps a foot (and its skate) where it was: two-bone IK on the leg, the knee kept in its own plane (`knee`: where it was, moved with the hips), so a tiny shift gives a tiny change.</summary>
-        static void Plant(GoalieCharacter c, HumanBodyBones upper, HumanBodyBones lower, Transform foot, Vector3 at, Quaternion turn, Vector3 knee)
+        internal static void Plant(GoalieCharacter c, HumanBodyBones upper, HumanBodyBones lower, Transform foot, Vector3 at, Quaternion turn, Vector3 knee)
         {
             Transform u = c.Bone(upper), l = c.Bone(lower);
             if (u == null || l == null) return;

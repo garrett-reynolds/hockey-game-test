@@ -1066,6 +1066,21 @@ namespace HockeyGame
             if (Present) GoalieStanceLife.Apply(this, _model, life, weight);
         }
 
+        // ---- Skate push (#126) -------------------------------------------------------------------------------------------
+
+        /// <summary>
+        /// Adds the skate push to the pose shown (GoalieSkatePush): the far-side skate plants out and back, and on a T-push the lead
+        /// skate turns toward the move. Leg and foot bones only; the body, the Root and the hands are left alone. Does nothing
+        /// without a model. Call after ShowReaction (it sets the legs again).
+        /// </summary>
+        public void ShowPush(PushShown shown, PushPoseMoment moment)
+        {
+            if (Present) GoalieSkatePush.Apply(this, shown, moment);
+        }
+
+        /// <summary>How far the last React slid the body across (metres, + toward the goalie's left in model space): the move the push shows. 0 before any React or without a model.</summary>
+        public float ReactionSlideMetres => Present ? _reaction.ModelPosition.x - _ready.ModelPosition.x : 0f;
+
         // ---- Before the Shot (#70, BeforeTheShot) ------------------------------------------------------------------------
 
         /// <summary>

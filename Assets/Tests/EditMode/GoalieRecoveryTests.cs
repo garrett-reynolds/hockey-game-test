@@ -75,6 +75,9 @@ namespace HockeyGame.Core.Tests
             return points;
         }
 
+        /// <summary>The two skates among the points (the points the push moves): indexes SkateFrom up to SkateTo.</summary>
+        static readonly int SkateFrom = System.Array.IndexOf(Tracked, GearPiece.LeftSkate), SkateTo = System.Array.IndexOf(Tracked, GearPiece.RightSkate) + 1;
+
         static string Name(int i) => i < Tracked.Length ? Tracked[i] : "hips";
 
         /// <summary>The largest distance between matching points, and which one.</summary>
@@ -272,6 +275,8 @@ namespace HockeyGame.Core.Tests
                 Vector3[] before = null, beforeThat = null;
                 float worstChange = 0f;
                 string changeWhere = "";
+                float worstHipsBoundary = 0f, worstBodyBoundary = 0f, worstSkateBoundary = 0f, worstSkateChange = 0f;
+                string bodyWhere = "", skateWhere = "", skateChangeWhere = "";
                 float worstBoundary = 0f, worstTurn = 0f, lastFacing = 0f, worstLate = 0f;
                 string worstWhere = "", lateWhere = "";
                 var boundaries = new List<string>();
@@ -300,6 +305,14 @@ namespace HockeyGame.Core.Tests
                         float step = Most(before, now, out int which);
                         boundaries.Add(phase + " after Shot " + shot + ": " + step.ToString("F4") + " m (" + Name(which) + "), turn " + Mathf.Abs(facing - lastFacing).ToString("F2") + " deg");
                         if (step > worstBoundary) { worstBoundary = step; worstWhere = boundaries[boundaries.Count - 1]; }
+                        // The body is every point but the skates: the gear before them and the hips after them.
+                        float gearStep = Most(before, now, out int bodyWhich, 0, SkateFrom), hipsStep = Most(before, now, out int hipsWhich, SkateTo);
+                        float bodyStep = Mathf.Max(gearStep, hipsStep);
+                        if (hipsStep > gearStep) bodyWhich = hipsWhich;
+                        float skateStep = Most(before, now, out int skateWhich, SkateFrom, SkateTo);
+                        worstHipsBoundary = Mathf.Max(worstHipsBoundary, hipsStep);
+                        if (bodyStep > worstBodyBoundary) { worstBodyBoundary = bodyStep; bodyWhere = phase + " after Shot " + shot + ": the " + Name(bodyWhich); }
+                        if (skateStep > worstSkateBoundary) { worstSkateBoundary = skateStep; skateWhere = phase + " after Shot " + shot + ": the " + Name(skateWhich); }
                         afterHold = 0f;
                     }
                     else if (afterHold >= 0f) afterHold += Frame;
@@ -314,7 +327,9 @@ namespace HockeyGame.Core.Tests
                             for (int p = 0; p < now.Length; p++)
                             {
                                 float change = (now[p] - 2f * before[p] + beforeThat[p]).magnitude;
-                                if (change > worstChange) { worstChange = change; changeWhere = phase + " after Shot " + shot + ", " + afterHold.ToString("F2") + " s in: the " + Name(p); }
+                                bool skate = p >= SkateFrom && p < SkateTo;
+                                if (!skate && change > worstChange) { worstChange = change; changeWhere = phase + " after Shot " + shot + ", " + afterHold.ToString("F2") + " s in: the " + Name(p); }
+                                if (skate && change > worstSkateChange) { worstSkateChange = change; skateChangeWhere = phase + " after Shot " + shot + ", " + afterHold.ToString("F2") + " s in: the " + Name(p); }
                             }
                     }
                     beforeThat = before;
@@ -327,7 +342,12 @@ namespace HockeyGame.Core.Tests
                 Assert.AreEqual(6, shot, "all six Shots taken");
                 Assert.AreEqual(RoundPhase.RoundOver, round.Phase);
                 Assert.AreEqual(6, boundaries.Count, "five skate-ins and the end screen");
-                Assert.Less(worstBoundary, 0.03f, "no snap as a hold ends (only the start of the turn to the new shooter): " + worstWhere);
+                // (#126) Only the two skates may add the push: the pushing skate goes out as the skate-in's first shuffle starts, at most its
+                // full reach (PushOutMetres and PushBackMetres) over PushInSeconds, a frame's share of it (3.5 cm). Every other point keeps the old limits.
+                float pushStep = (float)((GoalieSkatePush.PushOutMetres + GoalieSkatePush.PushBackMetres) / PushPose.PushInSeconds * Frame);
+                Assert.Less(worstHipsBoundary, 0.03f, "no hips snap as a hold ends");
+                Assert.Less(worstBodyBoundary, 0.03f, "no snap as a hold ends (only the start of the turn to the new shooter): " + bodyWhere);
+                Assert.Less(worstSkateBoundary, 0.03f + pushStep, "no skate snap as a hold ends (the push may add a step): " + skateWhere);
                 // 0.08, not 0.05 (#125): the skate-push model speeds up at PushAccel 40 m/s2 (3.2 m/s, 5.3 cm a frame, 0.08 s in; the
                 // Catcher also swings as he turns), not the old 3 m/s cap. Still a smooth start with no snap (the next test is the turn).
                 Assert.Less(worstLate, 0.08f, "smooth from the end of the hold into the next skate-in: " + lateWhere);
@@ -337,6 +357,8 @@ namespace HockeyGame.Core.Tests
                 // step bound, this still catches a snap: a snap is a jump of one frame's step, not a change of speed.
                 float allowed = (float)(new RoundSettings().PushAccelMetresPerSecondSquared * Frame * Frame) + 0.03f;
                 Assert.Less(worstChange, allowed, "his speed changes smoothly from step to step: " + changeWhere);
+                // (#126) The pushing skates start out at that same pace from rest, so their second difference may be one more pushStep.
+                Assert.Less(worstSkateChange, allowed + pushStep, "his skates change speed smoothly from step to step: " + skateChangeWhere);
                 Assert.Less(worstTurn, 2f, "turns to the next shooter at most 2 degrees a frame (no snap)");
             }
             finally

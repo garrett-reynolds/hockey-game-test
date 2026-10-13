@@ -59,6 +59,16 @@ _Avoid_: Travel time
 The goalie's race against the puck: he is expected to get there when the Reach Time is no longer than the Flight Time. It drives how he moves and the hints (Easy mode, the Annoyed Gesture), but it does not decide the Shot: the puck's real path does, and the puck can still beat a gear that arrives in time, or hit one that does not.
 _Avoid_: Save chance
 
+**Skate-push model**:
+How the goalie moves across the crease on his skates: from rest the skate on the far side from the move pushes (he speeds up at the push setting, 40 m/s squared), then he glides (slows at the glide setting, 20 m/s squared) and stops exactly on his spot, with no steady-speed stretch. So a move is a Push then a Glide, and the push is about a third of its time. It times the Late Settle, the Shuffle and the Save Reaction slide, and so the Reach Time.
+_Avoid_: Skating speed, run
+
+**Shuffle**:
+A short move across the crease (up to 0.3 m) done by the skate-push model with the goalie staying square to the shooter: the far skate pushes out and he glides, with no turn.
+
+**T-push**:
+A move longer than a Shuffle: the lead skate turns toward the move (as in a T) and the back skate pushes, then he squares up again as he slows in the Glide.
+
 **Goal**:
 A Shot whose whole puck crosses the goal line, however it got there (straight in, off a post, off the goalie).
 _Avoid_: Score

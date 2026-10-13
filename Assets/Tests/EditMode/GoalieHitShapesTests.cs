@@ -22,6 +22,9 @@ namespace HockeyGame.Core.Tests
 
         public enum Motion { Still, Arriving, Swinging }
 
+        /// <summary>Called after each ShowReaction in Fire: a test lays a pose (the skate push) on top of it. Null: none.</summary>
+        System.Action _afterPose;
+
         // Net Face spots (metres right of the centre, metres up from the ice) on each piece of gear, shooter's view.
         static readonly (string name, float right, float up)[] Targets =
         {
@@ -131,6 +134,7 @@ namespace HockeyGame.Core.Tests
                 PlaceEye((AttackSide)(seed % 3));
                 Vector3 eye = PhysicsPuck.Start(_camera, Defaults);
                 _goalie.ShowReaction(0f);
+                _afterPose?.Invoke();
                 hits.Snap();
                 var aims = new List<(string name, double x, double y)>();
                 if (motion == Motion.Still)
@@ -184,6 +188,7 @@ namespace HockeyGame.Core.Tests
                 float flight = (to - from).magnitude * (GoalieCharacter.StandZ - from.z) / (to.z - from.z) / speed;
                 float phase = motion == Motion.Swinging ? SwingPhase(flight, rng, seed) : 0f;
                 _goalie.ShowReaction(SetAt(motion, phase, flight));
+                _afterPose?.Invoke();
                 hits.Snap();
                 Physics.SyncTransforms();
 
@@ -193,6 +198,7 @@ namespace HockeyGame.Core.Tests
                 for (float t = 0f; t < flight + After; t += Step)
                 {
                     _goalie.ShowReaction(SetAt(motion, t + Step + phase, flight)); // the goalie for the end of this step
+                    _afterPose?.Invoke();
                     hits.Move();
                     Physics.Simulate(Step);
                     shot.Shot.AfterStep(Step);
@@ -395,6 +401,68 @@ namespace HockeyGame.Core.Tests
             Assert.GreaterOrEqual(tally.Shots, 70, "Shots fired");
             Assert.LessOrEqual(tally.Shots, 120, "Shots fired");
             Assert.AreEqual(0, tally.Failures.Count, Report(tally));
+        }
+
+        // A push held on (#126) must not change what the Shots do: the same check on the still goalie, with a skate pushed out.
+        [Test]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
+        public void Every_Shot_at_the_gear_touches_it_and_none_ends_up_through_it_with_a_push_held_on([Values(PushKind.Shuffle, PushKind.TPush)] PushKind kind)
+        {
+            var shown = new PushShown(kind, kind == PushKind.Shuffle ? Skate.Right : Skate.Left, PushPhase.Push, 1);
+            _afterPose = () => _goalie.ShowPush(shown, new PushPoseMoment(1, kind == PushKind.TPush ? 1 : 0));
+            var hits = MakeHits();
+            Tally tally = Fire(Motion.Still, hits, seeds: 3, discretePuck: false, SpeedsKmh);
+
+            Assert.GreaterOrEqual(tally.Shots, 70, "Shots fired");
+            Assert.LessOrEqual(tally.Shots, 120, "Shots fired");
+            Assert.AreEqual(0, tally.Failures.Count, Report(tally));
+        }
+
+        /// <summary>Where the mesh of a gear piece's model object is now (the middle of its measured box, in the world).</summary>
+        Vector3 GearMiddle(string piece)
+        {
+            foreach (MeshRenderer renderer in _goalie.Root.GetComponentsInChildren<MeshRenderer>(true))
+                if (GearPiece.PieceOf(renderer.name) == piece)
+                    return renderer.transform.TransformPoint(renderer.GetComponent<MeshFilter>().sharedMesh.bounds.center);
+            Assert.Fail("no model object for " + piece);
+            return Vector3.zero;
+        }
+
+        [Test]
+        public void The_hit_shapes_follow_the_gear_through_every_push_pose([Values(PushKind.Shuffle, PushKind.TPush)] PushKind kind, [Values(Skate.Left, Skate.Right)] Skate skate)
+        {
+            var hits = MakeHits();
+            _goalie.ShowReaction(0f);
+            hits.Snap();
+            Physics.Simulate(Step);
+            var ready = new Dictionary<Collider, Vector3>();
+            foreach (Collider c in hits.Colliders) ready[c] = c.bounds.center;
+
+            _goalie.ShowPush(new PushShown(kind, skate, PushPhase.Push, 1), new PushPoseMoment(1, kind == PushKind.TPush ? 1 : 0));
+            hits.Move();
+            Physics.Simulate(Step);
+
+            string pushing = null;
+            float largestX = float.MinValue;
+            foreach (string piece in new[] { GearPiece.LeftSkate, GearPiece.RightSkate })
+            {
+                float x = GearMiddle(piece).x;
+                if (skate == Skate.Right ? x > largestX : -x > largestX) { largestX = skate == Skate.Right ? x : -x; pushing = piece; }
+            }
+            // The pushing skate is the one furthest out on the push side; before the push it was too (the other has not moved).
+            bool pushingSkateMoved = false;
+            foreach (Collider c in hits.Colliders)
+            {
+                string piece = c.attachedRigidbody.name.Substring("Hit ".Length);
+                float moved = Vector3.Distance(ready[c], c.bounds.center);
+                bool onLegs = piece == GearPiece.LeftSkate || piece == GearPiece.RightSkate || piece == GearPiece.LeftPad || piece == GearPiece.RightPad;
+                if (onLegs)
+                    Assert.Less(Vector3.Distance(c.bounds.center, GearMiddle(piece)), 0.02f, piece + "'s hit shape is on its gear");
+                else if (piece == GearPiece.Catcher || piece == GearPiece.Blocker || piece == GearPiece.Stick || piece == GearPiece.Mask)
+                    Assert.Less(moved, 0.01f, piece + " is not moved by the push");
+                if (piece == pushing && moved >= 0.01f) pushingSkateMoved = true;
+            }
+            Assert.IsTrue(pushingSkateMoved, "the " + pushing + " hit shape moved at least 1 cm with the pose");
         }
 
         [Test]
