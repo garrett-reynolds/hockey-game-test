@@ -407,7 +407,7 @@ namespace HockeyGame.Core.Tests
             round.Whistle(ShotResultKind.Goal);        // a Goal: 4.5 s with its Replay, from the Whistle
             round.Tick(4.4);
             Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
-            round.Tick(0.2);
+            round.Tick(0.2 + ShotFade.LeadSeconds); // 4.5 s of Replay, then the fade's lead before Shot 2 (#129)
             Assert.AreEqual(RoundPhase.SkateIn, round.Phase);
             Assert.AreEqual(2, round.ShotNumber);
         }

@@ -78,11 +78,13 @@ namespace HockeyGame.Core.Tests
             foreach (string shot in WithReplay)
             {
                 Round round = After(shot);
-                Assert.AreEqual(4.5, round.ResultHoldLength, Tol, shot);
-                round.Tick(4.5 - 0.01); // After has ticked the flight: the hold runs from the Whistle
-                Assert.AreEqual(RoundPhase.ResultHold, round.Phase, shot + ": still holding just before 4.5 s");
+                // The Replay is 4.5 s; before Shots 2 to 6 the hold runs the fade's lead (0.35 s) longer, so the fade starts after the look-back (#129).
+                double hold = ReplayTiming.HoldSeconds + ShotFade.LeadSeconds;
+                Assert.AreEqual(4.85, round.ResultHoldLength, Tol, shot);
+                round.Tick(hold - 0.01); // After has ticked the flight: the hold runs from the Whistle
+                Assert.AreEqual(RoundPhase.ResultHold, round.Phase, shot + ": still holding just before the end");
                 round.Tick(0.02);
-                Assert.AreEqual(RoundPhase.SkateIn, round.Phase, shot + ": the next Shot after 4.5 s");
+                Assert.AreEqual(RoundPhase.SkateIn, round.Phase, shot + ": the next Shot after the hold");
                 Assert.AreEqual(2, round.ShotNumber, shot);
             }
         }
@@ -202,6 +204,8 @@ namespace HockeyGame.Core.Tests
             flow.Tick(1.5);
             Assert.AreEqual(CameraMode.LookBack, ArenaShow.From(flow).Camera);
             flow.Tick(0.26);
+            Assert.AreEqual(RoundPhase.ResultHold, flow.Round.Phase, "the Replay is over; the fade to black runs before Shot 2 (#129)");
+            flow.Tick(ShotFade.LeadSeconds);
             Assert.AreEqual(RoundPhase.SkateIn, flow.Round.Phase);
             Assert.AreEqual(CameraMode.OnNet, ArenaShow.From(flow).Camera);
         }
