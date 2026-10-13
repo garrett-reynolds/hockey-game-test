@@ -12,6 +12,8 @@ namespace HockeyGame.Editor
     /// A picture of Test Mode (#156): the shooter's view in the shooting window with the goalie set, crowd off, taken a long
     /// (600 s) wait into the window to show the camera stands still; and for comparison the same Shot in a Round's window (slow-motion
     /// look). Menu: Hockey Game/Picture Test/Test Mode Picture. Writes only when the folder hockey-wt/_notes exists next to the project's slot.
+    /// The CLI menu call (unity command menu --path ...) reports success even when the tool throws: check the Editor console, or that
+    /// the picture file is new, after every run (#158).
     /// </summary>
     public static class TestModePictureTool
     {

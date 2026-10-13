@@ -189,5 +189,17 @@ namespace HockeyGame.Core.Tests
             foreach (Transform t in _root.transform) if (t.name == NetCloth.ObjectName) cloths++;
             Assert.AreEqual(1, cloths, "only the Shot effects' own cloth is left");
         }
+
+        [Test]
+        public void Disposing_frees_the_material_texture_and_mesh_the_cloth_made()
+        {
+            int textures = Resources.FindObjectsOfTypeAll<Texture2D>().Length;
+            int materials = Resources.FindObjectsOfTypeAll<Material>().Length;
+            int meshes = Resources.FindObjectsOfTypeAll<Mesh>().Length;
+            new NetCloth(_root.transform).Dispose();
+            Assert.AreEqual(textures, Resources.FindObjectsOfTypeAll<Texture2D>().Length, "Net holes is freed");
+            Assert.AreEqual(materials, Resources.FindObjectsOfTypeAll<Material>().Length, "Cloth Netting is freed");
+            Assert.AreEqual(meshes, Resources.FindObjectsOfTypeAll<Mesh>().Length, "the netting mesh is freed");
+        }
     }
 }

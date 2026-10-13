@@ -12,7 +12,7 @@ namespace HockeyGame.Core.Tests
         public void MakeRink() => _rink = new GameObject("Rink");
 
         [TearDown]
-        public void RemoveRink() => Object.DestroyImmediate(_rink);
+        public void RemoveRink() => RinkTeardown.Destroy(_rink);
 
         static ArenaState At(RoundPhase phase, ArenaResult result = ArenaResult.None) =>
             ArenaShow.At(new ArenaShowInput { Phase = phase, PhaseSeconds = 1.0, Result = result, ShotNumber = 1 });

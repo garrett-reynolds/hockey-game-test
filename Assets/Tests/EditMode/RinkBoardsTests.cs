@@ -13,7 +13,7 @@ namespace HockeyGame.Core.Tests
         public void MakeRink() => _rink = new GameObject("Rink");
 
         [TearDown]
-        public void RemoveRink() => Object.DestroyImmediate(_rink);
+        public void RemoveRink() => RinkTeardown.Destroy(_rink);
 
         static Bounds WorldBounds(GameObject root)
         {
@@ -110,7 +110,7 @@ namespace HockeyGame.Core.Tests
         {
             RinkBoards.Build(_rink.transform, name => null);
             Assert.IsFalse(RinkBoards.Present(_rink.transform));
-            Object.DestroyImmediate(_rink);
+            RinkTeardown.Destroy(_rink);
             _rink = new GameObject("Rink");
             RinkBoards.Build(_rink.transform, name => FakeBoardsFile());
             Assert.IsTrue(RinkBoards.Present(_rink.transform));

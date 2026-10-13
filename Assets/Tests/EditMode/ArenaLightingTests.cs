@@ -35,7 +35,7 @@ namespace HockeyGame.Core.Tests
         [TearDown]
         public void Restore()
         {
-            Object.DestroyImmediate(_rink);
+            RinkTeardown.Destroy(_rink);
             RenderSettings.ambientMode = _ambientMode;
             RenderSettings.ambientSkyColor = _sky;
             RenderSettings.ambientEquatorColor = _equator;

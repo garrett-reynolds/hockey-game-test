@@ -165,7 +165,7 @@ namespace HockeyGame.Core.Tests
             finally
             {
                 Object.DestroyImmediate(driver);
-                Object.DestroyImmediate(rink);
+                RinkTeardown.Destroy(rink);
             }
         }
 
