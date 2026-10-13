@@ -11,6 +11,6 @@ Garrett's Play check on 2026-10-12 found a goalie set 0.6 m out too far from the
 
 ## Consequences
 
-- The Depth gap is 0.2 m, smaller than before (0.5 m), so it shows less net high and in the corners.
+- The Depth gap is 0.2 m, smaller than before (0.45 m), so it shows less net high and in the corners.
 - Reach Time and the Easy-mode hints follow from the new spots with no other change.
 - Fallback: if the gap is too small to read in Play, Garrett picks again and the Depth mistake changes to something else readable.

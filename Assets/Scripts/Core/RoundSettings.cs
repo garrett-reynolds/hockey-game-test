@@ -30,6 +30,12 @@ namespace HockeyGame.Core
         public double LegMetresPerSecond = 6;
         public double PushMetresPerSecond = 4;
         public double MaxPushMetres = 0.6;
+        /// <summary>A move across up to this far is a shuffle (he stays square); a longer one is a T-push (metres).</summary>
+        public double ShuffleMaxMetres = 0.3;
+        /// <summary>How hard the pushing skate speeds him up from rest (m/s squared).</summary>
+        public double PushAccelMetresPerSecondSquared = 40;
+        /// <summary>How hard he slows to a stop while gliding (m/s squared).</summary>
+        public double GlideDecelMetresPerSecondSquared = 20;
 
         /// <summary>How far out from the Net Face (goal line) the goalie sets in a Clean Set-up (metres).</summary>
         public double NormalDepthMetres = 0.2;
