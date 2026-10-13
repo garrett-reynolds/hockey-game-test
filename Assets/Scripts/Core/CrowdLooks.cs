@@ -32,12 +32,14 @@ namespace HockeyGame.Core
         public readonly int GoalAct;
         /// <summary>Whether the fan's "oh!" tips the head back.</summary>
         public readonly bool OhBack;
+        /// <summary>Whether the fan claps while its zone claps (the start screen, Round over); otherwise it sits still. Fixed per fan.</summary>
+        public readonly bool Claps;
 
         public FanLook(double phase, int body, double height, bool teamTop, ArenaColour shirt, ArenaColour skin, ArenaColour hair, bool waves,
-                       int goalAct = CrowdLooks.GoalAct.FistPumpLeft, bool ohBack = false)
+                       int goalAct = CrowdLooks.GoalAct.FistPumpLeft, bool ohBack = false, bool claps = true)
         {
             Phase = phase; Body = body; Height = height; TeamTop = teamTop; Shirt = shirt; Skin = skin; Hair = hair; Waves = waves;
-            GoalAct = goalAct; OhBack = ohBack;
+            GoalAct = goalAct; OhBack = ohBack; Claps = claps;
         }
     }
 
@@ -61,6 +63,8 @@ namespace HockeyGame.Core
         public const double SeatedOnGoalShare = 0.2;
         /// <summary>The share of fans whose "oh!" tips the head back (HitRecieve_2) rather than the small lean back.</summary>
         public const double OhBackShare = 0.3;
+        /// <summary>The share of fans who clap while their zone claps (the start screen, Round over); the rest sit still. A starting value to tune.</summary>
+        public const double ClapShare = 0.6;
 
         /// <summary>The 17 body types: the 12 Modular outfits (Crowd.BodyFiles' rows: 0 man in a hoodie, 1 jacket, 2 suit,
         /// 3 worker, 4 punk, 5 farmer, 6 woman in a top, 7 suit, 8 dress, 9 worker, 10 punk, 11 adventurer) and five teens,
@@ -154,7 +158,8 @@ namespace HockeyGame.Core
                 int goalAct = g < SeatedOnGoalShare / 2 ? GoalAct.SeatedClap : g < SeatedOnGoalShare ? GoalAct.SeatedStill
                             : random.Next(2) == 0 ? GoalAct.FistPumpLeft : GoalAct.FistPumpRight;
                 bool ohBack = random.NextDouble() < OhBackShare;
-                looks[i] = new FanLook(phase, body, height, teamTop, teamTop ? homeJersey : default, skin, hair, waves, goalAct, ohBack);
+                bool claps = random.NextDouble() < ClapShare;
+                looks[i] = new FanLook(phase, body, height, teamTop, teamTop ? homeJersey : default, skin, hair, waves, goalAct, ohBack, claps);
                 done[i] = true;
             }
             return looks;

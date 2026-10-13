@@ -24,7 +24,7 @@ struct Fan
     float4 skin;  // rgb, w zone
     float4 hair;  // rgb, w height
     float4 look;  // x body shape, z waves (1) or not (0), w team top (1) or not (0)
-    float4 acts;  // x the Goal act (CrowdLooks.GoalAct), y the head-back oh (1) or not (0)
+    float4 acts;  // x the Goal act (CrowdLooks.GoalAct), y the head-back oh (1) or not (0), z claps on a clap (1) or sits still (0)
 };
 StructuredBuffer<Fan> _Fans;
 float _FanStart;          // this draw's first fan in _Fans
@@ -53,6 +53,7 @@ uint FanClip(uint clip, Fan f)
     if (clip == CLIP_STAND_CHEER)
         return act == 1 ? CLIP_STAND_CHEER_RIGHT : act == 2 ? CLIP_CLAP : act == 3 ? CLIP_SIT_IDLE : CLIP_STAND_CHEER;
     if (clip == CLIP_OH && f.acts.y > 0.5) return CLIP_OH_BACK;
+    if (clip == CLIP_CLAP && f.acts.z < 0.5) return CLIP_SIT_IDLE;
     return clip;
 }
 

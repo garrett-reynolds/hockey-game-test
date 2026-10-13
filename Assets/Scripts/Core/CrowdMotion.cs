@@ -65,9 +65,10 @@ namespace HockeyGame.Core
         public static bool Loops(CrowdClip clip) => clip != CrowdClip.Oh && clip != CrowdClip.Miss && clip != CrowdClip.OhBack;
 
         /// <summary>The clip one fan plays while its zone plays zoneClip: on a Goal the fan's GoalAct (the right-hand
-        /// pump, a seated clap, or sitting still), on an oh its OhBack pick; every other clip as the zone. The crowd
+        /// pump, a seated clap, or sitting still), on an oh its OhBack pick, on a clap (the start screen, Round over) a clap
+        /// or, for the fans who do not clap (FanLook.Claps), sit-idle; every other clip as the zone. The crowd
         /// shader's FanClip (CrowdFanData.hlsl) is a copy of this. The Wave pick stays in the shader (FanLook.Waves).</summary>
-        public static CrowdClip FanClip(CrowdClip zoneClip, int goalAct, bool ohBack)
+        public static CrowdClip FanClip(CrowdClip zoneClip, int goalAct, bool ohBack, bool claps)
         {
             if (zoneClip == CrowdClip.StandCheer)
                 switch (goalAct)
@@ -78,6 +79,7 @@ namespace HockeyGame.Core
                     default: return CrowdClip.StandCheer;
                 }
             if (zoneClip == CrowdClip.Oh && ohBack) return CrowdClip.OhBack;
+            if (zoneClip == CrowdClip.Clap && !claps) return CrowdClip.SitIdle;
             return zoneClip;
         }
 
