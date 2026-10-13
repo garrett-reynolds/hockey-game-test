@@ -526,7 +526,7 @@ namespace HockeyGame
             bool blocked = false;
             bool reaches = InReadyStanceAt(spot, facing, () =>
             {
-                blocked = Touches(from, to);
+                blocked = InThePuckWay(from, to);
                 Vector3 readyHips = Bone(HumanBodyBones.Hips).position;
                 var start = new Dictionary<string, Vector3>();
                 foreach (var kv in _gearShapes) start[kv.Key] = GearPoint(kv.Key);
@@ -560,7 +560,7 @@ namespace HockeyGame
             }
             InReadyStanceAt(spot, facing, () =>
             {
-                for (int i = 0; i < to.Length; i++) inTheWay[i] = Touches(from, to[i]);
+                for (int i = 0; i < to.Length; i++) inTheWay[i] = InThePuckWay(from, to[i]);
                 return true;
             });
         }
@@ -741,6 +741,40 @@ namespace HockeyGame
             Vector3.zero, Vector3.left * (GoalieShape.LinePuckDiameter / 2f), Vector3.right * (GoalieShape.LinePuckDiameter / 2f),
             Vector3.up * (GoalieShape.LinePuckDiameter / 2f), Vector3.down * (GoalieShape.LinePuckDiameter / 2f),
         };
+
+        /// <summary>
+        /// A Gap leaves this much room (metres) all round the puck's edges (#134). The physics puck meets the goalie's hit shapes (a
+        /// box round each piece of gear, a fat capsule on each limb), not the meshes this measure casts at, and his gear starts
+        /// moving in as the Shot goes: a cell the puck only just fits would be saved too often. GapShotTests, 90 seeded Shots at the
+        /// centre of a shown Gap: Goal rate by room 0 m 61 %, 0.03 m 69 %, 0.06 m 72 %, 0.09 m 83 % (shown Gaps 15, 13, 11, 9 cells on average).
+        /// </summary>
+        public const float GapRoomMetres = 0.09f;
+
+        /// <summary>The puck's middle and a ring of eight points GapRoomMetres beyond its edges (offsets from its centre).</summary>
+        static Vector3[] RoomEdges()
+        {
+            float radius = GoalieShape.LinePuckDiameter / 2f + GapRoomMetres;
+            var edges = new Vector3[9];
+            for (int i = 0; i < 8; i++)
+            {
+                float angle = i * Mathf.PI / 4f;
+                edges[i + 1] = new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0f) * radius;
+            }
+            return edges;
+        }
+
+        /// <summary>
+        /// Whether his gear or body (as last placed) is in the puck's way with room to spare: Touches, with the puck's ring of
+        /// edges GapRoomMetres wider. The Gaps and Reach's inTheWay use this, so a cell is a Gap exactly when nothing is in its way.
+        /// </summary>
+        bool InThePuckWay(Vector3 from, Vector3 to)
+        {
+            GoalieShape obstacles = Placed();
+            from = NearGoalie(from, to);
+            foreach (Vector3 edge in RoomEdges())
+                if (obstacles.Cast(from + edge, to + edge, GoalieShape.LinePuckThickness / 2f, out _, out _, null)) return true;
+            return false;
+        }
 
         /// <summary>The reaction's gear and body as placed now (AddReaction), in one GoalieShape reused for every check.</summary>
         GoalieShape Placed()
