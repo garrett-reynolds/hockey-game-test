@@ -38,7 +38,7 @@ namespace HockeyGame
 
         [Header("Centre-ice logo and roof banners (art in Assets/Resources/Ads)")]
         public string CentreIceLogo;
-        /// <summary>Banners hung from the roof over the far end, left to right; none in the League Skin.</summary>
+        /// <summary>Banners hung round the near end beside the Video Board (RoofBanners), left to right; the League Skin has its award and retired jersey banners (BannerArt).</summary>
         public string[] RoofBanners = new string[0];
 
         [Header("Crowd")]
