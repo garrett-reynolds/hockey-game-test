@@ -47,6 +47,7 @@ Shader "Hockey Game/LED Board"
             SAMPLER(sampler_LedPointClamp); // an inline sampler state: point filter, clamped (the picture is read once per cell)
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseMap_ST;
+                float4 _BaseMap_TexelSize;
                 half4 _BaseColor;
                 float _CellSize;
                 float _GapShare;
@@ -70,6 +71,7 @@ Shader "Hockey Game/LED Board"
             {
                 Varyings output;
                 // TextMesh draws each letter as a quad of 4 vertices in turn round the corners, so the vertex number says which corner.
+                // Guarded by LedBoardLookTests.Words_show_no_thin_bars_at_any_grid_phase and ...Flat_letters_keep_their_cap_and_baseline_rows... (a wrong order lights or drops cells).
                 uint k = vertexId & 3u;
                 output.corner = float2(k == 1u || k == 2u ? 1.0 : 0.0, k >= 2u ? 1.0 : 0.0);
                 float3 positionWS = TransformObjectToWorld(input.positionOS.xyz);
@@ -125,12 +127,20 @@ Shader "Hockey Game/LED Board"
                     // The cell is lit only where its centre is inside a letter; elsewhere the board behind shows.
                     // A cell on the edge of a letter's quad whose centre is outside the quad would read the neighbouring letter's pixels.
                     float2 cornerCentre = input.corner + dcdx * steps.x + dcdy * steps.y;
-                    // Round letters (O, S, 6) are drawn 1 pixel below the baseline and above the cap line, which a cell centre would light as a
-                    // stray cell; the quad is also trimmed by 1.5 of its 50 pixels (0.03) top and bottom, so only a real letter row shows.
-                    float2 trim = float2(0.0, 0.03);
-                    float2 outside = step(cornerCentre, trim) + step(1.0 - trim, cornerCentre);
+                    float2 outside = step(cornerCentre, 0.0) + step(1.0, cornerCentre);                    // Round capitals and digits (O S 6 G) overshoot the line of the flat ones (E L T 4) by about 1 atlas pixel below the baseline
+                    // and up to 1 above the cap line: a cell centre in that sliver would light a stray cell under or over the line. Their quad is
+                    // 49 or 50 pixels tall (a flat capital's is 48), with 2 pixels under the baseline. So in a quad of 49 or 50 pixels a cell
+                    // is lit only from 2.5 pixels up (where the flat capitals' ink starts, about half a pixel above the baseline) to 48 (the
+                    // cap line). Flat capitals are not touched. Measured for Liberation Sans Bold at the Video Board's font size of 64
+                    // (VideoBoards.FontSize); other glyphs (lower case, punctuation) are only held to their quad.
+                    float detC = dcdx.x * dcdy.y - dcdx.y * dcdy.x;
+                    float2 uvPerCornerY = abs(detC) > 1e-20 ? (duvdy * dcdx.x - duvdx * dcdy.x) / detC : float2(0, 0);
+                    float quadHeight = length(uvPerCornerY * _BaseMap_TexelSize.zw); // the quad's height in atlas pixels
+                    float fromBottom = (1.0 - cornerCentre.y) * quadHeight;           // the quad's corner.y is 1 at its bottom
+                    float overshooting = step(48.5, quadHeight) * step(quadHeight, 50.5);
+                    float offLine = overshooting * (step(fromBottom, 2.5) + step(48.0, fromBottom));
                     half glyph = SAMPLE_TEXTURE2D_LOD(_BaseMap, sampler_BaseMap, uvCentre, 0).a * input.color.a;
-                    clip(glyph - 0.5 - (outside.x + outside.y));
+                    clip(glyph - 0.5 - (outside.x + outside.y + offLine));
                     return half4(lerp(_GapColour.rgb, input.color.rgb, lit), 1);
                 #else
                     half3 picture = _BaseColor.rgb * SAMPLE_TEXTURE2D_LOD(_BaseMap, sampler_LedPointClamp, saturate(uvCentre), 0).rgb;
