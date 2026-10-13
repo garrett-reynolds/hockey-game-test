@@ -17,6 +17,8 @@ namespace HockeyGame.Core.Tests
         const float Step = PhysicsShot.StepSeconds;
         static readonly RoundSettings Defaults = new RoundSettings();
 
+        UnityEngine.SceneManagement.Scene _scene; // a scene of its own, so its physics scene is too (see SetUp)
+        PhysicsScene _physics;
         SimulationMode _oldMode;
         GameObject _root;
         Camera _camera;
@@ -27,7 +29,14 @@ namespace HockeyGame.Core.Tests
         {
             _oldMode = Physics.simulationMode;
             Physics.simulationMode = SimulationMode.Script;
+            // A fresh physics scene for each test. The Editor's default physics scene remembers every collider ever made or
+            // destroyed in it, and PhysX's order of contacts follows that history: the same seeded Shot then bounced about the
+            // net's catch differently from run to run (flaky "ended at" in An_open_net_Shot_is_a_Goal...). A new scene has none.
+            _scene = UnityEditor.SceneManagement.EditorSceneManager.NewPreviewScene();
+            _physics = _scene.GetPhysicsScene();
+            Assert.IsTrue(_physics != Physics.defaultPhysicsScene, "the preview scene has no physics scene of its own");
             _root = new GameObject("Physics Shot (test)");
+            UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(_root, _scene);
             ShotColliders.Build(_root.transform);
             _camera = new GameObject("Shooter Camera (test)", typeof(Camera)).GetComponent<Camera>();
             _camera.transform.SetParent(_root.transform, false);
@@ -42,6 +51,8 @@ namespace HockeyGame.Core.Tests
             foreach (PhysicsShot shot in _shots) shot.Dispose();
             _shots.Clear();
             Object.DestroyImmediate(_root);
+            if (_scene.IsValid()) UnityEditor.SceneManagement.EditorSceneManager.ClosePreviewScene(_scene);
+            _scene = default;
             Physics.simulationMode = _oldMode;
         }
 
@@ -60,6 +71,7 @@ namespace HockeyGame.Core.Tests
         sealed class Flight
         {
             public PhysicsShot Shot;
+            public readonly List<Vector3> Trace = new List<Vector3>(); // the puck, after each step
             public double CrossedAt = double.NaN; // seconds after the Shot the puck's centre passed the Net Face plane
             public Vector3 CrossedWhere;
             public bool TouchedByNetFace;         // hit something (not the ice) before or as it crossed the Net Face plane
@@ -87,7 +99,7 @@ namespace HockeyGame.Core.Tests
             bool wentIn = false;
             for (int i = 0; i < Math.Round(seconds / Step); i++)
             {
-                Physics.Simulate(Step);
+                _physics.Simulate(Step);
                 bool whistled = shot.AfterStep(Step);
                 Vector3 p = shot.Puck.position;
                 if (double.IsNaN(flight.CrossedAt) && p.z >= 0f)
@@ -104,6 +116,7 @@ namespace HockeyGame.Core.Tests
                     if (p.y > 1f && !GeometryUtility.TestPlanesAABB(planes, new Bounds(p, Vector3.one * PhysicsPuck.Diameter)))
                         flight.OutOfViewInTheAir = true;
                 }
+                flight.Trace.Add(p);
                 if (p.y > flight.Highest.y) flight.Highest = p;
                 if (!flight.WentOutside && flight.Highest.y < OverTheGlass && OutsideBoards(p)) { flight.WentOutside = true; flight.OutsideAt = p; }
                 flight.FarthestZ = Mathf.Max(flight.FarthestZ, p.z);
@@ -181,6 +194,24 @@ namespace HockeyGame.Core.Tests
             Assert.Less(shot.Puck.linearVelocity.magnitude, Defaults.WhistleVerySlowMetresPerSecond, "still moving at " + p.ToString("F3"));
             Assert.Less(p.y, PhysicsPuck.Diameter, "on the ice at " + p.ToString("F3"));
             Assert.IsFalse(flight.WentThrough);
+        }
+
+        [Test]
+        public void The_same_Shot_flown_again_takes_the_same_path()
+        {
+            // A Shot that ends on the net's catch bounces about it. If the same seeded Shot gives another path, a test of where it ends flakes.
+            Vector3[] first = null;
+            for (int n = 0; n < 12; n++)
+            {
+                TearDown();
+                SetUp();
+                Flight flight = Fly(15, 75, 160, seed: 3, seconds: 5.0);
+                if (first == null) { first = flight.Trace.ToArray(); continue; }
+                Assert.AreEqual(first.Length, flight.Trace.Count);
+                for (int i = 0; i < first.Length; i++)
+                    Assert.IsTrue(first[i].x == flight.Trace[i].x && first[i].y == flight.Trace[i].y && first[i].z == flight.Trace[i].z,
+                        "flight " + n + " differs from the first at step " + i + ": " + flight.Trace[i].ToString("F5") + " against " + first[i].ToString("F5"));
+            }
         }
 
         [TestCase(-1, 100)]
@@ -265,7 +296,7 @@ namespace HockeyGame.Core.Tests
             float pastTheCatch = ShotColliders.NetDepth + ShotColliders.CatchGap + ShotColliders.CatchThickness + 0.2f;
             for (int i = 0; i < 2.0 / Step && afterAt == 0; i++)
             {
-                Physics.Simulate(Step);
+                _physics.Simulate(Step);
                 shot.AfterStep(Step);
                 float z = shot.Puck.position.z;
                 if (beforeAt == 0 && z > -1f) { before = shot.Puck.linearVelocity; beforeAt = shot.SecondsSinceShot; }
@@ -291,7 +322,7 @@ namespace HockeyGame.Core.Tests
             for (int i = 0; i < 2.0 / Step && !shot.Touched; i++)
             {
                 before = shot.Puck.linearVelocity;
-                Physics.Simulate(Step);
+                _physics.Simulate(Step);
                 shot.AfterStep(Step);
             }
 
