@@ -321,21 +321,17 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void With_the_Replay_off_the_lower_third_goes_in_and_out_at_the_same_times_as_with_it_on()
+        public void With_the_Replay_off_the_lower_third_stays_in_place_just_as_with_it_on()
         {
             Round on = After("goal"), off = After("goal", replayOn: false);
-            double last = 0;
             for (double t = 0; t <= 4.4; t += 0.05)
             {
                 double a = LowerThird.Of(on).Amount, b = LowerThird.Of(off).Amount;
                 Assert.AreEqual(a, b, Tol, "at " + t);
-                if (t > 0.5 && t < 1.2) Assert.Greater(b, 0.99, "in at " + t);
-                if (t > ReplayTiming.OnNetSeconds + 0.01) Assert.AreEqual(0, b, "out after " + ReplayTiming.OnNetSeconds + " s, at " + t);
-                last = b;
+                Assert.AreEqual(1, b, Tol, "in place at " + t + ": it never slides (Garrett, 2026-10-13)");
                 on.Tick(0.05);
                 off.Tick(0.05);
             }
-            Assert.AreEqual(0, last);
         }
 
         // ---- what the Replay shows ----
@@ -367,6 +363,36 @@ namespace HockeyGame.Core.Tests
                 Assert.LessOrEqual(ReplayTiming.ClipEnd(flight, true) - ReplayTiming.ClipStart(flight, true), ReplayTiming.ShowSeconds + Tol, "never faster than real time, flight " + flight);
             }
             Assert.AreEqual(1.2, ReplayTiming.BottleTailSeconds, Tol);
+        }
+
+        // Garrett, 2026-10-13: "I miss the shot in every replay." A knocked bottle (a hard Goal) stretched the clip by the bottle's 0.9 s,
+        // and the clip is slowed to fill ShowSeconds as one: a 0.3 s flight got 0.43 s of the Replay and flashed by. Now the Shot keeps
+        // its own part of the Replay and the bottle's fall plays after it at real time.
+        [Test]
+        public void With_a_knocked_bottle_the_Shot_still_plays_slowly_from_the_release_and_the_bottle_runs_on_at_real_time()
+        {
+            double bottle = ReplayTiming.BottleTailSeconds - ReplayTiming.TailSeconds;
+            double shotShow = ReplayTiming.ShowSeconds - bottle; // the Shot's part of the Replay
+            foreach (double flight in new[] { 0.036, 0.1, 0.3, 0.6 })
+            {
+                Assert.AreEqual(0.0, ReplayTiming.ClipStart(flight, true), Tol, "starts at the release, flight " + flight);
+                Assert.AreEqual(0.0, ReplayTiming.ShotSecondsAt(0, flight, true), Tol, "the first frame is the release, flight " + flight);
+                Assert.AreEqual(flight + ReplayTiming.TailSeconds, ReplayTiming.ShotSecondsAt(shotShow, flight, true), Tol, "the puck has landed when the Shot's part ends, flight " + flight);
+                Assert.AreEqual(ReplayTiming.ShotSecondsAt(shotShow, flight, true) + 0.5, ReplayTiming.ShotSecondsAt(shotShow + 0.5, flight, true), Tol, "then real time, flight " + flight);
+                Assert.AreEqual(ReplayTiming.ClipEnd(flight, true), ReplayTiming.ShotSecondsAt(ReplayTiming.ShowSeconds, flight, true), Tol, "ends when the bottle has landed, flight " + flight);
+                double clipSecondsPerReplaySecond = (flight + ReplayTiming.TailSeconds) / shotShow;
+                Assert.Less(clipSecondsPerReplaySecond, 1.0, "the Shot is in slow motion (under real time), flight " + flight);
+            }
+            // A quick hard Goal's flight (0.3 s) shows for about a third longer than the one-piece stretch gave it (0.4 s then, 0.55 s now).
+            double onePieceSeconds = 0.3 / ReplayTiming.ClipEnd(0.3, true) * ReplayTiming.ShowSeconds;
+            Assert.Greater(shotShow * 0.3 / (0.3 + ReplayTiming.TailSeconds), onePieceSeconds * 1.3, "more of the Replay shows the puck flying");
+            double previous = -1;
+            for (double s = 0; s <= ReplayTiming.ShowSeconds; s += 0.01)
+            {
+                double now = ReplayTiming.ShotSecondsAt(s, 0.3, true);
+                Assert.GreaterOrEqual(now, previous - Tol, "the clip never runs backwards, at " + s);
+                previous = now;
+            }
         }
 
         [Test]
