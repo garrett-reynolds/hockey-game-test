@@ -7,8 +7,8 @@ namespace HockeyGame.Core
     /// puck lands: OnNetSeconds on the net, LookUpSeconds for the camera to look up at the Video Board, ShowSeconds of
     /// slow-motion Replay, LookBackSeconds back down. A Wide Miss or no Shot in time has no Replay and keeps the 2.5 s
     /// result hold (RoundSettings.ResultHoldSeconds). The Round times its result hold from this; the Arena Show its camera.
-    /// The Replay plays back what was seen of the Shot (it never decides it again): from LeadSeconds before the puck
-    /// lands (no earlier than the Shot) to TailSeconds after, slowed to fill ShowSeconds.
+    /// The Replay plays back what was seen of the Shot (it never decides it again): from the Shot itself (the release,
+    /// the puck on the stick, #132) to TailSeconds after the puck lands, slowed to fill ShowSeconds.
     /// </summary>
     public static class ReplayTiming
     {
@@ -16,8 +16,8 @@ namespace HockeyGame.Core
         /// <summary>The result hold with a Replay, from when the puck lands.</summary>
         public const double HoldSeconds = OnNetSeconds + LookUpSeconds + ShowSeconds + LookBackSeconds;
 
-        /// <summary>The Replay's clip: this long before the puck lands (at most: never before the Shot) to TailSeconds after.</summary>
-        public const double LeadSeconds = 0.45, TailSeconds = 0.3;
+        /// <summary>The Replay's clip ends this long after the puck lands. It starts at the Shot (ClipStart).</summary>
+        public const double TailSeconds = 0.3;
 
         /// <summary>True when a Replay follows this result: a Goal, a Save or a Frame Hit.</summary>
         public static bool Follows(ArenaResult result) =>
@@ -47,8 +47,8 @@ namespace HockeyGame.Core
         public static double ShowSecondsAt(double landedSeconds) =>
             Math.Max(0, Math.Min(ShowSeconds, landedSeconds - OnNetSeconds - LookUpSeconds));
 
-        /// <summary>When the Replay's clip starts, in seconds after the Shot, for a puck flight this long.</summary>
-        public static double ClipStart(double flightSeconds) => Math.Max(0, flightSeconds - LeadSeconds);
+        /// <summary>When the Replay's clip starts, in seconds after the Shot: the release, whatever the flight (#132; it began 0.45 s before the puck landed).</summary>
+        public static double ClipStart(double flightSeconds) => 0;
 
         /// <summary>When the Replay's clip ends, in seconds after the Shot.</summary>
         public static double ClipEnd(double flightSeconds) => Math.Max(0, flightSeconds) + TailSeconds;

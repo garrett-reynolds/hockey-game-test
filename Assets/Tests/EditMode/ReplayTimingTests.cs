@@ -213,18 +213,26 @@ namespace HockeyGame.Core.Tests
         // ---- what the Replay shows ----
 
         [Test]
-        public void The_Replay_plays_the_Shot_from_just_before_the_puck_lands_to_just_after_in_slow_motion()
+        public void The_Replay_plays_the_Shot_from_its_release_to_just_after_the_puck_lands()
         {
-            Assert.AreEqual(0.0, ReplayTiming.ShotSecondsAt(0, 0.3), Tol, "a quick Shot: from the Shot itself");
-            Assert.AreEqual(0.6, ReplayTiming.ShotSecondsAt(ReplayTiming.ShowSeconds, 0.3), Tol);
-            Assert.AreEqual(0.6 - ReplayTiming.LeadSeconds, ReplayTiming.ShotSecondsAt(0, 0.6), Tol, "a slow Shot: from just before it lands");
-            Assert.AreEqual(0.6 + ReplayTiming.TailSeconds, ReplayTiming.ShotSecondsAt(ReplayTiming.ShowSeconds, 0.6), Tol);
-            foreach (double flight in new[] { 0.1, 0.3, 0.6, 1.0 })
+            foreach (double flight in new[] { 0.036, 0.3, 0.6, 1.0, 2.5, 7.0 })
             {
-                double clip = ReplayTiming.ClipEnd(flight) - ReplayTiming.ClipStart(flight);
-                Assert.Less(clip / ReplayTiming.ShowSeconds, 0.5, "slow motion at " + flight);
-                Assert.Less(ReplayTiming.ClipStart(flight), flight, "starts before the puck lands, at " + flight);
+                Assert.AreEqual(0.0, ReplayTiming.ClipStart(flight), Tol, "starts at the release, flight " + flight);
+                Assert.AreEqual(0.0, ReplayTiming.ShotSecondsAt(0, flight), Tol, "the first frame is the release, flight " + flight);
+                Assert.AreEqual(flight + ReplayTiming.TailSeconds, ReplayTiming.ClipEnd(flight), Tol, "ends TailSeconds after the puck lands, flight " + flight);
+                Assert.AreEqual(flight + ReplayTiming.TailSeconds, ReplayTiming.ShotSecondsAt(ReplayTiming.ShowSeconds, flight), Tol, "fills ShowSeconds, flight " + flight);
+                Assert.AreEqual(flight + ReplayTiming.TailSeconds, ReplayTiming.ShotSecondsAt(ReplayTiming.ShowSeconds * 3, flight), Tol, "holds the last frame after ShowSeconds, flight " + flight);
             }
+        }
+
+        [Test]
+        public void The_Replay_plays_slow_motion_for_a_quick_Shot_and_at_a_readable_rate_for_the_slowest()
+        {
+            double Rate(double flight) => (ReplayTiming.ClipEnd(flight) - ReplayTiming.ClipStart(flight)) / ReplayTiming.ShowSeconds;
+            Assert.Less(Rate(0.1), 0.25, "slow motion for a quick Shot");
+            Assert.Less(Rate(1.0), 1.0, "a 1 s flight still plays slower than real time");
+            // The slowest game Shot: 10 km/h from the far start (Breakaway.StartDistance), about 8 s of flight.
+            Assert.Less(Rate(ShotFlight.Seconds(Breakaway.StartDistance, ShotFlight.MinSpeedKmh)), 5.0, "the slowest Shot plays at a readable rate");
         }
     }
 }
