@@ -59,7 +59,7 @@ Its two inputs are decoded first with `ffmpeg -i oooooooooo.ogg -ac 1 -ar 44100 
 
 | What | File in project | Source | Author | Licence | Changes |
 |---|---|---|---|---|---|
-| Crowd ambience loop | `crowd-loop.wav` | "Crowd Shouting/Speaking Ambience", https://opengameart.org/content/crowd-shoutingspeaking-ambience (`crowd_shouting_0.ogg`) | StarNinjas | CC0 | Made by `Tools/make_sounds.py`: a 16 s cut starting 2 s in, with a 1.5 s equal-power crossfade of the tail into the head so the loop is seamless, then lowered 6 dB |
+| Crowd ambience loop | `crowd-loop.wav` | "Free Crowd Cheering Sounds", https://opengameart.org/content/free-crowd-cheering-sounds ("05 - Soft cheering - I") | Gregor Quendel | CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/) | MP3 converted to WAV and loudness-matched to the old loop (ffmpeg loudnorm I=-15.8), then made by `Tools/make_sounds.py --crowd`: a 16 s cut starting 2 s in, with a 1.5 s equal-power crossfade of the tail into the head so the loop is seamless, then lowered 6 dB |
 | Heartbeat loop | `heartbeat-loop.wav` | "Heartbeat sounds", https://opengameart.org/content/heartbeat-sounds (`heartbeat_slow_0.wav`) | bart | CC0 | Level raised only. It is already a two-beat loop that ends in silence |
 | Window tick | `tick.wav` | Kenney "Interface Sounds", https://kenney.nl/assets/interface-sounds (`tick_004.ogg`) | Kenney | CC0 | Level changed |
 | Fast tick | `fast-tick.wav` | Kenney "Interface Sounds" (`tick_002.ogg`) | Kenney | CC0 | Level changed |
