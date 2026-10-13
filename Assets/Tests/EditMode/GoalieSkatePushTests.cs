@@ -26,7 +26,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [TearDown]
-        public void TearDown() { Object.DestroyImmediate(_rink); }
+        public void TearDown() { RinkTeardown.Destroy(_rink); }
 
         static PushShown Shown(PushKind kind, Skate skate) => new PushShown(kind, skate, PushPhase.Push, 1);
 

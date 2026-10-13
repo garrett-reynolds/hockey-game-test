@@ -73,7 +73,7 @@ namespace HockeyGame.Core.Tests
             foreach (GoalieView view in _views) view.Dispose();
             _built.Clear();
             _views.Clear();
-            Object.DestroyImmediate(_root);
+            RinkTeardown.Destroy(_root);
             Physics.simulationMode = _oldMode;
         }
 

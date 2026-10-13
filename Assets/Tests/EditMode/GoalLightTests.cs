@@ -15,7 +15,7 @@ namespace HockeyGame.Core.Tests
         public void SetUp() => _rink = new GameObject("Test Rink").transform;
 
         [TearDown]
-        public void TearDown() => Object.DestroyImmediate(_rink.gameObject);
+        public void TearDown() => RinkTeardown.Destroy(_rink.gameObject);
 
         [Test]
         public void The_goal_light_model_sits_above_the_net_and_its_dome_lights_up_on_a_goal()

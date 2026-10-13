@@ -20,7 +20,7 @@ namespace HockeyGame.Core.Tests
         public void SetUp() => _rink = new GameObject("Test Rink").transform;
 
         [TearDown]
-        public void TearDown() => Object.DestroyImmediate(_rink.gameObject);
+        public void TearDown() => RinkTeardown.Destroy(_rink.gameObject);
 
         [Test]
         public void The_net_model_opening_matches_the_Net_Face_with_the_back_at_the_net_depth()

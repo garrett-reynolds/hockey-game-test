@@ -34,7 +34,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [TearDown]
-        public void TearDown() { Object.DestroyImmediate(_rink); }
+        public void TearDown() { RinkTeardown.Destroy(_rink); }
 
         static Vector3 NetPoint(double x, double y)
         {
