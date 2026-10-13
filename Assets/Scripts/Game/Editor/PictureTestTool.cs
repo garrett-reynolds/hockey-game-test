@@ -78,6 +78,12 @@ namespace HockeyGame.Editor
             new PicturePoint("right-late-settle", AttackSide.Right, SetUp.LateSettle(Post.Left)),
         };
 
+        /// <summary>Whether a view's Gaps are measured: a Set-up Mistake with at least one Gap. A Clean Set-up, or a Mistake whose Gaps are all gone (the Gap measure leaves fewer, #134), is a picture only.</summary>
+        public static bool MeasuresGaps(SetUp setUp, NetFaceGaps gaps) => setUp.IsMistake && gaps.Count > 0;
+
+        /// <summary>The one Mistake view that may have no Gaps (a Late Settle that has settled by WindowSeconds, #150). Any other Mistake view with none is an error.</summary>
+        public const string NoGapsViewAllowed = "right-late-settle";
+
         /// <summary>A picture-only skate-push view (#126): a move of MetresSigned along X, shown U (0 to 1) of the way through its time,
         /// or (Reaction) a Glove save far to +X at set 0.25. Not in the measures or the comparison.</summary>
         public readonly struct PushPicture
@@ -447,14 +453,17 @@ namespace HockeyGame.Editor
                 foreach (PicturePoint point in Points)
                 {
                     NetFaceGaps gaps = rig.Pose(point);
-                    if (!point.SetUp.IsMistake)
+                    if (!MeasuresGaps(point.SetUp, gaps))
                     {
                         // A Clean Set-up has no Gaps to measure: only its picture, to set beside a Set-up Mistake's (not in the measures).
+                        // So does a Mistake whose Gaps are all gone (a Late Settle that has settled, #150): say so, do not fail.
+                        if (point.SetUp.IsMistake && point.Name != NoGapsViewAllowed)
+                            throw new InvalidOperationException("View " + point.Name + " has no Gaps: only " + NoGapsViewAllowed + " may have none. Pick a point with Gaps.");
+                        if (point.SetUp.IsMistake) Debug.LogWarning("Picture test: view " + point.Name + " has no Gaps: its picture is written, nothing is measured.");
                         rig.Goalie.ShowGaps(NetFaceGaps.None);
                         WritePng(texture, Capture(rig.Camera, target, texture, ~0, true), Path.Combine(folder, ViewName(point, false) + ".png"));
                         continue;
                     }
-                    if (gaps.Count == 0) throw new InvalidOperationException("View " + point.Name + " has no Gaps: pick a point with Gaps.");
                     foreach (bool easyMode in new[] { true, false })
                     {
                         rig.Goalie.ShowGaps(easyMode ? gaps : NetFaceGaps.None);

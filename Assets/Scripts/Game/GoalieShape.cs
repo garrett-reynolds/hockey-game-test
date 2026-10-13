@@ -112,8 +112,12 @@ namespace HockeyGame
         /// <summary>
         /// The first surface the line puck's centre, moving from `from` to `to`, comes within `radius` of (only surfaces it is
         /// moving toward). at: where the centre is then; normal: the surface's, facing the puck. pieces: only these (null: all).
+        /// sphere: a true swept-sphere test, only for a yes or no (at and normal are not worked out): a triangle counts when its nearest
+        /// point lies within `radius` of the move's line segment, from any side, edges and corners included. Without it only the line
+        /// itself crossing a triangle counts (with the radius as stand-off), and a shape thinner than the gaps between casts slips
+        /// through (#150).
         /// </summary>
-        public bool Cast(Vector3 from, Vector3 to, float radius, out Vector3 at, out Vector3 normal, string[] pieces = null)
+        public bool Cast(Vector3 from, Vector3 to, float radius, out Vector3 at, out Vector3 normal, string[] pieces = null, bool sphere = false)
         {
             at = to;
             normal = default;
@@ -122,7 +126,7 @@ namespace HockeyGame
             if (length < 1e-7f) return false;
             Vector3 dir = move / length;
             float best = float.PositiveInfinity;
-            CastChunks(from, to, dir, length, radius, pieces, ref best, ref normal);
+            CastChunks(from, to, dir, length, radius, sphere, pieces, ref best, ref normal);
             foreach (var (shape, toWorld, toLocal) in _placed)
             {
                 if (!shape._meshes || (pieces != null && !shape.HasAny(pieces))) continue;
@@ -133,7 +137,7 @@ namespace HockeyGame
                 if ((!reach.IntersectRay(new Ray(localFrom, localDir), out float enter) || enter > length || enter >= best)) continue;
                 float before = best;
                 Vector3 n = default;
-                shape.CastChunks(localFrom, toLocal.MultiplyPoint3x4(to), localDir, length, radius, pieces, ref best, ref n);
+                shape.CastChunks(localFrom, toLocal.MultiplyPoint3x4(to), localDir, length, radius, sphere, pieces, ref best, ref n);
                 if (best < before) normal = toWorld.MultiplyVector(n);
             }
             if (float.IsPositiveInfinity(best)) return false;
@@ -151,7 +155,7 @@ namespace HockeyGame
         static readonly List<(float enter, int chunk)> NearChunks = new List<(float, int)>(); // CastChunks' scratch list
 
         /// <summary>Cast's test against this set's own triangles: improves best (distance along dir) and its normal.</summary>
-        void CastChunks(Vector3 from, Vector3 to, Vector3 dir, float length, float radius, string[] pieces, ref float best, ref Vector3 normal)
+        void CastChunks(Vector3 from, Vector3 to, Vector3 dir, float length, float radius, bool sphere, string[] pieces, ref float best, ref Vector3 normal)
         {
             Vector3 move = to - from;
             var sweep = new Bounds((from + to) / 2f, new Vector3(Mathf.Abs(move.x), Mathf.Abs(move.y), Mathf.Abs(move.z)) + Vector3.one * (2f * radius));
@@ -179,6 +183,13 @@ namespace HockeyGame
                     Vector3 n = _normals[t];
                     if (n.x == 0f && n.y == 0f && n.z == 0f) continue;
                     Vector3 a = _corners[t * 3];
+                    if (sphere)
+                    {
+                        if (SegmentTriangleSqr(from, to, a, _corners[t * 3 + 1], _corners[t * 3 + 2]) > radius * radius) continue;
+                        best = 0f; // a yes or no: nothing nearer to look for
+                        normal = n;
+                        return;
+                    }
                     float height = Vector3.Dot(from - a, n);
                     if (height < 0f) { n = -n; height = -height; }
                     float closing = -Vector3.Dot(dir, n);
@@ -200,6 +211,68 @@ namespace HockeyGame
                     normal = n;
                 }
             }
+        }
+
+        /// <summary>Squared distance between the segment p to q and the triangle abc (0 when they cross).</summary>
+        static float SegmentTriangleSqr(Vector3 p, Vector3 q, Vector3 a, Vector3 b, Vector3 c)
+        {
+            Vector3 n = Vector3.Cross(b - a, c - a);
+            float dp = Vector3.Dot(p - a, n), dq = Vector3.Dot(q - a, n);
+            if ((dp > 0f && dq < 0f) || (dp < 0f && dq > 0f))
+            {
+                Vector3 hit = p + (q - p) * (dp / (dp - dq));
+                if (Inside(hit, a, b, c, n)) return 0f;
+            }
+            float best = Mathf.Min((p - ClosestOnTriangle(p, a, b, c)).sqrMagnitude, (q - ClosestOnTriangle(q, a, b, c)).sqrMagnitude);
+            best = Mathf.Min(best, SegmentSegmentSqr(p, q, a, b));
+            best = Mathf.Min(best, SegmentSegmentSqr(p, q, b, c));
+            return Mathf.Min(best, SegmentSegmentSqr(p, q, c, a));
+        }
+
+        /// <summary>The point of triangle abc nearest p (Ericson, Real-Time Collision Detection).</summary>
+        static Vector3 ClosestOnTriangle(Vector3 p, Vector3 a, Vector3 b, Vector3 c)
+        {
+            Vector3 ab = b - a, ac = c - a, ap = p - a;
+            float d1 = Vector3.Dot(ab, ap), d2 = Vector3.Dot(ac, ap);
+            if (d1 <= 0f && d2 <= 0f) return a;
+            Vector3 bp = p - b;
+            float d3 = Vector3.Dot(ab, bp), d4 = Vector3.Dot(ac, bp);
+            if (d3 >= 0f && d4 <= d3) return b;
+            float vc = d1 * d4 - d3 * d2;
+            if (vc <= 0f && d1 >= 0f && d3 <= 0f) return a + ab * (d1 / (d1 - d3));
+            Vector3 cp = p - c;
+            float d5 = Vector3.Dot(ab, cp), d6 = Vector3.Dot(ac, cp);
+            if (d6 >= 0f && d5 <= d6) return c;
+            float vb = d5 * d2 - d1 * d6;
+            if (vb <= 0f && d2 >= 0f && d6 <= 0f) return a + ac * (d2 / (d2 - d6));
+            float va = d3 * d6 - d5 * d4;
+            if (va <= 0f && d4 - d3 >= 0f && d5 - d6 >= 0f) return b + (c - b) * ((d4 - d3) / ((d4 - d3) + (d5 - d6)));
+            float denom = 1f / (va + vb + vc);
+            return a + ab * (vb * denom) + ac * (vc * denom);
+        }
+
+        /// <summary>Squared distance between segments p1 to q1 and p2 to q2 (Ericson).</summary>
+        static float SegmentSegmentSqr(Vector3 p1, Vector3 q1, Vector3 p2, Vector3 q2)
+        {
+            Vector3 d1 = q1 - p1, d2 = q2 - p2, r = p1 - p2;
+            float a = Vector3.Dot(d1, d1), e = Vector3.Dot(d2, d2), f = Vector3.Dot(d2, r);
+            float s, t;
+            if (a <= 1e-12f && e <= 1e-12f) return r.sqrMagnitude;
+            if (a <= 1e-12f) { s = 0f; t = Mathf.Clamp01(f / e); }
+            else
+            {
+                float c = Vector3.Dot(d1, r);
+                if (e <= 1e-12f) { t = 0f; s = Mathf.Clamp01(-c / a); }
+                else
+                {
+                    float b = Vector3.Dot(d1, d2), denom = a * e - b * b;
+                    s = denom > 1e-12f ? Mathf.Clamp01((b * f - c * e) / denom) : 0f;
+                    t = (b * s + f) / e;
+                    if (t < 0f) { t = 0f; s = Mathf.Clamp01(-c / a); }
+                    else if (t > 1f) { t = 1f; s = Mathf.Clamp01((b - c) / a); }
+                }
+            }
+            return ((p1 + d1 * s) - (p2 + d2 * t)).sqrMagnitude;
         }
 
         static bool Inside(Vector3 p, Vector3 a, Vector3 b, Vector3 c, Vector3 n)
