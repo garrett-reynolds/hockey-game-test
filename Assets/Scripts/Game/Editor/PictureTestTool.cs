@@ -295,7 +295,7 @@ namespace HockeyGame.Editor
                 var character = new GoalieCharacter(rink);
                 if (!character.Present) throw new InvalidOperationException("The goalie model did not load: the picture test needs it.");
                 Goalie = new GoalieView(rink, character);
-                _effects =new PhysicsShotEffects(rink, Camera, new GoalRateTool.SystemRandom(1), Goalie); // the goal light and netting, as the game has them
+                _effects = new PhysicsShotEffects(rink, Camera, new GoalRateTool.SystemRandom(1), Goalie); // the goal light and netting, as the game has them
                 _reach = new GoalieCharacterReach(character, Settings);
                 _look = BreakawayView.MakeLookVolume(Camera.transform);
                 SetLayer(character.Root.transform, GoalieLayer);
