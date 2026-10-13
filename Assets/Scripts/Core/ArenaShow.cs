@@ -203,6 +203,8 @@ namespace HockeyGame.Core
         public double? LastShotSpeedKmh;
         /// <summary>True with the Replay turned off (#145): no Replay and no look-up; the board shows the result word. False (the default) is Replay on.</summary>
         public bool NoReplay;
+        /// <summary>True in Test Mode (#156): no Replay (as NoReplay), whatever NoReplay says; the camera stays on the net.</summary>
+        public bool TestMode;
     }
 
     /// <summary>One answer of the Arena Show: what every arena part does now. The Unity parts only follow it.</summary>
@@ -326,7 +328,8 @@ namespace HockeyGame.Core
                 BestScore = flow.BestScore,
                 ShotsPerRound = flow.ShotsPerRound,
                 LastShotSpeedKmh = round.LastShotSpeedKmh,
-                NoReplay = !round.Settings.ReplayOn
+                NoReplay = !round.ReplayOn,
+                TestMode = round.TestMode
             });
         }
 
@@ -341,10 +344,11 @@ namespace HockeyGame.Core
             bool chant = input.Phase == RoundPhase.Idle || input.Phase == RoundPhase.RoundOver;
             int goalsShown = input.Goals; // the Round counts a Goal from its Whistle (the line crossing), when it shows
             // The Replay's part of the hold counts from the Whistle (the puck lands), like the Goal Show.
-            bool replayHold = !input.NoReplay && ReplayTiming.Follows(result); // Replay off (#145): the camera stays on the net
+            bool noReplay = input.NoReplay || input.TestMode; // Test Mode (#156) reuses the Replay-off path; From already folds it into NoReplay, this keeps the pure show safe on its own (tested)
+            bool replayHold = !noReplay && ReplayTiming.Follows(result); // Replay off (#145): the camera stays on the net
             double landed = input.PhaseSeconds - input.ResultDelaySeconds;
             CameraMode camera = replayHold ? ReplayTiming.CameraAt(landed) : CameraMode.OnNet;
-            VideoBoardContent board = camera == CameraMode.Replay ? VideoBoardContent.Replay : VideoBoardFor(input.Phase, result, input.IsNewBest, input.NoReplay);
+            VideoBoardContent board = camera == CameraMode.Replay ? VideoBoardContent.Replay : VideoBoardFor(input.Phase, result, input.IsNewBest, noReplay);
             string score = ScoreText(goalsShown, input.ShotNumber, ShotsOf(input)); // built once: the Score Box and the Video Board share it
 
             return new ArenaState(

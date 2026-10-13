@@ -101,6 +101,8 @@ namespace HockeyGame
         /// </summary>
         public double CameraLookUp { get; set; }
 
+        int _clearedForShot; // Test Mode: the ShotNumber whose window has already cleared the last puck (0 outside Test Mode)
+
         /// <summary>The sound of a hit the puck made in the physics steps before this frame (a post or the crossbar: PostPing; the boards: MissImpact; the glass: GlassImpact); null for none.</summary>
         public SoundCue? HitSound { get; private set; }
 
@@ -114,6 +116,13 @@ namespace HockeyGame
             _pendingHit = null;
             bool newShot = _newResult.TakeNewShot(round);
             _newResult.TakeNew(round); // results come from the Whistle; Too Late has no puck and leaves the last one be
+            // Test Mode (#156): no cut to a new skate-in hides the last puck, so it goes when the next Shot's window opens.
+            if (!round.TestMode) _clearedForShot = 0;
+            else if (round.Phase == RoundPhase.ShootingWindow && round.ShotNumber != _clearedForShot && !newShot)
+            {
+                _clearedForShot = round.ShotNumber;
+                Replace();
+            }
             if (newShot)
             {
                 Launch(round);

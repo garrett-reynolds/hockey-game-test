@@ -63,11 +63,59 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(SettingsPart.Player, menu.Part);
             menu.ShowPart(SettingsPart.Dev);
             Assert.AreEqual(SettingsPart.Dev, menu.Part);
-            Assert.AreEqual(7, menu.RowCount, "Show the block goalie, then the six goalie values (#147)");
+            Assert.AreEqual(8, menu.RowCount, "Show the block goalie, the six goalie values (#147), then the Test Mode button (#156)");
             Assert.AreEqual("Show the block goalie", menu.Label(0));
             Assert.AreEqual("OFF", menu.Value(0));
             Assert.AreEqual(SettingsRowKind.Toggle, menu.Kind(0));
             Assert.AreEqual("(next launch)", menu.Hint(0), "the goalie is built when the game starts");
+        }
+
+        // ---- Test Mode button (#156) ----
+
+        [Test]
+        public void The_Dev_part_ends_with_a_Test_Mode_button_and_the_Player_part_has_none()
+        {
+            var menu = NewMenu(new SaveData());
+            for (int i = 0; i < menu.RowCount; i++)
+                Assert.AreNotEqual("Test Mode", menu.Label(i), "not in the Player part");
+            menu.ShowPart(SettingsPart.Dev);
+            Assert.AreEqual("Test Mode", menu.Label(menu.RowCount - 1));
+            Assert.AreEqual(SettingsRowKind.Button, menu.Kind(menu.RowCount - 1));
+            Assert.IsNull(menu.Hint(menu.RowCount - 1));
+        }
+
+        [Test]
+        public void Pressing_the_Test_Mode_button_opens_Test_Mode_and_changes_no_setting()
+        {
+            var save = new SaveData();
+            int opened = 0;
+            var menu = new SettingsMenu(save, new string[0], () => opened++);
+            menu.ShowPart(SettingsPart.Dev);
+            Select(menu, "Test Mode");
+            Assert.IsFalse(menu.Activate(), "nothing to save");
+            Assert.AreEqual(1, opened);
+            Assert.IsFalse(menu.Press(SettingsKey.Left));
+            Assert.IsFalse(menu.Press(SettingsKey.Right));
+            Assert.AreEqual(1, opened, "only Enter or a click opens it");
+        }
+
+        [Test]
+        public void The_Test_Mode_button_does_nothing_without_a_game_to_open_it_in()
+        {
+            var menu = NewMenu(new SaveData());
+            menu.ShowPart(SettingsPart.Dev);
+            Select(menu, "Test Mode");
+            Assert.IsFalse(menu.Activate());
+        }
+
+        [Test]
+        public void Reset_to_default_in_the_Dev_part_does_not_press_the_Test_Mode_button()
+        {
+            int opened = 0;
+            var menu = new SettingsMenu(new SaveData(), new string[0], () => opened++);
+            menu.ShowPart(SettingsPart.Dev);
+            menu.ResetPart();
+            Assert.AreEqual(0, opened);
         }
 
         [Test]

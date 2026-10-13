@@ -289,7 +289,7 @@ namespace HockeyGame.Core
                 }
             }
 
-            if (phase == RoundPhase.ShootingWindow)
+            if (phase == RoundPhase.ShootingWindow && !round.TestMode) // Test Mode: no clock, no ticks (#156)
             {
                 double windowSeconds = round.PhaseSecondsElapsed + round.WindowSecondsLeft;
                 int due = TicksDue(round.PhaseSecondsElapsed, windowSeconds);
@@ -395,6 +395,12 @@ namespace HockeyGame.Core
         /// Slow-down audio, following the world time scale: muffled and lower as time slows, heartbeat while slowed.
         /// Snaps back with the time scale on the Shot.
         /// </summary>
+        public static SlowMoSound SlowMo(RoundPhase phase, double phaseSeconds, RoundSettings settings)
+        {
+            if (!settings.TestMode) return SlowMo(phase, phaseSeconds);
+            return new SlowMoSound(OpenLowPassHz, 1.0, false); // Test Mode (#156): full speed, no muffle, no heartbeat
+        }
+
         public static SlowMoSound SlowMo(RoundPhase phase, double phaseSeconds)
         {
             double amount = Breakaway.LookAmount(Breakaway.TimeScale(phase, phaseSeconds));

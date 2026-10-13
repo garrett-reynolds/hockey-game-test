@@ -68,6 +68,7 @@ namespace HockeyGame
             _netFacePlane = new Plane(Vector3.back, Vector3.zero); // Net Face plane: z = 0
             _testShotsOn = _save.TestShotOnAtStart;
             _settingsScreen = new SettingsScreen(_save);
+            _settingsScreen.TestModeRequested = OpenTestMode;
             var settings = new RoundSettings(); // shared: the Round runs on it, the goalie-reach port reads the gear speeds from it
             settings.ViewFieldOfViewDegrees = _camera.fieldOfView; // the Shot starts just below this camera's view (Breakaway.ShotStart)
             _flow = new ScreenFlow(new SystemRandomSource(), _save, new GoalieCharacterReach(character, settings), settings);
@@ -111,7 +112,7 @@ namespace HockeyGame
             // The goalie character stands in the net on the start and end screens too, alive in the Ready Stance (#44); the block
             // goalie shows only for the Shot (SkateIn to ResultHold). Easy mode glows the Gaps from when he is set until the Shot
             // (EasyGlow), a hint only: the Round's Gaps, from the same goalie-reach port as the race.
-            _round.Settings.ReplayOn = _save.ReplayOn; // the Replay setting (#145), read from the saved settings each frame
+            _round.Settings.ApplySavedReplay(_save.ReplayOn); // the Replay setting (#145), read from the saved settings each frame; never on in Test Mode (#156)
             var phaseNow = _round.Phase;
             bool inShot = phaseNow != RoundPhase.Idle && phaseNow != RoundPhase.RoundOver;
             _goalie.Show(inShot || _goalie.HasCharacter);
@@ -136,6 +137,12 @@ namespace HockeyGame
             if (keyboard != null)
             {
                 // Esc is a Settings key on the start screen only; on the end screen it is "any key" again. F2 never starts anything.
+                if (_flow.TestMode && keyboard.escapeKey.wasPressedThisFrame)
+                {
+                    _flow.LeaveTestMode(); // Esc in Test Mode: back to the start screen (#156)
+                    _show = ArenaShow.From(_flow);
+                    return;
+                }
                 if (keyboard.f2Key.wasPressedThisFrame || (keyboard.escapeKey.wasPressedThisFrame && _flow.EscapeIsSettingsKey))
                 {
                     _flow.ToggleSettings(); // does nothing during a Round or on the end screen
@@ -197,6 +204,13 @@ namespace HockeyGame
             ShowStartShots();
         }
 
+        // The Dev part's Test Mode button (#156): the page closes and the first Shot is in the shooting window at once.
+        void OpenTestMode()
+        {
+            _flow.StartTestMode();
+            _settingsScreen.Close();
+        }
+
         // After the Press: on the press frame the screen is already Playing, so the camera is handed back and BreakawayView places it.
         void ShowStartShots() => _startShots.Step(_flow.Screen == FlowScreen.Start, Time.unscaledDeltaTime);
 
@@ -251,7 +265,8 @@ namespace HockeyGame
             switch (_round.Phase)
             {
                 case RoundPhase.ShootingWindow:
-                    GUI.Label(new Rect(0, h * 0.2f, w, 60), _round.WindowSecondsLeft.ToString("0.0") + " s", _big);
+                    if (!_round.TestMode) // Test Mode has no clock (#156)
+                        GUI.Label(new Rect(0, h * 0.2f, w, 60), _round.WindowSecondsLeft.ToString("0.0") + " s", _big);
                     break;
                 case RoundPhase.ResultHold:
                     if (_round.LastResult.HasValue && _round.ResultShowing) // from the Whistle

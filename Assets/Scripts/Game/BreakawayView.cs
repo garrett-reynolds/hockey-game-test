@@ -95,11 +95,13 @@ namespace HockeyGame
             double phaseSeconds = _round.PhaseSecondsElapsed;
             _fade.Step(_round, realDt); // the frame the camera cuts to the next skate-in is the frame the screen is black (#129)
             bool skateInStarts = phase == RoundPhase.SkateIn && _lastPhase != RoundPhase.SkateIn;
-            if (skateInStarts)
+            // Test Mode (#156) has no skate-in: each Shot starts in the shooting window, right after the hold (or the start screen).
+            bool testShotStarts = _round.TestMode && phase == RoundPhase.ShootingWindow && _lastPhase != RoundPhase.ShootingWindow;
+            if (skateInStarts || testShotStarts)
             {
                 _drift = 0f;
                 _gameTime = 0f;
-                _goalie.NewShot(); // under the cut's full black: the last Shot's legs-only push ends (#131)
+                _goalie.NewShot(); // under the cut's full black: the last Shot's legs-only push ends (#131); Test Mode: at the cut
             }
             // The goalie carries on from the facing he was shown at (after a Shot: squared up to that shooter), then turns to
             // the next shooter as they skate in: no snap between Shots (#44).
@@ -111,12 +113,12 @@ namespace HockeyGame
             _goalie.Live(_life);
 
             // Time and look come from the phase every frame, so a Shot (window -> result hold) snaps both back at once.
-            float timeScale = (float)Breakaway.TimeScale(phase, phaseSeconds);
-            Time.timeScale = timeScale;
-            _look.weight = (float)Breakaway.LookAmount(timeScale);
+            // Test Mode (#156): time scale 1 and look 0 at every phase.
+            RoundSettings settings = _round.Settings;
+            Time.timeScale = (float)Breakaway.TimeScale(phase, phaseSeconds, settings);
+            _look.weight = (float)Breakaway.Look(phase, phaseSeconds, settings);
 
             // Before the Shot (#70): his head follows the puck (from the Shot on, where it started) and he gets set (BeforeTheShot).
-            RoundSettings settings = _round.Settings;
             if (phase == RoundPhase.SkateIn || phase == RoundPhase.SlowDown || phase == RoundPhase.ShootingWindow)
                 _puckOnStick = Breakaway.Puck(_round.AttackSide, phase, phaseSeconds, settings);
             else if (phase == RoundPhase.ResultHold && _round.LastRace.HasValue)
@@ -139,6 +141,7 @@ namespace HockeyGame
             // In the skate-in game time is real time: follow the Round's clock exactly, so each stride sound
             // (RoundSoundCues, from the same phase seconds) lands on the bob's low point. Afterwards it runs on scaled.
             if (phase == RoundPhase.SkateIn) _gameTime = (float)phaseSeconds;
+            else if (_round.TestMode) _gameTime = 0f; // Test Mode: the camera stands still, level, no stride bob or roll (#156)
             else _gameTime += dt;
             AttackSide side = _round.AttackSide;
             // The drift on toward the net, from the same numbers the Round starts the puck from (Breakaway.ShotStart); it holds from the Shot on.
@@ -335,7 +338,7 @@ namespace HockeyGame
         {
             if (_round == null) return;
             DrawFade();
-            if (_round.Phase != RoundPhase.ShootingWindow || Event.current.type != EventType.Repaint) return;
+            if (_round.Phase != RoundPhase.ShootingWindow || _round.TestMode || Event.current.type != EventType.Repaint) return; // Test Mode: no ring, the window never closes
 
             float fraction = (float)Breakaway.RingFraction(_round.WindowSecondsLeft, _round.Settings);
             Vector3 centre = _camera.WorldToScreenPoint(NetCentre);

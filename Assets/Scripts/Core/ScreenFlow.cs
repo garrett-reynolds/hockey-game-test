@@ -82,6 +82,30 @@ namespace HockeyGame.Core
                 SettingsOpen = true;
         }
 
+        /// <summary>True while Test Mode runs (#156).</summary>
+        public bool TestMode => Round.TestMode;
+
+        /// <summary>
+        /// Opens Test Mode from the Settings page (#156): the page closes and the first Shot is in the shooting window at once
+        /// (Round.StartTestMode). Only from the start screen. Test Mode is never saved: the best score and the save file do not
+        /// change, and a new ScreenFlow starts at the start screen.
+        /// </summary>
+        public void StartTestMode()
+        {
+            if (Screen != FlowScreen.Start) return;
+            SettingsOpen = false;
+            Round.StartTestMode(_save.BestScore);
+            Screen = FlowScreen.Playing;
+        }
+
+        /// <summary>Esc in Test Mode: back to the start screen (#156). Does nothing outside Test Mode.</summary>
+        public void LeaveTestMode()
+        {
+            if (!Round.TestMode) return;
+            Round.EndTestMode();
+            GoToStart();
+        }
+
         /// <summary>A key or a mouse click.</summary>
         public void Press()
         {

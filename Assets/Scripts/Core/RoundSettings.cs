@@ -11,6 +11,23 @@ namespace HockeyGame.Core
         /// <summary>False: no Replay (#145). The game sets it from the saved Replay setting.</summary>
         public bool ReplayOn = true;
 
+        /// <summary>
+        /// True while Test Mode runs (#156): endless full-speed Shots from the shooter's spot. Set and cleared by the Round
+        /// (StartTestMode, EndTestMode); never saved. Breakaway reads it: no slow-down, no slow-motion look, a still camera.
+        /// </summary>
+        public bool TestMode;
+        /// <summary>Test Mode's own short hold after a Whistle (real seconds), then the goalie is set for the next Shot (#156).</summary>
+        public double TestModeHoldSeconds = 1.0;
+
+        /// <summary>
+        /// Takes the saved Replay setting each frame (#145): the Replay is on when the setting is on, and never in Test Mode (#156),
+        /// so the game's per-frame copy of the saved setting cannot turn the Replay back on there.
+        /// </summary>
+        public void ApplySavedReplay(bool savedReplayOn)
+        {
+            ReplayOn = savedReplayOn && !TestMode;
+        }
+
         // The Whistle (WhistleRule), named starting values to tune: a Shot goes dead once the puck is slower than
         // WhistleVerySlowMetresPerSecond for WhistleDeadSeconds in a row, and the Whistle goes at the latest WhistleCapSeconds after it.
         public double WhistleDeadSeconds = 0.3;

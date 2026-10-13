@@ -60,15 +60,18 @@ namespace HockeyGame.Core
         }
 
         private readonly SaveData _save;
+        private readonly Action _openTestMode;
         private readonly List<string> _ports = new List<string>();
         private readonly List<Row> _all = new List<Row>();
         private readonly List<Row> _rows = new List<Row>(); // the current part's
         private readonly int[] _selected = new int[2];
 
         /// <param name="ports">Port names found now (e.g. COM3). Auto is always offered first.</param>
-        public SettingsMenu(SaveData save, IList<string> ports)
+        /// <param name="openTestMode">What the Dev part's Test Mode button does (#156); null = nothing. It changes no setting.</param>
+        public SettingsMenu(SaveData save, IList<string> ports, Action openTestMode = null)
         {
             _save = save;
+            _openTestMode = openTestMode;
             _ports.Add(SaveData.AutoUsbPort);
             if (ports != null)
                 foreach (var p in ports)
@@ -102,6 +105,9 @@ namespace HockeyGame.Core
             AddGoalie("Leg speed", () => _save.LegMetresPerSecond, v => _save.LegMetresPerSecond = v, SaveData.LegRange, Speed, () => _save.LegAllowed);
             AddGoalie("Max push", () => _save.MaxPushMetres, v => _save.MaxPushMetres = v, SaveData.MaxPushRange, Metres, () => _save.MaxPushAllowed);
             AddGoalie("Shuffle max", () => _save.ShuffleMaxMetres, v => _save.ShuffleMaxMetres = v, SaveData.ShuffleMaxRange, Metres, () => _save.ShuffleMaxAllowed);
+
+            // Test Mode (#156), kept the last Dev row: endless Shots from the shooter's spot. A button that opens it; it changes no setting, so Activate says false (nothing to save).
+            AddRow(SettingsPart.Dev, "TEST", SettingsRowKind.Button, "Test Mode", () => "open", null, () => { _openTestMode?.Invoke(); return false; });
 
             FillRows();
         }

@@ -16,6 +16,10 @@ _Avoid_: Attempt, throw
 A Shot made with the mouse instead of a real puck, for testing and demos. It follows the same rules as a real Shot.
 _Avoid_: Fake shot, mouse shot, debug shot
 
+**Test Mode**:
+Endless full-speed Shots from the shooter's spot, opened from the Dev part of the Settings page, for tuning the goalie. The camera stands still at the shooting-window pose: no skate-in, no slow-down, no slow-motion look, no Replay. Each Shot gets a new Set-up and Attack Side and is decided as in a Round; about 1 s after the Whistle the goalie is set for the next one. It never ends and has no "Too late"; Esc goes back to the start screen. It is never saved: the best score and save file do not change.
+_Avoid_: Practice mode, sandbox
+
 **Net Face**:
 The goal opening, as a flat plane. Shot positions are measured on it from its bottom-left corner.
 _Avoid_: Goal mouth, target

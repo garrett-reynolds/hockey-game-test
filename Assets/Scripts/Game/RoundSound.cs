@@ -186,7 +186,7 @@ namespace HockeyGame
             _crowd.volume = _crowdLevel * _crowdGain;
             _heartbeat.volume = _gameGain;
 
-            SlowMoSound slow = RoundSoundCues.SlowMo(phase, phaseSeconds);
+            SlowMoSound slow = RoundSoundCues.SlowMo(phase, phaseSeconds, round.Settings);
             float cutoff = (float)slow.LowPassHz, pitch = (float)slow.Pitch;
             _crowdFilter.cutoffFrequency = _heartbeatFilter.cutoffFrequency = _worldFilter.cutoffFrequency = _crowdWorldFilter.cutoffFrequency = cutoff;
             _crowd.pitch = _world.pitch = _crowdWorld.pitch = pitch;

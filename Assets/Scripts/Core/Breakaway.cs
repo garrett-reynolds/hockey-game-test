@@ -78,6 +78,14 @@ namespace HockeyGame.Core
             }
         }
 
+        /// <summary>World time scale for a phase: as TimeScale(phase, phaseSeconds), but always 1 in Test Mode (#156).</summary>
+        public static double TimeScale(RoundPhase phase, double phaseSeconds, RoundSettings settings) =>
+            settings.TestMode ? 1.0 : TimeScale(phase, phaseSeconds);
+
+        /// <summary>Strength of the slow-mo look for a phase: 0 in Test Mode at every phase (#156), else LookAmount of the time scale.</summary>
+        public static double Look(RoundPhase phase, double phaseSeconds, RoundSettings settings) =>
+            LookAmount(TimeScale(phase, phaseSeconds, settings));
+
         /// <summary>Strength of the slow-mo look (grey, contrast, vignette): 0 at 1x, 1 at the slow time scale.</summary>
         public static double LookAmount(double timeScale) => Numbers.Clamp01((1.0 - timeScale) / (1.0 - SlowTimeScale));
 
@@ -138,10 +146,11 @@ namespace HockeyGame.Core
         /// <summary>
         /// How far the shooter has drifted on toward the net past the skate-in's stop (metres, not capped): the skate speed over
         /// the game seconds of the slow-down so far (slowDownSeconds, real) and of the shooting window so far (windowSeconds, real).
+        /// In Test Mode (#156) the window does not drift: the shooter stands still at the window's first pose, however long the wait.
         /// </summary>
         public static double Drift(AttackSide side, double slowDownSeconds, double windowSeconds, RoundSettings settings) =>
             SkateSpeed(side, settings) * (GameSeconds(RoundPhase.SlowDown, Math.Min(slowDownSeconds, settings.SlowDownSeconds))
-                                          + GameSeconds(RoundPhase.ShootingWindow, windowSeconds));
+                                          + GameSeconds(RoundPhase.ShootingWindow, settings.TestMode ? 0 : windowSeconds));
 
         /// <summary>A real puck: 7.6 cm across and 2.5 cm thick (metres). The physics puck is built and drawn to these.</summary>
         public const double PuckDiameterMetres = 0.076, PuckThicknessMetres = 0.025;
