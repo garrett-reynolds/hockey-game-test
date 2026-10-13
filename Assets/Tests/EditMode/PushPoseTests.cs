@@ -265,7 +265,7 @@ namespace HockeyGame.Core.Tests
             Run(t, Shuffle(PushPhase.Push), 0.2);
             Run(t, PushShown.None, 0.05);
             Assert.AreEqual(1, t.Now.PushOut, Tol);
-            Run(t, PushShown.None, 0.3);
+            Run(t, PushShown.None, PushPose.ReturnSeconds + 0.05);
             Assert.AreEqual(0, t.Now.PushOut, Tol);
         }
 
@@ -308,10 +308,10 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void Steps_of_different_sizes_end_the_same()
         {
-            // 0.05 s is shorter than PushInSeconds, so the shuffle's PushOut is still rising (about 0.6), not saturated at 1.
+            // 0.05 s is shorter than PushInSeconds (0.06), so the shuffle's PushOut is still rising (about 0.8), not saturated at 1; a T-push's 0.07 s is 0.04 s of turn first.
             foreach (var shown in new[] { Shuffle(PushPhase.Push), TPush(PushPhase.Push) })
             {
-                double seconds = shown.Kind == PushKind.Shuffle ? 0.05 : 0.1;
+                double seconds = shown.Kind == PushKind.Shuffle ? 0.05 : 0.07;
                 var ten = new PushPoseTracker();
                 for (int i = 0; i < 10; i++) ten.Step(shown, seconds / 10);
                 var one = new PushPoseTracker();

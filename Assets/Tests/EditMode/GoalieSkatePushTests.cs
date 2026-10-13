@@ -72,6 +72,71 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(before[1].y, feet[1].position.y, 0.001f, "the larger-X skate stays on the ice");
         }
 
+        // ---- #130: the push must read from across the rink. Fixed numbers (not the constants), so a tuned-down constant fails here. ----
+
+        static float KneeAngle(Transform upper, Transform lower, Transform foot)
+            => Vector3.Angle(upper.position - lower.position, foot.position - lower.position);
+
+        [Test]
+        public void A_full_push_takes_the_push_skate_at_least_3_times_the_old_0_12_m_out([Values(Skate.Right, Skate.Left)] Skate skate)
+        {
+            Transform[] feet = FeetByX();
+            int push = skate == Skate.Right ? 1 : 0;
+            float outward = skate == Skate.Right ? 1f : -1f, was = feet[push].position.x;
+            _goalie.ShowReaction(0f);
+            _goalie.ShowPush(Shown(PushKind.Shuffle, skate), new PushPoseMoment(1, 0));
+            Assert.GreaterOrEqual((feet[push].position.x - was) * outward, 0.36f, skate + " skate out (m)");
+        }
+
+        [Test]
+        public void A_full_push_bends_the_lead_knee_and_lowers_and_leans_the_hips_into_the_move([Values(Skate.Right, Skate.Left)] Skate skate)
+        {
+            Transform[] feet = FeetByX();
+            int push = skate == Skate.Right ? 1 : 0;
+            bool leadIsLeftBone = feet[1 - push] == Bone(HumanBodyBones.LeftFoot);
+            Transform up = Bone(leadIsLeftBone ? HumanBodyBones.LeftUpperLeg : HumanBodyBones.RightUpperLeg), low = Bone(leadIsLeftBone ? HumanBodyBones.LeftLowerLeg : HumanBodyBones.RightLowerLeg);
+            float kneeBefore = KneeAngle(up, low, feet[1 - push]);
+            Vector3 hipsBefore = Bone(HumanBodyBones.Hips).position;
+            float toward = skate == Skate.Right ? -1f : 1f;
+
+            _goalie.ShowReaction(0f);
+            _goalie.ShowPush(Shown(PushKind.Shuffle, skate), new PushPoseMoment(1, 0));
+
+            Assert.LessOrEqual(KneeAngle(up, low, feet[1 - push]), kneeBefore - 8f, "the lead knee bends at least 8 degrees more");
+            Vector3 hips = Bone(HumanBodyBones.Hips).position;
+            Assert.GreaterOrEqual((hips.x - hipsBefore.x) * toward, 0.06f, "the hips lean into the move");
+            Assert.GreaterOrEqual(hipsBefore.y - hips.y, 0.03f, "the hips sit lower");
+            Assert.AreEqual(Bone(HumanBodyBones.LeftFoot).position.y, Bone(HumanBodyBones.RightFoot).position.y, 0.01f, "both skates on the ice");
+        }
+
+        [Test]
+        public void A_full_T_push_turns_the_lead_skate_at_least_45_degrees()
+        {
+            Transform[] feet = FeetByX();
+            Transform lead = feet[0]; // Skate.Right pushes, the smaller-X skate leads
+            Vector3 toe = ToeAxis(lead), before = OnIce(lead.TransformDirection(toe));
+            _goalie.ShowReaction(0f);
+            _goalie.ShowPush(Shown(PushKind.TPush, Skate.Right), new PushPoseMoment(0, 1));
+            Assert.GreaterOrEqual(Mathf.Abs(Vector3.SignedAngle(before, OnIce(lead.TransformDirection(toe)), Vector3.up)), 45f);
+        }
+
+        [Test]
+        public void Changing_the_push_side_fades_the_old_skate_out_with_no_leg_snap()
+        {
+            var t = new PushPoseTracker();
+            var right = new PushShown(PushKind.Shuffle, Skate.Right, PushPhase.Push, 1);
+            var left = new PushShown(PushKind.Shuffle, Skate.Left, PushPhase.Push, 1);
+            for (int i = 0; i < 20; i++) t.Step(right, 1.0 / 60);
+            Transform[] feet = FeetByX();
+            _goalie.ShowReaction(0f);
+            _goalie.ShowPush(right, t.Now);
+            Vector3 old = feet[1].position;
+            t.Step(left, 1.0 / 60);
+            _goalie.ShowReaction(0f);
+            _goalie.ShowPush(left, t.Now);
+            Assert.Less(Vector3.Distance(old, feet[1].position), 0.1f, "the old pushing skate does not snap back on the first frame");
+        }
+
         [Test]
         public void The_skate_is_picked_by_its_world_X_when_he_faces_the_other_way([Values(Skate.Right, Skate.Left)] Skate skate)
         {
@@ -122,8 +187,14 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void The_push_never_moves_the_body()
+        public void A_legs_only_push_never_moves_the_body_and_a_full_one_moves_the_hips_but_never_the_Root()
         {
+            // #130: the push lowers and leans the hips (bodyShare 1); a Save Reaction's push (bodyShare 0) is legs only; neither moves the Root.
+            Vector3 rootAt0 = _goalie.Root.transform.position, hips0 = Bone(HumanBodyBones.Hips).position;
+            _goalie.ShowPush(Shown(PushKind.TPush, Skate.Right), new PushPoseMoment(1, 1), 1f);
+            Assert.Less(Vector3.Distance(rootAt0, _goalie.Root.transform.position), 1e-5f, "Root position with the body lean");
+            Assert.Greater(Vector3.Distance(hips0, Bone(HumanBodyBones.Hips).position), 0.05f, "the full push moves the hips");
+            _goalie.ShowReaction(0f);
             HumanBodyBones[] kept = { HumanBodyBones.Hips, HumanBodyBones.Spine, HumanBodyBones.Chest };
             Vector3 rootAt = _goalie.Root.transform.position;
             Quaternion rootTurn = _goalie.Root.transform.rotation;
@@ -137,7 +208,7 @@ namespace HockeyGame.Core.Tests
             foreach (double leadTurn in new[] { 0.0, 0.5, 1.0 })
             {
                 _goalie.ShowReaction(0f);
-                _goalie.ShowPush(Shown(kind, skate), new PushPoseMoment(pushOut, leadTurn));
+                _goalie.ShowPush(Shown(kind, skate), new PushPoseMoment(pushOut, leadTurn), 0f);
                 string label = $"{kind} {skate} out {pushOut} turn {leadTurn}: ";
                 Assert.Less(Vector3.Distance(rootAt, _goalie.Root.transform.position), 1e-5f, label + "Root position");
                 Assert.Less(Quaternion.Angle(rootTurn, _goalie.Root.transform.rotation), 1e-3f, label + "Root rotation");
@@ -177,7 +248,7 @@ namespace HockeyGame.Core.Tests
             _goalie.ShowReaction(1f);
             Vector3 left = Bone(HumanBodyBones.LeftHand).position, right = Bone(HumanBodyBones.RightHand).position;
 
-            _goalie.ShowPush(Shown(PushKind.TPush, Skate.Right), new PushPoseMoment(1, 1));
+            _goalie.ShowPush(Shown(PushKind.TPush, Skate.Right), new PushPoseMoment(1, 1), 0f); // legs only, as GoalieView shows a Save Reaction's push
 
             Assert.Less(Vector3.Distance(left, Bone(HumanBodyBones.LeftHand).position), 1e-5f, "the glove hand stays");
             Assert.Less(Vector3.Distance(right, Bone(HumanBodyBones.RightHand).position), 1e-5f, "the stick hand stays");

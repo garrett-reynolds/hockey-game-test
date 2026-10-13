@@ -173,7 +173,7 @@ namespace HockeyGame
             }
             // The skate push (#126) goes on right after the reaction (it sets the legs) and before SitLower and Live, which plant from
             // the feet as they are. PoseForPhysics poses again with the same push: only ShowPush steps it.
-            _character.ShowPush(_pushTracker.Acting, _pushMoment); // the push the pose is acting on: a Done fades the same foot
+            _character.ShowPush(_pushTracker.Acting, _pushMoment, _bodyShare); // a Save Reaction's push is legs only, as in #126 (#130); the push the pose is acting on: a Done fades the same foot
             // Before the Shot (#70): once set he sits lower and quieter, his head on the puck; each fades as the reaction comes in.
             float lifeShare = 1f;
             if (_before != null)
@@ -203,7 +203,12 @@ namespace HockeyGame
         {
             _push = shown;
             _pushMoment = _pushTracker.Step(shown, dt);
+            // A Save Reaction's push is legs only at the #126 size: it blends there (and back) over BlendSeconds, never in one frame.
+            float step = (float)(dt / GoalieSkatePush.BlendSeconds), goal = _reacted ? 0f : 1f;
+            _bodyShare = _bodyShare < goal ? Mathf.Min(goal, _bodyShare + step) : Mathf.Max(goal, _bodyShare - step);
         }
+
+        float _bodyShare = 1f; // 1 the full push (hips lean, full reach) .. 0 a Save Reaction's push; stepped by ShowPush
 
         /// <summary>The push last given to ShowPush (PushShown.None before any, and after the goalie is hidden).</summary>
         public PushShown Push => _push;

@@ -1073,9 +1073,13 @@ namespace HockeyGame
         /// skate turns toward the move. Leg and foot bones only; the body, the Root and the hands are left alone. Does nothing
         /// without a model. Call after ShowReaction (it sets the legs again).
         /// </summary>
-        public void ShowPush(PushShown shown, PushPoseMoment moment)
+        public void ShowPush(PushShown shown, PushPoseMoment moment, float bodyShare = 1f)
         {
-            if (Present) GoalieSkatePush.Apply(this, shown, moment);
+            if (!Present) return;
+            // The body lowers and leans (#130), so the blade is kept off the ice as in SitLower; a Save Reaction's push (bodyShare 0) is legs only.
+            Vector3 before = _model.position;
+            GoalieSkatePush.Apply(this, _model, shown, moment, bodyShare);
+            if (_model.position != before) { Prepare(); KeepBladeUp(); }
         }
 
         /// <summary>How far the last React slid the body across (metres, + toward the goalie's left in model space): the move the push shows. 0 before any React or without a model.</summary>
