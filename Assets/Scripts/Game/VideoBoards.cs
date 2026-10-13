@@ -42,6 +42,7 @@ namespace HockeyGame
         Material _picture, _frame, _cable, _stillPicture;
         bool _still; // the Video Board shows the Calm Area's one dim still colour (CalmStill)
         Font _font;
+        Material _words;
         Transform _videoBoard, _centreBoard;
         // The Team Skin's look: the words' background, the words, and the frame (dark, and lit for a new best).
         Color _skinBack, _skinWords, _frameDark, _frameLit;
@@ -61,6 +62,8 @@ namespace HockeyGame
         public Color WordsColourOn(int screen) => _screens[screen].Headline.color;
         /// <summary>The screen's picture: one material for every screen.</summary>
         public Material PictureOn(int screen) => _screens[screen].Picture.sharedMaterial;
+        /// <summary>The one material every words object uses (depth-tested, front faces only).</summary>
+        public Material WordsMaterial => _words;
         /// <summary>The colour the screens show behind the words (or the tint over a picture).</summary>
         public Color BackColour => _picture.color;
         public Color FrameColour => _frame.color;
@@ -96,6 +99,7 @@ namespace HockeyGame
             boards._frameDark = skin.VideoBoardFrame;
             boards._frameLit = skin.VideoBoardFrameLit;
             boards._font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            boards._words = BoardWordsMaterial.Make(boards._font);
             // Unlit: the screens show only their own picture, with no arena light or shine on them.
             Material unlit = Resources.Load<Material>(ArenaLighting.AssetFolder + "/" + ArenaLighting.UnlitMaterial);
             boards._picture = new Material(unlit) { name = "Video Board Picture" };
@@ -192,6 +196,7 @@ namespace HockeyGame
             {
                 if (line.Length == 0) continue;
                 _font.RequestCharactersInTexture(line, FontSize, FontStyle.Bold);
+                BoardWordsMaterial.Follow(_words, _font);
                 float advance = 0f;
                 foreach (char c in line)
                     if (_font.GetCharacterInfo(c, out CharacterInfo info, FontSize, FontStyle.Bold))
@@ -274,7 +279,7 @@ namespace HockeyGame
             text.anchor = TextAnchor.MiddleCenter;
             text.alignment = TextAlignment.Center;
             var renderer = words.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial = _font.material;
+            renderer.sharedMaterial = _words;
             renderer.shadowCastingMode = ShadowCastingMode.Off;
             renderer.receiveShadows = false;
             return text;
@@ -293,10 +298,10 @@ namespace HockeyGame
             renderer.sharedMaterial = material;
         }
 
-        /// <summary>Frees the materials the boards made (not the shown picture: the Replay owns it; not the font's).</summary>
+        /// <summary>Frees the materials the boards made (not the shown picture: the Replay owns it; the words' material is ours; not the font's).</summary>
         void OnDestroy()
         {
-            foreach (Material m in new[] { _picture, _frame, _cable, _stillPicture })
+            foreach (Material m in new[] { _picture, _frame, _cable, _stillPicture, _words })
                 if (m != null) SceneObjects.DestroySafely(m);
         }
 
