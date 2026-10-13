@@ -31,11 +31,12 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void The_Dev_part_lists_the_six_values_after_the_seven_already_there()
+        public void The_Dev_part_lists_the_Round_values_and_the_Gap_reach_before_the_Test_Mode_button()
         {
             var menu = DevMenu(new SaveData());
-            Assert.AreEqual(14, menu.RowCount, "the six values sit before the Test Mode button (#156), which stays last");
-            Assert.AreEqual("Test Mode", menu.Label(13));
+            Assert.AreEqual(15, menu.RowCount, "the six values and the Gap reach (#160) sit before the Test Mode button (#156), which stays last");
+            Assert.AreEqual("Gap thin-gear reach", menu.Label(13));
+            Assert.AreEqual("Test Mode", menu.Label(14));
             Assert.AreEqual("Show the block goalie", menu.Label(0));
             Assert.AreEqual("Reaction time", menu.Label(1));
             Assert.AreEqual("Shuffle max", menu.Label(6));
@@ -326,6 +327,58 @@ namespace HockeyGame.Core.Tests
                 Assert.AreEqual(0.3, settings.CheatMetres);
             }
             finally { File.Delete(path); }
+        }
+
+        // ---- Gap thin-gear reach (#160) ----
+
+        [Test]
+        public void The_Gap_thin_gear_reach_row_is_a_slider_from_0_to_0_08_m_defaulting_to_0_04_m()
+        {
+            Assert.AreEqual(0.0, SaveData.GapThinGearReachRange.Min, 1e-9);
+            Assert.AreEqual(0.08, SaveData.GapThinGearReachRange.Max, 1e-9);
+            Assert.AreEqual(new RoundSettings().GapThinGearReachMetres, new SaveData().GapThinGearReachMetres, "the saved default is the code default");
+            Assert.AreEqual(0.04, new SaveData().GapThinGearReachMetres, 1e-9);
+            var save = new SaveData();
+            var menu = DevMenu(save);
+            int row = RowOf(menu, "Gap thin-gear reach");
+            Assert.AreEqual(SettingsRowKind.Slider, menu.Kind(row));
+            Assert.AreEqual("GAPS", menu.Group(row));
+            Assert.AreEqual("0.04 m", menu.Value(row));
+            Step(menu, "Gap thin-gear reach", +1, 100);
+            Assert.AreEqual(0.08, save.GapThinGearReachMetres, 1e-9);
+            Step(menu, "Gap thin-gear reach", -1, 100);
+            Assert.AreEqual(0.0, save.GapThinGearReachMetres, 1e-9);
+        }
+
+        [Test]
+        public void The_Gap_thin_gear_reach_saves_and_loads_and_an_old_file_without_it_loads_0_04()
+        {
+            string path = TempFile("");
+            try
+            {
+                Assert.IsTrue(new SaveData { GapThinGearReachMetres = 0.02 }.Save(path));
+                Assert.AreEqual(0.02, SaveData.Load(path).GapThinGearReachMetres, 1e-9);
+            }
+            finally { File.Delete(path); }
+            string old = TempFile("roundSkateInSeconds=4\n");
+            try { Assert.AreEqual(0.04, SaveData.Load(old).GapThinGearReachMetres, 1e-9); }
+            finally { File.Delete(old); }
+            string wild = TempFile("gapThinGearReachMetres=5\n");
+            try { Assert.AreEqual(0.08, SaveData.Load(wild).GapThinGearReachMetres, 1e-9, "clamped to the range"); }
+            finally { File.Delete(wild); }
+        }
+
+        [Test]
+        public void A_Round_takes_the_Gap_thin_gear_reach_and_Reset_brings_back_0_04()
+        {
+            var save = new SaveData { GapThinGearReachMetres = 0.01 };
+            var settings = new RoundSettings();
+            new ScreenFlow(ScriptedRandom.Halves(), save, FakeReach.NeverReaches(), settings).Press();
+            Assert.AreEqual(0.01, settings.GapThinGearReachMetres, 1e-9, "the Gap measure reads it from the Round's settings");
+
+            var menu = DevMenu(save);
+            menu.Press(SettingsKey.Reset);
+            Assert.AreEqual(0.04, save.GapThinGearReachMetres, 1e-9);
         }
 
         static string TempFile(string text)

@@ -66,6 +66,12 @@ namespace HockeyGame.Core
         public double LateSettleMetres = 0.4;
         public double LateSettleSeconds = 1.0;
 
+        /// <summary>
+        /// How near thin gear must be to block a Gap (metres, #160): the width of each cast that measures a Gap's room. The total
+        /// room stays the same. 0 measures like the old ring did (rays); more shows fewer Gaps. Range 0 to 0.08 (SaveData).
+        /// </summary>
+        public double GapThinGearReachMetres = 0.04;
+
         /// <summary>A Goal he missed by less than this (Late Margin, seconds) gets a Stick Slap; otherwise a Slump.</summary>
         public double LateMarginLimitSeconds = 0.05;
 

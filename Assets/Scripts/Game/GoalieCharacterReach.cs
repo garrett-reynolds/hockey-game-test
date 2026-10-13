@@ -55,7 +55,7 @@ namespace HockeyGame
         {
             if (_character == null || !_character.Present) return false;
             RinkPoint spot = SetUps.Spot(setUp, side, secondsSinceWindowOpened, shotStart, _settings);
-            return _character.MeasureOneInTheWay(ToVector(spot), (float)SetUps.Facing(spot, shotStart), ToVector(shotStart), ToVector(netPoint));
+            return _character.MeasureOneInTheWay(ToVector(spot), (float)SetUps.Facing(spot, shotStart), ToVector(shotStart), ToVector(netPoint), (float)_settings.GapThinGearReachMetres);
         }
 
         /// <summary>
@@ -77,7 +77,7 @@ namespace HockeyGame
                 NetFaceGaps.CellCentre(cell % NetFaceGaps.Columns, cell / NetFaceGaps.Columns, out double x, out double y);
                 centres[i] = ToVector(RinkPoint.OnNetFace(x, y));
             }
-            _character.MeasureInTheWay(ToVector(spot), facing, ToVector(shotStart), centres, inTheWay);
+            _character.MeasureInTheWay(ToVector(spot), facing, ToVector(shotStart), centres, inTheWay, (float)_settings.GapThinGearReachMetres);
             var isGap = new bool[NetFaceGaps.Cells];
             for (int i = 0; i < count; i++) isGap[first + i] = !inTheWay[i];
             return new NetFaceGaps(isGap);

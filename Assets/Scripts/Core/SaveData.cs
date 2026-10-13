@@ -49,6 +49,9 @@ namespace HockeyGame.Core
         public static readonly NumberRange LateSettleMetresRange = new NumberRange(0.2, 0.6, 0.05);
         public static readonly NumberRange LateSettleSecondsRange = new NumberRange(0.4, 2.0, 0.1);
 
+        /// <summary>Dev part, Gaps (#160): how near thin gear must be to block a Gap (metres). 0 measures like the old ring did.</summary>
+        public static readonly NumberRange GapThinGearReachRange = new NumberRange(0, 0.08, 0.01);
+
         /// <summary>The window must stay longer than the Late Settle time by 1 s (at the longest Late Settle time that is 3.0 s).</summary>
         public NumberRange ShootingWindowAllowed => new NumberRange(Math.Max(ShootingWindowRange.Min, LateSettleSeconds + 1.0), ShootingWindowRange.Max, ShootingWindowRange.Step);
         public NumberRange LateSettleSecondsAllowed => new NumberRange(LateSettleSecondsRange.Min, Math.Min(LateSettleSecondsRange.Max, ShootingWindowSeconds - 1.0), LateSettleSecondsRange.Step);
@@ -100,6 +103,7 @@ namespace HockeyGame.Core
         private const string CheatMetresKey = "setUpCheatMetres";
         private const string LateSettleMetresKey = "setUpLateSettleMetres";
         private const string LateSettleSecondsKey = "setUpLateSettleSeconds";
+        private const string GapThinGearReachKey = "gapThinGearReachMetres";
 
         private int _shotsPerRound = DefaultShotsPerRound;
         private readonly Dictionary<int, int> _bests = new Dictionary<int, int>();
@@ -205,6 +209,9 @@ namespace HockeyGame.Core
         public double LateSettleMetres = 0.4;
         public double LateSettleSeconds = 1.0;
 
+        /// <summary>Dev part, Gaps (#160). The default is the code default of RoundSettings (a test pins that); an old file with no value loads it.</summary>
+        public double GapThinGearReachMetres = 0.04;
+
         /// <summary>
         /// Puts the Dev part's Round timing and Set-up Mistake values on a RoundSettings (clamped to their ranges and linked
         /// limits, including the goalie's Max push). Called when a Round starts, never mid-Round. Like ApplyGoalieTo it first
@@ -220,6 +227,7 @@ namespace HockeyGame.Core
             settings.CheatMetres = CheatMetres;
             settings.LateSettleMetres = LateSettleMetres;
             settings.LateSettleSeconds = LateSettleSeconds;
+            settings.GapThinGearReachMetres = GapThinGearReachMetres;
         }
 
         /// <summary>Holds Late Settle size down to Max push (used when Max push is lowered on the page).</summary>
@@ -234,6 +242,7 @@ namespace HockeyGame.Core
             CheatMetres = CheatRange.Clamp(CheatMetres);
             LateSettleSeconds = Math.Min(LateSettleSecondsRange.Clamp(LateSettleSeconds), ShootingWindowSeconds - 1.0);
             LateSettleMetres = Math.Min(LateSettleMetresRange.Clamp(LateSettleMetres), MaxPushMetres);
+            GapThinGearReachMetres = GapThinGearReachRange.Clamp(GapThinGearReachMetres);
         }
         /// <summary>
         /// The Team Skin picked before play: its asset name in Assets/Resources/Skins (TeamSkin). Not on the settings
@@ -294,6 +303,7 @@ namespace HockeyGame.Core
             data.CheatMetres = ReadDouble(values, CheatMetresKey, data.CheatMetres, CheatRange);
             data.LateSettleMetres = ReadDouble(values, LateSettleMetresKey, data.LateSettleMetres, LateSettleMetresRange);
             data.LateSettleSeconds = ReadDouble(values, LateSettleSecondsKey, data.LateSettleSeconds, LateSettleSecondsRange);
+            data.GapThinGearReachMetres = ReadDouble(values, GapThinGearReachKey, data.GapThinGearReachMetres, GapThinGearReachRange);
             data.KeepRoundLimits();
             if (values.TryGetValue(TeamSkinKey, out var skin) && skin.Length > 0) data.TeamSkin = skin;
             return data;
@@ -339,6 +349,7 @@ namespace HockeyGame.Core
                 sb.Append(CheatMetresKey).Append('=').Append(CheatMetres.ToString("R", inv)).Append('\n');
                 sb.Append(LateSettleMetresKey).Append('=').Append(LateSettleMetres.ToString("R", inv)).Append('\n');
                 sb.Append(LateSettleSecondsKey).Append('=').Append(LateSettleSeconds.ToString("R", inv)).Append('\n');
+                sb.Append(GapThinGearReachKey).Append('=').Append(GapThinGearReachMetres.ToString("R", inv)).Append('\n');
                 sb.Append(TeamSkinKey).Append('=').Append(TeamSkin).Append('\n');
                 File.WriteAllText(path, sb.ToString(), new UTF8Encoding(false));
                 return true;

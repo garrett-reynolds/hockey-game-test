@@ -79,14 +79,17 @@ namespace HockeyGame.Core.Tests
         // ---- The real port (Game) ----
 
         /// <summary>A goalie character shown in the Ready Stance, and the real port on it.</summary>
-        GoalieCharacterReach Port(out GoalieCharacter character)
+        GoalieCharacterReach Port(out GoalieCharacter character) => PortAt(Defaults.GapThinGearReachMetres, out character);
+
+        /// <summary>The port with the Gap thin-gear reach (#160) set to `reach` metres; everything else as Defaults.</summary>
+        GoalieCharacterReach PortAt(double reach, out GoalieCharacter character)
         {
             character = new GoalieCharacter(_parent.transform);
             Assert.IsTrue(character.Present, "Assets/Resources/Models/goalie-dressing.fbx is missing");
             character.Show(true);
             character.Prepare();
             character.ShowReaction(0f);
-            return new GoalieCharacterReach(character, Defaults);
+            return new GoalieCharacterReach(character, new RoundSettings { GapThinGearReachMetres = reach });
         }
 
         /// <summary>The Net Face point (0-100) where a puck from `from` through `through` meets the Net Face (z = 0).</summary>
@@ -225,14 +228,14 @@ namespace HockeyGame.Core.Tests
         [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void A_Clean_Set_up_leaves_fewer_Gaps_than_a_Depth_and_no_more_than_a_Cheat()
         {
-            GoalieCharacterReach port = Port(out _);
-            var middleTies = new System.Collections.Generic.List<string>();
+            GoalieCharacterReach port = PortAt(0.0, out _); // at Gap thin-gear reach 0 m (the old ring), the reach these bounds were made for (#160)
             foreach (AttackSide side in Sides)
             foreach (double window in new[] { 0.0, 1.0, 2.0 })
             {
                 int clean = GapsOf(port, SetUp.Clean, side, window).Count, depth = GapsOf(port, SetUp.Depth, side, window).Count;
-                string at = side + " " + window + " s: Clean " + clean;
-                if (side == AttackSide.Middle && clean == depth) middleTies.Add(at + ", Depth " + depth); // the exact-sphere room (#150): waits for #160
+                string at = "reach 0 m, " + side + " " + window + " s: Clean " + clean;
+                // Garrett 2026-10-13 (#160): a shot at once in the Middle gives the goalie no time to move, so Depth = Clean is true; every other case stays strict.
+                if (side == AttackSide.Middle && window == 0.0) Assert.LessOrEqual(clean, depth, at + ", Depth " + depth);
                 else Assert.Less(clean, depth, at + ", Depth " + depth);
                 foreach (Post post in new[] { Post.Left, Post.Right })
                 {
@@ -240,7 +243,26 @@ namespace HockeyGame.Core.Tests
                     Assert.LessOrEqual(clean, cheat, at + ", Cheat " + post + " " + cheat);
                 }
             }
-            if (middleTies.Count > 0) Assert.Ignore("#160: Middle Depth = Clean with the exact room, waits for the Gap reach setting (" + string.Join("; ", middleTies) + ")");
+        }
+
+        [Test]
+        public void A_smaller_Gap_thin_gear_reach_shows_more_Gaps_and_a_larger_one_fewer()
+        {
+            // Depth/Left/0.5 alone does not move with the reach (11 Gaps at 0, 0.04 and 0.08 m), so count Clean and Depth together
+            // at Left 1.0, Right 1.0 and Right 0.5 (40, 35 and 34 Gaps when this was made).
+            var counts = new System.Collections.Generic.List<int>();
+            foreach (double reach in new[] { 0.0, 0.04, 0.08 })
+            {
+                GoalieCharacterReach port = PortAt(reach, out _);
+                int total = 0;
+                foreach (var (side, window) in new[] { (AttackSide.Left, 1.0), (AttackSide.Right, 1.0), (AttackSide.Right, 0.5) })
+                    total += GapsOf(port, SetUp.Clean, side, window).Count + GapsOf(port, SetUp.Depth, side, window).Count;
+                counts.Add(total);
+            }
+            string text = "Clean + Depth Gaps at reach 0 / 0.04 / 0.08 m: " + string.Join(" / ", counts);
+            Assert.GreaterOrEqual(counts[0], counts[1], text);
+            Assert.GreaterOrEqual(counts[1], counts[2], text);
+            Assert.Greater(counts[0], counts[2], text);
         }
 
         [Test]
@@ -274,18 +296,17 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void A_Depth_makes_the_Gaps_bigger()
         {
-            GoalieCharacterReach port = Port(out _);
+            GoalieCharacterReach port = PortAt(0.0, out _); // at Gap thin-gear reach 0 m (the old ring), the reach this bound was made for (#160)
             var counts = new System.Collections.Generic.List<string>();
-            bool bigger = true, middleTied = false;
+            bool bigger = true;
             foreach (AttackSide side in Sides)
             {
                 int clean = GapsOf(port, SetUp.Clean, side).Count, depth = GapsOf(port, SetUp.Depth, side).Count;
                 counts.Add(side + ": Depth " + depth + ", Clean " + clean);
-                if (side == AttackSide.Middle && depth == clean) middleTied = true; // the exact-sphere room (#150): see the report, Decision for Garrett
-                else if (depth <= clean) bigger = false;
+                // Garrett 2026-10-13 (#160): a shot at once in the Middle gives the goalie no time to move, so Depth = Clean is true; every other case stays strict.
+                if (side == AttackSide.Middle ? depth < clean : depth <= clean) bigger = false;
             }
-            Assert.IsTrue(bigger, string.Join("; ", counts));
-            if (middleTied) Assert.Ignore("#160: Middle Depth = Clean with the exact room, waits for the Gap reach setting (" + string.Join("; ", counts) + ")");
+            Assert.IsTrue(bigger, "at reach 0 m: " + string.Join("; ", counts));
         }
 
         [Test]

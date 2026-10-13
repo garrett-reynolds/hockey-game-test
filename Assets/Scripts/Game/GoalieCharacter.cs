@@ -551,7 +551,7 @@ namespace HockeyGame
         /// Stance standing at spot (rink space, on the ice) at this facing: MeasureReach's inTheWay, for many points at once.
         /// Without a model nothing is in the way. Everything shown and the last React are left as they were.
         /// </summary>
-        public void MeasureInTheWay(Vector3 spot, float facing, Vector3 from, Vector3[] to, bool[] inTheWay)
+        public void MeasureInTheWay(Vector3 spot, float facing, Vector3 from, Vector3[] to, bool[] inTheWay, float thinGearReach = DefaultThinGearReach)
         {
             if (!Present)
             {
@@ -560,7 +560,7 @@ namespace HockeyGame
             }
             InReadyStanceAt(spot, facing, () =>
             {
-                for (int i = 0; i < to.Length; i++) inTheWay[i] = InThePuckWay(from, to[i]);
+                for (int i = 0; i < to.Length; i++) inTheWay[i] = InThePuckWay(from, to[i], thinGearReach);
                 return true;
             });
         }
@@ -751,19 +751,34 @@ namespace HockeyGame
         public const float GapRoomMetres = 0.09f;
 
         const int RoomRingPoints = 16, RoomInnerPoints = 12;
-        const float RoomCastRadius = 0.04f, RoomInnerRadius = 0.08f;
+        const float RoomInnerRadius = 0.08f;
+
+        /// <summary>The Gap thin-gear reach (metres) when nothing sets it: the width of each room cast (#160, RoundSettings.GapThinGearReachMetres).</summary>
+        public const float DefaultThinGearReach = 0.04f;
 
         /// <summary>
-        /// Points over the disc round the puck's line, each cast RoomCastRadius wide (and meeting a thin shape RoomCastRadius to its
-        /// side, GoalieShape.Cast's edgeReach): one in the middle, an inner ring, and an outer ring whose reach ends GapRoomMetres
-        /// past the puck's edge. Neighbours overlap, so nothing as thin as a stick shaft slips between (#150; the ring alone left
-        /// the inner disc open and, with only the line itself counting, thin shapes between the points).
+        /// Points over the disc round the puck's line, each cast `reach` wide (and meeting a thin shape `reach` to its side,
+        /// GoalieShape.Cast's sphere option): one in the middle, an inner ring, and an outer ring whose reach ends GapRoomMetres
+        /// past the puck's edge whatever the reach. Neighbours overlap, so nothing as thin as a stick shaft slips between (#150;
+        /// the ring alone left the inner disc open and, with only the line itself counting, thin shapes between the points). At
+        /// reach 0 the casts are rays, as the old ring measured (#160). Kept for the last reach asked for.
         /// </summary>
-        static readonly Vector3[] RoomRing = MakeRoomRing();
+        static Vector3[] _roomRing;
+        static float _roomRingReach = -1f;
 
-        static Vector3[] MakeRoomRing()
+        static Vector3[] RoomRingFor(float reach)
         {
-            float outer = GoalieShape.LinePuckDiameter / 2f + GapRoomMetres + GoalieShape.LinePuckThickness / 2f - RoomCastRadius;
+            if (_roomRing == null || _roomRingReach != reach)
+            {
+                _roomRing = MakeRoomRing(reach);
+                _roomRingReach = reach;
+            }
+            return _roomRing;
+        }
+
+        static Vector3[] MakeRoomRing(float reach)
+        {
+            float outer = GoalieShape.LinePuckDiameter / 2f + GapRoomMetres + GoalieShape.LinePuckThickness / 2f - reach;
             var ring = new List<Vector3> { Vector3.zero };
             for (int i = 0; i < RoomInnerPoints; i++)
             {
@@ -783,28 +798,31 @@ namespace HockeyGame
         /// casts round it reaching GapRoomMetres past its edge. Only the Gaps use this: a Gap is never in the way for Reach, but a
         /// cell nothing is in the way of may be too tight to be a Gap.
         /// </summary>
-        bool InThePuckWay(Vector3 from, Vector3 to)
+        bool InThePuckWay(Vector3 from, Vector3 to, float thinGearReach)
         {
             GoalieShape obstacles = Placed();
             from = NearGoalie(from, to);
-            return HitsPuckOrRoom(obstacles, from, to);
+            return HitsPuckOrRoom(obstacles, from, to, thinGearReach);
         }
 
-        /// <summary>Whether anything in obstacles meets the plain puck (its middle and edges) or the ring of room casts round it, moving from `from` to `to`.</summary>
-        public static bool HitsPuckOrRoom(GoalieShape obstacles, Vector3 from, Vector3 to)
+        /// <summary>
+        /// Whether anything in obstacles meets the plain puck (its middle and edges) or the ring of room casts round it, moving from
+        /// `from` to `to`. thinGearReach: the width of each room cast (the Dev setting Gap thin-gear reach, #160).
+        /// </summary>
+        public static bool HitsPuckOrRoom(GoalieShape obstacles, Vector3 from, Vector3 to, float thinGearReach = DefaultThinGearReach)
         {
             foreach (Vector3 edge in PuckEdges)
                 if (obstacles.Cast(from + edge, to + edge, GoalieShape.LinePuckThickness / 2f, out _, out _, null)) return true;
-            foreach (Vector3 point in RoomRing)
-                if (obstacles.Cast(from + point, to + point, RoomCastRadius, out _, out _, null, true)) return true;
+            foreach (Vector3 point in RoomRingFor(thinGearReach))
+                if (obstacles.Cast(from + point, to + point, thinGearReach, out _, out _, null, true)) return true;
             return false;
         }
 
         /// <summary>As MeasureInTheWay, for one point (the Reach side of the same measure, so a test can compare the two routes).</summary>
-        public bool MeasureOneInTheWay(Vector3 spot, float facing, Vector3 from, Vector3 to)
+        public bool MeasureOneInTheWay(Vector3 spot, float facing, Vector3 from, Vector3 to, float thinGearReach = DefaultThinGearReach)
         {
             var one = new bool[1];
-            MeasureInTheWay(spot, facing, from, new[] { to }, one);
+            MeasureInTheWay(spot, facing, from, new[] { to }, one, thinGearReach);
             return one[0];
         }
 
