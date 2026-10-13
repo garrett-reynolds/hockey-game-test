@@ -257,6 +257,36 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void The_puck_look_ahead_does_not_see_the_bottle_on_its_path()
+        {
+            WaterBottle bottle = WaterBottle.Build(_rink.transform);
+            Rigidbody puck = PhysicsPuck.Make(_rink.transform);
+            puck.useGravity = false;
+            Physics.SyncTransforms();
+            Vector3 middle = Look(bottle).center;
+            Vector3 from = middle + new Vector3(-0.3f, 0f, 0f); // level with the bottle's middle, its path runs through the bottle
+            puck.position = from;
+            puck.transform.position = from;
+            puck.linearVelocity = new Vector3(30f, 0f, 0f);
+            Physics.SyncTransforms();
+            Collider box = bottle.Root.GetComponentInChildren<Collider>();
+            Assert.That(box.bounds.Contains(middle), "the bottle's collider is where the test aims");
+            using (var reach = new PuckReach(puck))
+            {
+                reach.LookAhead(Step);
+                Assert.That(!reach.Reached(box), "a layer the puck ignores is not foreseen");
+                // Control: with the layers meeting, the same sweep does reach the bottle (so the aim above is real).
+                Physics.IgnoreLayerCollision(WaterBottle.Layer, PhysicsPuck.Layer, false);
+                try
+                {
+                    reach.LookAhead(Step);
+                    Assert.That(reach.Reached(box), "control: the sweep reaches the bottle when the layers meet");
+                }
+                finally { WaterBottle.IgnorePuck(); }
+            }
+        }
+
+        [Test]
         public void The_bottle_covers_no_part_of_the_Net_Face_from_where_the_shooter_stands()
         {
             WaterBottle bottle = WaterBottle.Build(_rink.transform);

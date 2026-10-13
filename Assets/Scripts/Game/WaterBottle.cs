@@ -96,19 +96,19 @@ namespace HockeyGame
         }
 
         /// <summary>The one fixed push (#164): the speed it is given, up and back away from the net (+z, behind the goal line). Always the same.</summary>
-        public static readonly Vector3 KnockSpeed = new Vector3(0f, 2.5f, 3f);
+        public static readonly Vector3 KnockPush =new Vector3(0f, 2.5f, 3f);
         /// <summary>True once Knock has let it go, until PutBack.</summary>
         public bool Knocked => Body != null && !Body.isKinematic;
 
         /// <summary>
-        /// The bottle gets its push (#164): it becomes a normal rigid body and is given KnockSpeed, so it leaves the net, then bounces
+        /// The bottle gets its push (#164): it becomes a normal rigid body and is given KnockPush, so it leaves the net, then bounces
         /// and rolls on the ice. A second Knock while it is already knocked does nothing.
         /// </summary>
         public void Knock()
         {
             if (Knocked) return;
             Body.isKinematic = false;
-            Body.linearVelocity = KnockSpeed;
+            Body.linearVelocity = KnockPush;
             Body.angularVelocity = Vector3.zero;
         }
 

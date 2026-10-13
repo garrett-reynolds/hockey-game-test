@@ -109,6 +109,9 @@ namespace HockeyGame
             SweepGear();
         }
 
+        /// <summary>True when the last LookAhead's sweep reached this collider (tests).</summary>
+        public bool Reached(Collider collider) => _reached.Contains(collider.GetEntityId());
+
         /// <summary>
         /// The gear moves during the step, so the first sweep (which saw it where it stood) is not enough. In the gear's own
         /// frame the puck moves by the step's travel less the gear's move (GearMoves): keeps every piece that line passes
