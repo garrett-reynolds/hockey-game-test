@@ -81,6 +81,30 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual((Color32)league.Rail, StartLogoArt.Blue);
             Assert.AreEqual((Color32)league.KickPlate, StartLogoArt.Gold);
             Assert.AreEqual((Color32)league.VideoBoardBack, StartLogoArt.Navy);
+            Assert.AreEqual((Color32)league.VideoBoardWords, StartLogoArt.White);
+            // The League Skin has no red: this is look C's red, picked in #137 (the prototype's Red, 200 30 45).
+            Assert.AreEqual(new Color32(200, 30, 45, 255), StartLogoArt.Red);
+        }
+
+        [Test]
+        public void The_dark_strip_holds_the_three_text_lines_and_stays_clear_of_the_logo_and_the_corner_hints()
+        {
+            foreach (Vector2 s in Screens())
+            {
+                Rect strip = StartScreenLayout.TextStrip(s.x, s.y);
+                string at = s.x + "x" + s.y;
+                Assert.GreaterOrEqual(strip.xMin, 0f, at);
+                Assert.LessOrEqual(strip.xMax, s.x, at);
+                Assert.IsFalse(strip.Overlaps(StartScreenLayout.Logo(s.x, s.y)), at + ": strip on the logo");
+                Assert.IsFalse(strip.Overlaps(StartScreenLayout.SettingsHint(s.x, s.y)), at + ": strip on the F2 hint");
+                Assert.IsFalse(strip.Overlaps(StartScreenLayout.TestShots(s.x, s.y)), at + ": strip on the test shots line");
+                foreach (Rect line in new[] { StartScreenLayout.BestScore(s.x, s.y), StartScreenLayout.Prompt(s.x, s.y), StartScreenLayout.UsbStatus(s.x, s.y) })
+                {
+                    Assert.LessOrEqual(strip.yMin, line.yMin, at);
+                    Assert.GreaterOrEqual(strip.yMax, line.yMax, at);
+                }
+                Assert.Greater(StartLogoArt.StripBack.a, 0.5f, at + ": dark enough to read white text on ice");
+            }
         }
 
         // The picture check: red, blue, gold and white all show, and the lettering band is mostly opaque.

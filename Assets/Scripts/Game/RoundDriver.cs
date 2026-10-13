@@ -212,6 +212,18 @@ namespace HockeyGame
                 : "Test Shots: OFF  (F1 on)";
             GUI.Label(StartScreenLayout.TestShots(w, h), testShots, _small);
 
+            if (StartLogo.Shown(_flow)) // the Shootout logo (#140) and the dark strip its text lines sit on; not behind the settings screen
+            {
+                GUI.DrawTexture(StartScreenLayout.Logo(w, h), _logo, ScaleMode.StretchToFill, true);
+                Rect strip = StartScreenLayout.TextStrip(w, h);
+                Color was = GUI.color;
+                GUI.color = StartLogoArt.StripBack;
+                GUI.DrawTexture(strip, Texture2D.whiteTexture);
+                GUI.color = StartLogoArt.Gold;
+                GUI.DrawTexture(new Rect(strip.x, strip.y, strip.width, StartLogoArt.StripEdgeHeight), Texture2D.whiteTexture);
+                GUI.color = was;
+            }
+
             if (_flow.SettingsOpen)
             {
                 _settingsScreen.Draw(w, h, _big, _small);
@@ -241,8 +253,6 @@ namespace HockeyGame
             switch (_flow.Screen)
             {
                 case FlowScreen.Start:
-                    if (StartLogo.Shown(_flow)) // the Shootout logo takes the headline's place (#140)
-                        GUI.DrawTexture(StartScreenLayout.Logo(w, h), _logo, ScaleMode.StretchToFill, true);
                     GUI.Label(StartScreenLayout.BestScore(w, h), "Best score: " + _save.BestScore + " / " + Round.ShotsPerRound, _mid);
                     GUI.Label(StartScreenLayout.Prompt(w, h), "Shoot or press any key", _mid);
                     GUI.Label(StartScreenLayout.UsbStatus(w, h), _usb.StatusText, _mid);

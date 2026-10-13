@@ -20,6 +20,10 @@ namespace HockeyGame
         public static readonly Color32 Red = new Color32(200, 30, 45, 255);
         public static readonly Color32 White = new Color32(255, 255, 255, 255);
 
+        /// <summary>The text strip under the logo: see-through navy with a gold top edge (look C).</summary>
+        public static readonly Color StripBack = new Color(10 / 255f, 16 / 255f, 34 / 255f, 0.8f);
+        public const float StripEdgeHeight = 5f;
+
         // Logo space: 1000 x 300, y down. Everything leans right by Slant per unit of height above the middle.
         const float Space = 1.05f, Slant = 0.28f, MidY = 150f, Left = 84f; // Left: keeps the leaned left end on the picture
         const float LetterW = 84f, LetterH = 150f, Stroke = 26f, Pitch = 102f, LettersLeft = 100f, LettersTop = 75f;

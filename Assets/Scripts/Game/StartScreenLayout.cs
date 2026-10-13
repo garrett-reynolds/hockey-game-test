@@ -14,6 +14,14 @@ namespace HockeyGame
 
         static float TextTop(float w, float h) => Logo(w, h).yMax + 0.03f * h;
 
+        /// <summary>The dark strip behind the best score, prompt and USB lines, so white text reads over the bright ice.</summary>
+        public static Rect TextStrip(float w, float h)
+        {
+            float width = Mathf.Min(0.5f * w, 700f);
+            float top = TextTop(w, h) - 10f;
+            return new Rect((w - width) / 2f, top, width, UsbStatus(w, h).yMax + 10f - top);
+        }
+
         public static Rect BestScore(float w, float h) => new Rect(0, TextTop(w, h), w, 40);
         public static Rect Prompt(float w, float h) => new Rect(0, TextTop(w, h) + 50, w, 40);
         public static Rect UsbStatus(float w, float h) => new Rect(0, TextTop(w, h) + 100, w, 40);

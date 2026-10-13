@@ -8,15 +8,18 @@ namespace HockeyGame.Core.Tests
     /// <summary>
     /// Renders the start screen at 1920 x 1080 for the #140 pictures: the rink's first wide shot, crowd off and audio muted (not a
     /// crowd picture), the Shootout logo where the game draws it, and the other start-screen lines in LED-font stand-in text (an
-    /// EditMode render cannot draw IMGUI). Writes _notes\t140-after.png when that folder exists.
+    /// EditMode render cannot draw IMGUI). A picture maker, not a check (StartLogoTests checks the layout): it runs only on
+    /// request (--include_explicit) and writes _notes\t140-after.png only when that folder exists.
     /// </summary>
-    public class StartLogoPictureTests
+    public class StartLogoPictureTool
     {
         const int W = 1920, H = 1080;
 
-        [Test]
-        public void The_start_screen_picture_shows_the_logo_over_the_rink_and_clear_of_the_text()
+        [Test, Category("Slow"), Explicit("Slow: picture maker for #140, runs only in the full run (--include_explicit true)")]
+        public void Take_the_start_screen_picture()
         {
+            string folder = Path.GetFullPath(Path.Combine(Application.dataPath, "../../_notes"));
+            if (!Directory.Exists(folder)) Assert.Ignore("No _notes folder: the picture is only made in the dev checkout");
             bool asyncShaders = UnityEditor.ShaderUtil.allowAsyncCompilation;
             UnityEditor.ShaderUtil.allowAsyncCompilation = false;
             bool muted = UnityEditor.EditorUtility.audioMasterMute;
@@ -38,30 +41,20 @@ namespace HockeyGame.Core.Tests
                 texture = new Texture2D(W, H, TextureFormat.RGB24, false);
                 texture.ReadPixels(new Rect(0, 0, W, H), 0, 0);
                 RenderTexture.active = previous;
-                Color32[] before = texture.GetPixels32();
-                Color32[] px = (Color32[])before.Clone();
+                Color32[] px = texture.GetPixels32();
 
                 logo = StartLogoArt.Make();
-                Rect area = StartScreenLayout.Logo(W, H);
-                DrawLogo(px, logo, area);
+                DrawLogo(px, logo, StartScreenLayout.Logo(W, H));
+                Strip(px, StartScreenLayout.TextStrip(W, H));
                 Text(px, "BEST SCORE: 0 / 6", StartScreenLayout.BestScore(W, H), 4, false);
                 Text(px, "SHOOT OR PRESS ANY KEY", StartScreenLayout.Prompt(W, H), 4, false);
                 Text(px, "NO ELECTRONICS FOUND", StartScreenLayout.UsbStatus(W, H), 4, false);
                 Text(px, "F2: SETTINGS", StartScreenLayout.SettingsHint(W, H), 2, true);
                 Text(px, "TEST SHOTS: OFF  (F1 ON)", StartScreenLayout.TestShots(W, H), 2, true);
 
-                // The logo changed the picture inside its area and nowhere under the prompt or the F2 hint.
-                Assert.Greater(Changed(before, px, area), area.width * area.height * 0.3, "the logo is on the picture");
-                Rect prompt = StartScreenLayout.Prompt(W, H);
-                Assert.IsFalse(area.Overlaps(prompt));
-
-                string folder = Path.GetFullPath(Path.Combine(Application.dataPath, "../../_notes"));
-                if (Directory.Exists(folder))
-                {
-                    texture.SetPixels32(px);
-                    texture.Apply();
-                    File.WriteAllBytes(Path.Combine(folder, "t140-after.png"), texture.EncodeToPNG());
-                }
+                texture.SetPixels32(px);
+                texture.Apply();
+                File.WriteAllBytes(Path.Combine(folder, "t140-after.png"), texture.EncodeToPNG());
             }
             finally
             {
@@ -76,16 +69,18 @@ namespace HockeyGame.Core.Tests
             }
         }
 
-        static int Changed(Color32[] a, Color32[] b, Rect area)
+        // The dark see-through strip with its gold top edge, as RoundDriver draws it.
+        static void Strip(Color32[] px, Rect r)
         {
-            int n = 0;
-            for (int y = (int)area.yMin; y < (int)area.yMax; y++)
-                for (int x = (int)area.xMin; x < (int)area.xMax; x++)
+            Color back = StartLogoArt.StripBack;
+            for (int y = (int)r.yMin; y < (int)r.yMax; y++)
+                for (int x = (int)r.xMin; x < (int)r.xMax; x++)
                 {
                     int i = (H - 1 - y) * W + x;
-                    if (a[i].r != b[i].r || a[i].g != b[i].g || a[i].b != b[i].b) n++;
+                    if (y < (int)r.yMin + StartLogoArt.StripEdgeHeight) { px[i] = StartLogoArt.Gold; continue; }
+                    px[i] = new Color32((byte)(back.r * 255 * back.a + px[i].r * (1 - back.a)), (byte)(back.g * 255 * back.a + px[i].g * (1 - back.a)),
+                                        (byte)(back.b * 255 * back.a + px[i].b * (1 - back.a)), 255);
                 }
-            return n;
         }
 
         // Alpha-blends the logo into the picture at area (top-left origin).
