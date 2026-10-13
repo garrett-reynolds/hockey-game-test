@@ -218,11 +218,6 @@ namespace HockeyGame.Core.Tests
             }
             // ... but not too many away: a measure that shrank the Gaps to a few cells would still pass the lines above. The room takes
             // away about a fifth to a half of the free cells in these three cases (78, 52 and 86 % stay); a third or less is too far.
-            if (kind == SetUpKind.Depth && side == AttackSide.Left)
-            {
-                // The measure stays (Garrett); #160 adds a Dev setting for the reach. The two exact checks above ran; only the bound waits.
-                Assert.Ignore("#160: bound waits for the Gap reach setting (now " + gaps.Count + " Gaps of " + free + " free cells = " + (100.0 * gaps.Count / free).ToString("F0") + " %)");
-            }
             Assert.GreaterOrEqual(gaps.Count, free * 0.4,gaps.Count + " Gaps of " + free + " cells with nothing in the way");
         }
 
