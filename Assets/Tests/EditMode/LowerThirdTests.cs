@@ -152,6 +152,46 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void Test_Shots_stay_out_of_the_Rounds_average_speed()
+        {
+            var round = InWindow();
+            round.SubmitShotAndWhistle(50, 50, 150, true); // a Test Shot (dev), very fast
+            Assert.AreEqual(1, round.Results.Count, "a Test Shot is still a Shot in the Results");
+            Assert.IsNull(round.ShotSpeedsKmh[0], "but it has no speed in the Round's list");
+            Assert.AreEqual("", LowerThird.Choose(round.Results, round.ShotSpeedsKmh).Value.SpeedLine, "no speed to average yet");
+            round.Tick(round.ResultHoldLength);
+            round.Tick(3.7);
+            round.SubmitShotAndWhistle(50, 50, 80, false);
+            LowerThirdText text = LowerThird.Choose(round.Results, round.ShotSpeedsKmh).Value;
+            Assert.AreEqual("80 km/h  |  average 80 km/h", text.SpeedLine, "the average is the real Shot's, not 115");
+        }
+
+        [Test]
+        public void No_lower_third_the_Round_gives_mentions_the_best_score_even_with_a_best_score_set()
+        {
+            // The Round holds a best score of 5; the lower third reads the Round, so a line that used it would show here.
+            var round = new Round(ScriptedRandom.Halves(), new RoundSettings(), FakeReach.NeverReaches(), 5);
+            round.StartRound();
+            round.Tick(3.7);
+            round.SubmitShotAndWhistle(50, 50, 100, false);
+            Assert.AreEqual(5, round.BestScore);
+            LowerThirdShow show = default;
+            for (int i = 0; i < 100 && show.Amount <= 0; i++)
+            {
+                round.Tick(0.1);
+                show = LowerThird.Of(round, new LowerThirdWords());
+            }
+            Assert.Greater(show.Amount, 0, "the lower third is on screen, so its words are real");
+            foreach (string line in new[] { show.Text.Kicker, show.Text.Headline, show.Text.SpeedLine })
+            {
+                StringAssert.DoesNotContain("best", line.ToLowerInvariant());
+                StringAssert.DoesNotContain("beat", line.ToLowerInvariant());
+                StringAssert.DoesNotContain("chasing", line.ToLowerInvariant());
+                StringAssert.DoesNotContain("5", line, "the best score's number");
+            }
+        }
+
+        [Test]
         public void A_new_Round_starts_with_no_speeds()
         {
             var round = InWindow();

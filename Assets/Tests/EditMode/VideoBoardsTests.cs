@@ -383,17 +383,109 @@ namespace HockeyGame.Core.Tests
             }
         }
 
+        // ---- the start card is the Shootout logo (#153) ----
+
+        // Pixels of the picture inside rect (from its lower-left corner) within tolerance of colour.
+        static int Count(Texture2D picture, RectInt rect, Color32 colour, int tolerance = 14)
+        {
+            Color32[] pixels = picture.GetPixels32();
+            int n = 0;
+            for (int y = rect.yMin; y < rect.yMax; y++)
+                for (int x = rect.xMin; x < rect.xMax; x++)
+                {
+                    Color32 c = pixels[y * picture.width + x];
+                    if (Mathf.Abs(c.r - colour.r) <= tolerance && Mathf.Abs(c.g - colour.g) <= tolerance && Mathf.Abs(c.b - colour.b) <= tolerance) n++;
+                }
+            return n;
+        }
+
         [Test]
-        public void The_start_card_says_SHOOTOUT_in_look_Cs_white_on_red_and_the_other_cards_keep_the_skins_colours()
+        public void The_start_card_is_the_Shootout_logo_picture_on_every_screen_with_the_small_words_under_it()
         {
             Assert.AreEqual("SHOOTOUT", ArenaShow.GameName);
             VideoBoards boards = VideoBoards.Build(_rink.transform);
             boards.Show(At(RoundPhase.Idle), 0.0);
-            Assert.AreEqual("SHOOTOUT", boards.HeadlineOn(0));
-            Assert.AreEqual(LookC.Red, (Color32)boards.BackColour, "the red band of the Shootout logo");
-            Assert.AreEqual(LookC.White, (Color32)boards.WordsColourOn(0), "white letters, as the logo's");
+            Assert.IsTrue(boards.StartLogoShown);
+            for (int i = 0; i < boards.ScreenCount; i++)
+            {
+                Texture2D card = boards.StartCardTextureOn(i);
+                Assert.IsNotNull(card, "screen " + i);
+                Assert.AreSame(card, boards.PictureOn(i).mainTexture, "screen " + i + " draws the start card picture");
+                Assert.IsTrue(LedBoardMaterial.IsPlain(boards.PictureOn(i)), "a picture, sharp");
+                Assert.AreEqual(boards.CellsAcross(i) * StartCardArt.PixelsPerCell, card.width, "the picture has the board's shape, so nothing is stretched");
+                Assert.AreEqual(boards.CellsUp(i) * StartCardArt.PixelsPerCell, card.height);
+                RectInt logo = StartCardArt.LogoRect(boards.CellsAcross(i), boards.CellsUp(i));
+                Assert.GreaterOrEqual(logo.xMin, 0);
+                Assert.LessOrEqual(logo.xMax, card.width);
+                Assert.LessOrEqual(logo.yMax, card.height);
+                // The logo's own colours: the red band, the blue caps, the gold stripe, the white letters.
+                foreach (Color32 colour in new[] { LookC.Red, LookC.Blue, LookC.Gold, LookC.White })
+                    Assert.Greater(Count(card, logo, colour), logo.width * logo.height / 400, "logo colour " + colour + " on screen " + i);
+                // Below the logo: the small words in white cells, and no logo colours.
+                var below = new RectInt(0, 0, card.width, logo.yMin);
+                Assert.Greater(Count(card, below, LookC.White), 200, "the small words, screen " + i);
+                Assert.AreEqual(0, Count(card, below, LookC.Red) + Count(card, below, LookC.Gold), "no logo colours under the logo");
+            }
+            Assert.AreSame(boards.StartCardTextureOn(1), boards.StartCardTextureOn(4), "the Centre Board's four screens share one picture");
+        }
+
+        [Test]
+        public void The_start_card_keeps_the_Team_Skins_board_colours_and_other_cards_show_words_again()
+        {
+            var skin = ScriptableObject.CreateInstance<TeamSkin>();
+            skin.VideoBoardBack = new Color32(20, 120, 50, 255);
+            skin.VideoBoardWords = new Color32(230, 230, 80, 255);
+            skin.VideoBoardFrame = new Color32(50, 50, 50, 255);
+            skin.VideoBoardFrameLit = new Color32(230, 230, 230, 255);
+            VideoBoards boards = VideoBoards.Build(_rink.transform, skin);
             boards.Show(At(RoundPhase.SkateIn), 0.0);
-            Assert.AreNotEqual(LookC.Red, (Color32)boards.BackColour, "the score card is back to the skin's colours");
+            Assert.AreEqual((Color32)skin.VideoBoardBack, (Color32)boards.BackColour);
+            Assert.AreEqual((Color32)skin.VideoBoardWords, (Color32)boards.WordsColourOn(0));
+            Assert.IsFalse(boards.StartLogoShown);
+            Assert.AreSame(boards.WordsTextureOn(0), boards.PictureOn(0).mainTexture, "the score card is words again");
+            boards.Show(At(RoundPhase.Idle), 0.0);
+            Assert.IsTrue(boards.StartLogoShown);
+            Assert.AreEqual((Color32)skin.VideoBoardBack, (Color32)boards.BackColour, "the start card no longer overrides the skin's colours: the logo is a picture of its own look");
+            Assert.AreEqual((Color32)skin.VideoBoardWords, (Color32)boards.WordsColourOn(0));
+            Assert.AreEqual((Color32)skin.VideoBoardFrame, (Color32)boards.FrameColour);
+            Object.DestroyImmediate(skin);
+        }
+
+        [Test]
+        public void The_start_card_is_not_the_logo_in_Test_Mode()
+        {
+            VideoBoards boards = VideoBoards.Build(_rink.transform);
+            boards.Show(ArenaShow.At(new ArenaShowInput { Phase = RoundPhase.Idle, TestMode = true }), 0.0);
+            Assert.IsFalse(boards.StartLogoShown, "Test Mode shows the Score board, never the Shootout logo (#157)");
+            Assert.AreSame(boards.WordsTextureOn(0), boards.PictureOn(0).mainTexture);
+        }
+
+        [Test]
+        public void The_Replay_picture_goes_over_the_start_card_and_it_comes_back()
+        {
+            VideoBoards boards = VideoBoards.Build(_rink.transform);
+            boards.Show(At(RoundPhase.Idle), 0.0);
+            var replay = new Texture2D(4, 4);
+            boards.ShowPicture(replay);
+            Assert.IsFalse(boards.StartLogoShown);
+            Assert.AreNotSame(boards.StartCardTextureOn(0), boards.PictureOn(0).mainTexture);
+            boards.ShowPicture(null);
+            boards.Show(At(RoundPhase.Idle), 0.0);
+            Assert.IsTrue(boards.StartLogoShown);
+            Assert.AreSame(boards.StartCardTextureOn(0), boards.PictureOn(0).mainTexture);
+            Object.DestroyImmediate(replay);
+        }
+
+        [Test]
+        public void The_start_card_picture_is_made_again_only_when_the_small_words_change()
+        {
+            VideoBoards boards = VideoBoards.Build(_rink.transform);
+            boards.Show(At(RoundPhase.Idle), 0.0);
+            Texture2D first = boards.StartCardTextureOn(0);
+            for (int frame = 0; frame < 50; frame++) boards.Show(At(RoundPhase.Idle), frame * 0.016);
+            Assert.AreSame(first, boards.StartCardTextureOn(0), "the same picture every frame");
+            boards.Show(ArenaShow.At(new ArenaShowInput { Phase = RoundPhase.Idle, BestScore = 5, ShotsPerRound = 6 }), 1.0);
+            Assert.AreNotSame(first, boards.StartCardTextureOn(0), "a new best score is new words");
         }
 
         [Test]

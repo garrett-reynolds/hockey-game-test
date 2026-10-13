@@ -75,8 +75,15 @@ namespace HockeyGame
             return s;
         }
 
-        public static Texture2D Make()
+        static Color32[] _pixels;
+
+        /// <summary>
+        /// The logo's pixels (row 0 at the bottom), worked out once and kept (about 0.35 s): the start screen's picture and the Video
+        /// Board's start card (#153) both read them. Do not change the array.
+        /// </summary>
+        public static Color32[] Pixels()
         {
+            if (_pixels != null) return _pixels;
             var r = new float[Width * Height];
             var g = new float[Width * Height];
             var b = new float[Width * Height];
@@ -90,8 +97,14 @@ namespace HockeyGame
                     ? new Color32(LookC.Navy.r, LookC.Navy.g, LookC.Navy.b, 0)
                     : new Color32((byte)Mathf.RoundToInt(r[i]), (byte)Mathf.RoundToInt(g[i]), (byte)Mathf.RoundToInt(b[i]), (byte)Mathf.RoundToInt(a[i] * 255f));
             }
+            _pixels = pixels;
+            return _pixels;
+        }
+
+        public static Texture2D Make()
+        {
             var t = new Texture2D(Width, Height, TextureFormat.RGBA32, false) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
-            t.SetPixels32(pixels);
+            t.SetPixels32(Pixels());
             t.Apply();
             return t;
         }

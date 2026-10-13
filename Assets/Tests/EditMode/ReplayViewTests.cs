@@ -139,10 +139,10 @@ namespace HockeyGame.Core.Tests
                         Assert.AreEqual(replaying, replay.ReplayCamera.enabled, "the camera draws only in the Replay, frame " + f);
                         for (int screen = 0; screen < boards.ScreenCount; screen++)
                         {
-                            // Outside the Replay a screen shows its words (the board's texels) or the Calm Area's still (no texture), never the Replay picture.
+                            // Outside the Replay a screen shows its words (the board's texels), the start card the boards are built with (#153) or the Calm Area's still (no texture), never the Replay picture.
                             Texture shownTexture = boards.PictureOn(screen).mainTexture;
                             if (replaying) Assert.AreEqual(replay.Picture, shownTexture, "screen " + screen + ", frame " + f);
-                            else Assert.IsTrue(shownTexture == null || shownTexture == boards.WordsTextureOn(screen), "screen " + screen + ", frame " + f + " shows " + shownTexture);
+                            else Assert.IsTrue(shownTexture == null || shownTexture == boards.WordsTextureOn(screen) || shownTexture == boards.StartCardTextureOn(screen),"screen " + screen + ", frame " + f + " shows " + shownTexture);
                         }
                         if (replaying) shown++;
                         recorded = replay.RecordedMoments;
