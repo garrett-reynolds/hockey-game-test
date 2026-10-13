@@ -36,6 +36,7 @@ namespace HockeyGame
         {
             public Transform Follow;
             public Rigidbody Body;
+            public Collider Collider;
             public Vector3 Offset;
             public Quaternion Turn;
             public Vector3 Position => Follow.position + Follow.rotation * Offset;
@@ -96,15 +97,25 @@ namespace HockeyGame
             if (active) Snap();
         }
 
-        /// <summary>Call once the goalie is posed for the end of the physics step, before it is simulated: moves each hit shape to its gear.</summary>
+        /// <summary>
+        /// Call once the goalie is posed for the end of the physics step, before it is simulated: moves each hit shape to its gear,
+        /// and tells PuckReach how far each moves this step (a kinematic body's velocity is not there for its look-ahead).
+        /// </summary>
         public void Move()
         {
             if (!_root.activeInHierarchy) return;
             foreach (Follower f in _followers)
             {
-                f.Body.MovePosition(f.Position);
-                f.Body.MoveRotation(f.Rotation);
+                if (f.Collider == null) f.Collider = f.Body.GetComponent<Collider>();
+                Vector3 target = f.Position;
+                Quaternion turn = f.Rotation;
+                // How far a point of the shape may travel because of the turn: the angle times the shape's reach from its middle.
+                float swing = Quaternion.Angle(f.Body.rotation, turn) * Mathf.Deg2Rad * f.Collider.bounds.extents.magnitude;
+                PuckReach.GearMoves(f.Collider, target - f.Body.position, swing);
+                f.Body.MovePosition(target);
+                f.Body.MoveRotation(turn);
             }
+            PuckReach.GearMoved();
         }
 
         /// <summary>Puts each hit shape on its gear at once, with no speed (a test's start, or the goalie shown again).</summary>
@@ -113,6 +124,9 @@ namespace HockeyGame
             foreach (Follower f in _followers) f.Body.transform.SetPositionAndRotation(f.Position, f.Rotation);
             Physics.SyncTransforms();
         }
+
+        /// <summary>The name of the body (and object) that carries a gear piece's hit shape.</summary>
+        public static string BodyName(string piece) => "Hit " + piece;
 
         public void Dispose()
         {
@@ -123,7 +137,7 @@ namespace HockeyGame
         /// <summary>A kinematic body whose own origin is the middle of its one hit shape, which follows `follow` at that offset and turn.</summary>
         GameObject NewBody(string piece, Transform follow, Vector3 offset, Quaternion turn)
         {
-            var go = new GameObject("Hit " + piece);
+            var go = new GameObject(BodyName(piece));
             go.transform.SetParent(_root.transform, false);
             var body = go.AddComponent<Rigidbody>();
             body.isKinematic = true;

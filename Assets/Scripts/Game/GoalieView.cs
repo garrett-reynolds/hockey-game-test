@@ -278,6 +278,9 @@ namespace HockeyGame
                 _gapCells[NetFaceGaps.Index(column, row)].SetActive(_gaps.IsGap(column, row));
         }
 
+        /// <summary>Takes the hit shapes away (and tells PuckReach to stop keeping their contacts). The view is not used after.</summary>
+        public void Dispose() => _hits?.Dispose();
+
         void Apply()
         {
             _block.SetActive(_visible);

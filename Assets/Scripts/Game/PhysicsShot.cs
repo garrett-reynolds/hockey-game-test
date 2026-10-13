@@ -26,7 +26,10 @@ namespace HockeyGame
         readonly HashSet<Collider> _ownShapes = new HashSet<Collider>();
         readonly Plane[] _view = new Plane[6];
         readonly PuckReach _reach;
-        bool _touched;
+        // The physics step (AfterStep count) of each gear piece's latest contact: a touch episode is one run of steps in contact.
+        readonly Dictionary<Collider, int> _gearContactStep = new Dictionary<Collider, int>();
+        int _steps;
+        bool _touched, _gearTouched;
 
         /// <param name="parent">Where the puck goes in the scene.</param>
         /// <param name="camera">The shooter's camera: the launch starts below its view, and "gone" includes out of its view.</param>
@@ -58,6 +61,11 @@ namespace HockeyGame
         public double SecondsSinceShot { get; private set; }
         /// <summary>The puck's centre has passed the Net Face plane (z = 0), at any time this Shot.</summary>
         public bool CrossedNetFace { get; private set; }
+        /// <summary>After a gear hit the puck keeps this share of its speed, and after a hit on the glove GloveKeep (once per hit).</summary>
+        public const float GearKeep = 0.7f, GloveKeep = 0.3f;
+
+        /// <summary>The puck has pushed off the goalie's gear (a hit shape), at any time this Shot: the Whistle rule's gear touched.</summary>
+        public bool GearTouched => _gearTouched;
         /// <summary>The puck has hit something other than the ice (a post, the crossbar, the catch), at any time this Shot.</summary>
         public bool Touched => _touched;
         /// <summary>The first thing other than the ice the puck hit this Shot (null before).</summary>
@@ -83,6 +91,13 @@ namespace HockeyGame
         public event Action<Collider, Vector3> Hit;
 
         /// <summary>
+        /// Told once per touch of a piece of the goalie's gear (the gear's hit shape): its first contact, and again after the puck
+        /// has been out of contact with that piece for a step. The puck's 3 boxes report up to 3 contacts for one hit; this is
+        /// the one hit, where the puck is soaked and the save sound plays.
+        /// </summary>
+        public event Action<Collider> GearTouch;
+
+        /// <summary>
         /// Launches the puck at Net Face spot (x, y) (0-100) at speedKmh: from just below the camera's view, as worked out now.
         /// The same for a real Shot and a Test Shot. Once per PhysicsShot.
         /// </summary>
@@ -105,6 +120,7 @@ namespace HockeyGame
         public bool AfterStep(float stepSeconds)
         {
             if (!Launched) return false;
+            _steps++;
             _reach.LookAhead(stepSeconds);
             SecondsSinceShot += stepSeconds;
             if (Puck.position.z > 0f) CrossedNetFace = true; // the body, not the transform (Interpolate: the transform lags)
@@ -137,7 +153,7 @@ namespace HockeyGame
             // Out of view counts once the puck has crossed the Net Face or hit something: it starts below the view, and a lob
             // may go over its top on the way in.
             bool outOfView = (CrossedNetFace || _touched) && OutOfView(p);
-            return new PuckFacts(secondsSinceShot, wholeInNet, gearTouched: false, // #111 gives the goalie hit shapes
+            return new PuckFacts(secondsSinceShot, wholeInNet, gearTouched: _gearTouched,
                 Puck.linearVelocity.magnitude, behindOutside || outOfView);
         }
 
@@ -177,8 +193,26 @@ namespace HockeyGame
                     FirstTouched = other;
                     FirstTouchImpulse = pair.impulseSum;
                 }
+                if (ShotColliders.IsGear(other.sharedMaterial)) TouchGear(other);
                 Hit?.Invoke(other, pair.impulseSum);
             }
+        }
+
+        /// <summary>
+        /// A real contact with a piece of gear: the Shot is gear touched, and the first contact of each touch soaks the puck (it
+        /// keeps GearKeep of its speed, the glove GloveKeep: Unity's bounce only sets the speed along the normal) and is told.
+        /// </summary>
+        void TouchGear(Collider gear)
+        {
+            _gearTouched = true;
+            // Contacts come during step _steps + 1: a piece touched in the step before this one (or in this one) is the same touch.
+            bool sameTouch = _gearContactStep.TryGetValue(gear, out int last) && _steps - last < 2;
+            _gearContactStep[gear] = _steps;
+            if (sameTouch) return;
+            float keep = gear.sharedMaterial == ShotColliders.GearGlove ? GloveKeep : GearKeep;
+            Puck.linearVelocity *= keep;
+            Puck.angularVelocity *= keep;
+            GearTouch?.Invoke(gear);
         }
 
         public void Dispose()

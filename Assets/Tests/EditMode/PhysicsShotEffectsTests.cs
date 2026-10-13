@@ -10,8 +10,8 @@ namespace HockeyGame.Core.Tests
     /// <summary>
     /// The game path (#109): the Round, PhysicsShotEffects and Unity physics, one physics step of 1/120 s per frame, in the
     /// game's order (physics step, then PhysicsShotEffects.AfterPhysicsStep, then the frame: Round.Tick and Update). The
-    /// Round's Whistle comes from the physics puck (WhistleRule), not the race. The goalie has no hit shapes yet (#111), so
-    /// the puck passes through him.
+    /// Round's Whistle comes from the physics puck (WhistleRule), not the race. These Shots have no goalie (null), so no
+    /// gear to touch; gear touches are in GearTouchTests.
     /// </summary>
     public class PhysicsShotEffectsTests
     {

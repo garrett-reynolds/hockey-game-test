@@ -19,8 +19,9 @@ namespace HockeyGame
     /// hidden in the air, and not while the camera is turned up to the Video Board (CameraLookUp): a netted puck is still there
     /// when it comes back down. Builds the Shot colliders (ShotColliders) under the rink.
     /// </para>
-    /// Interim: the goalie has no hit shapes yet (#111), so the puck passes through him and every Shot that is not a GOAL!
-    /// is a Miss. He still moves as the Round's race timed him (Reach in time). The scripted flight (ShotEffects) is not used.
+    /// The goalie moves as the Round's race timed him (Reach in time), and his gear's hit shapes (GoalieHitShapes) stop or deflect
+    /// the puck: a touch makes the Shot a Save (if it does not go in), and sounds the gear (HitSound). The scripted flight
+    /// (ShotEffects) is not used.
     /// </summary>
     public sealed class PhysicsShotEffects : IDisposable
     {
@@ -154,6 +155,7 @@ namespace HockeyGame
             Shot = new PhysicsShot(_rink, _camera, round.Settings, _random, _findFile);
             Shot.Whistled += OnWhistled;
             Shot.Hit += OnHit;
+            Shot.GearTouch += OnGearTouch;
             Shot.Launch(shot.X, shot.Y, shot.SpeedKmh); // also off the Net Face: judged by the same rule
             _netCloth.Track(Shot.Puck);
             FlightSeconds = (float)ShotFlight.Seconds(Vector3.Distance(Shot.Start, Shot.Target), shot.SpeedKmh);
@@ -172,6 +174,7 @@ namespace HockeyGame
             Shot.WhistleNow();
             Shot.Whistled -= OnWhistled;
             Shot.Hit -= OnHit;
+            Shot.GearTouch -= OnGearTouch;
             Shot.Dispose();
             Shot = null;
         }
@@ -181,6 +184,16 @@ namespace HockeyGame
             _whistledAt = _clock;
             if (_round.AwaitingWhistle && _round.ShotsSubmitted == _shotNumber) _round.Whistle(kind); // only for the Shot it waits for
             _goalie?.Judge(kind);
+        }
+
+        /// <summary>The puck touched a piece of gear: its save sound, the glove's catch, wood for the blocker, stick and skates, a thud for the pads and body.</summary>
+        void OnGearTouch(Collider gear)
+        {
+            PhysicsMaterial feel = gear.sharedMaterial;
+            string piece = gear.attachedRigidbody != null ? gear.attachedRigidbody.name : "";
+            bool wood = feel == ShotColliders.GearStick || piece == GoalieHitShapes.BodyName(GearPiece.Blocker)
+                || piece == GoalieHitShapes.BodyName(GearPiece.LeftSkate) || piece == GoalieHitShapes.BodyName(GearPiece.RightSkate);
+            _pendingHit = feel == ShotColliders.GearGlove ? SoundCue.GloveCatch : wood ? SoundCue.BlockerHit : SoundCue.SaveImpact;
         }
 
         void OnHit(Collider other, Vector3 impulse)

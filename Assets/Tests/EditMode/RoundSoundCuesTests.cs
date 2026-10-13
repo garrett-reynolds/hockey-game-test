@@ -91,7 +91,7 @@ namespace HockeyGame.Core.Tests
         }
 
         // The result is the Round's, at the Whistle (WhistleRule), not the race's at the Shot: the race saves this one, but the
-        // physics puck went in (the goalie has no hit shapes yet, #111).
+        // physics puck went in (a deflection in off the gear is a Goal).
         [Test]
         public void The_result_sound_follows_the_Whistle_s_result_not_the_race()
         {
@@ -106,7 +106,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void Save_plays_pad_thud_and_groan_at_the_Whistle()
+        public void Save_plays_a_groan_at_the_Whistle_and_leaves_the_gear_sound_to_its_contact()
         {
             var round = StartedRound();
             var cues = new RoundSoundCues(new SaveData());
@@ -114,7 +114,23 @@ namespace HockeyGame.Core.Tests
             round.SubmitShot(20, 10, 100, false);        // low: a pad save
             cues.Update(round);
             round.Whistle(ShotResultKind.Save);
-            CollectionAssert.AreEquivalent(new[] { SoundCue.SaveImpact, SoundCue.Groan }, cues.Update(round));
+            CollectionAssert.AreEquivalent(new[] { SoundCue.Groan }, cues.Update(round));
+        }
+
+        // The save sound plays at each gear contact (PhysicsShotEffects.HitSound), when it happens.
+        [TestCase(SoundCue.SaveImpact)]
+        [TestCase(SoundCue.GloveCatch)]
+        [TestCase(SoundCue.BlockerHit)]
+        public void A_gear_contact_sounds_when_it_happens_and_the_Save_gets_only_the_groan(SoundCue hit)
+        {
+            var round = StartedRound();
+            var cues = new RoundSoundCues(new SaveData());
+            Run(round, cues, 3.8);
+            round.SubmitShot(20, 10, 100, false);
+            cues.Update(round);
+            CollectionAssert.AreEquivalent(new[] { hit }, cues.Update(round, hit));
+            round.Whistle(ShotResultKind.Save);
+            CollectionAssert.AreEquivalent(new[] { SoundCue.Groan }, cues.Update(round));
         }
 
         [Test]
@@ -202,69 +218,12 @@ namespace HockeyGame.Core.Tests
             return new List<SoundCue>(cues.Update(round));
         }
 
-        // Gear already in the way everywhere: every Shot on the Net Face is saved, showing (and sounding) its point's Save Reaction.
+        // Gear already in the way everywhere: every Shot on the Net Face is raced as saved.
         private static Round StandUpRound()
         {
             var round = new Round(ScriptedRandom.Picking(AttackSide.Middle), new RoundSettings(), FakeReach.InTheWay(), 0);
             round.StartRound();
             return round;
-        }
-
-        // The goalie catches with the left hand, which faces the shooter on the shooter's right.
-        [Test]
-        public void Save_high_on_the_right_is_a_glove_catch()
-        {
-            var round = StandUpRound();
-            var heard = ArrivalCues(round, 85, 85);
-            round.WhistleNow();
-            Assert.AreEqual(ShotResultKind.Save, round.LastResult.Value.Kind);
-            CollectionAssert.AreEquivalent(new[] { SoundCue.GloveCatch, SoundCue.Groan }, heard);
-        }
-
-        [Test]
-        public void Save_high_on_the_left_is_a_blocker_hit()
-        {
-            var round = StandUpRound();
-            var heard = ArrivalCues(round, 15, 85);
-            round.WhistleNow();
-            Assert.AreEqual(ShotResultKind.Save, round.LastResult.Value.Kind);
-            CollectionAssert.AreEquivalent(new[] { SoundCue.BlockerHit, SoundCue.Groan }, heard);
-        }
-
-        // With no contact reported, a raced Save sounds like the gear that won the race, not the Shot point's gear.
-        [Test]
-        public void A_raced_Save_sounds_like_the_gear_that_won_the_race()
-        {
-            var round = new Round(ScriptedRandom.Picking(AttackSide.Middle), new RoundSettings(),
-                new FakeReach(GoalieReachAnswer.Reaches(SaveReaction.Glove, 0)), 0);
-            round.StartRound();
-            var cues = new RoundSoundCues(new SaveData());
-            Run(round, cues, 3.8);
-            round.SubmitShot(15, 85, 45, false); // high on the left: a blocker by the Shot point; slow, so the glove gets there
-            Assert.IsTrue(round.LastRace.Value.IsSave);
-            Assert.AreEqual(SaveReaction.Glove, round.LastRace.Value.SaveReaction);
-            cues.Update(round);
-            round.Whistle(ShotResultKind.Save);
-            CollectionAssert.AreEquivalent(new[] { SoundCue.GloveCatch, SoundCue.Groan }, cues.Update(round));
-        }
-
-        // The sound is the Save Reaction's gear (SaveReactions): pads low, the body in the middle, the stick along the ice
-        // through the middle, else the blocker on the shooter's left and the glove on the right.
-        [TestCase(55, 85, SoundCue.GloveCatch, TestName = "Top centre, right of middle: glove")]
-        [TestCase(45, 85, SoundCue.BlockerHit, TestName = "Top centre, left of middle: blocker")]
-        [TestCase(85, 60, SoundCue.GloveCatch, TestName = "Middle right, upper half: glove")]
-        [TestCase(15, 60, SoundCue.BlockerHit, TestName = "Middle left, upper half: blocker")]
-        [TestCase(40, 60, SoundCue.SaveImpact, TestName = "Centre, upper half, left: body")]
-        [TestCase(85, 35, SoundCue.SaveImpact, TestName = "Middle right, low: pad")]
-        [TestCase(15, 35, SoundCue.SaveImpact, TestName = "Middle left, low: pad")]
-        [TestCase(50, 45, SoundCue.SaveImpact, TestName = "Centre, lower half: body")]
-        public void Save_in_the_middle_band_sounds_the_save_reaction_s_gear(double x, double y, SoundCue expected)
-        {
-            var round = StandUpRound();
-            var heard = ArrivalCues(round, x, y);
-            round.WhistleNow();
-            Assert.AreEqual(ShotResultKind.Save, round.LastResult.Value.Kind);
-            CollectionAssert.AreEquivalent(new[] { expected, SoundCue.Groan }, heard);
         }
 
         // The post is 0.08 m of a 1.83 m wide Net Face (4.4 units); the crossbar 0.08 m of 1.22 m (6.6 units).
@@ -286,13 +245,12 @@ namespace HockeyGame.Core.Tests
             Run(round, cues, 3.8);
             round.SubmitShot(20, 10, 10, false);         // very slow: the puck flies 2.9 s
             var inFlight = Run(round, cues, 2.8);
-            Assert.IsFalse(inFlight.Contains(SoundCue.SaveImpact));
             Assert.IsFalse(inFlight.Contains(SoundCue.Groan));
 
             round.Whistle(ScriptedShot.Result(round).Kind); // the puck lands
             var landed = Run(round, cues, 0.1);
-            CollectionAssert.IsSubsetOf(new[] { SoundCue.SaveImpact, SoundCue.Groan }, landed);
-            Assert.AreEqual(1, landed.FindAll(c => c == SoundCue.SaveImpact).Count);
+            Assert.AreEqual(1, landed.FindAll(c => c == SoundCue.Groan).Count);
+            Assert.IsFalse(landed.Contains(SoundCue.SaveImpact), "the gear sounds at its contact, not at the Whistle");
         }
 
         private static List<SoundCue> PlayRound(Round round, RoundSoundCues cues, int goals)

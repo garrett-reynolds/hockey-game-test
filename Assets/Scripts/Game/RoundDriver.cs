@@ -307,6 +307,7 @@ namespace HockeyGame
         void OnDestroy()
         {
             _effects?.Dispose();
+            _goalie?.Dispose();
             if (_scoreBoxBack != null) SceneObjects.DestroySafely(_scoreBoxBack);
         }
 

@@ -274,8 +274,7 @@ namespace HockeyGame.Core
                     _cues.Add(SoundCue.Cheer);
                     break;
                 case ShotResultKind.Save:
-                    // Until #111 (the save sound at each contact with the gear): the race's Save Reaction's sound, at the Whistle.
-                    _cues.Add(SaveReactions.Sound(round.LastRace?.SaveReaction ?? SaveReactions.For(result.X, result.Y)));
+                    // The gear sounded at each contact (PhysicsShotEffects.HitSound); the crowd groans at the Whistle.
                     _cues.Add(SoundCue.Groan);
                     break;
                 default:
@@ -285,9 +284,6 @@ namespace HockeyGame.Core
                     break;
             }
         }
-
-        /// <summary>What stops a Save at this Net Face position: the gear of its Save Reaction (SaveReactions).</summary>
-        public static SoundCue SaveContact(double x, double y) => SaveReactions.Sound(SaveReactions.For(x, y));
 
         /// <summary>Whole-second ticks before the last second of the window (tick 0 when it opens).</summary>
         private static int SlowTickCount(double windowSeconds) => (int)Math.Ceiling(windowSeconds - 1.0 - 1e-9);

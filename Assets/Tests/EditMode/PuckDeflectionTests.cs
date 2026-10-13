@@ -187,7 +187,7 @@ namespace HockeyGame.Core.Tests
                 Assert.AreEqual(ShotResultKind.Save, run.Kind, where);
                 Assert.AreEqual(surface, run.Surface, where + ": the puck meets the reaction's gear");
                 Assert.AreEqual(Expected(surface), run.Sound, where + ": and sounds like it");
-                Assert.AreEqual(RoundSoundCues.SaveContact(x, y), run.Sound, where + ": the save sound is the reaction's");
+                Assert.AreEqual(SaveReactions.Sound(SaveReactions.For(x, y)), run.Sound, where + ": the save sound is the reaction's");
                 // Touching the gear where the reaction put it: not short of it.
                 float nearest = float.MaxValue;
                 foreach (Triangle t in Core.Tests.GoalieTriangles.Near(goalie, new Bounds(run.Contact, Vector3.zero), 0.1f))

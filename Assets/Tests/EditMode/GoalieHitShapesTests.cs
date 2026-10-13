@@ -52,9 +52,24 @@ namespace HockeyGame.Core.Tests
             _goalie.ShowReaction(0f);
         }
 
+        // PuckReach keeps a static set of gear colliders: every hit shape built here is disposed, so none is left in it.
+        readonly List<GoalieHitShapes> _built = new List<GoalieHitShapes>();
+        readonly List<GoalieView> _views = new List<GoalieView>();
+
+        GoalieHitShapes MakeHits(float minDepth = GoalieHitShapes.MinDepth)
+        {
+            var hits = new GoalieHitShapes(_goalie, _root.transform, minDepth);
+            _built.Add(hits);
+            return hits;
+        }
+
         [TearDown]
         public void TearDown()
         {
+            foreach (GoalieHitShapes hits in _built) hits.Dispose();
+            foreach (GoalieView view in _views) view.Dispose();
+            _built.Clear();
+            _views.Clear();
             Object.DestroyImmediate(_root);
             Physics.simulationMode = _oldMode;
         }
@@ -240,6 +255,119 @@ namespace HockeyGame.Core.Tests
             return (local - onAxis).magnitude < capsule.radius - depth;
         }
 
+        // ---- Ghost Saves: a Shot that passes near moving gear without reaching it must not be gear touched (#111, PuckReach keeps every contact with moving gear) ----
+
+        /// <summary>
+        /// Flies one swinging-gear Shot. free: the puck ignores the gear (so it flies its true line), and the least gap (metres, a
+        /// negative gap is overlap) between the puck and any gear hit shape, over the Shot, is returned: along each step's travel and
+        /// against the gear where it is then, four times a step. Not free:
+        /// the real Shot, and whether it was gear touched.
+        /// </summary>
+        (float gap, bool touched, string how) FlyNear(GoalieHitShapes hits, double x, double y, double reactX, double reactY, float kmh, int seed, bool free)
+        {
+            var rng = new System.Random(77 * seed + 5);
+            using (var shot = new PhysicsShotDisposer(new PhysicsShot(_root.transform, _camera, Defaults, new SeededRandom(seed), name => null)))
+            {
+                shot.Shot.Launch(x, y, kmh);
+                if (free)
+                    foreach (Collider puck in shot.Shot.Puck.GetComponentsInChildren<Collider>())
+                    foreach (Collider piece in hits.Colliders) Physics.IgnoreCollision(puck, piece, true);
+                Vector3 from = shot.Shot.Start, to = shot.Shot.Target;
+                _goalie.Spot = new Vector3(0f, 0f, GoalieCharacter.StandZ);
+                _goalie.React(SaveReactions.For(reactX, reactY), from, PhysicsPuck.Target(reactX, reactY), 0f, true); // he reacts to the spot beside the line
+                float flight = (to - from).magnitude * (GoalieCharacter.StandZ - from.z) / (to.z - from.z) / (kmh / 3.6f);
+                float phase = SwingPhase(flight, rng, seed);
+                _goalie.ShowReaction(SetAt(Motion.Swinging, phase, flight));
+                hits.Snap();
+                Physics.SyncTransforms();
+
+                float gap = float.MaxValue;
+                string tunnel = null;
+                Vector3 last = shot.Shot.Puck.position;
+                float dt = free ? Step / 4f : Step; // flying free it is looked at four times a step, with the gear in step with it
+                for (float t = 0f; t < flight + After; t += dt)
+                {
+                    _goalie.ShowReaction(SetAt(Motion.Swinging, t + dt + phase, flight));
+                    hits.Move();
+                    Physics.Simulate(dt);
+                    shot.Shot.AfterStep(dt);
+                    Vector3 now = shot.Shot.Puck.position;
+                    if (free) gap = Mathf.Min(gap, Gap(hits, last, now));
+                    Vector3 before = last;
+                    last = now;
+                    if (!free && tunnel == null) tunnel = Tunnel(new HashSet<Collider>(hits.Colliders), before, now);
+                    if (!free && shot.Shot.GearTouched) return (0f, true, tunnel);
+                }
+                return (gap, shot.Shot.GearTouched, tunnel);
+            }
+        }
+
+        /// <summary>The least gap between the puck (its radius) and any gear hit shape, from points along a to b.</summary>
+        static float Gap(GoalieHitShapes hits, Vector3 a, Vector3 b)
+        {
+            float least = float.MaxValue;
+            for (int i = 0; i <= 6; i++)
+            {
+                Vector3 point = Vector3.Lerp(a, b, i / 6f);
+                foreach (Collider piece in hits.Colliders)
+                {
+                    if (piece.bounds.SqrDistance(point) > 0.25f) continue;
+                    least = Mathf.Min(least, Vector3.Distance(piece.ClosestPoint(point), point) - PhysicsPuck.Radius);
+                }
+            }
+            return least;
+        }
+
+        [Test]
+        public void A_Shot_that_passes_near_moving_gear_without_reaching_it_is_not_gear_touched()
+        {
+            var hits = MakeHits();
+            var rng = new System.Random(4242);
+            // Shots by how far the puck flies from the gear (its least gap, flying free): gear touched / Shots in each band.
+            var edges = new[] { float.MinValue, -0.03f, 0f, 0.02f, 0.05f, 0.10f, 0.20f };
+            var labels = new[] { "overlap deeper than 3 cm", "overlap up to 3 cm", "clear by 0-2 cm", "clear by 2-5 cm", "clear by 5-10 cm", "clear by 10-20 cm", "clear by 20 cm or more" };
+            var shots = new int[edges.Length];
+            var touched = new int[edges.Length];
+            var ghosts = new List<string>();
+            var tunnels = new List<string>();
+            int total = 0;
+            foreach (float kmh in SpeedsKmh)
+            for (int seed = 1; seed <= 90; seed++)
+            {
+                PlaceEye((AttackSide)(seed % 3));
+                NetFaceMapping.FromOffsetFromCentre(Jitter(rng, 1.3f), 0.03f + (float)rng.NextDouble() * 1.4f - NetFaceMapping.HeightMetres / 2.0, out double x, out double y);
+                // He reacts to a spot 0.1 to 0.5 m from the Shot's, so his gear swings beside its line.
+                double shift = 0.1 + 0.4 * rng.NextDouble(), turn = 2.0 * System.Math.PI * rng.NextDouble();
+                NetFaceMapping.ToMetres(x, y, out double metresRight, out double metresUp);
+                NetFaceMapping.FromOffsetFromCentre(metresRight + shift * System.Math.Cos(turn), metresUp - NetFaceMapping.HeightMetres / 2.0 + shift * System.Math.Sin(turn), out double rx, out double ry);
+                var free = FlyNear(hits, x, y, rx, ry, kmh, seed, free: true);
+                var real = FlyNear(hits, x, y, rx, ry, kmh, seed, free: false);
+                int band = 0;
+                while (band + 1 < edges.Length && free.gap >= edges[band + 1]) band++;
+                shots[band]++;
+                if (real.touched) touched[band]++;
+                if (real.how != null) tunnels.Add($"{kmh / 3.6f:0} m/s seed {seed} aim ({x:0.0}, {y:0.0}) free gap {free.gap * 100f:0.0} cm: {real.how}");
+                if (!real.touched && free.gap < -0.03f) ghosts.Add($"MISSED {kmh / 3.6f:0} m/s seed {seed} aim ({x:0.0}, {y:0.0}) react ({rx:0.0}, {ry:0.0}) free gap {free.gap * 100f:0.0} cm");
+                if (real.touched && free.gap >= 0.02f) ghosts.Add($"{kmh / 3.6f:0} m/s seed {seed} aim ({x:0.0}, {y:0.0}) gap {free.gap * 100f:0.0} cm");
+                total++;
+            }
+            var report = new StringBuilder($"GHOST SAVE MEASUREMENT, {total} Shots at swinging gear (gear touched / Shots)\n");
+            for (int i = 0; i < edges.Length; i++) report.Append("  ").Append(labels[i]).Append(": ").Append(touched[i]).Append('/').Append(shots[i]).Append('\n');
+            foreach (string tunnel in tunnels) report.Append("  TUNNEL: ").Append(tunnel).Append('\n');
+            foreach (string ghost in ghosts) report.Append("  ghost: ").Append(ghost).Append('\n');
+            TestContext.Out.WriteLine(report.ToString());
+
+            Assert.GreaterOrEqual(shots[3] + shots[4] + shots[5] + shots[6], 5, "enough near misses (clear by 2 cm or more) to measure with\n" + report);
+            Assert.AreEqual(0, tunnels.Count, "the puck went through gear\n" + report);
+            Assert.AreEqual(shots[0], touched[0], "every Shot that flew deep into the gear touched it\n" + report);
+            // The look-ahead (PuckReach) keeps a foreseen contact when the puck comes within a few centimetres of where the gear
+            // may be, and a turning or speeding piece is only roughly foreseen: some Shots that pass a little clear of it are still
+            // touched. Before the look-ahead followed the gear's move every one of them was (11 of 11 here, 26 of 27 in a
+            // 300-Shot run); it must keep most of them clear now.
+            int clear = shots[3] + shots[4] + shots[5] + shots[6], clearTouched = touched[3] + touched[4] + touched[5] + touched[6];
+            Assert.LessOrEqual(clearTouched, 0.7f * clear, "ghost Saves: " + clearTouched + " of " + clear + " Shots that passed 2 cm or more clear were gear touched\n" + report);
+        }
+
         /// <summary>Disposes the Shot (a using block for it).</summary>
         sealed class PhysicsShotDisposer : System.IDisposable
         {
@@ -259,7 +387,7 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void Every_Shot_at_the_gear_touches_it_and_none_ends_up_through_it([Values(Motion.Still, Motion.Arriving, Motion.Swinging)] Motion motion)
         {
-            var hits = new GoalieHitShapes(_goalie, _root.transform);
+            var hits = MakeHits();
             Tally tally = Fire(motion, hits, seeds: motion == Motion.Still ? 3 : 6, discretePuck: false, SpeedsKmh);
 
             Assert.GreaterOrEqual(tally.Shots, 70, "Shots fired");
@@ -270,7 +398,7 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void A_discrete_puck_against_thin_gear_does_tunnel_so_the_test_can_see_one()
         {
-            var hits = new GoalieHitShapes(_goalie, _root.transform, minDepth: 0.01f);
+            var hits = MakeHits(minDepth: 0.01f);
             Tally tally = Fire(Motion.Swinging, hits, seeds: 5, discretePuck: true, new[] { 45f * 3.6f });
 
             Assert.Greater(tally.Through, 0, "no tunnel seen in " + tally.Shots + " Shots: the test cannot see one");
@@ -283,6 +411,7 @@ namespace HockeyGame.Core.Tests
         public void The_view_keeps_the_hit_shapes_on_his_pose_while_he_is_shown_and_off_while_he_is_hidden()
         {
             var view = new GoalieView(_root.transform, _goalie);
+            _views.Add(view);
             Transform hitRoot = _root.transform.Find(GoalieHitShapes.RootName);
             Assert.IsNotNull(hitRoot, "the view builds the hit shapes");
             Assert.IsFalse(hitRoot.gameObject.activeSelf, "hidden with the goalie");
@@ -313,6 +442,7 @@ namespace HockeyGame.Core.Tests
             try
             {
                 var view = new GoalieView(_root.transform, _goalie);
+            _views.Add(view);
                 var effects = new ShotEffects(_root.transform, cameraObject.GetComponent<Camera>(), null, view);
                 var round = new Round(new SeededRandom(1), settings, FakeReach.NeverReaches(), 0);
                 var breakaway = driver.AddComponent<BreakawayView>();
@@ -352,7 +482,7 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void Each_hit_shape_follows_its_gear_and_the_gear_has_its_feel_group()
         {
-            var hits = new GoalieHitShapes(_goalie, _root.transform);
+            var hits = MakeHits();
             _goalie.ShowReaction(0f);
             hits.Snap();
             _goalie.ShowReaction(1f, 20f);
