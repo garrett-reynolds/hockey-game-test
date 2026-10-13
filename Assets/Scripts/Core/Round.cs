@@ -163,7 +163,7 @@ namespace HockeyGame.Core
         public int ShotsSubmitted { get; private set; }
 
         /// <summary>Shots whose Whistle has come: ShotsSubmitted without the Shot whose puck is still flying. Moves with Goals (#157).</summary>
-        public int ShotsWhistled => ShotsSubmitted - (AwaitingWhistle ? 1 : 0);
+        public int ShotsWhistled => Math.Max(0, ShotsSubmitted - (AwaitingWhistle ? 1 : 0)); // never below 0 (EnterPhase clears AwaitingWhistle in every reset)
 
         /// <summary>
         /// Starts a Round of `shots` Shots (clamped to 3 to 10) against the given best score for that number. The game starts every
