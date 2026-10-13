@@ -90,6 +90,18 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void StartRound_without_a_count_keeps_the_count_of_the_last_Round_as_documented()
+        {
+            Round round = Started(4);
+            Assert.AreEqual(4, PlayAllAsGoals(round));
+            round.StartRound(2);
+            Assert.AreEqual(4, round.ShotCount);
+            Assert.AreEqual(4, PlayAllAsGoals(round));
+            round.StartRound();
+            Assert.AreEqual(4, round.ShotCount);
+        }
+
+        [Test]
         public void The_result_hold_before_the_last_Shot_has_no_fade_lead_for_any_count()
         {
             foreach (int shots in new[] { 3, 10 })

@@ -4,14 +4,15 @@ namespace HockeyGame.Core
 {
     /// <summary>
     /// The per-Round shuffles (pure; they roll only on the given source, in the order Round publishes): the Set-up deck, one
-    /// Set-up per Shot, and the Attack Side pick, one side per Shot.
+    /// Set-up per Shot, and the Attack Side pick, one side per Shot, for any Shots per Round (3 to 10; 6 is the default).
     /// </summary>
     public static class RoundDecks
     {
         /// <summary>
-        /// The Round's Set-up deck, in Shot order: 4 Set-up Mistakes (Cheat, Depth and Late Settle once each, and a 4th of a random
-        /// type) and 2 Clean Set-ups, shuffled. Rolls 6 times: one Next() for the 4th type (Cheat, Depth, Late Settle by
+        /// The default (6 Shots) Set-up deck, in Shot order: 4 Set-up Mistakes (Cheat, Depth and Late Settle once each, and a 4th of a
+        /// random type) and 2 Clean Set-ups, shuffled. Rolls 6 times: one Next() for the 4th type (Cheat, Depth, Late Settle by
         /// (int)(Next() * 3)), then the 5 shuffle rolls (Shuffle) on Cheat, Depth, Late Settle, the 4th, Clean, Clean.
+        /// The same as SetUps(random, 6).
         /// </summary>
         public static SetUpKind[] SetUps(IRandomSource random) => SetUps(random, Round.ShotsPerRound);
 
@@ -33,8 +34,8 @@ namespace HockeyGame.Core
         }
 
         /// <summary>
-        /// The Round's Attack Sides, in Shot order: left, middle and right twice each, shuffled. Rolls 5 times (Shuffle) on
-        /// Left, Left, Middle, Middle, Right, Right.
+        /// The default (6 Shots) Attack Sides, in Shot order: left, middle and right twice each, shuffled. Rolls 5 times (Shuffle) on
+        /// Left, Left, Middle, Middle, Right, Right. The same as AttackSides(random, 6).
         /// </summary>
         public static AttackSide[] AttackSides(IRandomSource random) => AttackSides(random, Round.ShotsPerRound);
 
