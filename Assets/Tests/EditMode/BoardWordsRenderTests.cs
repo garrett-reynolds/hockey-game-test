@@ -203,9 +203,10 @@ namespace HockeyGame.Core.Tests
         /// the render tests are the proof by pixels.</summary>
         public static void AssertSolid(Material m, string what)
         {
-            Assert.AreEqual((int)RenderQueue.Transparent, m.renderQueue, what + " draws in the Transparent queue");
-            string text = File.ReadAllText(Path.Combine(Application.dataPath, "Resources/Lighting/BoardWords.shader"));
+            Assert.AreEqual((int)RenderQueue.AlphaTest, m.renderQueue, what + " draws in the AlphaTest queue, after the solid screens");
+            string text = File.ReadAllText(Path.Combine(Application.dataPath, "Resources/Lighting/LedBoard.shader"));
             StringAssert.Contains("ZTest LEqual", text, what);
+            StringAssert.Contains("ZWrite On", text, what);
             StringAssert.Contains("Cull Back", text, what);
             StringAssert.DoesNotContain("ZTest Always", text, what);
             StringAssert.DoesNotContain("Cull Off", text, what);

@@ -99,12 +99,14 @@ namespace HockeyGame
             boards._frameDark = skin.VideoBoardFrame;
             boards._frameLit = skin.VideoBoardFrameLit;
             boards._font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            boards._words = BoardWordsMaterial.Make(boards._font);
-            // Unlit: the screens show only their own picture, with no arena light or shine on them.
+            double cell = RinkLayout.VideoBoardLedCell;
+            boards._words = BoardWordsMaterial.Make(boards._font, cell);
+            // The screens are LED walls: only their own picture in square cells, with no arena light or shine on them.
+            boards._picture = LedBoardMaterial.Screen("Video Board Picture", cell, Color.white);
+            boards._stillPicture = LedBoardMaterial.Screen("Video Board Still", cell, RibbonBoards.ColourOf(ArenaShow.CalmRibbonColour));
+            // Unlit: the frame and cables show only their own colour.
             Material unlit = Resources.Load<Material>(ArenaLighting.AssetFolder + "/" + ArenaLighting.UnlitMaterial);
-            boards._picture = new Material(unlit) { name = "Video Board Picture" };
             boards._frame = new Material(unlit) { name = "Video Board Frame" };
-            boards._stillPicture = new Material(unlit) { name = "Video Board Still", color = RibbonBoards.ColourOf(ArenaShow.CalmRibbonColour) };
             boards._cable = new Material(unlit) { name = "Video Board Cable", color = CableColour };
             boards.BuildVideoBoard();
             boards.BuildCentreBoard();
@@ -263,6 +265,12 @@ namespace HockeyGame
             Vector3 up = turn * Vector3.up;
             screen.Headline = AddWords(parent, name + " Headline " + index, centre + facing * TextLift + up * height * 0.14f, turn);
             screen.Details = AddWords(parent, name + " Details " + index, centre + facing * TextLift - up * height * 0.22f, turn);
+            // One LED grid per screen, starting at its lower-left corner (as the player sees it): whole cells at the edges,
+            // and the words' cells line up with the picture's.
+            Vector3 corner = centre - turn * Vector3.right * (width / 2f) - up * (height / 2f);
+            LedBoardMaterial.Anchor(renderer, corner);
+            LedBoardMaterial.Anchor(screen.Headline.GetComponent<Renderer>(), corner);
+            LedBoardMaterial.Anchor(screen.Details.GetComponent<Renderer>(), corner);
             _screens.Add(screen);
         }
 

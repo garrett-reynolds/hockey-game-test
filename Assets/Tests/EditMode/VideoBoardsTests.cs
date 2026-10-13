@@ -460,12 +460,94 @@ namespace HockeyGame.Core.Tests
             foreach (TextMesh t in words)
             {
                 Material m = t.GetComponent<Renderer>().sharedMaterial;
-                Assert.AreEqual(BoardWordsMaterial.ShaderName, m.shader.name, t.name);
+                Assert.AreEqual(LedBoardMaterial.ShaderName, m.shader.name, t.name);
                 Assert.IsTrue(m.shader.isSupported, t.name + " shader works");
                 BoardWordsAssert.AssertSolid(m, t.name);
                 Assert.AreNotSame(font.material, m, t.name + " is not the font's own material");
             }
             Assert.AreEqual(font.material.mainTexture, boards.WordsMaterial.mainTexture, "the font's atlas");
+        }
+
+        // ---- LED look (#121) ----
+
+        [Test]
+        public void Every_Video_Board_and_Centre_Board_screen_and_words_renderer_uses_the_LED_shader_with_the_board_cell_size()
+        {
+            VideoBoards boards = VideoBoards.Build(_rink.transform);
+            var picture = new Texture2D(4, 4);
+            try
+            {
+                var states = new System.Action[]
+                {
+                    () => boards.Show(At(RoundPhase.SkateIn), 0.0),
+                    () => boards.Show(At(RoundPhase.ShootingWindow), 0.0), // the Calm still
+                    () => boards.ShowPicture(picture),
+                };
+                float cell = (float)RinkLayout.VideoBoardLedCell;
+                foreach (System.Action show in states)
+                {
+                    show();
+                    Assert.AreEqual(5, boards.ScreenCount);
+                    for (int i = 0; i < boards.ScreenCount; i++)
+                    {
+                        Material m = boards.PictureOn(i);
+                        Assert.AreEqual(LedBoardMaterial.ShaderName, m.shader.name, "screen " + i + " " + m.name);
+                        Assert.AreEqual(cell, LedBoardMaterial.CellOf(m), 1e-6f, "screen " + i + " cell size");
+                    }
+                    TextMesh[] words = boards.GetComponentsInChildren<TextMesh>(true);
+                    Assert.AreEqual(10, words.Length);
+                    foreach (TextMesh t in words)
+                    {
+                        Material m = t.GetComponent<Renderer>().sharedMaterial;
+                        Assert.AreEqual(LedBoardMaterial.ShaderName, m.shader.name, t.name);
+                        Assert.AreEqual(cell, LedBoardMaterial.CellOf(m), 1e-6f, t.name + " cell size");
+                        Assert.IsTrue(m.IsKeywordEnabled("_LED_WORDS"), t.name + " is in words mode");
+                    }
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(picture);
+            }
+        }
+
+        [Test]
+        public void The_LED_cell_grid_is_anchored_at_each_screens_corner()
+        {
+            VideoBoards boards = VideoBoards.Build(_rink.transform);
+            boards.Show(At(RoundPhase.SkateIn), 0.0);
+            var block = new MaterialPropertyBlock();
+            for (int i = 0; i < boards.ScreenCount; i++)
+            {
+                Vector3 facing = boards.FacingOf(i), c = boards.CentreOf(i);
+                Vector3 right = Vector3.Cross(Vector3.up, -facing).normalized; // the quad's local x as the player sees it
+                Vector3 up = Vector3.Cross(-facing, right).normalized;
+                Vector3 expected = c - right * boards.SizeOf(i).x / 2f - up * boards.SizeOf(i).y / 2f;
+                int found = 0;
+                foreach (Renderer r in boards.GetComponentsInChildren<Renderer>(true))
+                {
+                    bool screen = r.name.EndsWith("Screen " + i);
+                    bool words = r.name.EndsWith("Headline " + i) || r.name.EndsWith("Details " + i);
+                    if (!screen && !words) continue;
+                    found++;
+                    r.GetPropertyBlock(block);
+                    Vector4 origin = block.GetVector("_GridOrigin");
+                    Assert.AreEqual(0f, Vector3.Distance(expected, origin), 1e-3f, r.name + " grid origin " + origin + " expected " + expected);
+                }
+                Assert.AreEqual(3, found, "screen, Headline and Details of screen " + i);
+            }
+        }
+
+        [Test]
+        public void The_boards_are_whole_numbers_of_LED_cells_and_the_words_are_tall_enough()
+        {
+            double cell = RinkLayout.VideoBoardLedCell;
+            foreach (double metres in new[] { RinkLayout.VideoBoardWidth, RinkLayout.VideoBoardHeight, RinkLayout.CentreBoardScreenWidth, RinkLayout.CentreBoardScreenHeight })
+                Assert.AreEqual(System.Math.Round(metres / cell), metres / cell, 1e-6, metres + " m is a whole number of cells");
+            Assert.GreaterOrEqual(RinkLayout.VideoBoardHeight * 0.24 / cell, 14, "Headline cells tall on the Video Board");
+            Assert.GreaterOrEqual(RinkLayout.CentreBoardScreenHeight * 0.24 / cell, 14, "Headline cells tall on the Centre Board");
+            Assert.GreaterOrEqual(RinkLayout.CentreBoardScreenHeight * 0.11 / cell, 5, "Details cells tall on the smallest Centre Board screen");
+            Assert.GreaterOrEqual(RinkLayout.VideoBoardHeight * 0.11 / cell, 5, "Details cells tall on the Video Board");
         }
 
         [Test]

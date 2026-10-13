@@ -18,8 +18,7 @@ namespace HockeyGame.Core.Tests
 
         const int IsolatedLayer = 31, ReplayLayer = 30;
 
-        // replaced by RinkLayout.VideoBoardLedCell in Task 2
-        const float LedCell = 0.1f;
+        static readonly float LedCell = (float)RinkLayout.VideoBoardLedCell;
 
         [SetUp]
         public void MakeRink()
@@ -261,7 +260,8 @@ namespace HockeyGame.Core.Tests
             Color32[] pixels = Render(width, height, "grid-closeup");
 
             float pixelsPerMetre = height / (2f * orthoSize), cellPixels = LedCell * pixelsPerMetre;
-            Vector3 lowerLeft = centre - _eye.transform.right * (boards.SizeOf(0).x / 2f) - Vector3.up * (boards.SizeOf(0).y / 2f);
+            // The board leans forward, so its lower edge is along the camera's up (the board's up), not along the world's.
+            Vector3 lowerLeft = centre - _eye.transform.right * (boards.SizeOf(0).x / 2f) - _eye.transform.up * (boards.SizeOf(0).y / 2f);
             Vector3 corner = _camera.WorldToViewportPoint(lowerLeft);
             float left = corner.x * width, bottom = corner.y * height;
             // The row through the middle of a cell row (never on a horizontal gap), from the board geometry and the cell size.

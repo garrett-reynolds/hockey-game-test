@@ -100,7 +100,7 @@ namespace HockeyGame
             root.transform.SetParent(rink, false);
             var ribbons = root.AddComponent<RibbonBoards>();
             ribbons._font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            ribbons._words = BoardWordsMaterial.Make(ribbons._font);
+            ribbons._words = BoardWordsMaterial.Make(ribbons._font, 0.0); // #122 sets the Ribbon Board cell size (0: no LED look until then)
             if (skin.RibbonEdgesOn)
             {
                 ribbons._edge = ArenaLighting.Glow(Color.black, skin.RibbonEdge);
