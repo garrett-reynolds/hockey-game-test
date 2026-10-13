@@ -357,6 +357,19 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void A_knocked_bottle_makes_the_clip_run_on_until_it_lands_and_no_knock_keeps_the_old_end()
+        {
+            foreach (double flight in new[] { 0.3, 0.6, 1.0, 2.5 })
+            {
+                Assert.AreEqual(flight + ReplayTiming.TailSeconds, ReplayTiming.ClipEnd(flight, false), Tol, "no knock: the old end, flight " + flight);
+                Assert.GreaterOrEqual(ReplayTiming.ClipEnd(flight, true), flight + ReplayTiming.BottleTailSeconds, "knock: at least the bottle tail after the Whistle, flight " + flight);
+                Assert.AreEqual(ReplayTiming.ClipEnd(flight, true), ReplayTiming.ShotSecondsAt(ReplayTiming.ShowSeconds, flight, true), Tol, "the clip's last frame, flight " + flight);
+                Assert.LessOrEqual(ReplayTiming.ClipEnd(flight, true) - ReplayTiming.ClipStart(flight, true), ReplayTiming.ShowSeconds + Tol, "never faster than real time, flight " + flight);
+            }
+            Assert.AreEqual(1.2, ReplayTiming.BottleTailSeconds, Tol);
+        }
+
+        [Test]
         public void The_Replay_plays_slow_motion_for_a_quick_Shot_and_at_a_readable_rate_for_the_slowest()
         {
             double Rate(double flight) => (ReplayTiming.ClipEnd(flight) - ReplayTiming.ClipStart(flight)) / ReplayTiming.ShowSeconds;

@@ -53,16 +53,20 @@ namespace HockeyGame.Core
         /// A flight too long for ShowSeconds of real time (flight + TailSeconds over ShowSeconds) starts ShowSeconds before the
         /// clip's end instead, so the Replay never plays faster than real time.
         /// </summary>
-        public static double ClipStart(double flightSeconds) => Math.Max(0, ClipEnd(flightSeconds) - ShowSeconds);
+        public static double ClipStart(double flightSeconds, bool bottleKnocked = false) => Math.Max(0, ClipEnd(flightSeconds, bottleKnocked) - ShowSeconds);
 
-        /// <summary>When the Replay's clip ends, in seconds after the Shot.</summary>
-        public static double ClipEnd(double flightSeconds) => Math.Max(0, flightSeconds) + TailSeconds;
+        /// <summary>The clip runs this long after the puck lands when the water bottle was knocked off (#164), so the Replay shows it land (it lands by about 1.0 s).</summary>
+        public const double BottleTailSeconds = 1.2;
+
+        /// <summary>When the Replay's clip ends, in seconds after the Shot. A knocked bottle (the Whistle's Goal knocked it) makes it BottleTailSeconds after the puck lands.</summary>
+        public static double ClipEnd(double flightSeconds, bool bottleKnocked = false) =>
+            Math.Max(0, flightSeconds) + (bottleKnocked ? Math.Max(TailSeconds, BottleTailSeconds) : TailSeconds);
 
         /// <summary>The moment of the Shot (seconds after it) the Replay shows showSeconds into it: the clip, slowed to ShowSeconds.</summary>
-        public static double ShotSecondsAt(double showSeconds, double flightSeconds)
+        public static double ShotSecondsAt(double showSeconds, double flightSeconds, bool bottleKnocked = false)
         {
-            double start = ClipStart(flightSeconds);
-            return start + (ClipEnd(flightSeconds) - start) * Numbers.Clamp01(showSeconds / ShowSeconds);
+            double start = ClipStart(flightSeconds, bottleKnocked);
+            return start + (ClipEnd(flightSeconds, bottleKnocked) - start) * Numbers.Clamp01(showSeconds / ShowSeconds);
         }
     }
 }

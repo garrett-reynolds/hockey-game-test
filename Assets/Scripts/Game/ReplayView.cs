@@ -131,7 +131,7 @@ namespace HockeyGame
             bool play = _show.Camera == CameraMode.Replay && _track.SampleCount > 0;
             if (play)
             {
-                _track.Apply(ReplayTiming.ShotSecondsAt(_show.ReplaySeconds, _round.ResultDelaySeconds));
+                _track.Apply(ReplayTiming.ShotSecondsAt(_show.ReplaySeconds, _round.ResultDelaySeconds, BottleKnocked));
                 HideLivePuck();
             }
             SetShowing(play);
@@ -173,8 +173,11 @@ namespace HockeyGame
             _track.Record(seconds);
             if (_replayPuck != null) _replayPuck.SetActive(false); // seen only on Replay frames
             if (_replayBottle != null) _replayBottle.SetActive(false);
-            if (_round.ResultShowing && seconds > ReplayTiming.ClipEnd(_round.ResultDelaySeconds) + RecordMargin) _recording = false;
+            if (_round.ResultShowing && seconds > ReplayTiming.ClipEnd(_round.ResultDelaySeconds, BottleKnocked) + RecordMargin) _recording = false;
         }
+
+        /// <summary>True when the water bottle was knocked off this Round (the Whistle's Goal did it): the clip then runs on until it lands (#164).</summary>
+        bool BottleKnocked => _replayBottle != null && _liveBottle != null && _liveBottle.Knocked;
 
         /// <summary>What the track records: the parts given to Init, then the physics puck's stand-in.</summary>
         Transform[] Parts()
