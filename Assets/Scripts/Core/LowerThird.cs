@@ -94,8 +94,8 @@ namespace HockeyGame.Core
         /// <summary>As Of, but the words come from words (built once per Shot, no garbage per frame); null builds them every call.</summary>
         public static LowerThirdShow Of(Round round, LowerThirdWords words)
         {
-            if (round.Phase != RoundPhase.ResultHold || !round.ResultShowing)
-                return default;
+            if (round.TestMode || round.Phase != RoundPhase.ResultHold || !round.ResultShowing)
+                return default; // none in Test Mode (#157): there is no Round to tally
             double amount = SlideAmount(round.PhaseSecondsElapsed - round.ResultDelaySeconds);
             if (amount <= 0) return default; // off screen: no words built (this runs every frame)
             LowerThirdText? text = words != null ? words.Get(round.Results, round.ShotSpeedsKmh) : Choose(round.Results, round.ShotSpeedsKmh);
