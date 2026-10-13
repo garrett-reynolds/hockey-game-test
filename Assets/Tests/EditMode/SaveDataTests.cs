@@ -37,6 +37,9 @@ namespace HockeyGame.Core.Tests
                 TickOn = false,
                 MasterVolume = 0.4,
                 Mute = true,
+                CrowdVolume = 0.3,
+                GameVolume = 0.6,
+                MusicVolume = 0.1,
                 ForceGoalieBlocks = true,
                 TeamSkin = "bears",
             };
@@ -54,6 +57,9 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(expected.TickOn, actual.TickOn);
             Assert.AreEqual(expected.MasterVolume, actual.MasterVolume);
             Assert.AreEqual(expected.Mute, actual.Mute);
+            Assert.AreEqual(expected.CrowdVolume, actual.CrowdVolume);
+            Assert.AreEqual(expected.GameVolume, actual.GameVolume);
+            Assert.AreEqual(expected.MusicVolume, actual.MusicVolume);
             Assert.AreEqual(expected.ForceGoalieBlocks, actual.ForceGoalieBlocks);
             Assert.AreEqual(expected.TeamSkin, actual.TeamSkin);
         }
@@ -72,7 +78,10 @@ namespace HockeyGame.Core.Tests
             Assert.IsTrue(d.TickOn);
             Assert.AreEqual(1.0, d.MasterVolume);
             Assert.IsFalse(d.Mute);
-            Assert.IsFalse(d.ForceGoalieBlocks, "the goalie character shows by default; the blocks are a developer fallback");
+            Assert.AreEqual(1.0, d.CrowdVolume);
+            Assert.AreEqual(1.0, d.GameVolume);
+            Assert.AreEqual(1.0, d.MusicVolume);
+            Assert.IsFalse(d.ForceGoalieBlocks,"the goalie character shows by default; the blocks are a developer fallback");
             Assert.AreEqual("league", d.TeamSkin, "the League Skin plays unless the file picks another");
         }
 
@@ -177,6 +186,41 @@ namespace HockeyGame.Core.Tests
             {
                 CultureInfo.CurrentCulture = saved;
             }
+        }
+
+        [Test]
+        public void Load_AFileWithoutTheGroupVolumes_KeepsThemAtFull()
+        {
+            Directory.CreateDirectory(_dir);
+            File.WriteAllText(_path, "masterVolume=0.5\n");
+
+            var loaded = SaveData.Load(_path);
+
+            Assert.AreEqual(1.0, loaded.CrowdVolume);
+            Assert.AreEqual(1.0, loaded.GameVolume);
+            Assert.AreEqual(1.0, loaded.MusicVolume);
+        }
+
+        [Test]
+        public void Load_BadGroupVolumes_FallBackToFullOrClamp()
+        {
+            Directory.CreateDirectory(_dir);
+            File.WriteAllText(_path, "crowdVolume=loud\ngameVolume=\nmusicVolume=7\n");
+
+            var loaded = SaveData.Load(_path);
+
+            Assert.AreEqual(1.0, loaded.CrowdVolume, "not a number: the default");
+            Assert.AreEqual(1.0, loaded.GameVolume, "empty: the default");
+            Assert.AreEqual(1.0, loaded.MusicVolume, "past the end: clamped to the end");
+        }
+
+        [Test]
+        public void Load_GroupVolumesBelowZero_ClampToZero()
+        {
+            Directory.CreateDirectory(_dir);
+            File.WriteAllText(_path, "crowdVolume=-1\n");
+
+            Assert.AreEqual(0.0, SaveData.Load(_path).CrowdVolume);
         }
 
         [Test]

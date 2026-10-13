@@ -25,7 +25,7 @@ namespace HockeyGame.Core.Tests
             // The page groups the rows into cards (Sound, Round, Operator), so each card's rows sit together (#143).
             string[] labels =
             {
-                "Master volume", "Mute", "Tick",
+                "Master volume", "Crowd", "Game sounds", "Music", "Mute", "Tick",
                 "Easy mode", "Test Shots on at start",
                 "USB port", "End screen input-ignore time", "End screen auto-return time", "Reset best score"
             };
@@ -39,14 +39,17 @@ namespace HockeyGame.Core.Tests
         {
             var menu = NewMenu(new SaveData { BestScore = 3 }, "COM3");
             Assert.AreEqual("100%", menu.Value(0));
-            Assert.AreEqual("OFF", menu.Value(1));
-            Assert.AreEqual("ON", menu.Value(2));
-            Assert.AreEqual("OFF", menu.Value(3));
-            Assert.AreEqual("ON", menu.Value(4));
-            Assert.AreEqual("Auto", menu.Value(5));
-            Assert.AreEqual("2.0 s", menu.Value(6));
-            Assert.AreEqual("15.0 s", menu.Value(7));
-            Assert.AreEqual("best 3", menu.Value(8));
+            Assert.AreEqual("100%", menu.Value(1));
+            Assert.AreEqual("100%", menu.Value(2));
+            Assert.AreEqual("100%", menu.Value(3));
+            Assert.AreEqual("OFF", menu.Value(4));
+            Assert.AreEqual("ON", menu.Value(5));
+            Assert.AreEqual("OFF", menu.Value(6));
+            Assert.AreEqual("ON", menu.Value(7));
+            Assert.AreEqual("Auto", menu.Value(8));
+            Assert.AreEqual("2.0 s", menu.Value(9));
+            Assert.AreEqual("15.0 s", menu.Value(10));
+            Assert.AreEqual("best 3", menu.Value(11));
         }
 
         // ---- Two parts, Tab, keys, Reset (#143) ----
@@ -114,7 +117,7 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(0.6, save.MasterVolume, 1e-9);
             Assert.IsTrue(menu.Press(SettingsKey.Left));
             Assert.AreEqual(0.5, save.MasterVolume, 1e-9);
-            menu.Press(SettingsKey.Down);
+            for (int i = 0; i < 4; i++) menu.Press(SettingsKey.Down); // past Crowd, Game sounds and Music to Mute
             Assert.IsTrue(menu.Press(SettingsKey.Enter));
             Assert.IsTrue(save.Mute);
         }
@@ -124,13 +127,16 @@ namespace HockeyGame.Core.Tests
         {
             var menu = NewMenu(new SaveData(), "COM3");
             Assert.AreEqual(SettingsRowKind.Slider, menu.Kind(0));
-            Assert.AreEqual(SettingsRowKind.Toggle, menu.Kind(1));
-            Assert.AreEqual(SettingsRowKind.Choice, menu.Kind(5));
-            Assert.AreEqual(SettingsRowKind.Button, menu.Kind(8));
+            Assert.AreEqual(SettingsRowKind.Slider, menu.Kind(1));
+            Assert.AreEqual(SettingsRowKind.Slider, menu.Kind(2));
+            Assert.AreEqual(SettingsRowKind.Slider, menu.Kind(3));
+            Assert.AreEqual(SettingsRowKind.Toggle, menu.Kind(4));
+            Assert.AreEqual(SettingsRowKind.Choice, menu.Kind(8));
+            Assert.AreEqual(SettingsRowKind.Button, menu.Kind(11));
             Assert.AreEqual("SOUND", menu.Group(0));
-            Assert.AreEqual("SOUND", menu.Group(2));
-            Assert.AreEqual("ROUND", menu.Group(3));
-            Assert.AreEqual("OPERATOR", menu.Group(5));
+            Assert.AreEqual("SOUND", menu.Group(5));
+            Assert.AreEqual("ROUND", menu.Group(6));
+            Assert.AreEqual("OPERATOR", menu.Group(8));
         }
 
         [Test]
@@ -146,9 +152,9 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(1.0, save.MasterVolume, 1e-9, "dragged past the end stays at the end");
             menu.SetFraction(0, -0.4);
             Assert.AreEqual(0.0, save.MasterVolume, 1e-9);
-            menu.SetFraction(7, 0.3);
+            menu.SetFraction(10, 0.3);
             Assert.AreEqual(37.0, save.AutoReturnSeconds, 1e-9, "a slider with its own range: 1 to 120 s, 30% along snaps to the whole second 37");
-            Assert.AreEqual(7, menu.Selected, "the mouse selects the row it works");
+            Assert.AreEqual(10, menu.Selected, "the mouse selects the row it works");
         }
 
         [Test]
@@ -156,13 +162,13 @@ namespace HockeyGame.Core.Tests
         {
             var save = new SaveData { BestScore = 4 };
             var menu = NewMenu(save, "COM3");
-            menu.Select(1);
+            menu.Select(4);
             Assert.IsTrue(menu.Activate());
             Assert.IsTrue(save.Mute);
-            menu.Select(5);
+            menu.Select(8);
             Assert.IsTrue(menu.Change(1));
             Assert.AreEqual("COM3", save.UsbPort);
-            menu.Select(8);
+            menu.Select(11);
             Assert.IsTrue(menu.Activate());
             Assert.AreEqual(0, save.BestScore);
         }
@@ -172,13 +178,16 @@ namespace HockeyGame.Core.Tests
         {
             var save = new SaveData
             {
-                MasterVolume = 0.2, Mute = true, TickOn = false, EasyMode = true, TestShotOnAtStart = false,
+                MasterVolume = 0.2, CrowdVolume = 0.1, GameVolume = 0.3, MusicVolume = 0.4, Mute = true, TickOn = false, EasyMode = true, TestShotOnAtStart = false,
                 UsbPort = "COM9", InputIgnoreSeconds = 9, AutoReturnSeconds = 99, BestScore = 5, ForceGoalieBlocks = true
             };
             var menu = NewMenu(save);
             Assert.IsTrue(menu.Press(SettingsKey.Reset));
             var d = new SaveData();
             Assert.AreEqual(d.MasterVolume, save.MasterVolume);
+            Assert.AreEqual(d.CrowdVolume, save.CrowdVolume);
+            Assert.AreEqual(d.GameVolume, save.GameVolume);
+            Assert.AreEqual(d.MusicVolume, save.MusicVolume);
             Assert.AreEqual(d.Mute, save.Mute);
             Assert.AreEqual(d.TickOn, save.TickOn);
             Assert.AreEqual(d.EasyMode, save.EasyMode);
@@ -212,6 +221,23 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(0, menu.Selected);
             menu.MoveSelection(1);
             Assert.AreEqual(1, menu.Selected);
+        }
+
+        [TestCase("Crowd")]
+        [TestCase("Game sounds")]
+        [TestCase("Music")]
+        public void A_group_volume_slider_steps_by_10_percent_and_changes_only_its_own_volume(string label)
+        {
+            var save = new SaveData { CrowdVolume = 0.5, GameVolume = 0.5, MusicVolume = 0.5, MasterVolume = 0.7 };
+            var menu = NewMenu(save);
+            Select(menu, label);
+            Assert.IsTrue(menu.Change(1));
+            double[] now = { save.CrowdVolume, save.GameVolume, save.MusicVolume };
+            double[] want = { 0.5, 0.5, 0.5 };
+            want[label == "Crowd" ? 0 : label == "Game sounds" ? 1 : 2] = 0.6;
+            for (int i = 0; i < 3; i++) Assert.AreEqual(want[i], now[i], 1e-9);
+            Assert.AreEqual(0.7, save.MasterVolume, 1e-9);
+            Assert.AreEqual("60%", menu.Value(menu.Selected));
         }
 
         [Test]

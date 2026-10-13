@@ -77,6 +77,9 @@ namespace HockeyGame.Core
 
             const SettingsPart player = SettingsPart.Player;
             AddNumber(player, "SOUND", "Master volume", () => _save.MasterVolume, v => _save.MasterVolume = v, SaveData.VolumeRange, Percent);
+            AddNumber(player, "SOUND", "Crowd", () => _save.CrowdVolume, v => _save.CrowdVolume = v, SaveData.VolumeRange, Percent);
+            AddNumber(player, "SOUND", "Game sounds", () => _save.GameVolume, v => _save.GameVolume = v, SaveData.VolumeRange, Percent);
+            AddNumber(player, "SOUND", "Music", () => _save.MusicVolume, v => _save.MusicVolume = v, SaveData.VolumeRange, Percent);
             AddToggle(player, "SOUND", "Mute", () => _save.Mute, v => _save.Mute = v);
             AddToggle(player, "SOUND", "Tick", () => _save.TickOn, v => _save.TickOn = v);
             AddToggle(player, "ROUND", "Easy mode", () => _save.EasyMode, v => _save.EasyMode = v);
@@ -173,6 +176,9 @@ namespace HockeyGame.Core
             if (Part == SettingsPart.Player)
             {
                 _save.MasterVolume = defaults.MasterVolume;
+                _save.CrowdVolume = defaults.CrowdVolume;
+                _save.GameVolume = defaults.GameVolume;
+                _save.MusicVolume = defaults.MusicVolume;
                 _save.Mute = defaults.Mute;
                 _save.TickOn = defaults.TickOn;
                 _save.EasyMode = defaults.EasyMode;

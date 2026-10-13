@@ -30,6 +30,14 @@ namespace HockeyGame.Core
         GlassImpact   // puck bangs on the glass (a physics contact)
     }
 
+    /// <summary>The volume slider a sound sits under (each also sits under the master volume).</summary>
+    public enum SoundGroup
+    {
+        Crowd,  // crowd loop, cheers, groans, ooh, Clap Chant
+        Game,   // horn, buzzer, tick, puck, posts, glass, goalie, strides, hockey stop, heartbeat
+        Music   // the goal song
+    }
+
     /// <summary>Slow-down audio for one frame: low-pass cutoff, pitch, heartbeat on/off.</summary>
     public readonly struct SlowMoSound
     {
@@ -122,6 +130,36 @@ namespace HockeyGame.Core
 
         /// <summary>Volume for everything (0..1): 0 when muted, else the master volume, clamped.</summary>
         public static double ListenerVolume(SaveData save) => save.Mute ? 0 : Numbers.Clamp01(save.MasterVolume);
+
+        /// <summary>The slider a cue sits under. The goal song is not a cue (it starts with GoalImpact): it is the Music group.</summary>
+        public static SoundGroup GroupOf(SoundCue cue)
+        {
+            switch (cue)
+            {
+                case SoundCue.Cheer:
+                case SoundCue.NewBestCheer:
+                case SoundCue.Groan:
+                case SoundCue.SmallGroan:
+                case SoundCue.Ooh:
+                case SoundCue.Chant:
+                case SoundCue.ChantEnd: return SoundGroup.Crowd;
+                default: return SoundGroup.Game;
+            }
+        }
+
+        /// <summary>A group's own slider (0..1, clamped), before the master volume and mute.</summary>
+        public static double GroupVolume(SaveData save, SoundGroup group)
+        {
+            switch (group)
+            {
+                case SoundGroup.Crowd: return Numbers.Clamp01(save.CrowdVolume);
+                case SoundGroup.Music: return Numbers.Clamp01(save.MusicVolume);
+                default: return Numbers.Clamp01(save.GameVolume);
+            }
+        }
+
+        /// <summary>What a group's sound is scaled by in the end: its slider times the master volume, 0 when muted.</summary>
+        public static double PlayedVolume(SaveData save, SoundGroup group) => GroupVolume(save, group) * ListenerVolume(save);
 
         /// <summary>How loud a cue plays (0..1, before the master volume): GoalImpact is the goal horn (and the net hit).</summary>
         public static double Volume(SoundCue cue)
