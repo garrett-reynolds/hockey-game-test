@@ -21,6 +21,8 @@ namespace HockeyGame
         public const float MaxSlide = 0.6f;
 
         SkinnedMeshRenderer[] _body = new SkinnedMeshRenderer[0];
+        Mesh[] _bodyAll = new Mesh[0], _bodyHidden = new Mesh[0]; // per _body renderer: the model's mesh, and a copy without the bare hand and feet
+        int[][] _bodyTriangles = new int[0][];                    // per _body renderer: the model's triangles (reach reads these, whatever is drawn)
         Renderer[] _skates = new Renderer[0];
         Quaternion _restLeftFoot = Quaternion.identity, _restRightFoot = Quaternion.identity; // in the Root frame
         Vector3 _leftFingers = Vector3.forward, _leftThumb = Vector3.up, _rightFingers = Vector3.forward, _rightThumb = Vector3.up; // hand-local
@@ -60,6 +62,7 @@ namespace HockeyGame
             animator.runtimeAnimatorController = null; // bones are posed from code
             model.transform.SetParent(Root.transform, false);
             _body = model.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+            HideBareParts(model);
             _gear = Array.FindAll(model.GetComponentsInChildren<MeshRenderer>(true), r => GearPiece.PieceOf(r.name) != null);
             _skates = Array.FindAll(model.GetComponentsInChildren<Renderer>(true), r => r.name == GearPiece.ObjectName(GearPiece.LeftSkate) || r.name == GearPiece.ObjectName(GearPiece.RightSkate));
 
@@ -334,11 +337,12 @@ namespace HockeyGame
             Put(pose);
             var groups = new Dictionary<Transform, (Matrix4x4 toBone, List<Vector3> corners)>();
             var baked = new Mesh();
-            foreach (SkinnedMeshRenderer body in _body)
+            for (int part = 0; part < _body.Length; part++)
             {
+                SkinnedMeshRenderer body = _body[part];
                 body.BakeMesh(baked, true);
                 Vector3[] vertices = baked.vertices;
-                int[] triangles = baked.triangles;
+                int[] triangles = _bodyTriangles[part]; // the model's, not the drawn mesh's (hidden hands and feet still reach)
                 BoneWeight[] weights = body.sharedMesh.boneWeights;
                 Transform[] bones = body.bones;
                 Matrix4x4 toWorld = Rigid(body.transform);
@@ -371,6 +375,96 @@ namespace HockeyGame
 
         /// <summary>The skinned mesh of the bare skin (Tools/make_lifelike_goalie.py), whose hands sit inside the gloves.</summary>
         const string BareSkin = "Skin";
+
+        /// <summary>Holds the hidden-parts mesh copies on the model so they are destroyed with the goalie.</summary>
+        sealed class MeshOwner : MonoBehaviour
+        {
+            public Mesh[] Meshes = new Mesh[0];
+            void OnDestroy() { foreach (Mesh m in Meshes) if (m != null) SceneObjects.DestroySafely(m); }
+        }
+
+        /// <summary>
+        /// Gives each skinned renderer a mesh copy without the triangles that poke through the gear: the LEFT bare hand (in the
+        /// catcher; the right hand grips the stick inside the blocker and stays) and the feet (the socks' foot share, inside the
+        /// skates). Chosen by bone weights, so it holds in every pose. Reach reads the original triangles (_bodyTriangles).
+        /// </summary>
+        void HideBareParts(GameObject model)
+        {
+            int count = _body.Length;
+            _bodyAll = new Mesh[count];
+            _bodyHidden = new Mesh[count];
+            _bodyTriangles = new int[count][];
+            var owned = new List<Mesh>();
+            Transform leftHand = Bone(HumanBodyBones.LeftHand), leftFoot = Bone(HumanBodyBones.LeftFoot), rightFoot = Bone(HumanBodyBones.RightFoot);
+            for (int part = 0; part < count; part++)
+            {
+                SkinnedMeshRenderer body = _body[part];
+                Mesh all = body.sharedMesh;
+                _bodyAll[part] = _bodyHidden[part] = all;
+                if (all == null) { _bodyTriangles[part] = new int[0]; continue; }
+                _bodyTriangles[part] = all.triangles;
+                BoneWeight[] weights = all.boneWeights;
+                if (weights.Length != all.vertexCount) continue;
+                Transform[] bones = body.bones;
+                var handBone = new bool[bones.Length];
+                var footBone = new bool[bones.Length];
+                for (int i = 0; i < bones.Length; i++)
+                {
+                    handBone[i] = bones[i] != null && leftHand != null && bones[i].IsChildOf(leftHand);
+                    footBone[i] = bones[i] != null && ((leftFoot != null && bones[i].IsChildOf(leftFoot)) || (rightFoot != null && bones[i].IsChildOf(rightFoot)));
+                }
+                bool skin = body.name == BareSkin;
+                Mesh copy = UnityEngine.Object.Instantiate(all);
+                copy.name = all.name + " (hands and feet hidden)";
+                int removed = 0;
+                for (int sub = 0; sub < all.subMeshCount; sub++)
+                {
+                    int[] triangles = all.GetTriangles(sub);
+                    var kept = new List<int>(triangles.Length);
+                    for (int i = 0; i < triangles.Length; i += 3)
+                    {
+                        if (HiddenUnderGear(skin, handBone, footBone, weights,triangles[i], triangles[i + 1], triangles[i + 2])) { removed++; continue; }
+                        kept.Add(triangles[i]); kept.Add(triangles[i + 1]); kept.Add(triangles[i + 2]);
+                    }
+                    copy.SetTriangles(kept, sub);
+                }
+                if (removed == 0) { SceneObjects.DestroySafely(copy); continue; }
+                _bodyHidden[part] = copy;
+                owned.Add(copy);
+                body.sharedMesh = copy;
+            }
+            model.AddComponent<MeshOwner>().Meshes = owned.ToArray();
+        }
+
+        /// <summary>
+        /// Whether a triangle of the renderer is a bare left hand (the bare skin's, by its first corner's heaviest bone, as InHand
+        /// is used for reach) or a foot (any corner with at least half its weight on a foot bone or toe).
+        /// </summary>
+        static bool HiddenUnderGear(bool skin, bool[] handBone, bool[] footBone, BoneWeight[] weights, int a, int b, int c)
+        {
+            if (skin && handBone[weights[a].boneIndex0]) return true;
+            return FootShare(footBone, weights[a]) >= 0.5f || FootShare(footBone, weights[b]) >= 0.5f || FootShare(footBone, weights[c]) >= 0.5f;
+        }
+
+        static float FootShare(bool[] footBone, BoneWeight w)
+        {
+            float foot = 0f;
+            if (footBone[w.boneIndex0]) foot += w.weight0;
+            if (footBone[w.boneIndex1]) foot += w.weight1;
+            if (footBone[w.boneIndex2]) foot += w.weight2;
+            if (footBone[w.boneIndex3]) foot += w.weight3;
+            return foot;
+        }
+
+        /// <summary>
+        /// Draws the model's own meshes (true: the bare left hand and the feet show) or the copies without them (false, the default:
+        /// they never poke through the gear). Reach and hit shapes are the same either way.
+        /// </summary>
+        public void ShowUnderGear(bool show)
+        {
+            for (int part = 0; part < _body.Length; part++)
+                _body[part].sharedMesh = show ? _bodyAll[part] : _bodyHidden[part];
+        }
 
         bool InHand(Transform bone)
         {
@@ -1072,11 +1166,12 @@ namespace HockeyGame
                 obstacles.AddMesh(ToWorld(shared.vertices, r.transform.localToWorldMatrix), shared.triangles, piece);
             }
             var mesh = new Mesh();
-            foreach (SkinnedMeshRenderer body in _body)
+            for (int part = 0; part < _body.Length; part++)
             {
+                SkinnedMeshRenderer body = _body[part];
                 body.BakeMesh(mesh, true);
                 Matrix4x4 toWorld = Matrix4x4.TRS(body.transform.position, body.transform.rotation, Vector3.one);
-                obstacles.AddMesh(ToWorld(mesh.vertices, toWorld), WithoutBareHands(body, mesh.triangles), GearPiece.Body);
+                obstacles.AddMesh(ToWorld(mesh.vertices, toWorld), WithoutBareHands(body, _bodyTriangles[part]), GearPiece.Body);
             }
             SceneObjects.DestroySafely(mesh);
         }
