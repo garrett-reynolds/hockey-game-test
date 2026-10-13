@@ -187,12 +187,13 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void A_legs_only_push_never_moves_the_body_and_a_full_one_never_moves_the_Root()
+        public void A_legs_only_push_never_moves_the_body_and_a_full_one_moves_the_hips_but_never_the_Root()
         {
-            // #130: the push lowers and leans the hips (body true); a Save Reaction's push (body false) is legs only; neither moves the Root.
-            Vector3 rootAt0 = _goalie.Root.transform.position;
-            _goalie.ShowPush(Shown(PushKind.TPush, Skate.Right), new PushPoseMoment(1, 1), true);
+            // #130: the push lowers and leans the hips (bodyShare 1); a Save Reaction's push (bodyShare 0) is legs only; neither moves the Root.
+            Vector3 rootAt0 = _goalie.Root.transform.position, hips0 = Bone(HumanBodyBones.Hips).position;
+            _goalie.ShowPush(Shown(PushKind.TPush, Skate.Right), new PushPoseMoment(1, 1), 1f);
             Assert.Less(Vector3.Distance(rootAt0, _goalie.Root.transform.position), 1e-5f, "Root position with the body lean");
+            Assert.Greater(Vector3.Distance(hips0, Bone(HumanBodyBones.Hips).position), 0.05f, "the full push moves the hips");
             _goalie.ShowReaction(0f);
             HumanBodyBones[] kept = { HumanBodyBones.Hips, HumanBodyBones.Spine, HumanBodyBones.Chest };
             Vector3 rootAt = _goalie.Root.transform.position;
@@ -207,7 +208,7 @@ namespace HockeyGame.Core.Tests
             foreach (double leadTurn in new[] { 0.0, 0.5, 1.0 })
             {
                 _goalie.ShowReaction(0f);
-                _goalie.ShowPush(Shown(kind, skate), new PushPoseMoment(pushOut, leadTurn), false);
+                _goalie.ShowPush(Shown(kind, skate), new PushPoseMoment(pushOut, leadTurn), 0f);
                 string label = $"{kind} {skate} out {pushOut} turn {leadTurn}: ";
                 Assert.Less(Vector3.Distance(rootAt, _goalie.Root.transform.position), 1e-5f, label + "Root position");
                 Assert.Less(Quaternion.Angle(rootTurn, _goalie.Root.transform.rotation), 1e-3f, label + "Root rotation");
@@ -247,7 +248,7 @@ namespace HockeyGame.Core.Tests
             _goalie.ShowReaction(1f);
             Vector3 left = Bone(HumanBodyBones.LeftHand).position, right = Bone(HumanBodyBones.RightHand).position;
 
-            _goalie.ShowPush(Shown(PushKind.TPush, Skate.Right), new PushPoseMoment(1, 1), false); // legs only, as GoalieView shows a Save Reaction's push
+            _goalie.ShowPush(Shown(PushKind.TPush, Skate.Right), new PushPoseMoment(1, 1), 0f); // legs only, as GoalieView shows a Save Reaction's push
 
             Assert.Less(Vector3.Distance(left, Bone(HumanBodyBones.LeftHand).position), 1e-5f, "the glove hand stays");
             Assert.Less(Vector3.Distance(right, Bone(HumanBodyBones.RightHand).position), 1e-5f, "the stick hand stays");

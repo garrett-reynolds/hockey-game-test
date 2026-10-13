@@ -304,6 +304,33 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void A_Save_Reaction_that_starts_mid_push_blends_the_push_down_with_no_one_frame_jump()
+        {
+            GoalieView view = PushView(out GoalieCharacter character);
+            var shown = new PushShown(PushKind.Shuffle, Skate.Right, PushPhase.Push, 1);
+            Settle(view, shown);
+            view.SetProgress(0f);
+            Transform skate = RightSkate(character);
+            Transform hips = character.Bone(HumanBodyBones.Hips);
+            Vector3 foot = skate.position, hipsAt = hips.position;
+            float perFrame = (GoalieSkatePush.PushOutMetres + GoalieSkatePush.PushBackMetres) / (float)PushPose.PushInSeconds * (float)PushFrame;
+
+            view.React(Result(ShotResultKind.Save, 90, 80), new Vector3(0f, 1.15f, -9f), null, double.PositiveInfinity, LateMarginLimit);
+            float worstFoot = 0f, worstHips = 0f;
+            for (int i = 0; i < 30; i++)
+            {
+                view.ShowPush(shown, PushFrame);
+                view.SetProgress(0f); // set 0: the reaction is not in yet, so only the push changes
+                worstFoot = Mathf.Max(worstFoot, Vector3.Distance(foot, skate.position));
+                worstHips = Mathf.Max(worstHips, Vector3.Distance(hipsAt, hips.position));
+                foot = skate.position;
+                hipsAt = hips.position;
+            }
+            Assert.LessOrEqual(worstFoot, perFrame, "the push foot moves at most the push's own per-frame speed (no 0.25 m jump)");
+            Assert.Less(worstHips, 0.05f, "the hips lean and drop come down over a few frames, not one");
+        }
+
+        [Test]
         public void During_the_Done_frames_after_a_push_the_same_foot_stays_out_and_the_other_does_not_move()
         {
             GoalieView view = PushView(out GoalieCharacter character);

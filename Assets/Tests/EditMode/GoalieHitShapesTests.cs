@@ -460,7 +460,7 @@ namespace HockeyGame.Core.Tests
                     Assert.Less(Vector3.Distance(c.bounds.center, GearMiddle(piece)), 0.02f, piece + "'s hit shape is on its gear");
                 else if (piece == GearPiece.Catcher || piece == GearPiece.Blocker || piece == GearPiece.Stick || piece == GearPiece.Mask)
                     // (#130) the body lowers 6 cm and leans 10 cm into the move with the push: the upper gear goes with it, no further.
-                    Assert.Less(moved, 0.15f, piece + " is moved by the push no more than the hips' lean and drop");
+                    Assert.Less(moved, 0.13f, piece + " is moved by the push no more than the hips' lean and drop");
                 if (piece == pushing && moved >= 0.01f) pushingSkateMoved = true;
             }
             Assert.IsTrue(pushingSkateMoved, "the " + pushing + " hit shape moved at least 1 cm with the pose");
