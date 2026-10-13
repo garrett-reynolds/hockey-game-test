@@ -13,7 +13,7 @@ BODY_TOP = 0.186
 
 # (radius, height) points from the bottom up. The body is closed at the bottom by a point on the axis.
 BODY = [(0.0, 0.0), (0.030, 0.0), (0.0365, 0.006), (0.0375, 0.016), (0.0375, 0.050), (0.0352, 0.072), (0.0345, 0.092),
-        (0.0352, 0.112), (0.0375, 0.134), (0.0372, 0.146), (0.0355, 0.158), (0.0285, 0.172), (0.0190, 0.181), (0.0170, BODY_TOP)]
+        (0.0352, 0.112), (0.0375, 0.134), (0.0375, 0.179), (0.0369, 0.1835), (0.0355, BODY_TOP)]   # full width to the top, a soft edge under the cap (Garrett)   # full width to the top (Garrett: no taper under the cap)
 # A short, wide cap as wide as the green body (7.5 cm) and about 2.1 cm tall, with a flat top and a nearly flush valve
 # (Garrett, 2026-10-13: no spout; cap the body's width and a third of the old cap's height).
 CAP = [(0.0170, BODY_TOP), (0.0375, BODY_TOP), (0.0375, 0.204), (0.0360, 0.2055), (0.0130, 0.2055)]
