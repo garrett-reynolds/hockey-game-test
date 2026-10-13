@@ -2,29 +2,50 @@ namespace HockeyGame.Core
 {
     /// <summary>
     /// The black fade over the cut between Shots (#129). The skate-in of Shots 2 to 6 starts at the wide #14 start, so the camera
-    /// cuts from the end of the last Shot to it; the screen goes black over the end of the result hold (the Replay has played by
-    /// then) and back over the start of the next skate-in, so the cut is never seen. Never during the shooting window.
+    /// cuts from the end of the last Shot to it; the screen goes black over the end of the result hold and back over the start of
+    /// the next skate-in, so the cut is never seen. Never during the shooting window. The fade starts only after the Replay has
+    /// ended, look-back included (the Round lengthens the hold by LeadSeconds for that, see Round.ResultHoldLength).
     /// Shot 1 comes from the start screen, which is already a cut: no fade there. After Shot 6 comes the end screen: no fade.
+    /// Step it once a frame, in the same frame the camera is placed: it counts the fade-in from the first frame of the new
+    /// skate-in, so even a long frame at the cut shows full black.
     /// </summary>
-    public static class ShotFade
+    public sealed class ShotFade
     {
         /// <summary>Real seconds to fade out, and to fade back in.</summary>
         public const double FadeSeconds = 0.25;
-        /// <summary>Real seconds fully black each side of the cut, so a long frame at the cut never shows it.</summary>
-        public const double BlackSeconds = 0.05;
+        /// <summary>Real seconds fully black each side of the cut.</summary>
+        public const double BlackSeconds = 0.1;
+        /// <summary>The fade out and its black, before the cut: the result hold runs this long past the end of a Replay.</summary>
+        public const double LeadSeconds = FadeSeconds + BlackSeconds;
 
-        /// <summary>How black the screen is (0 clear .. 1 black). holdSecondsLeft: real seconds left of the result hold (infinity before the Whistle).</summary>
-        public static double Amount(RoundPhase phase, int shotNumber, double phaseSeconds, double holdSecondsLeft)
+        RoundPhase _last = RoundPhase.Idle;
+        double _sinceCut;
+
+        /// <summary>How black the screen is (0 clear .. 1 black) as of the last Step.</summary>
+        public double Amount { get; private set; }
+
+        /// <summary>Fade out, holdSecondsLeft real seconds before the end of the result hold (infinity before the Whistle).</summary>
+        public static double Out(double holdSecondsLeft) =>
+            double.IsInfinity(holdSecondsLeft) ? 0 : Numbers.Clamp01(1.0 - (holdSecondsLeft - BlackSeconds) / FadeSeconds);
+
+        /// <summary>Fade in, secondsSinceCut real seconds after the first frame of the new skate-in.</summary>
+        public static double In(double secondsSinceCut) => Numbers.Clamp01(1.0 - (secondsSinceCut - BlackSeconds) / FadeSeconds);
+
+        /// <summary>One frame of realDt real seconds, the Round as it is after this frame's tick. Returns Amount.</summary>
+        public double Step(Round round, double realDt)
         {
-            if (phase == RoundPhase.ResultHold && shotNumber < Round.ShotsPerRound && !double.IsInfinity(holdSecondsLeft))
-                return Numbers.Clamp01(1.0 - (holdSecondsLeft - BlackSeconds) / FadeSeconds);
-            if (phase == RoundPhase.SkateIn && shotNumber > 1)
-                return Numbers.Clamp01(1.0 - (phaseSeconds - BlackSeconds) / FadeSeconds);
-            return 0;
+            RoundPhase phase = round.Phase;
+            if (phase == RoundPhase.ResultHold && round.ShotNumber < Round.ShotsPerRound)
+                Amount = Out(round.ResultHoldSecondsLeft);
+            else if (phase == RoundPhase.SkateIn && round.ShotNumber > 1) // Shot 1 follows the start screen: no fade
+            {
+                if (_last != RoundPhase.SkateIn) _sinceCut = 0; // the frame the camera cuts
+                else _sinceCut += realDt;
+                Amount = In(_sinceCut);
+            }
+            else Amount = 0;
+            _last = phase;
+            return Amount;
         }
-
-        /// <summary>The fade for the Round as it is now.</summary>
-        public static double Amount(Round round) =>
-            Amount(round.Phase, round.ShotNumber, round.PhaseSecondsElapsed, round.ResultHoldSecondsLeft);
     }
 }

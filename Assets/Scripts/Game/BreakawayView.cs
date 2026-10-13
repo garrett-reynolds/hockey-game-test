@@ -26,6 +26,7 @@ namespace HockeyGame
         GoalieView _goalie;
         Volume _look;
         RoundPhase _lastPhase = RoundPhase.Idle;
+        readonly ShotFade _fade = new ShotFade(); // the black over the cut between Shots (#129)
         float _drift;      // metres drifted toward the net since the skate-in ended (scaled time)
         float _gameTime;   // game seconds since the skate-in began (stride bob and roll; the stride sounds use the same clock)
         readonly GoalieTurn _turn = new GoalieTurn(0.0); // the goalie squaring up to the shooter
@@ -92,6 +93,7 @@ namespace HockeyGame
         {
             RoundPhase phase = _round.Phase;
             double phaseSeconds = _round.PhaseSecondsElapsed;
+            _fade.Step(_round, realDt); // the frame the camera cuts to the next skate-in is the frame the screen is black (#129)
             bool skateInStarts = phase == RoundPhase.SkateIn && _lastPhase != RoundPhase.SkateIn;
             if (skateInStarts)
             {
@@ -304,22 +306,22 @@ namespace HockeyGame
 
         // ---- Shooting window ring (IMGUI, drawn after post-processing so it stays red) ----
 
+        /// <summary>The black fade over the camera cut between Shots (#129), drawn over the HUD too (a low GUI depth draws last).</summary>
+        void DrawFade()
+        {
+            GUI.depth = -1000;
+            if (Event.current.type != EventType.Repaint || _fade.Amount <= 0) return;
+            Color before = GUI.color;
+            GUI.color = new Color(0f, 0f, 0f, (float)_fade.Amount);
+            GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), Texture2D.whiteTexture);
+            GUI.color = before;
+        }
+
         void OnGUI()
         {
-            // The black fade over the camera cut between Shots (#129): drawn over the HUD too (a low GUI depth draws last).
-            GUI.depth = -1000;
-            if (_round != null && Event.current.type == EventType.Repaint)
-            {
-                float black = (float)ShotFade.Amount(_round);
-                if (black > 0f)
-                {
-                    Color before = GUI.color;
-                    GUI.color = new Color(0f, 0f, 0f, black);
-                    GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), Texture2D.whiteTexture);
-                    GUI.color = before;
-                }
-            }
-            if (_round == null || _round.Phase != RoundPhase.ShootingWindow || Event.current.type != EventType.Repaint) return;
+            if (_round == null) return;
+            DrawFade();
+            if (_round.Phase != RoundPhase.ShootingWindow || Event.current.type != EventType.Repaint) return;
 
             float fraction = (float)Breakaway.RingFraction(_round.WindowSecondsLeft, _round.Settings);
             Vector3 centre = _camera.WorldToScreenPoint(NetCentre);

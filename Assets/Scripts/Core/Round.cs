@@ -120,8 +120,12 @@ namespace HockeyGame.Core
         /// <summary>
         /// How long the current result holds once it shows (after the Whistle): ReplayTiming.HoldSeconds (about 4.5 s)
         /// when a Replay follows (a Goal, a Save or a Frame Hit), otherwise ResultHoldSeconds (2.5 s: a Wide Miss, Too late).
+        /// Before Shots 2 to 6 a Replay's hold runs ShotFade.LeadSeconds (0.35 s) longer, so the fade to black starts after the
+        /// Replay's look-back has ended, never over it (#129): 4.85 s.
         /// </summary>
-        public double ResultHoldLength => ReplayTiming.Follows(LastResult) ? ReplayTiming.HoldSeconds : _settings.ResultHoldSeconds;
+        public double ResultHoldLength =>
+            (ReplayTiming.Follows(LastResult) ? ReplayTiming.HoldSeconds : _settings.ResultHoldSeconds)
+            + (ReplayTiming.Follows(LastResult) && ShotNumber < ShotsPerRound ? ShotFade.LeadSeconds : 0);
 
         /// <summary>
         /// Real seconds from the Shot to its Whistle (Shot-to-Whistle, since #108: not the puck's flight); 0 until the Whistle.
