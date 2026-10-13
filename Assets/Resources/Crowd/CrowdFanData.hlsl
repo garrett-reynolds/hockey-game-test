@@ -70,7 +70,8 @@ float3 FanToWorld(Fan f, float3 bodyPoint)
 
 float3 FanNormalToWorld(Fan f, float3 normal)
 {
-    return normalize(mul((float3x3)_CrowdToWorld, FanTurn(f, normal)));
+    // SafeNormalize, not normalize: some outfit meshes (the women's Modular outfits) have a few zero-length normals, and normalize(0) is NaN.
+    return SafeNormalize(mul((float3x3)_CrowdToWorld, FanTurn(f, normal)));
 }
 
 // A region colour at the zone's contrast, dimmed like the stands and by the zone's light.
