@@ -29,6 +29,23 @@ namespace HockeyGame.Core
         public static readonly NumberRange AutoReturnRange = new NumberRange(1, 120, 1);
         public static readonly NumberRange VolumeRange = new NumberRange(0, 1, 0.1);
 
+        // Dev part, goalie values (#147): ranges and steps from research/dev-setting-ranges.md (#138). Linked limits (the partner
+        // bounds the value being changed): Wobble <= Reaction, Leg <= Hand, ShuffleMax <= MaxPush.
+        public static readonly NumberRange ReactionRange = new NumberRange(0.04, 0.30, 0.01);
+        public static readonly NumberRange WobbleRange = new NumberRange(0, 0.10, 0.01);
+        public static readonly NumberRange HandRange = new NumberRange(3, 12, 0.5);
+        public static readonly NumberRange LegRange = new NumberRange(3, 12, 0.5);
+        public static readonly NumberRange MaxPushRange = new NumberRange(0.1, 0.9, 0.05);
+        public static readonly NumberRange ShuffleMaxRange = new NumberRange(0.1, 0.9, 0.05);
+
+        // What each linked partner allows right now (a range inside its fixed one).
+        public NumberRange ReactionAllowed => new NumberRange(Math.Max(ReactionRange.Min, ReactionWobbleSeconds), ReactionRange.Max, ReactionRange.Step);
+        public NumberRange WobbleAllowed => new NumberRange(WobbleRange.Min, Math.Min(WobbleRange.Max, ReactionSeconds), WobbleRange.Step);
+        public NumberRange HandAllowed => new NumberRange(Math.Max(HandRange.Min, LegMetresPerSecond), HandRange.Max, HandRange.Step);
+        public NumberRange LegAllowed => new NumberRange(LegRange.Min, Math.Min(LegRange.Max, HandMetresPerSecond), LegRange.Step);
+        public NumberRange MaxPushAllowed => new NumberRange(Math.Max(MaxPushRange.Min, ShuffleMaxMetres), MaxPushRange.Max, MaxPushRange.Step);
+        public NumberRange ShuffleMaxAllowed => new NumberRange(ShuffleMaxRange.Min, Math.Min(ShuffleMaxRange.Max, MaxPushMetres), ShuffleMaxRange.Step);
+
         // File keys, one per setting, shared by Load and Save.
         private const string BestScoreKey = "bestScore";
         private const string UsbPortKey = "usbPort";
@@ -45,6 +62,12 @@ namespace HockeyGame.Core
         private const string MusicVolumeKey = "musicVolume";
         private const string TeamSkinKey = "teamSkin";
         private const string ForceGoalieBlocksKey = "forceGoalieBlocks"; // replaces goalieCharacterOn (#27), which old files hold as false
+        private const string ReactionSecondsKey = "goalieReactionSeconds";
+        private const string ReactionWobbleSecondsKey = "goalieReactionWobbleSeconds";
+        private const string HandMetresPerSecondKey = "goalieHandMetresPerSecond";
+        private const string LegMetresPerSecondKey = "goalieLegMetresPerSecond";
+        private const string MaxPushMetresKey = "goalieMaxPushMetres";
+        private const string ShuffleMaxMetresKey = "goalieShuffleMaxMetres";
 
         public int BestScore = 0;
         public string UsbPort = AutoUsbPort;
@@ -68,6 +91,41 @@ namespace HockeyGame.Core
         /// (read when the game starts). Or set forceGoalieBlocks=true in the settings file. The old goalieCharacterOn key is ignored.
         /// </summary>
         public bool ForceGoalieBlocks = false;
+
+        // Dev part, goalie values (#147). The defaults are the code defaults of RoundSettings (a test pins that). They reach a
+        // Round only through ApplyGoalieTo, when a Round starts (ScreenFlow); tests and editor tools never read the file.
+        public double ReactionSeconds = 0.12;
+        public double ReactionWobbleSeconds = 0.04;
+        public double HandMetresPerSecond = 8;
+        public double LegMetresPerSecond = 6;
+        public double MaxPushMetres = 0.6;
+        public double ShuffleMaxMetres = 0.3;
+
+        /// <summary>
+        /// Puts the Dev part's goalie values on a RoundSettings (clamped to their ranges and linked limits). Called when a Round
+        /// starts, never mid-Round. Everything else in the RoundSettings stays as the code made it.
+        /// </summary>
+        public void ApplyGoalieTo(RoundSettings settings)
+        {
+            KeepGoalieLimits();
+            settings.ReactionSeconds = ReactionSeconds;
+            settings.ReactionWobbleSeconds = ReactionWobbleSeconds;
+            settings.HandMetresPerSecond = HandMetresPerSecond;
+            settings.LegMetresPerSecond = LegMetresPerSecond;
+            settings.MaxPushMetres = MaxPushMetres;
+            settings.ShuffleMaxMetres = ShuffleMaxMetres;
+        }
+
+        /// <summary>Clamps each goalie value to its range, then holds the links: Wobble &lt;= Reaction, Leg &lt;= Hand, ShuffleMax &lt;= MaxPush (the lower partner wins).</summary>
+        private void KeepGoalieLimits()
+        {
+            ReactionSeconds = ReactionRange.Clamp(ReactionSeconds);
+            ReactionWobbleSeconds = Math.Min(WobbleRange.Clamp(ReactionWobbleSeconds), ReactionSeconds);
+            HandMetresPerSecond = HandRange.Clamp(HandMetresPerSecond);
+            LegMetresPerSecond = Math.Min(LegRange.Clamp(LegMetresPerSecond), HandMetresPerSecond);
+            MaxPushMetres = MaxPushRange.Clamp(MaxPushMetres);
+            ShuffleMaxMetres = Math.Min(ShuffleMaxRange.Clamp(ShuffleMaxMetres), MaxPushMetres);
+        }
         /// <summary>
         /// The Team Skin picked before play: its asset name in Assets/Resources/Skins (TeamSkin). Not on the settings
         /// screen (no menu yet): set teamSkin=&lt;name&gt; in the settings file. An unknown name plays the League Skin.
@@ -112,6 +170,13 @@ namespace HockeyGame.Core
             data.GameVolume = ReadDouble(values, GameVolumeKey, data.GameVolume, VolumeRange);
             data.MusicVolume = ReadDouble(values, MusicVolumeKey, data.MusicVolume, VolumeRange);
             data.ForceGoalieBlocks = ReadBool(values, ForceGoalieBlocksKey, data.ForceGoalieBlocks);
+            data.ReactionSeconds = ReadDouble(values, ReactionSecondsKey, data.ReactionSeconds, ReactionRange);
+            data.ReactionWobbleSeconds = ReadDouble(values, ReactionWobbleSecondsKey, data.ReactionWobbleSeconds, WobbleRange);
+            data.HandMetresPerSecond = ReadDouble(values, HandMetresPerSecondKey, data.HandMetresPerSecond, HandRange);
+            data.LegMetresPerSecond = ReadDouble(values, LegMetresPerSecondKey, data.LegMetresPerSecond, LegRange);
+            data.MaxPushMetres = ReadDouble(values, MaxPushMetresKey, data.MaxPushMetres, MaxPushRange);
+            data.ShuffleMaxMetres = ReadDouble(values, ShuffleMaxMetresKey, data.ShuffleMaxMetres, ShuffleMaxRange);
+            data.KeepGoalieLimits();
             if (values.TryGetValue(TeamSkinKey, out var skin) && skin.Length > 0) data.TeamSkin = skin;
             return data;
         }
@@ -140,6 +205,12 @@ namespace HockeyGame.Core
                 sb.Append(GameVolumeKey).Append('=').Append(GameVolume.ToString("R", inv)).Append('\n');
                 sb.Append(MusicVolumeKey).Append('=').Append(MusicVolume.ToString("R", inv)).Append('\n');
                 sb.Append(ForceGoalieBlocksKey).Append('=').Append(ForceGoalieBlocks ? "true" : "false").Append('\n');
+                sb.Append(ReactionSecondsKey).Append('=').Append(ReactionSeconds.ToString("R", inv)).Append('\n');
+                sb.Append(ReactionWobbleSecondsKey).Append('=').Append(ReactionWobbleSeconds.ToString("R", inv)).Append('\n');
+                sb.Append(HandMetresPerSecondKey).Append('=').Append(HandMetresPerSecond.ToString("R", inv)).Append('\n');
+                sb.Append(LegMetresPerSecondKey).Append('=').Append(LegMetresPerSecond.ToString("R", inv)).Append('\n');
+                sb.Append(MaxPushMetresKey).Append('=').Append(MaxPushMetres.ToString("R", inv)).Append('\n');
+                sb.Append(ShuffleMaxMetresKey).Append('=').Append(ShuffleMaxMetres.ToString("R", inv)).Append('\n');
                 sb.Append(TeamSkinKey).Append('=').Append(TeamSkin).Append('\n');
                 File.WriteAllText(path, sb.ToString(), new UTF8Encoding(false));
                 return true;

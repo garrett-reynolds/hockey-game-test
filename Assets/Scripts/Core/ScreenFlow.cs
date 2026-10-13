@@ -86,6 +86,7 @@ namespace HockeyGame.Core
             switch (Screen)
             {
                 case FlowScreen.Start:
+                    _save.ApplyGoalieTo(_settings); // the Dev part's goalie values act from this Round, never mid-Round (#147)
                     Round.StartRound(_save.BestScore);
                     Screen = FlowScreen.Playing;
                     break;
