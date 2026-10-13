@@ -81,6 +81,7 @@ namespace HockeyGame.Core
             AddToggle(player, "SOUND", "Tick", () => _save.TickOn, v => _save.TickOn = v);
             AddToggle(player, "ROUND", "Easy mode", () => _save.EasyMode, v => _save.EasyMode = v);
             AddToggle(player, "ROUND", "Test Shots on at start", () => _save.TestShotOnAtStart, v => _save.TestShotOnAtStart = v);
+            AddToggle(player, "ROUND", "Replay", () => _save.ReplayOn, v => _save.ReplayOn = v);
             AddRow(player, "OPERATOR", SettingsRowKind.Choice, "USB port", () => _save.UsbPort, ChangePort, null);
             AddNumber(player, "OPERATOR", "End screen input-ignore time", () => _save.InputIgnoreSeconds, v => _save.InputIgnoreSeconds = v, SaveData.InputIgnoreRange, Seconds);
             AddNumber(player, "OPERATOR", "End screen auto-return time", () => _save.AutoReturnSeconds, v => _save.AutoReturnSeconds = v, SaveData.AutoReturnRange, Seconds);
@@ -177,6 +178,7 @@ namespace HockeyGame.Core
                 _save.TickOn = defaults.TickOn;
                 _save.EasyMode = defaults.EasyMode;
                 _save.TestShotOnAtStart = defaults.TestShotOnAtStart;
+                _save.ReplayOn = defaults.ReplayOn;
                 _save.UsbPort = defaults.UsbPort;
                 _save.InputIgnoreSeconds = defaults.InputIgnoreSeconds;
                 _save.AutoReturnSeconds = defaults.AutoReturnSeconds;

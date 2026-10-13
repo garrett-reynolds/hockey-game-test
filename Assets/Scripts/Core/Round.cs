@@ -127,6 +127,12 @@ namespace HockeyGame.Core
         /// Before Shots 2 to 6 a Replay's hold runs ShotFade.LeadSeconds (0.35 s) longer, so the fade to black starts after the
         /// Replay's look-back has ended, never over it (#129): 4.85 s.
         /// </summary>
+        /// <summary>
+        /// True when a Replay follows this result: the setting is on (RoundSettings.ReplayOn, #145) and it is a Goal, a Save or a
+        /// Frame Hit. The hold length does not depend on it: with the Replay off a Goal, Save or Frame Hit still holds 4.5 s.
+        /// </summary>
+        public bool ReplayFollows => _settings.ReplayOn && ReplayTiming.Follows(LastResult);
+
         public double ResultHoldLength =>
             (ReplayTiming.Follows(LastResult) ? ReplayTiming.HoldSeconds : _settings.ResultHoldSeconds)
             + (ReplayTiming.Follows(LastResult) && ShotNumber < ShotsPerRound ? ShotFade.LeadSeconds : 0);

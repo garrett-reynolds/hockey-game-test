@@ -111,6 +111,7 @@ namespace HockeyGame
             // The goalie character stands in the net on the start and end screens too, alive in the Ready Stance (#44); the block
             // goalie shows only for the Shot (SkateIn to ResultHold). Easy mode glows the Gaps from when he is set until the Shot
             // (EasyGlow), a hint only: the Round's Gaps, from the same goalie-reach port as the race.
+            _round.Settings.ReplayOn = _save.ReplayOn; // the Replay setting (#145), read from the saved settings each frame
             var phaseNow = _round.Phase;
             bool inShot = phaseNow != RoundPhase.Idle && phaseNow != RoundPhase.RoundOver;
             _goalie.Show(inShot || _goalie.HasCharacter);
