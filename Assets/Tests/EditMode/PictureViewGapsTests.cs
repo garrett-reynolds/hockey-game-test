@@ -46,6 +46,8 @@ namespace HockeyGame.Core.Tests
                 counts.Add(point.Name + "=" + gaps.Count);
                 if (PictureTestTool.MeasuresGaps(point.SetUp, gaps)) measured++;
                 else Assert.AreEqual(0, gaps.Count, point.Name + " is skipped although it has Gaps");
+                // Only the one named view may have none: a Mistake view that loses its Gaps for another reason fails here (and throws in the tool).
+                if (gaps.Count == 0) Assert.AreEqual(PictureTestTool.NoGapsViewAllowed, point.Name, "a Mistake view with no Gaps (" + string.Join(", ", counts) + ")");
             }
             // A Late Settle that has settled has no Gap left by design: its view is a picture only. The others are measured.
             Assert.GreaterOrEqual(measured, 2, "the Mistake views measured (" + string.Join(", ", counts) + ")");

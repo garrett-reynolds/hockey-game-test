@@ -796,7 +796,7 @@ namespace HockeyGame
             foreach (Vector3 edge in PuckEdges)
                 if (obstacles.Cast(from + edge, to + edge, GoalieShape.LinePuckThickness / 2f, out _, out _, null)) return true;
             foreach (Vector3 point in RoomRing)
-                if (obstacles.Cast(from + point, to + point, RoomCastRadius, out _, out _, null, RoomCastRadius)) return true;
+                if (obstacles.Cast(from + point, to + point, RoomCastRadius, out _, out _, null, true)) return true;
             return false;
         }
 
