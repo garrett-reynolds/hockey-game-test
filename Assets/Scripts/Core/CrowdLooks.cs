@@ -28,10 +28,16 @@ namespace HockeyGame.Core
         public readonly int Body;
         public readonly ArenaColour Shirt, Skin, Hair;
         public readonly bool TeamTop, Waves;
+        /// <summary>What the fan does on a Goal (a CrowdLooks.GoalAct).</summary>
+        public readonly int GoalAct;
+        /// <summary>Whether the fan's "oh!" tips the head back.</summary>
+        public readonly bool OhBack;
 
-        public FanLook(double phase, int body, double height, bool teamTop, ArenaColour shirt, ArenaColour skin, ArenaColour hair, bool waves)
+        public FanLook(double phase, int body, double height, bool teamTop, ArenaColour shirt, ArenaColour skin, ArenaColour hair, bool waves,
+                       int goalAct = CrowdLooks.GoalAct.FistPumpLeft, bool ohBack = false)
         {
             Phase = phase; Body = body; Height = height; TeamTop = teamTop; Shirt = shirt; Skin = skin; Hair = hair; Waves = waves;
+            GoalAct = goalAct; OhBack = ohBack;
         }
     }
 
@@ -45,6 +51,16 @@ namespace HockeyGame.Core
         public const double HomeShare = 0.33;
         /// <summary>The share of fans who wave in the skate-in; the rest sit and make small moves.</summary>
         public const double WaveShare = 0.3;
+
+        /// <summary>What a fan does while its zone cheers a Goal: most stand and pump a fist (left or right), some stay seated.</summary>
+        public static class GoalAct
+        {
+            public const int FistPumpLeft = 0, FistPumpRight = 1, SeatedClap = 2, SeatedStill = 3;
+        }
+        /// <summary>The share of fans who stay seated on a Goal (half clap, half sit still). A starting value to tune.</summary>
+        public const double SeatedOnGoalShare = 0.2;
+        /// <summary>The share of fans whose "oh!" tips the head back (HitRecieve_2) rather than the small lean back.</summary>
+        public const double OhBackShare = 0.3;
 
         /// <summary>The 17 body types: the 12 Modular outfits (Crowd.BodyFiles' rows: 0 man in a hoodie, 1 jacket, 2 suit,
         /// 3 worker, 4 punk, 5 farmer, 6 woman in a top, 7 suit, 8 dress, 9 worker, 10 punk, 11 adventurer) and five teens,
@@ -134,7 +150,11 @@ namespace HockeyGame.Core
                 ArenaColour skin = Skins[random.Next(Skins.Length)];
                 ArenaColour hair = Hairs[random.Next(Hairs.Length)];
                 bool waves = random.NextDouble() < WaveShare;
-                looks[i] = new FanLook(phase, body, height, teamTop, teamTop ? homeJersey : default, skin, hair, waves);
+                double g = random.NextDouble();
+                int goalAct = g < SeatedOnGoalShare / 2 ? GoalAct.SeatedClap : g < SeatedOnGoalShare ? GoalAct.SeatedStill
+                            : random.Next(2) == 0 ? GoalAct.FistPumpLeft : GoalAct.FistPumpRight;
+                bool ohBack = random.NextDouble() < OhBackShare;
+                looks[i] = new FanLook(phase, body, height, teamTop, teamTop ? homeJersey : default, skin, hair, waves, goalAct, ohBack);
                 done[i] = true;
             }
             return looks;

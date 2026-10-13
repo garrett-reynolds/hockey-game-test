@@ -223,6 +223,64 @@ namespace HockeyGame.Core.Tests
             Assert.That(a.Select(l => l.Phase), Is.EqualTo(b.Select(l => l.Phase)));
             Assert.That(a.Select(l => l.Shirt), Is.EqualTo(b.Select(l => l.Shirt)));
             Assert.That(a.Select(l => l.Body), Is.EqualTo(b.Select(l => l.Body)));
+            Assert.That(a.Select(l => l.GoalAct), Is.EqualTo(b.Select(l => l.GoalAct)));
+            Assert.That(a.Select(l => l.OhBack), Is.EqualTo(b.Select(l => l.OhBack)));
+        }
+
+        [Test]
+        public void On_a_Goal_about_one_fan_in_five_stays_seated_half_clapping_half_still_spread_round_the_bowl()
+        {
+            double Share(Func<FanLook, bool> p, IEnumerable<FanLook> ls) => ls.Count(p) / (double)ls.Count();
+            bool Seated(FanLook l) => l.GoalAct == CrowdLooks.GoalAct.SeatedClap || l.GoalAct == CrowdLooks.GoalAct.SeatedStill;
+            Assert.That(Share(Seated, Looks), Is.EqualTo(CrowdLooks.SeatedOnGoalShare).Within(0.02));
+            Assert.That(Share(l => l.GoalAct == CrowdLooks.GoalAct.SeatedClap, Looks), Is.EqualTo(CrowdLooks.SeatedOnGoalShare / 2).Within(0.015));
+            Assert.That(CrowdLooks.SeatedOnGoalShare, Is.InRange(0.15, 0.25));
+            for (int sector = 0; sector < 8; sector++)
+            {
+                var part = Looks.Where((l, i) => (int)((Math.Atan2(Seats[i].Z - RinkLayout.CentreLineZ, Seats[i].X) + Math.PI) / (2 * Math.PI) * 8) % 8 == sector).ToList();
+                Assert.That(Share(Seated, part), Is.InRange(0.1, 0.3), "part " + sector + " of the bowl");
+            }
+        }
+
+        [Test]
+        public void Standing_fans_pump_left_and_right_fists_about_equally()
+        {
+            int left = Looks.Count(l => l.GoalAct == CrowdLooks.GoalAct.FistPumpLeft);
+            int right = Looks.Count(l => l.GoalAct == CrowdLooks.GoalAct.FistPumpRight);
+            Assert.That(left / (double)(left + right), Is.InRange(0.45, 0.55));
+        }
+
+        [Test]
+        public void Each_fan_plays_its_own_goal_act_and_oh_and_the_zone_clip_otherwise()
+        {
+            Assert.That(CrowdMotion.FanClip(CrowdClip.StandCheer, CrowdLooks.GoalAct.FistPumpLeft, false), Is.EqualTo(CrowdClip.StandCheer));
+            Assert.That(CrowdMotion.FanClip(CrowdClip.StandCheer, CrowdLooks.GoalAct.FistPumpRight, false), Is.EqualTo(CrowdClip.StandCheerRight));
+            Assert.That(CrowdMotion.FanClip(CrowdClip.StandCheer, CrowdLooks.GoalAct.SeatedClap, true), Is.EqualTo(CrowdClip.Clap));
+            Assert.That(CrowdMotion.FanClip(CrowdClip.StandCheer, CrowdLooks.GoalAct.SeatedStill, true), Is.EqualTo(CrowdClip.SitIdle));
+            Assert.That(CrowdMotion.FanClip(CrowdClip.Oh, CrowdLooks.GoalAct.SeatedClap, true), Is.EqualTo(CrowdClip.OhBack));
+            Assert.That(CrowdMotion.FanClip(CrowdClip.Oh, CrowdLooks.GoalAct.FistPumpLeft, false), Is.EqualTo(CrowdClip.Oh));
+            foreach (CrowdClip c in new[] { CrowdClip.SitIdle, CrowdClip.Wave, CrowdClip.Clap, CrowdClip.Miss })
+                for (int act = 0; act < 4; act++)
+                    Assert.That(CrowdMotion.FanClip(c, act, act % 2 == 0), Is.EqualTo(c), c + " act " + act);
+        }
+
+        [Test]
+        public void A_fans_own_clip_fits_its_zones_loop_clock()
+        {
+            // A seated fan plays clap or sit-idle on the cheer's clock: both must loop a whole number of times in it.
+            var m = new CrowdMotion(ClipSeconds);
+            foreach (CrowdClip c in new[] { CrowdClip.StandCheerRight, CrowdClip.Clap, CrowdClip.SitIdle })
+            {
+                double fits = m.LoopPeriod / ClipSeconds[(int)c];
+                Assert.That(fits, Is.EqualTo(Math.Round(fits)).Within(1e-6), c.ToString());
+            }
+            Assert.That(ClipSeconds[(int)CrowdClip.OhBack], Is.EqualTo(ClipSeconds[(int)CrowdClip.Oh]));
+        }
+
+        [Test]
+        public void About_three_in_ten_fans_oh_with_the_head_back()
+        {
+            Assert.That(Looks.Count(l => l.OhBack) / (double)Looks.Length, Is.EqualTo(CrowdLooks.OhBackShare).Within(0.03));
         }
 
         // ---- what the fans in a zone do ----

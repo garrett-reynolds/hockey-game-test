@@ -38,7 +38,7 @@ Shader "Hockey Game/Crowd Fan"
         // Where the vertex is at clip's clock for this fan (body space).
         float3 Sample(uint clip, float clock, Fan f, uint vertex)
         {
-            if (clip == CLIP_WAVE && f.look.z < 0.5) clip = CLIP_SIT_IDLE; // only some fans wave; the rest sit
+            clip = FanClip(clip, f); // this fan's own clip (only some wave, some stay seated on a Goal, ...)
             float4 info = _ClipInfo[clip];
             uint frames = (uint)info.y;
             float seconds = info.y / info.z;

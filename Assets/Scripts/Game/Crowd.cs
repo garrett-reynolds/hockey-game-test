@@ -56,7 +56,7 @@ namespace HockeyGame
             public Vector4 Skin;  // rgb (linear), zone
             public Vector4 Hair;  // rgb (linear), height
             public Vector4 Look;  // body shape, 0, waves (1) or not (0), team top (1) or not (0)
-            public Vector4 Acts;  // the fan's own picks for a Goal and an Oh (filled by a later task; zero)
+            public Vector4 Acts;  // x the Goal act (CrowdLooks.GoalAct), y the head-back oh (1) or not (0)
         }
 
         /// <summary>A slice of the fan buffer drawn in one call: one body at one level, one part of the bowl.</summary>
@@ -220,7 +220,7 @@ namespace HockeyGame
                     Skin = Linear(l.Skin, (int)s.Zone),
                     Hair = Linear(l.Hair, (float)l.Height),
                     Look = new Vector4(type.Shape, 0, l.Waves ? 1 : 0, l.TeamTop ? 1 : 0),
-                    Acts = Vector4.zero
+                    Acts = new Vector4(l.GoalAct, l.OhBack ? 1 : 0, 0, 0)
                 };
                 int key = SliceKey(s, l);
                 if (key != lastKey)

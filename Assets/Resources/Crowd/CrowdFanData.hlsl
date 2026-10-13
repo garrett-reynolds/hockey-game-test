@@ -24,7 +24,7 @@ struct Fan
     float4 skin;  // rgb, w zone
     float4 hair;  // rgb, w height
     float4 look;  // x body shape, z waves (1) or not (0), w team top (1) or not (0)
-    float4 acts;  // the fan's own picks for a Goal and an Oh (not used yet)
+    float4 acts;  // x the Goal act (CrowdLooks.GoalAct), y the head-back oh (1) or not (0)
 };
 StructuredBuffer<Fan> _Fans;
 float _FanStart;          // this draw's first fan in _Fans
@@ -44,6 +44,17 @@ Fan FanOf(uint svInstanceID)
 }
 
 uint FanZone(Fan f) { return min(2u, (uint)(f.skin.w + 0.5)); }
+
+// A copy of CrowdMotion.FanClip (keep them the same), plus the Wave pick: the clip this fan plays while its zone plays clip.
+uint FanClip(uint clip, Fan f)
+{
+    uint act = (uint)(f.acts.x + 0.5);
+    if (clip == CLIP_WAVE && f.look.z < 0.5) return CLIP_SIT_IDLE;
+    if (clip == CLIP_STAND_CHEER)
+        return act == 1 ? CLIP_STAND_CHEER_RIGHT : act == 2 ? CLIP_CLAP : act == 3 ? CLIP_SIT_IDLE : CLIP_STAND_CHEER;
+    if (clip == CLIP_OH && f.acts.y > 0.5) return CLIP_OH_BACK;
+    return clip;
+}
 
 float3 FanTurn(Fan f, float3 p)
 {

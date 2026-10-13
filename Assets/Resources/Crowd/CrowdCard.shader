@@ -50,10 +50,13 @@ Shader "Hockey Game/Crowd Card"
             uint zone = FanZone(f);
             float4 z = _Zones[zone];
             float blend = _ZoneBlend[zone];
-            float standing = ((uint)z.x == CLIP_STAND_CHEER ? blend : 0) + ((uint)z.z == CLIP_STAND_CHEER ? 1 - blend : 0);
+            uint clip = FanClip((uint)z.x, f), fromClip = FanClip((uint)z.z, f);  // this fan's own clips (it may stay seated)
+            bool standsNow = clip == CLIP_STAND_CHEER || clip == CLIP_STAND_CHEER_RIGHT;
+            bool stoodBefore = fromClip == CLIP_STAND_CHEER || fromClip == CLIP_STAND_CHEER_RIGHT;
+            float standing = (standsNow ? blend : 0) + (stoodBefore ? 1 - blend : 0);
             uint frame = standing > 0.5 ? 1 : 0;
             float4 cheer = _ClipInfo[CLIP_STAND_CHEER];
-            float clock = (uint)z.x == CLIP_STAND_CHEER ? z.y : z.w;
+            float clock = standsNow ? z.y : z.w;
             float bounce = frame * 0.05 * max(0, sin(TWO_PI * 2 * (clock * cheer.z / cheer.y + f.shirt.w)));
 
             float3 seat = mul(_CrowdToWorld, float4(f.place.xyz, 1)).xyz;

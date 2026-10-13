@@ -45,7 +45,7 @@ namespace HockeyGame.Core
         Far
     }
 
-    /// <summary>What the fans in one zone do (the crowd's clips: sit-idle, wave, stand-cheer, oh, clap).</summary>
+    /// <summary>What the fans in one zone do (the crowd's clips: sit-idle, wave, stand-cheer, oh, clap, miss).</summary>
     public enum CrowdState
     {
         Sit,   // sit and make small moves
