@@ -60,7 +60,7 @@ namespace HockeyGame.Core.Tests
 
             Assert.AreEqual("centre-ice-all-star-hockey", league.CentreIceLogo, "the All-Star Hockey mark");
             Assert.IsNotNull(Resources.Load<Texture2D>(RinkAds.ArtFolder + "/" + league.CentreIceLogo));
-            Assert.IsEmpty(league.RoofBanners, "no banners yet");
+            Assert.AreEqual(BannerArt.LeagueNames(), league.RoofBanners, "the League's award and retired jersey banners (#149)");
             Assert.IsFalse(league.RibbonEdgesOn, "no Ribbon Board edges yet");
             Assert.AreEqual(new ArenaColour(112, 30, 46), league.HomeJerseyColour, "the burgundy home jersey");
             // Today's Video Board and Score Box colours (#89, #90).
@@ -254,7 +254,7 @@ namespace HockeyGame.Core.Tests
                 Assert.AreEqual(skin.CentreIceLogo, team.CentreIce);
                 Assert.AreEqual(0, league.Edges);
                 Assert.Greater(team.Edges, 0, "the skin's Ribbon Board edges");
-                Assert.AreEqual(0, league.Banners);
+                Assert.AreEqual(TeamSkin.League.RoofBanners.Length, league.Banners, "the League Skin's own banners (#149)");
                 Assert.AreEqual(skin.RoofBanners.Length, team.Banners);
                 Assert.That(league.Shirts, Has.Member(TeamSkin.League.HomeJerseyColour));
                 Assert.That(team.Shirts, Has.Member(skin.HomeJerseyColour));

@@ -161,7 +161,7 @@ One package that holds a team's look and sound: the team colours, the centre-ice
 _Avoid_: Theme, team pack
 
 **League Skin**:
-The generic look, and the first Team Skin: no real team, with the "All-Star Hockey" placeholder mark.
+The generic look, and the first Team Skin: no real team, with the "All-Star Hockey" placeholder mark and its own roof banners (3 awards, 3 retired jerseys, made-up names), hung round the near end where the shooter's camera sees them. A later Team Skin swaps in its own set.
 _Avoid_: Default skin, generic theme
 
 **Clap Chant**:

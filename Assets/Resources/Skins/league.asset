@@ -18,7 +18,13 @@ MonoBehaviour:
   RibbonEdgesOn: 0
   RibbonEdge: {r: 0, g: 0, b: 0, a: 1}
   CentreIceLogo: centre-ice-all-star-hockey
-  RoofBanners: []
+  RoofBanners:
+  - banner-award-shootout
+  - banner-jersey-7-korvak
+  - banner-award-mvp
+  - banner-jersey-12-delmar
+  - banner-award-goalie
+  - banner-jersey-30-halvar
   HomeJersey:
     serializedVersion: 2
     rgba: 4281212528

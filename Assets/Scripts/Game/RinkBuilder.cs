@@ -25,7 +25,7 @@ namespace HockeyGame
             RinkAds.Build(root, skin);            // board ads and ice logos
             ArenaStands.Build(root, skin: skin);  // stands and roof round the boards (none without the model)
             RibbonBoards.Build(root, skin);       // on the stands' ribbon ring; they follow the Arena Show
-            RoofBanners.Build(root, skin);        // the skin's banners over the far end (none in the League Skin)
+            RoofBanners.Build(root, skin);        // the skin's banners round the near end, beside the Video Board (#149)
             Crowd.Build(root, skin);              // the 3D crowd in every seat (none without the body files); it follows the Arena Show
 
             NetBuilder.Build(root); // the net around the Net Face, back at z = +NetDepth
