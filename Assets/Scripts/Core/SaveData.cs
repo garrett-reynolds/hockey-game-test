@@ -52,6 +52,12 @@ namespace HockeyGame.Core
         /// <summary>Dev part, Gaps (#160): how near thin gear must be to block a Gap (metres). 0 measures like the old ring did.</summary>
         public static readonly NumberRange GapThinGearReachRange = new NumberRange(0, 0.08, 0.01);
 
+        /// <summary>Dev part, Water Bottle (#164): the Shot speed (km/h) a Goal must beat to knock the bottle.</summary>
+        public static readonly NumberRange BottleKnockSpeedRange = new NumberRange(60, 160, 5);
+
+        /// <summary>Dev part, Water Bottle (#164): the knock push in percent; 100 is the push the bottle always had.</summary>
+        public static readonly NumberRange BottleJumpRange = new NumberRange(50, 200, 10);
+
         /// <summary>The window must stay longer than the Late Settle time by 1 s (at the longest Late Settle time that is 3.0 s).</summary>
         public NumberRange ShootingWindowAllowed => new NumberRange(Math.Max(ShootingWindowRange.Min, LateSettleSeconds + 1.0), ShootingWindowRange.Max, ShootingWindowRange.Step);
         public NumberRange LateSettleSecondsAllowed => new NumberRange(LateSettleSecondsRange.Min, Math.Min(LateSettleSecondsRange.Max, ShootingWindowSeconds - 1.0), LateSettleSecondsRange.Step);
@@ -104,6 +110,8 @@ namespace HockeyGame.Core
         private const string LateSettleMetresKey = "setUpLateSettleMetres";
         private const string LateSettleSecondsKey = "setUpLateSettleSeconds";
         private const string GapThinGearReachKey = "gapThinGearReachMetres";
+        private const string BottleKnockSpeedKey = "bottleKnockSpeedKmh";
+        private const string BottleJumpKey = "bottleJumpPercent";
 
         private int _shotsPerRound = DefaultShotsPerRound;
         private readonly Dictionary<int, int> _bests = new Dictionary<int, int>();
@@ -212,6 +220,12 @@ namespace HockeyGame.Core
         /// <summary>Dev part, Gaps (#160). The default is the code default of RoundSettings (a test pins that); an old file with no value loads it.</summary>
         public double GapThinGearReachMetres = 0.04;
 
+        /// <summary>Dev part, Water Bottle (#164): the Shot speed (km/h) a Goal must beat to knock the bottle. The game reads it on each Shot, not at the Round's start.</summary>
+        public double BottleKnockSpeedKmh = BottleKnock.KnockSpeedKmh;
+
+        /// <summary>Dev part, Water Bottle (#164): the knock push in percent (100 = the push it always had). The game reads it on each knock.</summary>
+        public double BottleJumpPercent = 100;
+
         /// <summary>
         /// Puts the Dev part's Round timing and Set-up Mistake values on a RoundSettings (clamped to their ranges and linked
         /// limits, including the goalie's Max push). Called when a Round starts, never mid-Round. Like ApplyGoalieTo it first
@@ -304,6 +318,8 @@ namespace HockeyGame.Core
             data.LateSettleMetres = ReadDouble(values, LateSettleMetresKey, data.LateSettleMetres, LateSettleMetresRange);
             data.LateSettleSeconds = ReadDouble(values, LateSettleSecondsKey, data.LateSettleSeconds, LateSettleSecondsRange);
             data.GapThinGearReachMetres = ReadDouble(values, GapThinGearReachKey, data.GapThinGearReachMetres, GapThinGearReachRange);
+            data.BottleKnockSpeedKmh = ReadDouble(values, BottleKnockSpeedKey, data.BottleKnockSpeedKmh, BottleKnockSpeedRange);
+            data.BottleJumpPercent = ReadDouble(values, BottleJumpKey, data.BottleJumpPercent, BottleJumpRange);
             data.KeepRoundLimits();
             if (values.TryGetValue(TeamSkinKey, out var skin) && skin.Length > 0) data.TeamSkin = skin;
             return data;
@@ -350,6 +366,8 @@ namespace HockeyGame.Core
                 sb.Append(LateSettleMetresKey).Append('=').Append(LateSettleMetres.ToString("R", inv)).Append('\n');
                 sb.Append(LateSettleSecondsKey).Append('=').Append(LateSettleSeconds.ToString("R", inv)).Append('\n');
                 sb.Append(GapThinGearReachKey).Append('=').Append(GapThinGearReachMetres.ToString("R", inv)).Append('\n');
+                sb.Append(BottleKnockSpeedKey).Append('=').Append(BottleKnockSpeedKmh.ToString("R", inv)).Append('\n');
+                sb.Append(BottleJumpKey).Append('=').Append(BottleJumpPercent.ToString("R", inv)).Append('\n');
                 sb.Append(TeamSkinKey).Append('=').Append(TeamSkin).Append('\n');
                 File.WriteAllText(path, sb.ToString(), new UTF8Encoding(false));
                 return true;

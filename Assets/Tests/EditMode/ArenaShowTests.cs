@@ -579,6 +579,16 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void The_knock_speed_setting_moves_the_threshold()
+        {
+            Assert.IsFalse(new BottleKnock { SpeedKmh = 120 }.Follow(Whistled(ArenaResult.Goal, 110)), "110 does not beat 120");
+            Assert.IsFalse(new BottleKnock { SpeedKmh = 120 }.Follow(Whistled(ArenaResult.Goal, 120)), "strictly faster");
+            Assert.IsTrue(new BottleKnock { SpeedKmh = 120 }.Follow(Whistled(ArenaResult.Goal, 121)));
+            Assert.IsTrue(new BottleKnock { SpeedKmh = 60 }.Follow(Whistled(ArenaResult.Goal, 70)), "a lower setting knocks a slower Goal");
+            Assert.AreEqual(BottleKnock.KnockSpeedKmh, new BottleKnock().SpeedKmh, "the default is the old fixed speed");
+        }
+
+        [Test]
         public void A_fast_Save_a_Miss_and_a_Frame_Hit_do_not()
         {
             foreach (ArenaResult result in new[] { ArenaResult.Save, ArenaResult.WideMiss, ArenaResult.FrameHitPost, ArenaResult.FrameHitBar })

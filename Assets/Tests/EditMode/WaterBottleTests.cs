@@ -218,6 +218,38 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void A_jump_scale_of_2_gives_twice_the_push_and_spin_of_1_for_the_same_seed_and_half_gives_half()
+        {
+            (Vector3 push, Vector3 spin) Knocked(float scale)
+            {
+                WaterBottle bottle = WaterBottle.Build(_rink.transform);
+                bottle.Knock(new System.Random(9), scale);
+                var result = (bottle.Body.linearVelocity, bottle.Body.angularVelocity);
+                Object.DestroyImmediate(bottle.Root);
+                return result;
+            }
+            var normal = Knocked(1f);
+            var twice = Knocked(2f);
+            var half = Knocked(0.5f);
+            Assert.That(Vector3.Distance(normal.push * 2f, twice.push), Is.LessThan(1e-4f), "push, 200%");
+            Assert.That(Vector3.Distance(normal.spin * 2f, twice.spin), Is.LessThan(1e-4f), "spin, 200%");
+            Assert.That(Vector3.Distance(normal.push * 0.5f, half.push), Is.LessThan(1e-4f), "push, 50%");
+            Assert.That(normal.push.magnitude, Is.GreaterThan(1f), "the 100% push is a real push");
+        }
+
+        [Test]
+        public void A_knock_with_no_scale_is_the_100_percent_push()
+        {
+            WaterBottle a = WaterBottle.Build(_rink.transform);
+            a.Knock(new System.Random(4));
+            Vector3 plain = a.Body.linearVelocity;
+            Object.DestroyImmediate(a.Root);
+            WaterBottle b = WaterBottle.Build(_rink.transform);
+            b.Knock(new System.Random(4), 1f);
+            Assert.AreEqual(plain, b.Body.linearVelocity);
+        }
+
+        [Test]
         public void A_knocked_bottle_meets_the_puck()
         {
             ShotColliders.Build(_rink.transform);

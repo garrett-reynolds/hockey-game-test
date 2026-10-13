@@ -133,7 +133,12 @@ namespace HockeyGame
             _breakaway.LookUp(show.CameraLookUp);
             _effects.CameraLookUp = show.CameraLookUp; // no hiding the puck while the camera looks up (the next physics steps see this look)
             _replay.Show(show);
-            if (_bottle != null) _bottle.Follow(_bottleKnock.Follow(_flow)); // a hard Goal knocks the bottle off; the next Round puts it back (#164)
+            if (_bottle != null)
+            {
+                // A hard Goal knocks the bottle off; the next Round puts it back (#164). Both Dev settings are read here each frame: a change acts on the next Shot.
+                _bottleKnock.SpeedKmh = _save.BottleKnockSpeedKmh;
+                _bottle.Follow(_bottleKnock.Follow(_flow), (float)(_save.BottleJumpPercent / 100.0));
+            }
 
             bool playing = _flow.Screen == FlowScreen.Playing;
             bool pressed = false; // key or click outside a Round: at most one Press per frame

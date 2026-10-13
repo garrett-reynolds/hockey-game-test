@@ -495,6 +495,9 @@ namespace HockeyGame.Core
         /// <summary>A Goal strictly faster than this (km/h) knocks the bottle off the net.</summary>
         public const double KnockSpeedKmh = 100.0;
 
+        /// <summary>The speed a Goal must beat now (km/h): KnockSpeedKmh until the game sets it from the Dev setting, each frame, so a change acts on the next Shot (#164).</summary>
+        public double SpeedKmh { get; set; } = KnockSpeedKmh;
+
         public bool Knocked { get; private set; }
 
         /// <summary>Follows the game's screen flow (as ArenaShow.From does) and returns Knocked.</summary>
@@ -506,7 +509,7 @@ namespace HockeyGame.Core
             if (input.Phase != RoundPhase.ResultHold)
                 Knocked = false;
             else if (!Knocked && input.Phase == RoundPhase.ResultHold && !input.ResultHidden && input.Result == ArenaResult.Goal
-                     && input.LastShotSpeedKmh.HasValue && input.LastShotSpeedKmh.Value > KnockSpeedKmh)
+                     && input.LastShotSpeedKmh.HasValue && input.LastShotSpeedKmh.Value > SpeedKmh)
                 Knocked = true;
             return Knocked;
         }

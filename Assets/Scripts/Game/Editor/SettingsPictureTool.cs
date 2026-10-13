@@ -9,8 +9,8 @@ using UnityEngine.UIElements;
 namespace HockeyGame.Editor
 {
     /// <summary>
-    /// Pictures of the Settings page (owed by #159): the Player part (with the Replay row, #145) and the Dev part (14 rows, the last three
-    /// cards in the right column, #148 + #156). A UI Toolkit panel draws only in Play mode, so the tool enters Play mode in an empty
+    /// Pictures of the Settings page (owed by #159): the Player part (with the Replay row, #145) and the Dev part (17 rows, the last four
+    /// cards in the right column, #148 + #156 + #164). A UI Toolkit panel draws only in Play mode, so the tool enters Play mode in an empty
     /// scene (no RoundDriver, so nothing reads or writes the player's save file), builds the page on a fresh SaveData, draws it into a
     /// 1920 x 1080 RenderTexture and leaves Play mode. Menu: Hockey Game/Picture Test/Settings Page Pictures (returns at once; the
     /// pictures arrive a few seconds later). Writes t159-settings-player.png and t159-settings-dev.png only when the folder

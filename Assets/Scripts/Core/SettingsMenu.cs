@@ -119,6 +119,12 @@ namespace HockeyGame.Core
             // Gaps (#160): how near thin gear must be to block a Gap; the Gap measure reads it from the Round's settings.
             AddDevRound("GAPS", "Gap thin-gear reach", () => _save.GapThinGearReachMetres, v => _save.GapThinGearReachMetres = v, SaveData.GapThinGearReachRange, Metres, null);
 
+            // Water Bottle (#164): the game reads both on each Shot (RoundDriver), so a change acts from the next Shot, no restart.
+            AddDevRound("WATER BOTTLE", "Bottle knock speed", () => _save.BottleKnockSpeedKmh, v => _save.BottleKnockSpeedKmh = v, SaveData.BottleKnockSpeedRange, v => Format("0", v) + " km/h", null);
+            _all[_all.Count - 1].Hint = "(next Shot)";
+            AddDevRound("WATER BOTTLE", "Bottle jump", () => _save.BottleJumpPercent, v => _save.BottleJumpPercent = v, SaveData.BottleJumpRange, v => Format("0", v) + "%", null);
+            _all[_all.Count - 1].Hint = "(next Shot)";
+
             // Test Mode (#156), kept the last Dev row: endless Shots from the shooter's spot. A button that opens it; it changes no setting, so Activate says false (nothing to save).
             AddRow(SettingsPart.Dev, "TEST", SettingsRowKind.Button, "Test Mode", () => "open", null, () => { _openTestMode?.Invoke(); return false; });
 
@@ -235,6 +241,8 @@ namespace HockeyGame.Core
                 _save.LateSettleMetres = defaults.LateSettleMetres;
                 _save.LateSettleSeconds = defaults.LateSettleSeconds;
                 _save.GapThinGearReachMetres = defaults.GapThinGearReachMetres;
+                _save.BottleKnockSpeedKmh = defaults.BottleKnockSpeedKmh;
+                _save.BottleJumpPercent = defaults.BottleJumpPercent;
             }
             return true;
         }

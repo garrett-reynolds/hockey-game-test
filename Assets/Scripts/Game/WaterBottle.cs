@@ -139,21 +139,27 @@ namespace HockeyGame
         public void Knock() => Knock(new System.Random());
 
         /// <summary>Knock with a given random source (tests pass a seeded one).</summary>
-        public void Knock(System.Random random)
+        public void Knock(System.Random random) => Knock(random, 1f);
+
+        /// <summary>
+        /// Knock with a jump scale (#164, the Dev setting "Bottle jump" as a fraction: 1 = the push above, 2 = twice as hard). It scales
+        /// the whole random push (up, forward, sideways) and the spin by the same factor.
+        /// </summary>
+        public void Knock(System.Random random, float jumpScale)
         {
             if (Knocked) return;
             float Between(float low, float high) => low + (float)random.NextDouble() * (high - low);
             float side = Between(PushSideMin, PushSideMax) * (random.Next(2) == 0 ? -1f : 1f);
             SetLayer(Root.transform, KnockedLayer);
             Body.isKinematic = false;
-            Body.linearVelocity = new Vector3(side, Between(PushUpMin, PushUpMax), -Between(PushForwardMin, PushForwardMax));
-            Body.angularVelocity = new Vector3(Between(-SpinMax, SpinMax), Between(-SpinMax, SpinMax), Between(-SpinMax, SpinMax));
+            Body.linearVelocity = new Vector3(side, Between(PushUpMin, PushUpMax), -Between(PushForwardMin, PushForwardMax)) * jumpScale;
+            Body.angularVelocity = new Vector3(Between(-SpinMax, SpinMax), Between(-SpinMax, SpinMax), Between(-SpinMax, SpinMax)) * jumpScale;
         }
 
         /// <summary>Once a frame with BottleKnock.Knocked (the Arena Show's state): knocked off while it is true, back on the net when it turns false.</summary>
-        public void Follow(bool knocked)
+        public void Follow(bool knocked, float jumpScale = 1f)
         {
-            if (knocked) Knock();
+            if (knocked) Knock(new System.Random(), jumpScale);
             else if (Knocked) PutBack();
         }
 
