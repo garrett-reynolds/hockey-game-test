@@ -213,7 +213,7 @@ namespace HockeyGame.Core.Tests
     {
         /// <summary>Unity has no runtime API for a pass's ZTest or Cull, so this reads the shader file the build ships;
         /// the render tests are the proof by pixels.</summary>
-        public static void AssertSolid(Material m, string what, int queue = (int)RenderQueue.AlphaTest)
+        public static void AssertSolid(Material m, string what, int queue)
         {
             Assert.AreEqual(queue, m.renderQueue, what + " draws in the " + (RenderQueue)queue + " queue");
             string text = File.ReadAllText(Path.Combine(Application.dataPath, "Resources/Lighting/LedBoard.shader"));

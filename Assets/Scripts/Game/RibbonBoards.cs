@@ -42,7 +42,7 @@ namespace HockeyGame
         public const float EdgeHeight = 0.08f;
         /// <summary>The name of the team-coloured edge strips.</summary>
         public const string EdgePart = "Ribbon Edge";
-        const float AdGlow = 0.85f;      // an ad's background shows this much of its colour
+        const float AdGlow = 1f;         // an ad's background shows this much of its colour (1: the same as the Video Board shows the brand; ruling F1)
         static readonly Color WordsBack = new Color32(14, 16, 22, 255);
         static readonly float Cell = (float)RinkLayout.RibbonBoardLedCell;
         static readonly int CellsUp = Mathf.RoundToInt(Height / Cell);
@@ -85,7 +85,7 @@ namespace HockeyGame
         public Color BackOn(int panel) => _panels[panel].Back.GetColor(BackdropId);
         /// <summary>Cells per font dot of the panel's words (0: none).</summary>
         public float TextScaleOn(int panel) => _panels[panel].Fit.Scale;
-        /// <summary>Whole LED cells along the panel (the texture's width); the partial cell at the right-hand end stays dark.</summary>
+        /// <summary>Whole LED cells along the panel (the texture's width); the partial cell at the right-hand end shows the backdrop colour.</summary>
         public int CellsAcross(int panel) => _panels[panel].CellsX;
         /// <summary>The panel's words texture (R8, one texel per cell, row 0 at the bottom).</summary>
         public Texture2D WordsTextureOn(int panel) => _panels[panel].Texture;
@@ -181,7 +181,7 @@ namespace HockeyGame
             if (_cells.Length < count) _cells = new bool[count];
             System.Array.Clear(_cells, 0, count);
             p.Fit = LedWords.PlaceWhole(p.Text, p.CellsX, CellsUp, p.MaxScale);
-            LedFont.Plot(_cells, p.CellsX, CellsUp, p.Fit.Text, p.Fit.Scale, p.Fit.Left, p.Fit.Baseline);
+            LedWords.Plot(_cells, p.CellsX, CellsUp, p.Fit);
             for (int i = 0; i < count; i++) p.Texels[i] = _cells[i] ? (byte)255 : (byte)0;
             p.Texture.SetPixelData(p.Texels, 0);
             p.Texture.Apply(false);

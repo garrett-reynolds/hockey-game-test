@@ -110,7 +110,7 @@ namespace HockeyGame.Core.Tests
                     int cx = ribbons.CellsAcross(i), cy = ribbons.WordsTextureOn(i).height;
                     string who = message + ", panel " + i + " (" + cx + " cells), scale " + fit.Scale + ", clipped " + (fit.Clipped ? "yes" : "no");
                     var expected = new bool[cx * cy];
-                    LedFont.Plot(expected, cx, cy, fit.Text, fit.Scale, fit.Left, fit.Baseline);
+                    LedWords.Plot(expected, cx, cy, fit);
                     Unity.Collections.NativeArray<byte> texels = ribbons.WordsTextureOn(i).GetRawTextureData<byte>();
                     int wrong = 0, lit = 0, margin = 0;
                     for (int c = 0; c < expected.Length; c++)
@@ -125,9 +125,12 @@ namespace HockeyGame.Core.Tests
                     // GOAL! is at least scale 2 wherever the panel is wide enough for it (a bench cut is only 48 cells: too narrow, scale 1).
                     bool holdsTwo = cx >= LedFont.LineWidth("GOAL!") * 2 + 2 * LedWords.SideMargin;
                     if (message == "GOAL!" && holdsTwo && fit.Scale < 2) failures.Add(who + ": GOAL! below scale 2");
-                    if (!requested.StartsWith(fit.Text) || (!fit.Clipped && fit.Text != requested)) failures.Add(who + ": kept '" + fit.Text + "' is not whole letters of '" + requested + "'");
+                    if (!requested.StartsWith(fit.Shown) || (!fit.Clipped && fit.Shown != requested)) failures.Add(who + ": kept '" + fit.Shown + "' is not whole letters of '" + requested + "'");
+                    if (fit.Second != "" && LedFont.LineWidth(fit.Second) * fit.Scale > cx - 2 * LedWords.SideMargin) failures.Add(who + ": second line too wide");
                     if (fit.Clipped && fit.Text.Length > 0 && LedFont.LineWidth(fit.Text) * fit.Scale > cx - 2 * LedWords.SideMargin) failures.Add(who + ": clipped line still too wide");
                     if (lit == 0) failures.Add(who + ": nothing lit");
+                    if (message.StartsWith("OFF THE") && fit.Clipped) failures.Add(who + ": the result words are cut");
+                    if (message.StartsWith("ad ") && cx >= 73 && fit.Clipped) failures.Add(who + ": an ad is cut on a 73-cell panel");
                     string key = message + " / scale " + fit.Scale + (fit.Clipped ? " clipped to '" + fit.Text + "'" : "");
                     table[key] = (table.TryGetValue(key, out string s) ? s + "," : "") + i;
                 }
@@ -148,6 +151,21 @@ namespace HockeyGame.Core.Tests
             }
             TestContext.Out.WriteLine("RIBBON SCALE TABLE (message / scale: panels)\n" + string.Join("\n", System.Linq.Enumerable.Select(table, kv => kv.Key + ": " + kv.Value)));
             Assert.IsEmpty(failures, string.Join("\n", failures));
+        }
+
+        [Test]
+        public void A_Ribbon_ad_shows_its_brand_background_colour_unchanged_like_the_Video_Board()
+        {
+            RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
+            for (int i = 0; i < ribbons.PanelCount; i++)
+            {
+                Brands.Brand brand = System.Array.Find(Brands.All, b => b.AdWords == ribbons.TextOn(i));
+                Assert.IsNotNull(brand.AdWords, "panel " + i + " shows an ad");
+                Color expected = RibbonBoards.ColourOf(brand.AdBack), shown = PanelRenderer(ribbons, i).sharedMaterial.GetColor("_Backdrop");
+                Assert.AreEqual(expected.r, shown.r, 0.002f, "panel " + i + " red");
+                Assert.AreEqual(expected.g, shown.g, 0.002f, "panel " + i + " green");
+                Assert.AreEqual(expected.b, shown.b, 0.002f, "panel " + i + " blue");
+            }
         }
 
         [Test]

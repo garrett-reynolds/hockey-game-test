@@ -45,6 +45,45 @@ namespace HockeyGame.Core.Tests
             Assert.GreaterOrEqual(fit.Left, LedWords.SideMargin);
         }
 
+        [TestCase("OFF THE POST!", 48)]
+        [TestCase("OFF THE BAR!", 48)]
+        [TestCase("KESTREL MOTORS", 73)]
+        [TestCase("Aurora Air", 48)] // fits one line on 73 cells (56 of 69), so the 48-cell bench cut is where it splits
+        public void Words_too_wide_for_one_line_split_in_two_at_a_space_before_any_letter_is_dropped(string text, int cells)
+        {
+            Assert.Greater(LedFont.LineWidth(text), cells - 2 * LedWords.SideMargin, "too wide for one line at scale 1");
+            LedWords.Fitted fit = LedWords.PlaceWhole(text, cells, 24, 2);
+            Assert.IsFalse(fit.Clipped, "no letter dropped");
+            Assert.AreEqual(1, fit.Scale);
+            Assert.AreEqual(text, fit.Shown);
+            Assert.AreNotEqual("", fit.Second, "two lines");
+            int room = cells - 2 * LedWords.SideMargin;
+            Assert.LessOrEqual(LedFont.LineWidth(fit.Text), room);
+            Assert.LessOrEqual(LedFont.LineWidth(fit.Second), room);
+            Assert.GreaterOrEqual(fit.Left, LedWords.SideMargin);
+            Assert.GreaterOrEqual(fit.SecondLeft, LedWords.SideMargin);
+            Assert.Greater(fit.Baseline, fit.SecondBaseline + LedFont.CapHeight - 1, "the first line sits above the second, not touching");
+            Assert.GreaterOrEqual(fit.SecondBaseline - LedWords.DepthBelow(fit.Second), 0, "the second line stays on the panel");
+            Assert.LessOrEqual(fit.Baseline + LedFont.CapHeight, 24, "the first line stays on the panel");
+            // balanced: moving the split one word either way does not make the wider line narrower
+            int widest = System.Math.Max(LedFont.LineWidth(fit.Text), LedFont.LineWidth(fit.Second));
+            for (int i = 0; i < text.Length; i++)
+            {
+                if (text[i] != ' ') continue;
+                int other = System.Math.Max(LedFont.LineWidth(text.Substring(0, i)), LedFont.LineWidth(text.Substring(i + 1)));
+                Assert.LessOrEqual(widest, other, "split at " + i);
+            }
+        }
+
+        [Test]
+        public void A_two_line_split_that_still_does_not_fit_drops_letters_at_a_word_boundary_when_it_can()
+        {
+            LedWords.Fitted fit = LedWords.PlaceWhole("AB CDEFGHIJKLMNOPQRSTUV", 30, 24, 1);
+            Assert.IsTrue(fit.Clipped);
+            Assert.AreEqual("AB", fit.Text, "cut back to the word boundary");
+            Assert.AreEqual("", fit.Second);
+        }
+
         [Test]
         public void No_text_places_nothing()
         {
