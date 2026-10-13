@@ -48,12 +48,13 @@ namespace HockeyGame.Core.Tests
             var cameraObject = new GameObject("Camera (test)", typeof(Camera));
             var driver = new GameObject("Breakaway (test)");
             PhysicsShotEffects effects = null;
+            GoalieView view = null;
             try
             {
                 var camera = cameraObject.GetComponent<Camera>();
                 var character = new GoalieCharacter(_parent.transform);
                 Assume.That(character.Present, "needs the goalie model");
-                var view = new GoalieView(_parent.transform, character);
+                view = new GoalieView(_parent.transform, character);
                 effects = new PhysicsShotEffects(_parent.transform, camera, new SeededRandom(7), view, name => null);
                 Physics.SyncTransforms();
                 // Shots 1-3 (left, middle, right) are Clean, Depth (centred on a middle attack too) and Clean; 4-6 are dealt mistakes.
@@ -138,6 +139,7 @@ namespace HockeyGame.Core.Tests
             finally
             {
                 effects?.Dispose();
+                view?.Dispose();
                 Object.DestroyImmediate(driver);
                 Object.DestroyImmediate(cameraObject);
             }

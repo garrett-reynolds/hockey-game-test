@@ -247,11 +247,12 @@ namespace HockeyGame.Core.Tests
             var cameraObject = new GameObject("Camera (test)", typeof(Camera));
             var driver = new GameObject("Breakaway (test)");
             PhysicsShotEffects effects = null;
+            GoalieView view = null;
             try
             {
                 var camera = cameraObject.GetComponent<Camera>();
                 var character = new GoalieCharacter(_parent.transform);
-                var view = new GoalieView(_parent.transform, character);
+                view = new GoalieView(_parent.transform, character);
                 effects = new PhysicsShotEffects(_parent.transform, camera, new SeededRandom(7), view, name => null);
                 Physics.SyncTransforms();
                 var round = new Round(ScriptedRandom.Picking(AttackSide.Left, AttackSide.Middle, AttackSide.Right,
@@ -319,6 +320,7 @@ namespace HockeyGame.Core.Tests
             finally
             {
                 effects?.Dispose();
+                view?.Dispose();
                 Object.DestroyImmediate(driver);
                 Object.DestroyImmediate(cameraObject);
             }

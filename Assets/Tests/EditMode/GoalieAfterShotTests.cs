@@ -161,10 +161,11 @@ namespace HockeyGame.Core.Tests
             camera.transform.position = Eye;
             camera.transform.LookAt(new Vector3(0f, 0.61f, 0f));
             PhysicsShotEffects effects = null;
+            GoalieView view = null;
             try
             {
                 var character = new GoalieCharacter(_parent.transform);
-                var view = new GoalieView(_parent.transform, character);
+                view = new GoalieView(_parent.transform, character);
                 effects = new PhysicsShotEffects(_parent.transform, camera.GetComponent<Camera>(), new SeededRandom(7), view, name => null);
                 Physics.SyncTransforms();
                 var round = new Round(ScriptedRandom.Forcing(side), new RoundSettings(), FakeReach.Saving((sx, sy) => sy < 50), 0); // low saved, high scored
@@ -198,6 +199,7 @@ namespace HockeyGame.Core.Tests
             finally
             {
                 effects?.Dispose();
+                view?.Dispose();
                 Object.DestroyImmediate(camera);
             }
         }

@@ -263,12 +263,13 @@ namespace HockeyGame.Core.Tests
             var cameraObject = new GameObject("Camera (test)", typeof(Camera));
             var driver = new GameObject("Breakaway (test)");
             PhysicsShotEffects effects = null;
+            GoalieView view = null;
             try
             {
                 var camera = cameraObject.GetComponent<Camera>();
                 var character = new GoalieCharacter(rink.transform);
                 Assume.That(character.Present, "needs the goalie model");
-                var view = new GoalieView(rink.transform, character);
+                view = new GoalieView(rink.transform, character);
                 effects = new PhysicsShotEffects(rink.transform, camera, new SeededRandom(7), view, name => null);
                 Physics.SyncTransforms();
                 // Every Set-up type, Cheat and Late Settle on both posts' sides, on the real race.
@@ -334,6 +335,7 @@ namespace HockeyGame.Core.Tests
             finally
             {
                 effects?.Dispose();
+                view?.Dispose();
                 Object.DestroyImmediate(driver);
                 Object.DestroyImmediate(cameraObject);
                 Object.DestroyImmediate(rink);
