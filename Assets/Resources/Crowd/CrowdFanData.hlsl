@@ -70,7 +70,8 @@ float3 FanToWorld(Fan f, float3 bodyPoint)
 
 float3 FanNormalToWorld(Fan f, float3 normal)
 {
-    return normalize(mul((float3x3)_CrowdToWorld, FanTurn(f, normal)));
+    // SafeNormalize, not normalize: some outfit meshes (the women's Modular outfits) have a few zero-length normals, and normalize(0) is NaN.
+    return SafeNormalize(mul((float3x3)_CrowdToWorld, FanTurn(f, normal)));
 }
 
 // A region colour at the zone's contrast, dimmed like the stands and by the zone's light.
@@ -111,12 +112,12 @@ float3 FanLit(float3 lit, float3 even, uint zone)
 half4 DepthNormalsOutput(float3 normalWS)
 {
 #if defined(_GBUFFER_NORMALS_OCT)
-    float3 n = normalize(normalWS);
+    float3 n = SafeNormalize(normalWS); // a zero normal stays 0, not NaN
     float2 octNormalWS = PackNormalOctQuadEncode(n);
     float2 remapped = saturate(octNormalWS * 0.5 + 0.5);
     return half4(PackFloat2To888(remapped), 0.0);
 #else
-    return half4(NormalizeNormalPerPixel(normalWS), 0.0);
+    return half4(SafeNormalize(normalWS), 0.0); // not NormalizeNormalPerPixel: it may normalize a zero normal to NaN
 #endif
 }
 #endif

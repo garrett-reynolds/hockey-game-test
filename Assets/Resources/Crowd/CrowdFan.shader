@@ -110,7 +110,7 @@ Shader "Hockey Game/Crowd Fan"
 
             half4 Frag(Varyings i) : SV_Target
             {
-                float3 n = normalize(i.normalWS);
+                float3 n = SafeNormalize(i.normalWS); // a zero normal stays 0 (normalize gives NaN, and a NaN pixel blooms into a white blob)
                 Light main = GetMainLight();
                 float3 lit = SampleSH(n) + main.color * saturate(dot(n, main.direction));
                 float3 even = SampleSH(float3(0, 1, 0)) + main.color * 0.5;
