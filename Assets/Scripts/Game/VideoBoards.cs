@@ -57,7 +57,7 @@ namespace HockeyGame
             public Screen Master;  // the screen whose words are written
             public bool Stale;     // its words changed since they were written
             public Texture2D StartCard;   // the start card picture for this board's shape (StartCardArt), made when first shown
-            public Material StartMaterial; // draws StartCard sharp, for every screen of this board
+            public Material StartMaterial; // draws StartCard as LED dots (#161), for every screen of this board
             public string StartDetails;    // the small words StartCard was made with
             public bool Written;   // its texture holds WrittenHeadline and WrittenDetails
             public string WrittenHeadline, WrittenDetails;
@@ -67,7 +67,7 @@ namespace HockeyGame
         readonly List<WordsBoard> _boards = new List<WordsBoard>();
         Material _picture, _frame, _cable, _stillPicture;
         bool _still; // the Video Board shows the Calm Area's one dim still colour (CalmStill)
-        bool _startCard; // the Arena Show says start card: the screens draw the Shootout logo picture (#153)
+        bool _startCard; // the Arena Show says start card: the screens draw the Shootout logo as LED dots (#153, #161)
         double _cell;
         int _wordsUploads;
         Transform _videoBoard, _centreBoard;
@@ -278,7 +278,6 @@ namespace HockeyGame
                     if (b.StartMaterial == null)
                     {
                         b.StartMaterial = LedBoardMaterial.Screen("Video Board Start Card", _cell, Color.white);
-                        LedBoardMaterial.SetPlain(b.StartMaterial, true);
                     }
                     b.StartMaterial.mainTexture = b.StartCard;
                 }

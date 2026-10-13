@@ -411,7 +411,13 @@ namespace HockeyGame.Core.Tests
                 Texture2D card = boards.StartCardTextureOn(i);
                 Assert.IsNotNull(card, "screen " + i);
                 Assert.AreSame(card, boards.PictureOn(i).mainTexture, "screen " + i + " draws the start card picture");
-                Assert.IsTrue(LedBoardMaterial.IsPlain(boards.PictureOn(i)), "a picture, sharp");
+                // #161: LED dots like the other cards: not plain, one texel per cell read point filtered, the same cell size and gap.
+                Assert.IsFalse(LedBoardMaterial.IsPlain(boards.PictureOn(i)), "screen " + i + " the start card is LED dots, not a sharp picture");
+                Assert.AreEqual(FilterMode.Point, card.filterMode, "one texel per dot, read point filtered");
+                Assert.AreEqual(1, StartCardArt.PixelsPerCell, "one texel per LED cell");
+                Assert.AreEqual((float)RinkLayout.VideoBoardLedCell, LedBoardMaterial.CellOf(boards.PictureOn(i)), 1e-6f, "same dot size as the other cards");
+                Assert.AreEqual(LedBoardMaterial.GapShare, boards.PictureOn(i).GetFloat("_GapShare"), 1e-6f, "same gap as the other cards");
+                Assert.AreEqual(LedBoardMaterial.ShaderName, boards.PictureOn(i).shader.name);
                 Assert.AreEqual(boards.CellsAcross(i) * StartCardArt.PixelsPerCell, card.width, "the picture has the board's shape, so nothing is stretched");
                 Assert.AreEqual(boards.CellsUp(i) * StartCardArt.PixelsPerCell, card.height);
                 RectInt logo = StartCardArt.LogoRect(boards.CellsAcross(i), boards.CellsUp(i));
