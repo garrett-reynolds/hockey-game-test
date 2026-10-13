@@ -234,7 +234,7 @@ namespace HockeyGame.Core.Tests
             double Rate(double flight) => (ReplayTiming.ClipEnd(flight) - ReplayTiming.ClipStart(flight)) / ReplayTiming.ShowSeconds;
             Assert.Less(Rate(0.1), 0.25, "slow motion for a quick Shot");
             Assert.Less(Rate(1.0), 1.0, "a 1 s flight still plays slower than real time");
-            // The slowest game Shot: 10 km/h from the far start (Breakaway.StartDistance), about 8 s of flight.
+            // The slowest game Shot: 10 km/h from the far start (Breakaway.StartDistance), about 7.9 s of flight.
             double slowest = ShotFlight.Seconds(Breakaway.StartDistance, ShotFlight.MinSpeedKmh);
             Assert.LessOrEqual(Rate(slowest), 1.0 + Tol, "the slowest Shot never plays faster than real time");
             Assert.AreEqual(slowest + ReplayTiming.TailSeconds, ReplayTiming.ClipEnd(slowest), Tol, "and still ends where it did");

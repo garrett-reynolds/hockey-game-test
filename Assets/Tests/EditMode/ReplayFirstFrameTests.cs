@@ -66,6 +66,8 @@ namespace HockeyGame.Core.Tests
                 }
                 Assert.IsTrue(first, "the Replay played");
                 Assert.Greater(round.ResultDelaySeconds, 1.0, "a slow Shot flies longer than a second");
+                Assert.LessOrEqual(round.ResultDelaySeconds, ReplayTiming.ShowSeconds - ReplayTiming.TailSeconds,
+                    "this Shot's flight must stay within the release-start limit (ShowSeconds - TailSeconds); a longer one starts its Replay after the release (the rate cap), so tune the Shot's speed here");
                 Vector3 shown = replay.ReplayPuck.transform.position;
 
                 // The Replay picture on the Video Board, seen from 12 m in front of the first screen.

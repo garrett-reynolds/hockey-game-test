@@ -8,7 +8,8 @@ namespace HockeyGame.Core
     /// slow-motion Replay, LookBackSeconds back down. A Wide Miss or no Shot in time has no Replay and keeps the 2.5 s
     /// result hold (RoundSettings.ResultHoldSeconds). The Round times its result hold from this; the Arena Show its camera.
     /// The Replay plays back what was seen of the Shot (it never decides it again): from the Shot itself (the release,
-    /// the puck on the stick, #132) to TailSeconds after the puck lands, slowed to fill ShowSeconds.
+    /// the puck on the stick, #132) to TailSeconds after the puck lands, slowed to fill ShowSeconds. It never plays faster
+    /// than real time: a flight over ShowSeconds - TailSeconds starts ShowSeconds before the clip's end instead.
     /// </summary>
     public static class ReplayTiming
     {
