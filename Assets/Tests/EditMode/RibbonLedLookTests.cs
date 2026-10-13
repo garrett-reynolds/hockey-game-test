@@ -41,17 +41,8 @@ namespace HockeyGame.Core.Tests
 
         static string Notes => Path.GetFullPath(Path.Combine(Application.dataPath, "../../_notes"));
 
-        // The picture set's name: "before" while the stage file says so, else "after".
-        static string Stage
-        {
-            get
-            {
-                string file = Path.Combine(Notes, "t122-stage.txt");
-                return File.Exists(file) ? File.ReadAllText(file).Trim() : "after";
-            }
-        }
-
-        static string PngPath(string name) => Path.Combine(Notes, "t122-" + Stage + "-" + name + ".png");
+        // The "before" pictures were rendered from the committed code before #122 and are never overwritten; this writes the "after" set.
+        static string PngPath(string name) => Path.Combine(Notes, "t122-after-" + name + ".png");
 
         static void SavePng(Texture2D t, string name)
         {
@@ -279,7 +270,6 @@ namespace HockeyGame.Core.Tests
             ribbons.Show(Show(RoundPhase.Idle), 0.0);
             int panel = ChoosePanel(ribbons);
             TestContext.Out.WriteLine("chosen Ribbon Board panel: " + panel);
-            if (Directory.Exists(Notes)) File.WriteAllText(Path.Combine(Notes, "t122-chosen-panel.txt"), panel.ToString());
 
             ShooterFrame(ribbons, panel, "shooter-ads", true);
             CloseUp(ribbons, panel, "closeup-ad");

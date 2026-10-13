@@ -1,4 +1,4 @@
-// LED board (Video Board and Centre Board now, Ribbon Boards in #122): one shader for the screens' pictures and for the board words.
+// LED board (Video Board, Centre Board and Ribbon Boards): one shader for the screens' pictures and for the board words.
 // The words are first written into a small texture with one texel per LED cell (VideoBoards, from the LED font), so a screen shows its
 // words the same way as the Replay's picture: as a picture on a grid of square LED cells with a thin dark gap between them (_GapShare
 // and _GapColour are set by LedBoardMaterial).
@@ -12,9 +12,7 @@
 // so the texel read at a cell's centre is that cell. The cell is lit (the words colour _BaseColor) when the texel is at least _LitAbove,
 // otherwise _Backdrop. _LitAbove 0 means an ordinary picture: its colour times _BaseColor.
 //
-// _CellSize <= 0 switches the grid off: the picture is drawn plain. With _FontAtlas on, the material instead draws smooth text from a
-// font atlas (the Ribbon Boards until #122). Depth-tested, writes depth, front faces only: a board in front hides the text and it is
-// not mirrored from behind (Unity's built-in font material ignores depth and draws both faces).
+// Depth-tested, writes depth, front faces only: a board in front hides the text and it is not mirrored from behind.
 Shader "Hockey Game/LED Board"
 {
     Properties
@@ -27,7 +25,6 @@ Shader "Hockey Game/LED Board"
         _GridOrigin("Grid origin (world)", Vector) = (0,0,0,0)
         _LitAbove("Words: a cell is lit when its texel is at least this (0: ordinary picture)", Range(0, 1)) = 0
         _Backdrop("Words: colour of a cell with no words", Color) = (0,0,0,1)
-        _FontAtlas("Draw smooth text from a font atlas (1) or a picture (0)", Float) = 0
         [HideInInspector] _SrcBlend("Source blend", Float) = 1
         [HideInInspector] _DstBlend("Destination blend", Float) = 0
     }
@@ -61,14 +58,12 @@ Shader "Hockey Game/LED Board"
                 float4 _GridOrigin;
                 float _LitAbove;
                 half4 _Backdrop;
-                float _FontAtlas;
             CBUFFER_END
 
-            struct Attributes { float4 positionOS : POSITION; half4 color : COLOR; float2 uv : TEXCOORD0; };
+            struct Attributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; };
             struct Varyings
             {
                 float4 positionCS : SV_POSITION;
-                half4 color : COLOR;
                 float2 uv : TEXCOORD0;
                 float3 positionWS : TEXCOORD1;
                 float3 right : TEXCOORD2;
@@ -81,7 +76,6 @@ Shader "Hockey Game/LED Board"
                 float3 positionWS = TransformObjectToWorld(input.positionOS.xyz);
                 output.positionCS = TransformWorldToHClip(positionWS);
                 output.positionWS = positionWS;
-                output.color = input.color;
                 output.uv = TRANSFORM_TEX(input.uv, _BaseMap);
                 float4x4 m = GetObjectToWorldMatrix();
                 output.right = normalize(float3(m._m00, m._m10, m._m20));
@@ -105,25 +99,14 @@ Shader "Hockey Game/LED Board"
 
             half4 Frag(Varyings input) : SV_Target
             {
-                // Derivatives first, outside any branch.
                 float3 fromOrigin = input.positionWS - _GridOrigin.xyz;
                 float2 p = float2(dot(fromOrigin, input.right), dot(fromOrigin, input.up)); // metres on the board plane
                 float2 dpdx = ddx(p), dpdy = ddy(p), duvdx = ddx(input.uv), duvdy = ddy(input.uv);
                 float2 q = p / max(_CellSize, 1e-5);   // in cells
                 float2 pixelsInCells = fwidth(q);
 
-                if (_FontAtlas > 0.5)
-                {
-                    half alpha = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv).a * input.color.a;
-                    clip(alpha - 0.01);
-                    return half4(input.color.rgb, alpha);
-                }
-                if (_CellSize <= 0.0)
-                    return half4((_BaseColor * SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv)).rgb, 1);
-
                 // The cell this fragment is in, and the move (in screen steps a, b) from here to the cell's centre.
                 float2 cellId = floor(q);
-                float2 cellUV = q - cellId;
                 float2 toCentre = (cellId + 0.5) * _CellSize - p;
                 float det = dpdx.x * dpdy.y - dpdx.y * dpdy.x;
                 float2 steps = 0;
