@@ -9,7 +9,7 @@ namespace HockeyGame
     /// to the puck), for each Save Reaction's gear reaching the puck's line, and times each move with the gear speeds and the
     /// push limit (RoundSettings). The puck's edges count (GoalieCharacter.Touches). With no goalie character (no model, or
     /// the block goalie developer flag) no gear can reach: every Shot on the Net Face is a Goal. The Gaps use the same body,
-    /// spot and facing, so a cell is a Gap exactly when Reach finds no gear in the way at its centre.
+    /// spot and facing; a Gap is a cell with room all round the puck (GoalieCharacter.GapRoomMetres), so it is never a cell Reach finds gear in the way of.
     /// </summary>
     public sealed class GoalieCharacterReach : IGoalieReach
     {

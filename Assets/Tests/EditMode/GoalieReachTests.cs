@@ -207,7 +207,10 @@ namespace HockeyGame.Core.Tests
             {
                 NetFaceGaps.CellCentre(column, row, out double x, out double y);
                 GoalieReachAnswer answer = port.Reach(setUp, side, windowSeconds, start, RinkPoint.OnNetFace(x, y));
-                Assert.AreEqual(!answer.InTheWay, gaps.IsGap(column, row), "cell " + column + "," + row + ": " + answer);
+                // A Gap has room all round the puck (#134), so a cell the race finds nothing in the way of may be too tight to be one;
+                // but a Gap is never a cell with gear in the way, and a cell with gear in the way is never a Gap.
+                if (gaps.IsGap(column, row)) Assert.IsFalse(answer.InTheWay, "cell " + column + "," + row + " is a Gap but: " + answer);
+                if (answer.InTheWay) Assert.IsFalse(gaps.IsGap(column, row), "cell " + column + "," + row + " has gear in the way but is a Gap");
             }
         }
 

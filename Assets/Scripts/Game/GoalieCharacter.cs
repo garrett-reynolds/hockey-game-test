@@ -526,7 +526,7 @@ namespace HockeyGame
             bool blocked = false;
             bool reaches = InReadyStanceAt(spot, facing, () =>
             {
-                blocked = InThePuckWay(from, to);
+                blocked = Touches(from, to); // the race keeps the plain puck: only the Gaps ask for room (#134)
                 Vector3 readyHips = Bone(HumanBodyBones.Hips).position;
                 var start = new Dictionary<string, Vector3>();
                 foreach (var kv in _gearShapes) start[kv.Key] = GearPoint(kv.Key);
@@ -765,7 +765,8 @@ namespace HockeyGame
 
         /// <summary>
         /// Whether his gear or body (as last placed) is in the puck's way with room to spare: Touches, with the puck's ring of
-        /// edges GapRoomMetres wider. The Gaps and Reach's inTheWay use this, so a cell is a Gap exactly when nothing is in its way.
+        /// edges GapRoomMetres wider. Only the Gaps use this: a Gap is never in the way for Reach, but a cell nothing is in the way of
+        /// may be too tight to be a Gap.
         /// </summary>
         bool InThePuckWay(Vector3 from, Vector3 to)
         {
