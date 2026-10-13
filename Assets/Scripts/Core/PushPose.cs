@@ -50,17 +50,27 @@ namespace HockeyGame.Core
         public readonly double PushOut;
         /// <summary>0 square .. 1 the lead skate fully turned toward the move (a T-push only).</summary>
         public readonly double LeadTurn;
+        /// <summary>The skate that pushed last, still coming back after the push moved to the other skate (#130): 0..1 shares, FadeSkate pushed.</summary>
+        public readonly double FadeOut, FadeTurn;
+        public readonly Skate FadeSkate;
 
-        public PushPoseMoment(double pushOut, double leadTurn) { PushOut = pushOut; LeadTurn = leadTurn; }
+        public PushPoseMoment(double pushOut, double leadTurn) : this(pushOut, leadTurn, 0, 0, Skate.Left) { }
+
+        public PushPoseMoment(double pushOut, double leadTurn, double fadeOut, double fadeTurn, Skate fadeSkate)
+        {
+            PushOut = pushOut; LeadTurn = leadTurn; FadeOut = fadeOut; FadeTurn = fadeTurn; FadeSkate = fadeSkate;
+        }
     }
 
     /// <summary>The numbers behind the push pose (#126, the skate-push model #125); tuned in Play.</summary>
     public static class PushPose
     {
         /// <summary>The lead skate turns in this long (a T-push), the pushing skate goes out in this long.</summary>
-        public const double TurnInSeconds = 0.05, PushInSeconds = 0.08;
-        /// <summary>The pose comes back to the plain stance in this long.</summary>
-        public const double ReturnSeconds = 0.18;
+        public const double TurnInSeconds = 0.05, PushInSeconds = 0.06;
+        /// <summary>The pose comes back to the plain stance in this long (#130: it outlasts the move, so the push is seen).</summary>
+        public const double ReturnSeconds = 0.35;
+        /// <summary>When the push changes skate, the old skate's pose fades out in this long (#130: no leg snap).</summary>
+        public const double SwitchSeconds = 0.12;
         /// <summary>A T-push squares up (the lead skate turns back) as his speed falls under this share of the peak.</summary>
         public const double SquareBelowShare = 0.5;
         /// <summary>The pushing skate goes out only once the lead skate has turned this far (a T-push).</summary>
@@ -92,7 +102,10 @@ namespace HockeyGame.Core
         double _holdLeft;
 
         /// <summary>The pose after the last Step.</summary>
-        public PushPoseMoment Now => new PushPoseMoment(_pushOut, _leadTurn);
+        public PushPoseMoment Now => new PushPoseMoment(_pushOut, _leadTurn, _fadeOut, _fadeTurn, _fadeSkate);
+
+        double _fadeOut, _fadeTurn;
+        Skate _fadeSkate;
 
         /// <summary>
         /// The push the pose is still acting on: the last Push or Glide given to Step, which the pose keeps (kind and skate) through
@@ -107,6 +120,8 @@ namespace HockeyGame.Core
             _leadTurn = 0;
             _last = PushShown.None;
             _holdLeft = 0;
+            _fadeOut = 0;
+            _fadeTurn = 0;
         }
 
         public PushPoseMoment Step(PushShown shown, double dt)
@@ -121,8 +136,20 @@ namespace HockeyGame.Core
 
         void Piece(PushShown shown, double h)
         {
+            _fadeOut = Math.Max(0, _fadeOut - h / PushPose.SwitchSeconds);
+            _fadeTurn = Math.Max(0, _fadeTurn - h / PushPose.SwitchSeconds);
             if (shown.Phase != PushPhase.Done)
             {
+                // The push moves to the other skate while the pose is out on this one: the old skate fades out on its own (never snaps
+                // back) while the new one starts from the plain stance (#130).
+                if (shown.Skate != _last.Skate && (_pushOut > 0 || _leadTurn > 0))
+                {
+                    _fadeSkate = _last.Skate;
+                    _fadeOut = _pushOut;
+                    _fadeTurn = _leadTurn;
+                    _pushOut = 0;
+                    _leadTurn = 0;
+                }
                 _last = shown;
                 _holdLeft = PushPose.HoldSeconds;
             }

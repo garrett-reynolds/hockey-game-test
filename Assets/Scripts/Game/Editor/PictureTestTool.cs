@@ -105,6 +105,9 @@ namespace HockeyGame.Editor
         /// <summary>The push pose is time-based: a push view steps it this many frames of this length; a clear takes more.</summary>
         const double PushFrameSeconds = 1.0 / 60;
         const int PushShowFrames = 20, PushClearFrames = 30;
+        /// <summary>The T-push frame strip (#130): StripFrames pictures, one every StripEvery game frames, of a move of StripMetres.</summary>
+        const int StripFrames = 8, StripEvery = 3;
+        const double StripMetres = -0.5;
         const double PushReactionX = 100, PushReactionY = 60;
 
         public static string ViewName(PicturePoint point, bool easyMode) => point.Name + (easyMode ? "-easy-on" : "-easy-off");
@@ -377,6 +380,29 @@ namespace HockeyGame.Editor
                 Goalie.SetProgress(PushReactionSet);
             }
 
+            /// <summary>One frame of a push strip (#130): the move of `metres` shown `frame` game frames (1/60 s) in, the pose stepped from the plain stance frame by frame as in the game.</summary>
+            public void PosePushStrip(double metres, int frame)
+            {
+                const RoundPhase phase = RoundPhase.ShootingWindow;
+                Goalie.ShowBeforeTheShot(Vector3.zero, 0f, 0f, null);
+                Goalie.ShowGaps(NetFaceGaps.None);
+                for (int i = 0; i < PushClearFrames; i++) Goalie.ShowPush(PushShown.None, PushFrameSeconds);
+                RinkPoint spot = SetUps.Approach(SetUp.Clean, AttackSide.Middle, phase, WindowSeconds, Settings);
+                RinkPoint puck = Breakaway.Puck(AttackSide.Middle, phase, WindowSeconds, Settings);
+                float toShooter = puck.Z >= spot.Z ? 1f : -1f;
+                var move = new SkatePush(metres, Settings);
+                for (int f = 1; f <= frame; f++)
+                    Goalie.ShowPush(PushShown.AtProgress(metres, f * PushFrameSeconds / move.TotalSeconds, Settings), PushFrameSeconds);
+                var at = new Vector3((float)move.Position(frame * PushFrameSeconds), (float)spot.Y, (float)spot.Z);
+                Goalie.Stand(at);
+                Goalie.Face(0f, 0f);
+                Goalie.Live(LifeSeconds);
+                Transform cam = Camera.transform;
+                Camera.fieldOfView = PushFieldOfView;
+                cam.position = new Vector3(0f, at.y + PushCameraHeight, at.z + toShooter * PushCameraMetres); // fixed camera: the slide is seen
+                cam.LookAt(new Vector3(0f, at.y + PushLookHeight, at.z));
+            }
+
             /// <summary>Steps the push pose a fixed 20 frames at this push, so the picture is a function of the view (the real GoalieView.ShowPush).</summary>
             void ShowPushFor(PushShown shown)
             {
@@ -417,6 +443,13 @@ namespace HockeyGame.Editor
                         rig.Goalie.ShowGaps(easyMode ? gaps : NetFaceGaps.None);
                         set.Views.Add(Measure(rig, target, texture, ViewName(point, easyMode), gaps, folder));
                     }
+                }
+                // (#130) A frame strip of one T-push (0.5 m toward -X): every StripEvery-th frame, as game frames from the push's start.
+                // Before the push views: the last of those is a reaction, whose leftovers a strip must not see.
+                for (int k = 0; k < StripFrames; k++)
+                {
+                    rig.PosePushStrip(StripMetres, k * StripEvery);
+                    WritePng(texture, Capture(rig.Camera, target, texture, ~0, true), Path.Combine(folder, "push-strip-" + k.ToString("00") + ".png"));
                 }
                 foreach (PushPicture push in PushViews)
                 {
