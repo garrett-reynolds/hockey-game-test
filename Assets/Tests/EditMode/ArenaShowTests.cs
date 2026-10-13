@@ -549,5 +549,116 @@ namespace HockeyGame.Core.Tests
             save.BestScore = 0; // a reset on the settings screen shows on the start card at once
             Assert.AreEqual("BEST SCORE 0 OF 6\nSHOOT TO PLAY", ArenaShow.From(flow).VideoBoardWords.Details);
         }
+
+        // ---- the water bottle: knocked off the net by a hard Goal (#164) ----
+
+        private static ArenaShowInput Whistled(ArenaResult result, double? kmh, int shot = 1, bool testMode = false) => new ArenaShowInput
+        {
+            Phase = RoundPhase.ResultHold,
+            PhaseSeconds = 1.0,
+            Result = result,
+            LastShotSpeedKmh = kmh,
+            ShotNumber = shot,
+            TestMode = testMode
+        };
+
+        private static ArenaShowInput Between(RoundPhase phase, int shot, bool testMode = false) =>
+            new ArenaShowInput { Phase = phase, ShotNumber = shot, TestMode = testMode };
+
+        [Test]
+        public void A_Goal_above_the_knock_speed_knocks_the_bottle()
+        {
+            Assert.AreEqual(100.0, BottleKnock.KnockSpeedKmh);
+            Assert.IsTrue(new BottleKnock().Follow(Whistled(ArenaResult.Goal, 101)));
+        }
+
+        [Test]
+        public void A_Goal_at_exactly_the_knock_speed_does_not()
+        {
+            Assert.IsFalse(new BottleKnock().Follow(Whistled(ArenaResult.Goal, 100)));
+        }
+
+        [Test]
+        public void A_fast_Save_a_Miss_and_a_Frame_Hit_do_not()
+        {
+            foreach (ArenaResult result in new[] { ArenaResult.Save, ArenaResult.WideMiss, ArenaResult.FrameHitPost, ArenaResult.FrameHitBar })
+                Assert.IsFalse(new BottleKnock().Follow(Whistled(result, 150)), result.ToString());
+        }
+
+        [Test]
+        public void A_Shot_with_no_puck_does_not()
+        {
+            Assert.IsFalse(new BottleKnock().Follow(Whistled(ArenaResult.Goal, null)));
+            Assert.IsFalse(new BottleKnock().Follow(Whistled(ArenaResult.TooLate, null)));
+        }
+
+        [Test]
+        public void The_bottle_waits_for_the_Whistle()
+        {
+            var hidden = Whistled(ArenaResult.Goal, 130);
+            hidden.ResultHidden = true;
+            Assert.IsFalse(new BottleKnock().Follow(hidden));
+        }
+
+        [Test]
+        public void The_bottle_stays_off_for_the_rest_of_the_Round_and_a_second_hard_Goal_changes_nothing()
+        {
+            var bottle = new BottleKnock();
+            Assert.IsFalse(bottle.Follow(Between(RoundPhase.ShootingWindow, 1)));
+            Assert.IsTrue(bottle.Follow(Whistled(ArenaResult.Goal, 120, shot: 1)));
+            Assert.IsTrue(bottle.Follow(Between(RoundPhase.SkateIn, 2)));
+            Assert.IsTrue(bottle.Follow(Whistled(ArenaResult.Save, 80, shot: 2)));
+            Assert.IsTrue(bottle.Follow(Whistled(ArenaResult.Goal, 140, shot: 3)));
+            Assert.IsTrue(bottle.Follow(Between(RoundPhase.RoundOver, 6)));
+        }
+
+        [Test]
+        public void The_next_Round_start_puts_it_back()
+        {
+            var bottle = new BottleKnock();
+            Assert.IsTrue(bottle.Follow(Whistled(ArenaResult.Goal, 120, shot: 4)));
+            Assert.IsFalse(bottle.Follow(Between(RoundPhase.Idle, 0)));
+            Assert.IsFalse(bottle.Follow(Between(RoundPhase.SkateIn, 1)));
+        }
+
+        [Test]
+        public void A_Round_restarted_straight_into_Skate_in_also_puts_it_back()
+        {
+            var bottle = new BottleKnock();
+            Assert.IsTrue(bottle.Follow(Whistled(ArenaResult.Goal, 120, shot: 3)));
+            Assert.IsFalse(bottle.Follow(Between(RoundPhase.SkateIn, 1)));
+        }
+
+        [Test]
+        public void In_Test_Mode_the_next_Test_Shot_puts_it_back()
+        {
+            var bottle = new BottleKnock();
+            Assert.IsTrue(bottle.Follow(Whistled(ArenaResult.Goal, 120, shot: 1, testMode: true)));
+            Assert.IsTrue(bottle.Follow(Whistled(ArenaResult.Goal, 130, shot: 1, testMode: true)));
+            Assert.IsFalse(bottle.Follow(Between(RoundPhase.ShootingWindow, 2, testMode: true)));
+            Assert.IsTrue(bottle.Follow(Whistled(ArenaResult.Goal, 110, shot: 2, testMode: true)));
+        }
+
+        [Test]
+        public void From_the_screen_flow_a_hard_Goal_knocks_it_until_the_Round_is_over_and_the_start_screen_puts_it_back()
+        {
+            var save = new SaveData();
+            var flow = new ScreenFlow(ScriptedRandom.Halves(), save, FakeReach.NeverReaches());
+            var bottle = new BottleKnock();
+            flow.Press();
+            flow.Tick(3.7 + 0.5);
+            flow.SubmitShot(50, 90, 120.0, false);
+            Assert.IsFalse(bottle.Follow(flow), "the puck is still on its way");
+            flow.Round.WhistleNow();
+            Assert.IsTrue(bottle.Follow(flow), "the Whistle");
+            flow.Tick(ReplayTiming.HoldSeconds + ShotFade.LeadSeconds + 0.01);
+            Assert.AreEqual(RoundPhase.SkateIn, flow.Round.Phase);
+            Assert.IsTrue(bottle.Follow(flow), "shot 2");
+            for (int shot = 2; shot <= Round.ShotsPerRound; shot++)
+                flow.Tick(3.7 + 3.0 + 2.5 + 0.01);
+            flow.Tick(save.AutoReturnSeconds);
+            Assert.AreEqual(FlowScreen.Start, flow.Screen);
+            Assert.IsFalse(bottle.Follow(flow));
+        }
     }
 }
