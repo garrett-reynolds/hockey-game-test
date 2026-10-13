@@ -187,15 +187,53 @@ namespace HockeyGame.Core.Tests
                 float drift = (float)Breakaway.Drift(side, settings.SlowDownSeconds, window, settings);
                 BreakawayView.PlaceShooterCamera(_eye.transform, (float)x, (float)distance, drift, game);
                 BreakawayView.LookUpTo(_eye.transform, BreakawayView.ReplayLookTarget, 1f);
+                camera.fieldOfView = BreakawayView.LookUpFieldOfView(60f, 1f);
                 string at = side + ", window " + window + " s, bob " + game;
                 foreach (Vector3 corner in new[] { new Vector3(-halfW, -halfH, 0), new Vector3(halfW, -halfH, 0), new Vector3(-halfW, halfH, 0), new Vector3(halfW, halfH, 0) })
                 {
                     Vector3 v = camera.WorldToViewportPoint(board + corner);
                     Assert.IsTrue(v.z > 0 && v.x > 0 && v.x < 1 && v.y > 0 && v.y < 1, at + ": board corner " + corner + " in view, at " + v);
                 }
+                Vector3 centre = camera.WorldToViewportPoint(board);
+                Assert.That(centre.x, Is.InRange(0.4f, 0.6f), at + ": board centre across the view, at " + centre);
+                Assert.That(centre.y, Is.InRange(0.4f, 0.6f), at + ": board centre near the middle of the view, at " + centre);
                 foreach (Vector3 p in new[] { new Vector3(-0.92f, 1.22f, 0f), new Vector3(0.92f, 1.22f, 0f), new Vector3(0f, 2.0f, -1.2f) })
                     Assert.Less(camera.WorldToViewportPoint(p).y, 0f, at + ": " + p + " is out of view");
             }
+        }
+
+        [Test]
+        public void The_look_up_tilts_well_under_the_old_38_to_49_degrees()
+        {
+            var settings = new RoundSettings();
+            Vector3 board = new Vector3((float)RinkLayout.VideoBoard.X, (float)RinkLayout.VideoBoard.Y, (float)RinkLayout.VideoBoard.Z);
+            foreach (AttackSide side in new[] { AttackSide.Left, AttackSide.Middle, AttackSide.Right })
+            {
+                Breakaway.SkatePoint(side, 1, out double x, out double distance);
+                float drift = (float)Breakaway.Drift(side, settings.SlowDownSeconds, settings.ShootingWindowSeconds, settings);
+                BreakawayView.PlaceShooterCamera(_eye.transform, (float)x, (float)distance, drift, 0f);
+                BreakawayView.LookUpTo(_eye.transform, BreakawayView.ReplayLookTarget, 1f);
+                float tilt = Mathf.Asin(_eye.transform.forward.y) * Mathf.Rad2Deg;
+                Assert.Less(tilt, 39f, side + ": the look-up's tilt above level (the old one was 38 to 49)");
+            }
+        }
+
+        [Test]
+        public void The_view_narrows_as_the_look_up_rises_and_widens_back_with_no_jump()
+        {
+            Assert.AreEqual(60f, BreakawayView.LookUpFieldOfView(60f, 0f), 1e-4f, "no look-up: the game's own view");
+            Assert.Less(BreakawayView.LookUpFieldOfView(60f, 1f), 45f, "full look-up: a narrow view");
+            Assert.AreEqual(BreakawayView.ReplayLookFieldOfView, BreakawayView.LookUpFieldOfView(60f, 1f), 1e-4f);
+            float last = 60f;
+            for (float a = 0.01f; a <= 1.0001f; a += 0.01f)
+            {
+                float fov = BreakawayView.LookUpFieldOfView(60f, a);
+                Assert.LessOrEqual(fov, last + 1e-4f, "never widens on the way up, at " + a);
+                Assert.Less(last - fov, 0.5f, "a smooth step in the view (no jump), at " + a);
+                last = fov;
+            }
+            Assert.AreEqual(BreakawayView.LookUpFieldOfView(60f, 0f), BreakawayView.LookUpFieldOfView(60f, -0.2f), 1e-4f, "below 0 clamps");
+            Assert.AreEqual(BreakawayView.LookUpFieldOfView(60f, 1f), BreakawayView.LookUpFieldOfView(60f, 1.2f), 1e-4f, "above 1 clamps");
         }
 
         [Test]
