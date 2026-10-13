@@ -37,7 +37,8 @@ namespace HockeyGame
         static readonly Color ArenaWhite = new Color(0.93f, 0.97f, 1f);
         /// <summary>HDR glow of a light bank: well above the bloom threshold.</summary>
         public const float BankGlow = 16f;
-        const float BankHeight = 20f;
+        /// <summary>The banks' height (#165): above the Centre Board's top (26.5 m) and under the roof (30 m) with the banks' 0.3 m thickness.</summary>
+        const float BankHeight = 28f;
         static readonly Vector3 BankSize = new Vector3(5f, 0.3f, 1.4f);
         /// <summary>How far a light bank keeps clear of the Centre Board's box (metres).</summary>
         public const float CentreBoardClearance = 0.4f;

@@ -4,9 +4,11 @@ using System.Collections.Generic;
 namespace HockeyGame.Core
 {
     /// <summary>
-    /// What the Video Board hides. It hangs in front of the near end's crowd and Ribbon Board, so a fan or Ribbon Board panel
-    /// that is behind it from every eye the player has (the skate-in and the shooting window, and the Replay's look-up, which
-    /// is the same eye turned up) is never seen: the game leaves it out. A fan or panel only partly hidden stays.
+    /// What the Video Board hides. A fan or Ribbon Board panel that is behind it from every eye the player has (the skate-in and the
+    /// shooting window, and the Replay's look-up, which is the same eye turned up) is never seen: the game leaves it out. A fan or panel
+    /// only partly hidden stays. Since #165 the board hangs above the Ribbon Board and the upper tier has no fans behind it
+    /// (RinkLayout.UpperCutOutHalfWidth), so nothing is hidden in the game now (a test pins that); the check stays as the safeguard
+    /// if the board or the stands move again.
     /// </summary>
     public static class VideoBoardCover
     {

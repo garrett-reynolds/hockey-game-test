@@ -110,6 +110,19 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void The_light_banks_hang_above_the_Centre_Boards_top_and_under_the_roof()
+        {
+            ArenaLighting.Build(_rink.transform);
+            Renderer[] banks = _rink.GetComponentsInChildren<Renderer>().Where(r => r.name == ArenaLighting.LightBank).ToArray();
+            Assert.IsNotEmpty(banks);
+            foreach (Renderer r in banks)
+            {
+                Assert.That(r.bounds.min.y, Is.GreaterThan((float)RinkLayout.CentreBoardTop), "above the Centre Board's top: no bank covers it from below (#165)");
+                Assert.That(r.bounds.max.y, Is.LessThan((float)RinkLayout.RoofHeight), "under the roof");
+            }
+        }
+
+        [Test]
         public void The_light_banks_share_one_glow_and_leave_no_stray_material_per_bank()
         {
             var probe = GameObject.CreatePrimitive(PrimitiveType.Cube); // a bank starts as a plain cube

@@ -177,9 +177,11 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void The_Video_Board_hangs_behind_the_near_net_and_the_Centre_Board_over_centre_ice()
         {
-            // Garrett's pick 2026-10-12: in the middle of the ribbon, in front of the crowd (VideoBoardsTests checks it from the player's eye).
+            // Garrett's pick 2026-10-13 (#165): just above the Ribbon Board, back in the stands, in front of the ribbon's face.
             Assert.AreEqual(0.0, RinkLayout.VideoBoard.X);
-            Assert.AreEqual(RinkLayout.RibbonBottom + RinkLayout.RibbonHeight / 2, RinkLayout.VideoBoard.Y, 1e-9, "the ribbon's middle height");
+            Assert.AreEqual(RinkLayout.RibbonBottom + RinkLayout.RibbonHeight + RinkLayout.VideoBoardAboveRibbon + RinkLayout.VideoBoardHeight / 2,
+                RinkLayout.VideoBoard.Y, 1e-9, "its bottom edge just above the ribbon's top");
+            Assert.AreEqual(RinkLayout.NearEndBoardsZ + RinkLayout.RibbonOffset - RinkLayout.VideoBoardInFront, RinkLayout.VideoBoard.Z, 1e-9);
             Assert.That(RinkLayout.VideoBoard.Z, Is.InRange(RinkLayout.NearEndBoardsZ + 5, RinkLayout.NearEndBoardsZ + RinkLayout.RibbonOffset),
                 "behind the near net, in front of the ribbon face");
             Assert.AreEqual(14.3, RinkLayout.VideoBoardWidth, 1e-9);

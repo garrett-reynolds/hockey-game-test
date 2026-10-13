@@ -287,7 +287,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void The_Calm_Area_panels_straight_behind_the_near_net_are_left_out_behind_the_Video_Board()
+        public void The_Calm_Area_panels_straight_behind_the_near_net_are_all_there_since_the_Video_Board_hangs_above_the_ribbon()
         {
             RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
             int behindNet = 0;
@@ -302,7 +302,7 @@ namespace HockeyGame.Core.Tests
                 }
                 else Assert.AreNotEqual(ArenaZone.CalmArea, ribbons.ZoneOf(i), "panel " + i);
             }
-            Assert.AreEqual(0, behindNet, "the panels straight behind the net are wholly behind the Video Board: left out");
+            Assert.Greater(behindNet, 0, "#165: the board is above the ribbon, so the panels straight behind the net are not left out");
         }
 
         [Test]
