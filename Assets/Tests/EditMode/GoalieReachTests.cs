@@ -198,6 +198,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void A_Clean_Set_up_leaves_fewer_Gaps_than_a_Depth_and_no_more_than_a_Cheat()
         {
             GoalieCharacterReach port = Port(out _);

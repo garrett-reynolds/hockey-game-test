@@ -90,6 +90,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void What_the_Shot_measures_is_the_goalie_as_the_reaction_ends_at_every_facing()
         {
             var character = new GoalieCharacter(_parent.transform);

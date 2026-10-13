@@ -213,6 +213,7 @@ namespace HockeyGame.Core.Tests
             : SoundCue.SaveImpact;
 
         [Test]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void A_Frame_Hit_rings_off_the_frame_as_the_goalie_s_reach_keeps_off_the_puck_and_it_is_still_a_Miss()
         {
             int frameHits = 0;
@@ -344,6 +345,7 @@ namespace HockeyGame.Core.Tests
 
         [TestCase(false)]
         [TestCase(true)]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void After_any_save_or_frame_hit_the_puck_stays_out_of_the_goalie_frame_and_ice_and_settles_flat(bool close)
         {
             var failures = new List<string>();
@@ -427,6 +429,7 @@ namespace HockeyGame.Core.Tests
 
         [TestCase(false)]
         [TestCase(true)]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void A_blocker_save_bounces_off_the_blocker_and_ends_on_the_ice_never_carried(bool close)
         {
             var failures = new List<string>();

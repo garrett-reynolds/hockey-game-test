@@ -320,6 +320,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void No_puck_ends_up_through_the_catch_over_many_seeded_Shots()
         {
             var random = new System.Random(109);
@@ -350,6 +351,7 @@ namespace HockeyGame.Core.Tests
         static readonly double[] WideX = { -900, -700, -500, -300, 300, 500, 700, 900 };
 
         [Test]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void No_puck_ends_up_through_the_boards_or_glass_over_many_seeded_Shots()
         {
             var random = new System.Random(110);

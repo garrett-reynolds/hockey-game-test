@@ -142,6 +142,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void A_Cheat_makes_the_Gap_away_from_its_post_bigger_than_a_Clean_Set_up()
         {
             GoalieCharacterReach port = Port();
@@ -175,6 +176,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void A_Depth_makes_the_Gaps_bigger_than_a_Clean_Set_up()
         {
             GoalieCharacterReach port = Port();
@@ -191,6 +193,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void A_Late_Settle_has_a_bigger_Gap_than_a_Clean_Set_up_when_the_window_opens_and_none_once_settled()
         {
             GoalieCharacterReach port = Port();

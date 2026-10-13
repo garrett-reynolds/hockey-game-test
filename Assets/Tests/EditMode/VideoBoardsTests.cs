@@ -184,6 +184,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void Every_fan_and_Ribbon_Board_panel_left_out_is_wholly_behind_the_board_from_the_real_camera()
         {
             VideoBoards boards = VideoBoards.Build(_rink.transform);

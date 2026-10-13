@@ -44,6 +44,7 @@ namespace HockeyGame.Core.Tests
         // runs it again with no time. A USB Shot is taken before ShotEffects runs, which then runs with the frame's real time.
         [TestCase(false, TestName = "At_200_kmh_a_Test_Shot_save_meets_the_gear_and_a_goal_or_miss_passes_clear_of_all_gear_from_every_Attack_Side")]
         [TestCase(true, TestName = "At_200_kmh_a_USB_Shot_save_meets_the_gear_and_a_goal_or_miss_passes_clear_of_all_gear_from_every_Attack_Side")]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void At_200_kmh_a_save_meets_the_gear_and_a_goal_or_miss_passes_clear_of_all_gear_from_every_Attack_Side(bool usb)
         {
             var failures = new List<string>();

@@ -222,6 +222,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void From_every_shooter_eye_a_save_stops_where_the_puck_meets_the_reaction_s_gear_on_its_line()
         {
             var character = new GoalieCharacter(_parent.transform);
@@ -267,6 +268,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void A_goal_or_miss_reach_never_touches_the_puck()
         {
             var character = new GoalieCharacter(_parent.transform);

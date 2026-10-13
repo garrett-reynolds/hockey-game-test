@@ -313,6 +313,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void The_Goal_Show_lights_go_on_a_Goal_and_never_flash_faster_than_3_a_second()
         {
             GoalShowLights goal = Showing(ArenaResult.Goal).GoalShow;

@@ -22,6 +22,7 @@ namespace HockeyGame.Core.Tests
         public void TearDown() => Object.DestroyImmediate(_rink);
 
         [Test]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void An_in_the_way_Save_stops_the_puck_on_gear()
         {
             var character = new GoalieCharacter(_rink.transform);

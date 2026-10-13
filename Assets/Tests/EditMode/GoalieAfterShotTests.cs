@@ -154,6 +154,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void After_the_puck_gets_there_a_goal_s_motion_never_touches_the_puck_on_its_way_into_the_net()
         {
             GoalieView view = Make(out GoalieCharacter character);
@@ -229,6 +230,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void Played_through_a_goal_the_goalie_looks_back_after_the_netting_gestures_and_never_touches_the_puck()
         {
             float reachHead = 0f, lowestHead = float.MaxValue, lastStick = 0f, mostYaw = 0f, yawBefore = 0f;

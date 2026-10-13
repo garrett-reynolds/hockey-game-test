@@ -319,6 +319,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void A_Shot_that_passes_near_moving_gear_without_reaching_it_is_not_gear_touched()
         {
             var hits = MakeHits();
@@ -385,6 +386,7 @@ namespace HockeyGame.Core.Tests
 
         // Moving gear: 6 targets x 2 speeds x 6 seeds = 72 Shots. Still gear: each hit shape x 2 speeds x 3 eyes (about 110).
         [Test]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void Every_Shot_at_the_gear_touches_it_and_none_ends_up_through_it([Values(Motion.Still, Motion.Arriving, Motion.Swinging)] Motion motion)
         {
             var hits = MakeHits();

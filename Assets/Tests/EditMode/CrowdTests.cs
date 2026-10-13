@@ -131,6 +131,7 @@ namespace HockeyGame.Core.Tests
         // ---- each fan's own look ----
 
         [Test]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void No_two_neighbouring_fans_look_alike()
         {
             for (int a = 0; a < Seats.Length; a++)

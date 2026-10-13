@@ -7,6 +7,7 @@ namespace HockeyGame.Core.Tests
     public class GoalRateToolTests
     {
         [Test]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void The_tool_runs_both_shooters_and_repeats_with_the_same_seed()
         {
             GoalRateTool.Report a = GoalRateTool.Run(2, 5, GoalRateTool.DefaultAimNoise);
