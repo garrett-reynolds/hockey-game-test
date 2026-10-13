@@ -445,8 +445,8 @@ namespace HockeyGame.Core.Tests
             try
             {
                 var view = new GoalieView(_root.transform, _goalie);
-            _views.Add(view);
-                effects = new PhysicsShotEffects(_root.transform, cameraObject.GetComponent<Camera>(), new SeededRandom(7), view, name => null);
+                _views.Add(view);
+                effects =new PhysicsShotEffects(_root.transform, cameraObject.GetComponent<Camera>(), new SeededRandom(7), view, name => null);
                 Physics.SyncTransforms();
                 var round = new Round(new SeededRandom(1), settings, FakeReach.NeverReaches(), 0);
                 var breakaway = driver.AddComponent<BreakawayView>();

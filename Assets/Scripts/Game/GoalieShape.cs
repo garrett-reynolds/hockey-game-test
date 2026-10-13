@@ -9,7 +9,7 @@ namespace HockeyGame
     /// </summary>
     public sealed class GoalieShape
     {
-        /// <summary>The face-on puck the reach checks use (the old scripted puck's size). Not the physics puck (PhysicsPuck).</summary>
+        /// <summary>The face-on puck the reach checks use (a fixed line-puck size). Not the physics puck (PhysicsPuck).</summary>
         public const float LinePuckDiameter = 0.15f, LinePuckThickness = 0.05f;
 
         const int ChunkTriangles = 64; // triangles under one bounding box, so a cast only tests the parts it passes near

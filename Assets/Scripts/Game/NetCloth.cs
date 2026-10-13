@@ -101,7 +101,7 @@ namespace HockeyGame
             if (Cloth != null) Cloth.sphereColliders = new ClothSphereColliderPair[0];
         }
 
-        const float ProxyRadius = 0.075f; // as before #113: the netting's give is tuned to it
+        const float ProxyRadius = 0.075f; // the netting's give is tuned to this radius
 
         SphereCollider Proxy(Vector3 at)
         {
