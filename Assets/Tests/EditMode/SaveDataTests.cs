@@ -40,6 +40,7 @@ namespace HockeyGame.Core.Tests
                 CrowdVolume = 0.3,
                 GameVolume = 0.6,
                 MusicVolume = 0.1,
+                ReplayOn = false,
                 ForceGoalieBlocks = true,
                 TeamSkin = "bears",
             };
@@ -60,6 +61,7 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(expected.CrowdVolume, actual.CrowdVolume);
             Assert.AreEqual(expected.GameVolume, actual.GameVolume);
             Assert.AreEqual(expected.MusicVolume, actual.MusicVolume);
+            Assert.AreEqual(expected.ReplayOn, actual.ReplayOn);
             Assert.AreEqual(expected.ForceGoalieBlocks, actual.ForceGoalieBlocks);
             Assert.AreEqual(expected.TeamSkin, actual.TeamSkin);
         }
@@ -81,7 +83,8 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(1.0, d.CrowdVolume);
             Assert.AreEqual(1.0, d.GameVolume);
             Assert.AreEqual(1.0, d.MusicVolume);
-            Assert.IsFalse(d.ForceGoalieBlocks,"the goalie character shows by default; the blocks are a developer fallback");
+            Assert.IsTrue(d.ReplayOn, "the Replay plays unless it is turned off");
+            Assert.IsFalse(d.ForceGoalieBlocks, "the goalie character shows by default; the blocks are a developer fallback");
             Assert.AreEqual("league", d.TeamSkin, "the League Skin plays unless the file picks another");
         }
 

@@ -26,7 +26,7 @@ namespace HockeyGame.Core.Tests
             string[] labels =
             {
                 "Master volume", "Crowd", "Game sounds", "Music", "Mute", "Tick",
-                "Easy mode", "Test Shots on at start",
+                "Easy mode", "Test Shots on at start", "Replay",
                 "USB port", "End screen input-ignore time", "End screen auto-return time", "Reset best score"
             };
             Assert.AreEqual(labels.Length, menu.RowCount);
@@ -46,10 +46,11 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual("ON", menu.Value(5));
             Assert.AreEqual("OFF", menu.Value(6));
             Assert.AreEqual("ON", menu.Value(7));
-            Assert.AreEqual("Auto", menu.Value(8));
-            Assert.AreEqual("2.0 s", menu.Value(9));
-            Assert.AreEqual("15.0 s", menu.Value(10));
-            Assert.AreEqual("best 3", menu.Value(11));
+            Assert.AreEqual("ON", menu.Value(8));
+            Assert.AreEqual("Auto", menu.Value(9));
+            Assert.AreEqual("2.0 s", menu.Value(10));
+            Assert.AreEqual("15.0 s", menu.Value(11));
+            Assert.AreEqual("best 3", menu.Value(12));
         }
 
         // ---- Two parts, Tab, keys, Reset (#143) ----
@@ -131,12 +132,14 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(SettingsRowKind.Slider, menu.Kind(2));
             Assert.AreEqual(SettingsRowKind.Slider, menu.Kind(3));
             Assert.AreEqual(SettingsRowKind.Toggle, menu.Kind(4));
-            Assert.AreEqual(SettingsRowKind.Choice, menu.Kind(8));
-            Assert.AreEqual(SettingsRowKind.Button, menu.Kind(11));
+            Assert.AreEqual(SettingsRowKind.Toggle, menu.Kind(8));
+            Assert.AreEqual(SettingsRowKind.Choice, menu.Kind(9));
+            Assert.AreEqual(SettingsRowKind.Button, menu.Kind(12));
             Assert.AreEqual("SOUND", menu.Group(0));
             Assert.AreEqual("SOUND", menu.Group(5));
             Assert.AreEqual("ROUND", menu.Group(6));
-            Assert.AreEqual("OPERATOR", menu.Group(8));
+            Assert.AreEqual("ROUND", menu.Group(8));
+            Assert.AreEqual("OPERATOR", menu.Group(9));
         }
 
         [Test]
@@ -152,9 +155,9 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(1.0, save.MasterVolume, 1e-9, "dragged past the end stays at the end");
             menu.SetFraction(0, -0.4);
             Assert.AreEqual(0.0, save.MasterVolume, 1e-9);
-            menu.SetFraction(10, 0.3);
+            menu.SetFraction(11, 0.3);
             Assert.AreEqual(37.0, save.AutoReturnSeconds, 1e-9, "a slider with its own range: 1 to 120 s, 30% along snaps to the whole second 37");
-            Assert.AreEqual(10, menu.Selected, "the mouse selects the row it works");
+            Assert.AreEqual(11, menu.Selected, "the mouse selects the row it works");
         }
 
         [Test]
@@ -166,9 +169,12 @@ namespace HockeyGame.Core.Tests
             Assert.IsTrue(menu.Activate());
             Assert.IsTrue(save.Mute);
             menu.Select(8);
+            Assert.IsTrue(menu.Activate());
+            Assert.IsFalse(save.ReplayOn);
+            menu.Select(9);
             Assert.IsTrue(menu.Change(1));
             Assert.AreEqual("COM3", save.UsbPort);
-            menu.Select(11);
+            menu.Select(12);
             Assert.IsTrue(menu.Activate());
             Assert.AreEqual(0, save.BestScore);
         }
@@ -179,11 +185,14 @@ namespace HockeyGame.Core.Tests
             var save = new SaveData
             {
                 MasterVolume = 0.2, CrowdVolume = 0.1, GameVolume = 0.3, MusicVolume = 0.4, Mute = true, TickOn = false, EasyMode = true, TestShotOnAtStart = false,
-                UsbPort = "COM9", InputIgnoreSeconds = 9, AutoReturnSeconds = 99, BestScore = 5, ForceGoalieBlocks = true
+                UsbPort = "COM9", InputIgnoreSeconds = 9, AutoReturnSeconds = 99, BestScore = 5, ForceGoalieBlocks = true,
+                ReplayOn = false
             };
             var menu = NewMenu(save);
             Assert.IsTrue(menu.Press(SettingsKey.Reset));
             var d = new SaveData();
+            Assert.IsTrue(save.ReplayOn, "Reset to default turns the Replay back on (#145)");
+            Assert.AreEqual(d.ReplayOn, save.ReplayOn);
             Assert.AreEqual(d.MasterVolume, save.MasterVolume);
             Assert.AreEqual(d.CrowdVolume, save.CrowdVolume);
             Assert.AreEqual(d.GameVolume, save.GameVolume);

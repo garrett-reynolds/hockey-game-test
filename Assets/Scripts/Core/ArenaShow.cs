@@ -24,7 +24,8 @@ namespace HockeyGame.Core
         Final,     // the final score at Round over
         NewBest,   // "NEW BEST!" with a small light show
         AdSlide,   // a brand ad slide: never in the shooting window
-        CalmStill  // from goalie set to the Shot: one dim still colour, no words (the Calm Area rules, as for the Ribbon Boards)
+        CalmStill, // from goalie set to the Shot: one dim still colour, no words (the Calm Area rules, as for the Ribbon Boards)
+        ResultWord // with the Replay off (#145): a Save or a Frame Hit's word and the score, for the whole hold (a Goal shows Goal)
     }
 
     public enum RibbonMessage
@@ -198,6 +199,8 @@ namespace HockeyGame.Core
         public int BestScore;
         /// <summary>The last finished Shot's speed this Round; null before the first Shot, or when it was Too late (no puck).</summary>
         public double? LastShotSpeedKmh;
+        /// <summary>True with the Replay turned off (#145): no Replay and no look-up; the board shows the result word. False (the default) is Replay on.</summary>
+        public bool NoReplay;
     }
 
     /// <summary>One answer of the Arena Show: what every arena part does now. The Unity parts only follow it.</summary>
@@ -319,7 +322,8 @@ namespace HockeyGame.Core
                 Goals = round.Goals,
                 ShotNumber = round.ShotNumber,
                 BestScore = flow.BestScore,
-                LastShotSpeedKmh = round.LastShotSpeedKmh
+                LastShotSpeedKmh = round.LastShotSpeedKmh,
+                NoReplay = !round.Settings.ReplayOn
             });
         }
 
@@ -334,10 +338,10 @@ namespace HockeyGame.Core
             bool chant = input.Phase == RoundPhase.Idle || input.Phase == RoundPhase.RoundOver;
             int goalsShown = input.Goals; // the Round counts a Goal from its Whistle (the line crossing), when it shows
             // The Replay's part of the hold counts from the Whistle (the puck lands), like the Goal Show.
-            bool replayHold = ReplayTiming.Follows(result);
+            bool replayHold = !input.NoReplay && ReplayTiming.Follows(result); // Replay off (#145): the camera stays on the net
             double landed = input.PhaseSeconds - input.ResultDelaySeconds;
             CameraMode camera = replayHold ? ReplayTiming.CameraAt(landed) : CameraMode.OnNet;
-            VideoBoardContent board = camera == CameraMode.Replay ? VideoBoardContent.Replay : VideoBoardFor(input.Phase, result, input.IsNewBest);
+            VideoBoardContent board = camera == CameraMode.Replay ? VideoBoardContent.Replay : VideoBoardFor(input.Phase, result, input.IsNewBest, input.NoReplay);
             string score = ScoreText(goalsShown, input.ShotNumber); // built once: the Score Box and the Video Board share it
 
             return new ArenaState(
@@ -364,7 +368,7 @@ namespace HockeyGame.Core
         private static string GoalsOf(int goalsShown) => goalsShown + " OF " + Round.ShotsPerRound + " GOALS";
         private static string BestOf(ArenaShowInput input) => input.BestScore + " OF " + Round.ShotsPerRound;
 
-        private static VideoBoardContent VideoBoardFor(RoundPhase phase, ArenaResult result, bool newBest)
+        private static VideoBoardContent VideoBoardFor(RoundPhase phase, ArenaResult result, bool newBest, bool noReplay)
         {
             switch (phase)
             {
@@ -376,7 +380,7 @@ namespace HockeyGame.Core
                         case ArenaResult.Goal: return VideoBoardContent.Goal;
                         case ArenaResult.Save:
                         case ArenaResult.FrameHitPost:
-                        case ArenaResult.FrameHitBar: return VideoBoardContent.Replay;
+                        case ArenaResult.FrameHitBar: return noReplay ? VideoBoardContent.ResultWord : VideoBoardContent.Replay;
                         case ArenaResult.WideMiss:
                         case ArenaResult.TooLate: return VideoBoardContent.AdSlide;
                         default: return VideoBoardContent.Score;
@@ -393,6 +397,7 @@ namespace HockeyGame.Core
             {
                 case VideoBoardContent.StartCard: return new VideoBoardWords(GameName, "BEST SCORE " + BestOf(input) + "\nSHOOT TO PLAY");
                 case VideoBoardContent.Goal: return new VideoBoardWords("GOAL!", score);
+                case VideoBoardContent.ResultWord: return new VideoBoardWords(RibbonFor(input.Result).Text, score); // Replay off: the ribbon's word (SAVE, OFF THE POST!, OFF THE BAR!)
                 case VideoBoardContent.Replay: return new VideoBoardWords("REPLAY", score); // the Replay picture covers it while the Replay plays
                 case VideoBoardContent.Final: return new VideoBoardWords("FINAL SCORE", GoalsOf(goalsShown) + "\nBEST " + BestOf(input));
                 case VideoBoardContent.NewBest: return new VideoBoardWords("NEW BEST!", GoalsOf(goalsShown));

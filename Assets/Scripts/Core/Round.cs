@@ -122,6 +122,12 @@ namespace HockeyGame.Core
         /// <summary>True from a Shot on the clock until the game reports its Whistle (Whistle). The result hold has not started.</summary>
         public bool AwaitingWhistle { get; private set; }
         /// <summary>
+        /// True when a Replay follows this result: the setting is on (RoundSettings.ReplayOn, #145) and it is a Goal, a Save or a
+        /// Frame Hit. The hold length does not depend on it: with the Replay off a Goal, Save or Frame Hit still holds 4.5 s.
+        /// </summary>
+        public bool ReplayFollows => _settings.ReplayOn && ReplayTiming.Follows(LastResult);
+
+        /// <summary>
         /// How long the current result holds once it shows (after the Whistle): ReplayTiming.HoldSeconds (about 4.5 s)
         /// when a Replay follows (a Goal, a Save or a Frame Hit), otherwise ResultHoldSeconds (2.5 s: a Wide Miss, Too late).
         /// Before Shots 2 to 6 a Replay's hold runs ShotFade.LeadSeconds (0.35 s) longer, so the fade to black starts after the

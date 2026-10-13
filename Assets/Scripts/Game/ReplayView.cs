@@ -135,7 +135,7 @@ namespace HockeyGame
             if (!_begun)
             {
                 _begun = true;
-                _recording = _round.LastShot.HasValue; // the Shot frame; Too late has no Shot
+                _recording = _round.LastShot.HasValue && _round.Settings.ReplayOn; // the Shot frame; Too late has no Shot; Replay off (#145): nothing to record
                 if (_recording)
                 {
                     _track.Begin(Parts());
@@ -144,7 +144,7 @@ namespace HockeyGame
                 else _track.Begin(); // no Replay: drop the last one
             }
             if (!_recording) return;
-            if (_round.ResultShowing && !ReplayTiming.Follows(_round.LastResult))
+            if (_round.ResultShowing && !_round.ReplayFollows)
             {
                 _track.Begin(); // the Whistle gave a result with no Replay (a Wide Miss): drop the recording
                 _recording = false;

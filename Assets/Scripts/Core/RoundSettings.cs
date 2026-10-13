@@ -8,6 +8,8 @@ namespace HockeyGame.Core
         public double SlowDownSeconds = 1.2;
         public double ShootingWindowSeconds = 3.0;
         public double ResultHoldSeconds = 2.5;
+        /// <summary>False: no Replay (#145). The game sets it from the saved Replay setting.</summary>
+        public bool ReplayOn = true;
 
         // The Whistle (WhistleRule), named starting values to tune: a Shot goes dead once the puck is slower than
         // WhistleVerySlowMetresPerSecond for WhistleDeadSeconds in a row, and the Whistle goes at the latest WhistleCapSeconds after it.

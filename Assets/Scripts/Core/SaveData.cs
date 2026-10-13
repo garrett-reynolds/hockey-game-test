@@ -38,6 +38,7 @@ namespace HockeyGame.Core
         private const string InputIgnoreSecondsKey = "inputIgnoreSeconds";
         private const string AutoReturnSecondsKey = "autoReturnSeconds";
         private const string TickOnKey = "tickOn";
+        private const string ReplayOnKey = "replayOn";
         private const string MasterVolumeKey = "masterVolume";
         private const string MuteKey = "mute";
         private const string CrowdVolumeKey = "crowdVolume";
@@ -55,6 +56,8 @@ namespace HockeyGame.Core
         public double InputIgnoreSeconds = 2;
         public double AutoReturnSeconds = 15;
         public bool TickOn = true;
+        /// <summary>The Replay after a Goal, a Save or a Frame Hit (#145). Off: the result word holds on the Video Board instead.</summary>
+        public bool ReplayOn = true;
         public double MasterVolume = 1.0;
         public bool Mute = false;
         /// <summary>Crowd sounds (crowd loop, cheers, groans, Clap Chant), 0..1, under the master volume.</summary>
@@ -106,6 +109,7 @@ namespace HockeyGame.Core
             data.InputIgnoreSeconds = ReadDouble(values, InputIgnoreSecondsKey, data.InputIgnoreSeconds, InputIgnoreRange);
             data.AutoReturnSeconds = ReadDouble(values, AutoReturnSecondsKey, data.AutoReturnSeconds, AutoReturnRange);
             data.TickOn = ReadBool(values, TickOnKey, data.TickOn);
+            data.ReplayOn = ReadBool(values, ReplayOnKey, data.ReplayOn);
             data.MasterVolume = ReadDouble(values, MasterVolumeKey, data.MasterVolume, VolumeRange);
             data.Mute = ReadBool(values, MuteKey, data.Mute);
             data.CrowdVolume = ReadDouble(values, CrowdVolumeKey, data.CrowdVolume, VolumeRange);
@@ -134,6 +138,7 @@ namespace HockeyGame.Core
                 sb.Append(InputIgnoreSecondsKey).Append('=').Append(InputIgnoreSeconds.ToString("R", inv)).Append('\n');
                 sb.Append(AutoReturnSecondsKey).Append('=').Append(AutoReturnSeconds.ToString("R", inv)).Append('\n');
                 sb.Append(TickOnKey).Append('=').Append(TickOn ? "true" : "false").Append('\n');
+                sb.Append(ReplayOnKey).Append('=').Append(ReplayOn ? "true" : "false").Append('\n');
                 sb.Append(MasterVolumeKey).Append('=').Append(MasterVolume.ToString("R", inv)).Append('\n');
                 sb.Append(MuteKey).Append('=').Append(Mute ? "true" : "false").Append('\n');
                 sb.Append(CrowdVolumeKey).Append('=').Append(CrowdVolume.ToString("R", inv)).Append('\n');
