@@ -49,6 +49,9 @@ namespace HockeyGame
         RoundSettings _before;                   // Before the Shot (#70, BeforeTheShot): its switches and sizes; null: none of it
         Vector3 _puckOnStick;
         float _watching, _settled;
+        readonly PushPoseTracker _pushTracker = new PushPoseTracker(); // the skate push pose (#126), stepped by ShowPush only
+        PushShown _push = PushShown.None;
+        PushPoseMoment _pushMoment;
 
         /// <param name="character">The goalie character; null (or no model) draws the block goalie instead.</param>
         public GoalieView(Transform parent, GoalieCharacter character = null)
@@ -168,6 +171,9 @@ namespace HockeyGame
                 _character.ShowReaction(_set, facing, _gesture, moment, Vector3.Lerp(_puck, _post, (float)moment.Glance));
                 recovered = (float)moment.Recover;
             }
+            // The skate push (#126) goes on right after the reaction (it sets the legs) and before SitLower and Live, which plant from
+            // the feet as they are. PoseForPhysics poses again with the same push: only ShowPush steps it.
+            _character.ShowPush(_push, _pushMoment);
             // Before the Shot (#70): once set he sits lower and quieter, his head on the puck; each fades as the reaction comes in.
             float lifeShare = 1f;
             if (_before != null)
@@ -187,6 +193,26 @@ namespace HockeyGame
         /// breathing, weight shifts and stick taps in the Ready Stance (StanceLife). Shown by the next SetProgress.
         /// </summary>
         public void Live(float seconds) => _life = seconds;
+
+        /// <summary>
+        /// The skate push (#126) shown now, once per frame: steps the push pose by dt (game seconds) toward `shown` (PushPoseTracker:
+        /// it never snaps) and keeps it for the next SetProgress, which lays it on the pose after the reaction. A pose made again in
+        /// the same frame (BreakawayView.PoseForPhysics) uses it as it is.
+        /// </summary>
+        public void ShowPush(PushShown shown, double dt)
+        {
+            _push = shown;
+            _pushMoment = _pushTracker.Step(shown, dt);
+        }
+
+        /// <summary>The push last given to ShowPush (PushShown.None before any, and after the goalie is hidden).</summary>
+        public PushShown Push => _push;
+
+        /// <summary>The push pose last worked out by ShowPush.</summary>
+        public PushPoseMoment PushMoment => _pushMoment;
+
+        /// <summary>How far the last React slid the body across the crease (metres, + toward +X; 0 before any React and for the block goalie): the move a Save Reaction's push shows.</summary>
+        public float ReactionSlideMetres => _character != null && _reacted ? _character.ReactionSlideMetres : 0f;
 
         /// <summary>
         /// Before the Shot (#70, BeforeTheShot): the puck on the shooter's stick (rink space) his head follows, `watching` of the
@@ -224,6 +250,12 @@ namespace HockeyGame
         {
             if (visible == _visible) return;
             _visible = visible;
+            if (!visible)
+            {
+                _pushTracker.Reset();
+                _push = PushShown.None;
+                _pushMoment = _pushTracker.Now;
+            }
             Apply();
         }
 

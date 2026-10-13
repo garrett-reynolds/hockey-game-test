@@ -327,7 +327,10 @@ namespace HockeyGame.Core.Tests
                 Assert.AreEqual(6, shot, "all six Shots taken");
                 Assert.AreEqual(RoundPhase.RoundOver, round.Phase);
                 Assert.AreEqual(6, boundaries.Count, "five skate-ins and the end screen");
-                Assert.Less(worstBoundary, 0.03f, "no snap as a hold ends (only the start of the turn to the new shooter): " + worstWhere);
+                // Plus (#126) the pushing skate going out as the skate-in's first shuffle starts: at most its full reach (PushOutMetres and
+                // PushBackMetres) over PushInSeconds, a frame's share of it (3.5 cm). That is the skate pushing, not a snap.
+                float pushStep = (float)((GoalieSkatePush.PushOutMetres + GoalieSkatePush.PushBackMetres) / PushPose.PushInSeconds * Frame);
+                Assert.Less(worstBoundary, 0.03f + pushStep, "no snap as a hold ends (only the start of the turn to the new shooter): " + worstWhere);
                 // 0.08, not 0.05 (#125): the skate-push model speeds up at PushAccel 40 m/s2 (3.2 m/s, 5.3 cm a frame, 0.08 s in; the
                 // Catcher also swings as he turns), not the old 3 m/s cap. Still a smooth start with no snap (the next test is the turn).
                 Assert.Less(worstLate, 0.08f, "smooth from the end of the hold into the next skate-in: " + lateWhere);
@@ -335,7 +338,8 @@ namespace HockeyGame.Core.Tests
                 // his position), plus the Catcher's swing as the turn to the new shooter starts, which the boundary assert above
                 // already allows at 3 cm. Measured worst: 2.6 cm (the Catcher, on the first frame of the skate-in). Unlike the 8 cm
                 // step bound, this still catches a snap: a snap is a jump of one frame's step, not a change of speed.
-                float allowed = (float)(new RoundSettings().PushAccelMetresPerSecondSquared * Frame * Frame) + 0.03f;
+                // (#126) The pushing skate starts out at that same pace from rest, so its second difference may be one more pushStep.
+                float allowed = (float)(new RoundSettings().PushAccelMetresPerSecondSquared * Frame * Frame) + 0.03f + pushStep;
                 Assert.Less(worstChange, allowed, "his speed changes smoothly from step to step: " + changeWhere);
                 Assert.Less(worstTurn, 2f, "turns to the next shooter at most 2 degrees a frame (no snap)");
             }

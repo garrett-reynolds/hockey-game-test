@@ -49,6 +49,7 @@ namespace HockeyGame
             _look = MakeLookVolume(transform);
             _shuffle = new GoalieShuffle(new RinkPoint(0, 0, -round.Settings.NormalDepthMetres), round.Settings); // centred, at his normal depth
             _steps = new SkateInShuffles(_shuffle.Shown);
+            _pushFrom = _shuffle.Shown;
             _goalie.Stand(ToVector(_shuffle.Shown));
         }
 
@@ -126,6 +127,7 @@ namespace HockeyGame
             if (phase == RoundPhase.Idle || phase == RoundPhase.RoundOver)
             {
                 _goalie.Face((float)_turn.Shown, (float)_turn.Shown); // keeps facing the last shooter
+                _goalie.ShowPush(PushShown.None, dt); // a pose part-way out fades (it never freezes)
                 _goalie.SetProgress(set);
                 return; // camera stays where it is
             }
@@ -176,7 +178,55 @@ namespace HockeyGame
             }
             _goalie.Stand(ToVector(_shuffle.Shown));
             _goalie.Face((float)_turn.Shown, target);
+            FeedPush(phase, phaseSeconds, set, dt);
             _goalie.SetProgress(set);
+        }
+
+        RinkPoint _pushFrom;         // where the shuffle stood at the last FeedPush (its X change picks the pushing skate)
+        double _pushPeak;            // the shuffle's top speed since it last left rest (the Speed share is against it)
+        Skate _pushSkate = Skate.Right;
+
+        /// <summary>
+        /// The skate push (#126) the goalie shows this frame, once per frame (Step): on the skate-in and slow-down from the shuffle
+        /// (the skate from the sign of the frame's X change, the kind from the shuffle); in a Late Settle's window from the Spot's
+        /// own shape (SetUps.Spot: a push then a glide over LateSettleSeconds); in the result hold from the Save Reaction's slide, none
+        /// for Pads (the pose sets the legs itself). Seen in the goalie view as a pose, never as a change of where he is.
+        /// </summary>
+        void FeedPush(RoundPhase phase, double phaseSeconds, float set, float dt)
+        {
+            RoundSettings settings = _round.Settings;
+            PushShown shown = PushShown.None;
+            if (phase == RoundPhase.SkateIn || phase == RoundPhase.SlowDown)
+            {
+                RinkPoint now = _shuffle.Shown;
+                double dx = now.X - _pushFrom.X, dz = now.Z - _pushFrom.Z;
+                _pushFrom = now;
+                if (Math.Abs(dx) > 1e-6) _pushSkate = dx < 0 ? Skate.Right : Skate.Left;
+                _pushPeak = _shuffle.Phase == PushPhase.Done ? 0 : Math.Max(_pushPeak, _shuffle.Speed);
+                // Only a move that goes sideways (not a depth move along Z), and only a real one: a micro-move or the slow drift with
+                // the angle is under the peak speed of the smallest push, and shows none.
+                bool sideways = Math.Abs(dx) >= 0.5 * Math.Sqrt(dx * dx + dz * dz);
+                if (_shuffle.Phase != PushPhase.Done && sideways && _pushPeak >= new SkatePush(PushShown.MinMetres, settings).PeakSpeed)
+                    shown = new PushShown(_shuffle.Kind, _pushSkate, _shuffle.Phase, _shuffle.Speed / _pushPeak);
+            }
+            else
+            {
+                _pushFrom = _shuffle.Shown;
+                _pushPeak = 0;
+                if (phase == RoundPhase.ShootingWindow)
+                {
+                    // Only a Late Settle slides in the window: he comes back toward the angle from his post's side (the Spot's shape).
+                    SetUp setUp = _round.SetUp;
+                    if (setUp.Kind == SetUpKind.LateSettle && setUp.Toward.HasValue)
+                    {
+                        double move = setUp.Toward.Value == Post.Left ? settings.LateSettleMetres : -settings.LateSettleMetres;
+                        shown = PushShown.AtProgress(move, phaseSeconds / Math.Max(1e-6, settings.LateSettleSeconds), settings);
+                    }
+                }
+                else if (phase == RoundPhase.ResultHold && _round.LastRace.HasValue && _round.LastRace.Value.SaveReaction != SaveReaction.Pads)
+                    shown = PushShown.AtProgress(_goalie.ReactionSlideMetres, set, settings);
+            }
+            _goalie.ShowPush(shown, dt);
         }
 
         static Vector3 ToVector(RinkPoint p) => new Vector3((float)p.X, (float)p.Y, (float)p.Z);

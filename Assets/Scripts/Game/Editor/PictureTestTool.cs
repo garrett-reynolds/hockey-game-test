@@ -102,6 +102,9 @@ namespace HockeyGame.Editor
         // Far to the glove side (+X): the Shot comes from 3 m out to that side at the net's corner, so the arm alone cannot reach and he
         // slides (0.15 m at set 0.25, 0.6 m at full). From the middle the same aim needs no slide.
         const float PushReactionFromX = 3f;
+        /// <summary>The push pose is time-based: a push view steps it this many frames of this length; a clear takes more.</summary>
+        const double PushFrameSeconds = 1.0 / 60;
+        const int PushShowFrames = 20, PushClearFrames = 30;
         const double PushReactionX = 100, PushReactionY = 60;
 
         public static string ViewName(PicturePoint point, bool easyMode) => point.Name + (easyMode ? "-easy-on" : "-easy-off");
@@ -347,7 +350,8 @@ namespace HockeyGame.Editor
                 const double t = WindowSeconds;
                 Goalie.ShowBeforeTheShot(Vector3.zero, 0f, 0f, null);
                 Goalie.ShowGaps(NetFaceGaps.None);
-                // (Task 4 seam: reset the push shown here, then Goalie.ShowPush(...) after Live below.)
+                // The push pose is time-based and the rig is shared: 30 frames of none take it to zero first, so a view is a function of itself.
+                for (int i = 0; i < PushClearFrames; i++) Goalie.ShowPush(PushShown.None, PushFrameSeconds);
                 RinkPoint spot = SetUps.Approach(SetUp.Clean, AttackSide.Middle, phase, t, Settings);
                 RinkPoint puck = Breakaway.Puck(AttackSide.Middle, phase, t, Settings);
                 float toShooter = puck.Z >= spot.Z ? 1f : -1f;
@@ -356,6 +360,7 @@ namespace HockeyGame.Editor
                 {
                     var move = new SkatePush(p.MetresSigned, Settings);
                     x = (float)move.Position(p.U * move.TotalSeconds);
+                    ShowPushFor(PushShown.AtProgress(p.MetresSigned, p.U, Settings));
                 }
                 var at = new Vector3(x, (float)spot.Y, (float)spot.Z);
                 Goalie.Stand(at);
@@ -368,7 +373,14 @@ namespace HockeyGame.Editor
                 if (!p.Reaction) return;
                 var result = new ShotResult(ShotResultKind.Save, true, PushReactionX, PushReactionY, 100, false);
                 Goalie.React(result, new Vector3(PushReactionFromX, 1.15f, (float)puck.Z), SaveReaction.Glove, double.PositiveInfinity, Settings.LateMarginLimitSeconds);
+                ShowPushFor(PushShown.AtProgress(Goalie.ReactionSlideMetres, PushReactionSet, Settings));
                 Goalie.SetProgress(PushReactionSet);
+            }
+
+            /// <summary>Steps the push pose a fixed 20 frames at this push, so the picture is a function of the view (the real GoalieView.ShowPush).</summary>
+            void ShowPushFor(PushShown shown)
+            {
+                for (int i = 0; i < PushShowFrames; i++) Goalie.ShowPush(shown, PushFrameSeconds);
             }
 
             static Vector3 ToVector(RinkPoint p) => new Vector3((float)p.X, (float)p.Y, (float)p.Z);
