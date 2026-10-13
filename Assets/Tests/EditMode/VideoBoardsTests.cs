@@ -438,11 +438,14 @@ namespace HockeyGame.Core.Tests
                 for (int i = 0; i < boards.ScreenCount; i++)
                 {
                     Assert.AreSame(replay, boards.PictureOn(i).mainTexture, "screen " + i);
+                    Assert.IsTrue(LedBoardMaterial.IsPlain(boards.PictureOn(i)), "screen " + i + " draws the Replay sharp, with no LED cells (#127)");
                     Assert.AreEqual("", boards.HeadlineOn(i), "no words over the picture");
                 }
                 Assert.AreEqual(Color.white, boards.BackColour, "the picture untinted");
 
                 boards.ShowPicture(null);
+                for (int i = 0; i < boards.ScreenCount; i++)
+                    Assert.IsFalse(LedBoardMaterial.IsPlain(boards.PictureOn(i)), "screen " + i + " words are LED cells again");
                 Assert.AreSame(boards.WordsTextureOn(0), boards.PictureOn(0).mainTexture, "back to the board's words");
                 Assert.AreEqual(At(RoundPhase.SkateIn).VideoBoardWords.Headline, boards.HeadlineOn(4), "the words come back");
                 Assert.AreNotEqual(Color.white, boards.BackColour);
@@ -493,6 +496,8 @@ namespace HockeyGame.Core.Tests
                         Material m = boards.PictureOn(i);
                         Assert.AreEqual(LedBoardMaterial.ShaderName, m.shader.name, "screen " + i + " " + m.name);
                         Assert.AreEqual(cell, LedBoardMaterial.CellOf(m), 1e-6f, "screen " + i + " cell size");
+                        // #127: only the Replay picture is drawn plain (sharp, no cells); words and the Calm still keep the LED cells and gaps.
+                        Assert.AreEqual(ReferenceEquals(m.mainTexture, picture), LedBoardMaterial.IsPlain(m), "screen " + i + " " + m.name + " plain only for the Replay picture");
                     }
                     // The words are a picture on the screen: the screen's material reads the board's words texture (one texel per cell) and
                     // lights a cell when its texel is on.

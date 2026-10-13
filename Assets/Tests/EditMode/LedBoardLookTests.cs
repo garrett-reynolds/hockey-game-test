@@ -225,11 +225,12 @@ namespace HockeyGame.Core.Tests
 
         [Test]
         [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
-        public void The_Video_Board_picture_is_a_grid_of_flat_cells_with_dark_gaps()
+        public void The_Video_Board_shows_a_Replay_picture_sharp_with_no_cells_and_no_gaps()
         {
             VideoBoards boards = VideoBoards.Build(_rink.transform);
-            // One texel per cell across the board, alternating bright and dim: a smooth board blends them (far from flat inside a
-            // cell); an LED board shows each cell as one flat colour with a big step to the next.
+            // One texel per cell across the board, alternating bright and dim: a sharp (smoothly filtered) board blends neighbours
+            // (far from flat inside a texel, no dark line between them); an LED board shows each cell as one flat colour with a dark gap.
+            // (#127 reversed #121's blocky Replay: this test used to pin the flat cells and gaps.)
             int cellsAcross = Mathf.RoundToInt(boards.SizeOf(0).x / LedCell), cellsUp = Mathf.RoundToInt(boards.SizeOf(0).y / LedCell);
             _ramp = new Texture2D(cellsAcross, 4, TextureFormat.RGB24, false) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
             for (int y = 0; y < 4; y++)
@@ -270,15 +271,22 @@ namespace HockeyGame.Core.Tests
                     float cellCentre = left + (k + 0.5f) * cellPixels, boundary = left + k * cellPixels;
                     float here = At(cellCentre).r, leftEdge = At(boundary + cellPixels * 0.3f).r, rightEdge = At(boundary + cellPixels * 0.7f).r;
                     float gap = Mathf.Min(At(boundary - 1f).r, Mathf.Min(At(boundary).r, At(boundary + 1f).r));
+                    float dimmerNeighbour = Mathf.Min(here, At(left + (k - 0.5f) * cellPixels).r); // the cell before it (centre values only)
                     centreRed[n] = here;
-                    // Each side of the cell against its centre (left against right alone would pass on a symmetric blend).
-                    if (Mathf.Abs(leftEdge - here) > 4f || Mathf.Abs(rightEdge - here) > 4f)
-                        failures.Add("cell " + k + ": not a flat cell (30 % across " + leftEdge + ", centre " + here + ", 70 % across " + rightEdge + " of 255)");
-                    if (gap >= here * 0.4f)
-                        failures.Add("cell " + k + ": no dark gap on the cell boundary (darkest within 1 px of it " + gap + ", centre " + here + " of 255)");
+                    // Each side of the cell against its centre (left against right alone would pass on a symmetric blend): both blend
+                    // toward the neighbour, so neither equals the centre.
+                    if (Mathf.Abs(leftEdge - here) <= 10f || Mathf.Abs(rightEdge - here) <= 10f)
+                        failures.Add("cell " + k + ": a flat cell, not smooth (30 % across " + leftEdge + ", centre " + here + ", 70 % across " + rightEdge + " of 255)");
+                    if (gap < dimmerNeighbour - 4f)
+                        failures.Add("cell " + k + ": a dark gap on the boundary (darkest within 1 px of it " + gap + ", dimmer centre " + dimmerNeighbour + " of 255)");
+                    // The boundary between two cell rows (all rows of the picture are alike): no dark line either.
+                    float rowBoundary = bottom + middleRow * cellPixels;
+                    float across = pixels[Mathf.Clamp(Mathf.FloorToInt(rowBoundary), 0, height - 1) * width + Mathf.Clamp(Mathf.FloorToInt(cellCentre), 0, width - 1)].r;
+                    if (across < here - 4f)
+                        failures.Add("cell " + k + ": a dark gap between rows (" + across + " on the row boundary, centre " + here + " of 255)");
                 }
                 if (Mathf.Abs(centreRed[0] - centreRed[1]) <= 40f)
-                    failures.Add("cells " + first + " and " + (first + 1) + " centres differ little (" + centreRed[0] + " vs " + centreRed[1] + " of 255): not blocky cells");
+                    failures.Add("cells " + first + " and " + (first + 1) + " centres differ little (" + centreRed[0] + " vs " + centreRed[1] + " of 255): the picture lost its detail");
             }
             Assert.IsEmpty(failures, string.Join("\n", failures));
         }
@@ -409,10 +417,10 @@ namespace HockeyGame.Core.Tests
         public void A_far_Video_Board_keeps_the_colour_of_its_cells()
         {
             VideoBoards boards = VideoBoards.Build(_rink.transform);
-            _ramp = new Texture2D(1, 1, TextureFormat.RGB24, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
-            _ramp.SetPixel(0, 0, new Color(0.8f, 0.8f, 0.8f));
-            _ramp.Apply();
-            boards.ShowPicture(_ramp);
+            // The Calm Area's still colour is a flat LED screen (the Replay picture is plain since #127, so it no longer shows cells).
+            boards.Show(Show(RoundPhase.ShootingWindow), 0.0);
+            Assert.IsFalse(LedBoardMaterial.IsPlain(boards.PictureOn(0)), "the still is an LED screen");
+            float Bright(Color32 c) => Mathf.Max(c.r, Mathf.Max(c.g, c.b)); // the still is dark blue-grey: its brightest channel
 
             Vector3 centre = boards.CentreOf(0), facing = boards.FacingOf(0);
             _eye.transform.position = centre + facing * 5f;
@@ -427,7 +435,7 @@ namespace HockeyGame.Core.Tests
             Color32[] near = Render(nearW, nearH, null);
             float nearCentre = 0f; // the middle may fall in a gap (the board is a whole number of cells tall): take the brightest pixel nearby
             for (int dy = -15; dy <= 15; dy++)
-                for (int dx = -15; dx <= 15; dx++) nearCentre = Mathf.Max(nearCentre, near[(nearH / 2 + dy) * nearW + nearW / 2 + dx].r);
+                for (int dx = -15; dx <= 15; dx++) nearCentre = Mathf.Max(nearCentre, Bright(near[(nearH / 2 + dy) * nearW + nearW / 2 + dx]));
 
             float cellPixels = LedCell * farH / (2f * _camera.orthographicSize);
             Assert.Less(cellPixels, 1.5f, "the far render has to be far: a cell is " + cellPixels + " px");
@@ -435,7 +443,7 @@ namespace HockeyGame.Core.Tests
             float sum = 0f;
             int n = 0;
             for (int y = farH / 2 - 8; y < farH / 2 + 8; y++)
-                for (int x = farW / 2 - 16; x < farW / 2 + 16; x++) { sum += far[y * farW + x].r; n++; }
+                for (int x = farW / 2 - 16; x < farW / 2 + 16; x++) { sum += Bright(far[y * farW + x]); n++; }
             float farMean = sum / n;
             Assert.AreEqual(nearCentre, farMean, nearCentre * 0.08f, "a far board is as bright as its cells (a gap-averaged fade is about 36 % darker)");
         }
