@@ -9,30 +9,30 @@ namespace HockeyGame
     /// are IMGUI labels over it, like the rest of the HUD. What it says and when (LowerThird) is decided in the core; this only draws
     /// it, sliding in from the left.
     /// <para>
-    /// The five colours are the League Skin's, the same values as StartLogoArt (branch feat/140, #140). They are defined here only
-    /// so the two branches do not meet; after both are in main, make one list (Navy, Blue, Gold, Red, White) and use it in both.
+    /// The colours are look C's (LookC, one list). Where the words go is LowerThirdLayout (a test checks it at several screen sizes).
+    /// The words' GUIContent and font sizes are made once per Shot (when the text changes), not on every OnGUI call.
     /// </para>
     /// </summary>
     public sealed class LowerThirdView
     {
-        public static readonly Color32 Navy = new Color32(10, 16, 34, 255);
-        public static readonly Color32 Blue = new Color32(20, 60, 150, 255);
-        public static readonly Color32 Gold = new Color32(232, 190, 40, 255);
-        public static readonly Color32 Red = new Color32(200, 30, 45, 255);
-        public static readonly Color32 White = new Color32(255, 255, 255, 255);
-
-        public const int Width = 1240, Height = 170;
-        // Picture space (y down): everything leans right by Slant per unit of height above the middle.
-        const float Slant = 0.25f, MidY = 85f, Left = 16f;
-        // Where the words go in picture space: the label in the red tab, the number in the navy bar.
-        const float TabX0 = 60f, TabX1 = 372f, BarX0 = 396f, BarX1 = 1128f, TextY0 = 30f, TextY1 = 130f;
+        const int Width = LowerThirdLayout.Width, Height = LowerThirdLayout.Height;
 
         Texture2D _art;
-        GUIStyle _kicker, _headline;
+        GUIStyle _kicker, _headline, _speed;
+        Words _kickerWords, _headlineWords, _speedWords;
+
+        // One line of words: its GUIContent, and the font size that fits (kept while the text and the box's width stay the same).
+        sealed class Words
+        {
+            public string Text;
+            public GUIContent Content;
+            public float FittedWidth;
+            public int Size;
+        }
 
         struct Shape { public Vector2[] Points; public Color32 Colour; }
 
-        static Vector2 Lean(float x, float y) => new Vector2(x + (MidY - y) * Slant + Left, y);
+        static Vector2 Lean(float x, float y) => LowerThirdLayout.Lean(x, y);
 
         static Shape Box(float x0, float y0, float x1, float y1, Color32 colour) => new Shape
         {
@@ -42,13 +42,13 @@ namespace HockeyGame
 
         static Shape[] Shapes() => new[]
         {
-            Box(40, 30, 380, 130, Red),       // the label's tab
-            Box(0, 30, 46, 130, Blue),        // blue cap, with a gold bar, at the left (as the settings title)
-            Box(40, 30, 52, 130, Gold),
-            Box(380, 30, 1140, 130, Navy),    // the number's bar
-            Box(1128, 30, 1190, 130, Blue),   // the blue end cap
-            Box(0, 138, 1160, 154, Gold),     // the gold stripe under
-            Box(110, 16, 1090, 24, White),    // the white streak over
+            Box(LowerThirdLayout.TabLeft, 30, LowerThirdLayout.TabRight, 130, LookC.Red), // the label's tab
+            Box(0, 30, 46, 130, LookC.Blue),        // blue cap, with a gold bar, at the left (as the settings title)
+            Box(40, 30, 52, 130, LookC.Gold),
+            Box(380, 30, 1140, 130, LookC.Navy),    // the number's bar
+            Box(1128, 30, 1190, 130, LookC.Blue),   // the blue end cap
+            Box(0, 138, 1160, 154, LookC.Gold),     // the gold stripe under
+            Box(110, 16, 1090, 24, LookC.White),    // the white streak over
         };
 
         /// <summary>The picture, made once: the shapes anti-aliased over a clear background.</summary>
@@ -64,7 +64,7 @@ namespace HockeyGame
             {
                 // Clear pixels carry navy, so the bilinear edge of the picture does not pick up black.
                 pixels[i] = a[i] <= 0f
-                    ? new Color32(Navy.r, Navy.g, Navy.b, 0)
+                    ? new Color32(LookC.Navy.r, LookC.Navy.g, LookC.Navy.b, 0)
                     : new Color32((byte)Mathf.RoundToInt(r[i]), (byte)Mathf.RoundToInt(g[i]), (byte)Mathf.RoundToInt(b[i]), (byte)Mathf.RoundToInt(a[i] * 255f));
             }
             var t = new Texture2D(Width, Height, TextureFormat.RGBA32, false) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
@@ -128,27 +128,37 @@ namespace HockeyGame
             if (show.Amount <= 0) return;
             if (_art == null) Make();
 
-            float barWidth = w * 0.8f, s = barWidth / Width, barHeight = Height * s;
-            float x = Mathf.Lerp(-barWidth, w * 0.05f, (float)show.Amount); // slides in from the left edge
-            float y = h - barHeight - h * 0.075f;                           // above the dev lines along the bottom
-            GUI.DrawTexture(new Rect(x, y, barWidth, barHeight), _art);
+            float s = LowerThirdLayout.Scale(w);
+            Rect bar = LowerThirdLayout.Bar(w, h);
+            bar.x = Mathf.Lerp(-bar.width, bar.x, (float)show.Amount); // slides in from the left edge
+            GUI.DrawTexture(bar, _art);
 
-            Label(new Rect(x + TabX0 * s, y + TextY0 * s, (TabX1 - TabX0) * s, (TextY1 - TextY0) * s), show.Text.Kicker, _kicker, (int)(32 * s));
-            Label(new Rect(x + BarX0 * s, y + TextY0 * s, (BarX1 - BarX0) * s, (TextY1 - TextY0) * s), show.Text.Headline, _headline, (int)(54 * s));
+            Label(LowerThirdLayout.Kicker(bar, s), show.Text.Kicker, _kicker, ref _kickerWords, (int)(32 * s));
+            Label(LowerThirdLayout.Headline(bar, s), show.Text.Headline, _headline, ref _headlineWords, (int)(50 * s));
+            Label(LowerThirdLayout.Speed(bar, s), show.Text.SpeedLine, _speed, ref _speedWords, (int)(26 * s));
         }
 
-        // The words at the biggest size up to maxSize that fits the rect's width.
-        static void Label(Rect rect, string text, GUIStyle style, int maxSize)
+        // The words at the biggest size up to maxSize that fits the rect's width. The content and the size are kept while the text and
+        // the width stay the same (a Shot's words do), so a frame only draws.
+        static void Label(Rect rect, string text, GUIStyle style, ref Words words, int maxSize)
         {
-            var content = new GUIContent(text);
-            int size = maxSize;
-            for (; size > 10; size -= 2)
+            if (string.IsNullOrEmpty(text)) return;
+            if (words == null) words = new Words();
+            if (words.Text != text || words.FittedWidth != rect.width)
             {
-                style.fontSize = size;
-                if (style.CalcSize(content).x <= rect.width * 0.95f) break;
+                words.Text = text;
+                words.Content = new GUIContent(text);
+                words.FittedWidth = rect.width;
+                int size = maxSize;
+                for (; size > 10; size -= 2)
+                {
+                    style.fontSize = size;
+                    if (style.CalcSize(words.Content).x <= rect.width * LowerThirdLayout.TextFit) break;
+                }
+                words.Size = size;
             }
-            style.fontSize = size;
-            GUI.Label(rect, content, style);
+            style.fontSize = words.Size;
+            GUI.Label(rect, words.Content, style);
         }
 
         void Make()
@@ -156,7 +166,9 @@ namespace HockeyGame
             _art = MakeArt();
             _kicker = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.BoldAndItalic, wordWrap = false, clipping = TextClipping.Overflow };
             _headline = new GUIStyle(_kicker);
+            _speed = new GUIStyle(_kicker);
             _kicker.normal.textColor = _headline.normal.textColor = Color.white;
+            _speed.normal.textColor = LookC.Gold; // the speed line in look C's gold
         }
 
         public void Dispose()

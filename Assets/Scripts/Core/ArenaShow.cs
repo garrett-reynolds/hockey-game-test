@@ -257,7 +257,7 @@ namespace HockeyGame.Core
     public static class ArenaShow
     {
         /// <summary>The game's name, as the start screen and the start card show it.</summary>
-        public const string GameName = "HOCKEY GAME";
+        public const string GameName = "SHOOTOUT";
 
         /// <summary>The photosensitive limit: no light flashes more often than this.</summary>
         public const double MaxFlashesPerSecond = 3.0;

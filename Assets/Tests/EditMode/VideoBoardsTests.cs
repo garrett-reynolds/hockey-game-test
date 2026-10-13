@@ -384,6 +384,19 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void The_start_card_says_SHOOTOUT_in_look_Cs_white_on_red_and_the_other_cards_keep_the_skins_colours()
+        {
+            Assert.AreEqual("SHOOTOUT", ArenaShow.GameName);
+            VideoBoards boards = VideoBoards.Build(_rink.transform);
+            boards.Show(At(RoundPhase.Idle), 0.0);
+            Assert.AreEqual("SHOOTOUT", boards.HeadlineOn(0));
+            Assert.AreEqual(LookC.Red, (Color32)boards.BackColour, "the red band of the Shootout logo");
+            Assert.AreEqual(LookC.White, (Color32)boards.WordsColourOn(0), "white letters, as the logo's");
+            boards.Show(At(RoundPhase.SkateIn), 0.0);
+            Assert.AreNotEqual(LookC.Red, (Color32)boards.BackColour, "the score card is back to the skin's colours");
+        }
+
+        [Test]
         public void The_boards_show_the_Arena_Shows_words()
         {
             VideoBoards boards = VideoBoards.Build(_rink.transform);

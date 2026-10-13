@@ -77,12 +77,12 @@ namespace HockeyGame.Core.Tests
         public void The_logo_uses_the_League_Skin_colours()
         {
             TeamSkin league = TeamSkin.League;
-            Assert.AreEqual((Color32)league.Rail, StartLogoArt.Blue);
-            Assert.AreEqual((Color32)league.KickPlate, StartLogoArt.Gold);
-            Assert.AreEqual((Color32)league.VideoBoardBack, StartLogoArt.Navy);
-            Assert.AreEqual((Color32)league.VideoBoardWords, StartLogoArt.White);
+            Assert.AreEqual((Color32)league.Rail, LookC.Blue);
+            Assert.AreEqual((Color32)league.KickPlate, LookC.Gold);
+            Assert.AreEqual((Color32)league.VideoBoardBack, LookC.Navy);
+            Assert.AreEqual((Color32)league.VideoBoardWords, LookC.White);
             // The League Skin has no red: this is look C's red, picked in #137 (the prototype's Red, 200 30 45).
-            Assert.AreEqual(new Color32(200, 30, 45, 255), StartLogoArt.Red);
+            Assert.AreEqual(new Color32(200, 30, 45, 255), LookC.Red);
         }
 
         [Test]
@@ -112,7 +112,7 @@ namespace HockeyGame.Core.Tests
             Color32[] px = t.GetPixels32();
             var wanted = new Dictionary<string, Color32>
             {
-                { "red", StartLogoArt.Red }, { "blue", StartLogoArt.Blue }, { "gold", StartLogoArt.Gold }, { "white", StartLogoArt.White }
+                { "red", LookC.Red }, { "blue", LookC.Blue }, { "gold", LookC.Gold }, { "white", LookC.White }
             };
             foreach (var w in wanted)
             {

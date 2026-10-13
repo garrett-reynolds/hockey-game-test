@@ -76,7 +76,7 @@ namespace HockeyGame.Core.Tests
                 for (int x = (int)r.xMin; x < (int)r.xMax; x++)
                 {
                     int i = (H - 1 - y) * W + x;
-                    if (y < (int)r.yMin + StartLogoArt.StripEdgeHeight) { px[i] = StartLogoArt.Gold; continue; }
+                    if (y < (int)r.yMin + StartLogoArt.StripEdgeHeight) { px[i] = LookC.Gold; continue; }
                     px[i] = new Color32((byte)(back.r * 255 * back.a + px[i].r * (1 - back.a)), (byte)(back.g * 255 * back.a + px[i].g * (1 - back.a)),
                                         (byte)(back.b * 255 * back.a + px[i].b * (1 - back.a)), 255);
                 }
