@@ -275,7 +275,7 @@ namespace HockeyGame.Core.Tests
                 Vector3[] before = null, beforeThat = null;
                 float worstChange = 0f;
                 string changeWhere = "";
-                float worstBodyBoundary = 0f, worstSkateBoundary = 0f, worstSkateChange = 0f;
+                float worstHipsBoundary = 0f, worstBodyBoundary = 0f, worstSkateBoundary = 0f, worstSkateChange = 0f;
                 string bodyWhere = "", skateWhere = "", skateChangeWhere = "";
                 float worstBoundary = 0f, worstTurn = 0f, lastFacing = 0f, worstLate = 0f;
                 string worstWhere = "", lateWhere = "";
@@ -305,7 +305,12 @@ namespace HockeyGame.Core.Tests
                         float step = Most(before, now, out int which);
                         boundaries.Add(phase + " after Shot " + shot + ": " + step.ToString("F4") + " m (" + Name(which) + "), turn " + Mathf.Abs(facing - lastFacing).ToString("F2") + " deg");
                         if (step > worstBoundary) { worstBoundary = step; worstWhere = boundaries[boundaries.Count - 1]; }
-                        float bodyStep = Most(before, now, out int bodyWhich, 0, SkateFrom), skateStep = Most(before, now, out int skateWhich, SkateFrom, SkateTo);
+                        // The body is every point but the skates: the gear before them and the hips after them.
+                        float gearStep = Most(before, now, out int bodyWhich, 0, SkateFrom), hipsStep = Most(before, now, out int hipsWhich, SkateTo);
+                        float bodyStep = Mathf.Max(gearStep, hipsStep);
+                        if (hipsStep > gearStep) bodyWhich = hipsWhich;
+                        float skateStep = Most(before, now, out int skateWhich, SkateFrom, SkateTo);
+                        worstHipsBoundary = Mathf.Max(worstHipsBoundary, hipsStep);
                         if (bodyStep > worstBodyBoundary) { worstBodyBoundary = bodyStep; bodyWhere = phase + " after Shot " + shot + ": the " + Name(bodyWhich); }
                         if (skateStep > worstSkateBoundary) { worstSkateBoundary = skateStep; skateWhere = phase + " after Shot " + shot + ": the " + Name(skateWhich); }
                         afterHold = 0f;
@@ -340,6 +345,7 @@ namespace HockeyGame.Core.Tests
                 // (#126) Only the two skates may add the push: the pushing skate goes out as the skate-in's first shuffle starts, at most its
                 // full reach (PushOutMetres and PushBackMetres) over PushInSeconds, a frame's share of it (3.5 cm). Every other point keeps the old limits.
                 float pushStep = (float)((GoalieSkatePush.PushOutMetres + GoalieSkatePush.PushBackMetres) / PushPose.PushInSeconds * Frame);
+                Assert.Less(worstHipsBoundary, 0.03f, "no hips snap as a hold ends");
                 Assert.Less(worstBodyBoundary, 0.03f, "no snap as a hold ends (only the start of the turn to the new shooter): " + bodyWhere);
                 Assert.Less(worstSkateBoundary, 0.03f + pushStep, "no skate snap as a hold ends (the push may add a step): " + skateWhere);
                 // 0.08, not 0.05 (#125): the skate-push model speeds up at PushAccel 40 m/s2 (3.2 m/s, 5.3 cm a frame, 0.08 s in; the
