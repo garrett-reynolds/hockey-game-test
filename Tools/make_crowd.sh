@@ -1,19 +1,31 @@
 #!/usr/bin/env bash
-# Builds all four crowd body files (two bodies x near and far level) with Tools/make_crowd.py (Blender, headless).
-#   bash Tools/make_crowd.sh "<short folder with Superhero_Male_FullBody.fbx, Superhero_Female_FullBody.fbx and hair/>"
-# The folder holds the Quaternius Universal Base Characters (Standard) files: Base Characters/Unity/*.fbx and the
-# Hairstyles/Origin at 0/FBX (Unity)/*.fbx files in hair/. Pass a Windows path (C:/...).
+# Builds all 24 crowd body files (12 Quaternius Modular outfits x near and far level) with Tools/make_crowd.py (Blender, headless).
+#   bash Tools/make_crowd.sh "<short folder with men/ and women/>"
+# The folder holds the 12 outfit FBX files from Quaternius "Ultimate Modular Men" (Feb 2022) and "Ultimate Modular Women"
+# (April 2022), Individual Characters/FBX (CC0): men/{Casual_Hoodie,Casual_2,Suit,Worker,Punk,Farmer}.fbx and
+# women/{Casual,Suit,Formal,Worker,Punk,Adventurer}.fbx. The packs share file names, so men and women stay in two folders.
+# Pass a Windows path (C:/...). Output: Assets/Resources/Crowd/fan-<m|w>-<outfit>-<near|far>.bytes (file format version 3).
 set -euo pipefail
 SRC="$1"
 BLENDER="/c/Program Files/Blender Foundation/Blender 4.5/blender.exe"
 OUT="$(cd "$(dirname "$0")/.." && pwd -W)/Assets/Resources/Crowd"
-run() {  # body hairs out triangles [--card]
+run() {  # outfit file (men/Casual_Hoodie), output name (fan-m-casual-hoodie-near), triangles, [--card]
   "$BLENDER" -b --factory-startup --disable-autoexec --python-exit-code 1 --python "$(dirname "$0")/make_crowd.py" -- \
-    --body "$SRC/$1" --hair "$SRC/hair" --hairs "$2" --out "$OUT/$3.bytes" --triangles "$4" ${5:-} | grep -E "body |hair |with hair|written"
+    --outfit "$SRC/$1.fbx" --out "$OUT/$2.bytes" --triangles "$3" ${4:-} | grep -E "outfit |CHECK|written"
 }
-MALE=Hair_Buzzed,Hair_SimpleParted,Hair_Beard
-FEMALE=Hair_BuzzedFemale,Hair_Long,Hair_Buns
-run Superhero_Male_FullBody.fbx "$MALE" fan-male-near 1500
-run Superhero_Male_FullBody.fbx "$MALE" fan-male-far 400 --card
-run Superhero_Female_FullBody.fbx "$FEMALE" fan-female-near 1500
-run Superhero_Female_FullBody.fbx "$FEMALE" fan-female-far 400 --card
+build() {  # outfit file, output key (m-casual-hoodie)
+  run "$1" "fan-$2-near" 1500
+  run "$1" "fan-$2-far" 400 --card
+}
+build men/Casual_Hoodie m-casual-hoodie
+build men/Casual_2 m-casual-2
+build men/Suit m-suit
+build men/Worker m-worker
+build men/Punk m-punk
+build men/Farmer m-farmer
+build women/Casual w-casual
+build women/Suit w-suit
+build women/Formal w-formal
+build women/Worker w-worker
+build women/Punk w-punk
+build women/Adventurer w-adventurer
