@@ -205,6 +205,8 @@ namespace HockeyGame.Core
         public bool NoReplay;
         /// <summary>True in Test Mode (#156): no Replay (as NoReplay), whatever NoReplay says; the camera stays on the net.</summary>
         public bool TestMode;
+        /// <summary>Shots whistled this Test Mode visit (Round.ShotsWhistled, with Goals); the Score Box counts them in Test Mode. Not read otherwise.</summary>
+        public int ShotsSubmitted;
     }
 
     /// <summary>One answer of the Arena Show: what every arena part does now. The Unity parts only follow it.</summary>
@@ -329,7 +331,8 @@ namespace HockeyGame.Core
                 ShotsPerRound = flow.ShotsPerRound,
                 LastShotSpeedKmh = round.LastShotSpeedKmh,
                 NoReplay = !round.ReplayOn,
-                TestMode = round.TestMode
+                TestMode = round.TestMode,
+                ShotsSubmitted = round.ShotsWhistled
             });
         }
 
@@ -341,7 +344,7 @@ namespace HockeyGame.Core
 
             RibbonBoard ribbon = RibbonFor(result);
             CrowdState near = CrowdFor(input.Phase, result);
-            bool chant = input.Phase == RoundPhase.Idle || input.Phase == RoundPhase.RoundOver;
+            bool chant = !input.TestMode && (input.Phase == RoundPhase.Idle || input.Phase == RoundPhase.RoundOver); // no Clap Chant in Test Mode (#157)
             int goalsShown = input.Goals; // the Round counts a Goal from its Whistle (the line crossing), when it shows
             // The Replay's part of the hold counts from the Whistle (the puck lands), like the Goal Show.
             bool noReplay = input.NoReplay || input.TestMode; // Test Mode (#156) reuses the Replay-off path; From already folds it into NoReplay, this keeps the pure show safe on its own (tested)
@@ -349,7 +352,10 @@ namespace HockeyGame.Core
             double landed = input.PhaseSeconds - input.ResultDelaySeconds;
             CameraMode camera = replayHold ? ReplayTiming.CameraAt(landed) : CameraMode.OnNet;
             VideoBoardContent board = camera == CameraMode.Replay ? VideoBoardContent.Replay : VideoBoardFor(input.Phase, result, input.IsNewBest, noReplay);
-            string score = ScoreText(goalsShown, input.ShotNumber, ShotsOf(input)); // built once: the Score Box and the Video Board share it
+            if (input.TestMode && (board == VideoBoardContent.StartCard || board == VideoBoardContent.Final || board == VideoBoardContent.NewBest))
+                board = VideoBoardContent.Score; // Test Mode (#157) has no start card or Round end: the count only, never "OF 6" or "SHOOT TO PLAY"
+            // Built once: the Score Box and the Video Board share it. Test Mode (#157) counts the visit's Goals and Shots (no Round of 6).
+            string score = input.TestMode ? TestModeHud.CountText(goalsShown, input.ShotsSubmitted) : ScoreText(goalsShown, input.ShotNumber, ShotsOf(input));
 
             return new ArenaState(
                 board,

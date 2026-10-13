@@ -233,7 +233,7 @@ namespace HockeyGame
                 return; // the Settings page (UI Toolkit) draws over the arena; no HUD text on top of it
             float w = Screen.width, h = Screen.height;
 
-            if (_flow.Screen != FlowScreen.Start) // the start screen shows no old Round
+            if (TestModeHud.DotsShown(_flow)) // not on the start screen (no old Round), not in Test Mode (#157: clean view)
                 DrawDots(w);
 
             ScoreBox scoreBox = _show.ScoreBox; // this frame's, from Update
@@ -260,6 +260,7 @@ namespace HockeyGame
             string phase = _flow.Screen == FlowScreen.Playing ? _round.Phase.ToString() : _flow.Screen + " screen";
             if (_flow.Screen == FlowScreen.Playing)
                 phase += "  -  Shot " + _round.ShotNumber + " of " + _round.ShotCount;
+            if (TestModeHud.LabelShown(_flow)) phase = TestModeHud.LabelText; // Test Mode (#157): the small label, no phase or Round Shot number
             GUI.Label(new Rect(10, 10, w / 3f, 30), phase, _small);
 
             switch (_round.Phase)
