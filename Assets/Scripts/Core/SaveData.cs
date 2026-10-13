@@ -40,6 +40,28 @@ namespace HockeyGame.Core
         public static readonly NumberRange MaxPushRange = new NumberRange(0.1, 0.9, 0.05);
         public static readonly NumberRange ShuffleMaxRange = new NumberRange(0.1, 0.9, 0.05);
 
+        // Dev part, Round timing and Set-up Mistakes (#148), same source. Linked limits: Late Settle time <= min(2.0, window - 1.0)
+        // (so it settles inside the window), Late Settle size <= Max push.
+        public static readonly NumberRange SkateInRange = new NumberRange(1.5, 5.0, 0.5);
+        public static readonly NumberRange ShootingWindowRange = new NumberRange(1.5, 6.0, 0.5);
+        public static readonly NumberRange ResultHoldRange = new NumberRange(2.4, 5.0, 0.1);
+        public static readonly NumberRange CheatRange = new NumberRange(0.1, 0.6, 0.05);
+        public static readonly NumberRange LateSettleMetresRange = new NumberRange(0.2, 0.6, 0.05);
+        public static readonly NumberRange LateSettleSecondsRange = new NumberRange(0.4, 2.0, 0.1);
+
+        /// <summary>The window must stay longer than the Late Settle time by 1 s (at the longest Late Settle time that is 3.0 s).</summary>
+        public NumberRange ShootingWindowAllowed => new NumberRange(Math.Max(ShootingWindowRange.Min, LateSettleSeconds + 1.0), ShootingWindowRange.Max, ShootingWindowRange.Step);
+        public NumberRange LateSettleSecondsAllowed => new NumberRange(LateSettleSecondsRange.Min, Math.Min(LateSettleSecondsRange.Max, ShootingWindowSeconds - 1.0), LateSettleSecondsRange.Step);
+        /// <summary>Never above Max push (when Max push is under the range's floor, it is Max push alone).</summary>
+        public NumberRange LateSettleMetresAllowed
+        {
+            get
+            {
+                double max = Math.Min(LateSettleMetresRange.Max, MaxPushMetres);
+                return new NumberRange(Math.Min(LateSettleMetresRange.Min, max), max, LateSettleMetresRange.Step);
+            }
+        }
+
         // What each linked partner allows right now (a range inside its fixed one).
         public NumberRange ReactionAllowed => new NumberRange(Math.Max(ReactionRange.Min, ReactionWobbleSeconds), ReactionRange.Max, ReactionRange.Step);
         public NumberRange WobbleAllowed => new NumberRange(WobbleRange.Min, Math.Min(WobbleRange.Max, ReactionSeconds), WobbleRange.Step);
@@ -72,6 +94,12 @@ namespace HockeyGame.Core
         private const string LegMetresPerSecondKey = "goalieLegMetresPerSecond";
         private const string MaxPushMetresKey = "goalieMaxPushMetres";
         private const string ShuffleMaxMetresKey = "goalieShuffleMaxMetres";
+        private const string SkateInSecondsKey = "roundSkateInSeconds";
+        private const string ShootingWindowSecondsKey = "roundShootingWindowSeconds";
+        private const string ResultHoldSecondsKey = "roundResultHoldSeconds";
+        private const string CheatMetresKey = "setUpCheatMetres";
+        private const string LateSettleMetresKey = "setUpLateSettleMetres";
+        private const string LateSettleSecondsKey = "setUpLateSettleSeconds";
 
         private int _shotsPerRound = DefaultShotsPerRound;
         private readonly Dictionary<int, int> _bests = new Dictionary<int, int>();
@@ -168,6 +196,45 @@ namespace HockeyGame.Core
             MaxPushMetres = MaxPushRange.Clamp(MaxPushMetres);
             ShuffleMaxMetres = Math.Min(ShuffleMaxRange.Clamp(ShuffleMaxMetres), MaxPushMetres);
         }
+
+        // Dev part, Round timing and Set-up Mistakes (#148). Defaults are the code defaults of RoundSettings (a test pins that).
+        public double SkateInSeconds = 2.5;
+        public double ShootingWindowSeconds = 3.0;
+        public double ResultHoldSeconds = 2.5;
+        public double CheatMetres = 0.3;
+        public double LateSettleMetres = 0.4;
+        public double LateSettleSeconds = 1.0;
+
+        /// <summary>
+        /// Puts the Dev part's Round timing and Set-up Mistake values on a RoundSettings (clamped to their ranges and linked
+        /// limits, including the goalie's Max push). Called when a Round starts, never mid-Round. Like ApplyGoalieTo it first
+        /// tidies this SaveData in memory and saves nothing.
+        /// </summary>
+        public void ApplyRoundTo(RoundSettings settings)
+        {
+            KeepGoalieLimits();
+            KeepRoundLimits();
+            settings.SkateInSeconds = SkateInSeconds;
+            settings.ShootingWindowSeconds = ShootingWindowSeconds;
+            settings.ResultHoldSeconds = ResultHoldSeconds;
+            settings.CheatMetres = CheatMetres;
+            settings.LateSettleMetres = LateSettleMetres;
+            settings.LateSettleSeconds = LateSettleSeconds;
+        }
+
+        /// <summary>Holds Late Settle size down to Max push (used when Max push is lowered on the page).</summary>
+        public void HoldLateSettleToMaxPush() => LateSettleMetres = Math.Min(LateSettleMetres, MaxPushMetres);
+
+        /// <summary>Clamps each value to its range, then holds the links: Late Settle time &lt;= window - 1.0, Late Settle size &lt;= Max push (the lower partner wins).</summary>
+        private void KeepRoundLimits()
+        {
+            SkateInSeconds = SkateInRange.Clamp(SkateInSeconds);
+            ShootingWindowSeconds = ShootingWindowRange.Clamp(ShootingWindowSeconds);
+            ResultHoldSeconds = ResultHoldRange.Clamp(ResultHoldSeconds);
+            CheatMetres = CheatRange.Clamp(CheatMetres);
+            LateSettleSeconds = Math.Min(LateSettleSecondsRange.Clamp(LateSettleSeconds), ShootingWindowSeconds - 1.0);
+            LateSettleMetres = Math.Min(LateSettleMetresRange.Clamp(LateSettleMetres), MaxPushMetres);
+        }
         /// <summary>
         /// The Team Skin picked before play: its asset name in Assets/Resources/Skins (TeamSkin). Not on the settings
         /// screen (no menu yet): set teamSkin=&lt;name&gt; in the settings file. An unknown name plays the League Skin.
@@ -221,6 +288,13 @@ namespace HockeyGame.Core
             data.MaxPushMetres = ReadDouble(values, MaxPushMetresKey, data.MaxPushMetres, MaxPushRange);
             data.ShuffleMaxMetres = ReadDouble(values, ShuffleMaxMetresKey, data.ShuffleMaxMetres, ShuffleMaxRange);
             data.KeepGoalieLimits();
+            data.SkateInSeconds = ReadDouble(values, SkateInSecondsKey, data.SkateInSeconds, SkateInRange);
+            data.ShootingWindowSeconds = ReadDouble(values, ShootingWindowSecondsKey, data.ShootingWindowSeconds, ShootingWindowRange);
+            data.ResultHoldSeconds = ReadDouble(values, ResultHoldSecondsKey, data.ResultHoldSeconds, ResultHoldRange);
+            data.CheatMetres = ReadDouble(values, CheatMetresKey, data.CheatMetres, CheatRange);
+            data.LateSettleMetres = ReadDouble(values, LateSettleMetresKey, data.LateSettleMetres, LateSettleMetresRange);
+            data.LateSettleSeconds = ReadDouble(values, LateSettleSecondsKey, data.LateSettleSeconds, LateSettleSecondsRange);
+            data.KeepRoundLimits();
             if (values.TryGetValue(TeamSkinKey, out var skin) && skin.Length > 0) data.TeamSkin = skin;
             return data;
         }
@@ -259,6 +333,12 @@ namespace HockeyGame.Core
                 sb.Append(LegMetresPerSecondKey).Append('=').Append(LegMetresPerSecond.ToString("R", inv)).Append('\n');
                 sb.Append(MaxPushMetresKey).Append('=').Append(MaxPushMetres.ToString("R", inv)).Append('\n');
                 sb.Append(ShuffleMaxMetresKey).Append('=').Append(ShuffleMaxMetres.ToString("R", inv)).Append('\n');
+                sb.Append(SkateInSecondsKey).Append('=').Append(SkateInSeconds.ToString("R", inv)).Append('\n');
+                sb.Append(ShootingWindowSecondsKey).Append('=').Append(ShootingWindowSeconds.ToString("R", inv)).Append('\n');
+                sb.Append(ResultHoldSecondsKey).Append('=').Append(ResultHoldSeconds.ToString("R", inv)).Append('\n');
+                sb.Append(CheatMetresKey).Append('=').Append(CheatMetres.ToString("R", inv)).Append('\n');
+                sb.Append(LateSettleMetresKey).Append('=').Append(LateSettleMetres.ToString("R", inv)).Append('\n');
+                sb.Append(LateSettleSecondsKey).Append('=').Append(LateSettleSeconds.ToString("R", inv)).Append('\n');
                 sb.Append(TeamSkinKey).Append('=').Append(TeamSkin).Append('\n');
                 File.WriteAllText(path, sb.ToString(), new UTF8Encoding(false));
                 return true;

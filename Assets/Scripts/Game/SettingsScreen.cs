@@ -275,7 +275,9 @@ namespace HockeyGame
             foreach (var shape in _tabShapes) shape.MarkDirtyRepaint(); // the fill colour follows the tab's class
             _reset.text = _menu.ResetLabel;
 
-            // Consecutive rows with one heading make one card. The last card goes in the right-hand column, the rest in the left.
+            // Consecutive rows with one heading make one card. The last card goes in the right-hand column, the rest in the left;
+            // the Dev part has 13 rows (#148), so its last two cards (Round timing, Set-up Mistakes) go right to keep the left from overflowing.
+            int rightCards = _menu.Part == SettingsPart.Dev ? 2 : 1;
             var groups = new List<(string name, int first, int count)>();
             for (int i = 0; i < _menu.RowCount; i++)
             {
@@ -304,7 +306,7 @@ namespace HockeyGame
                 Add(card, "lc-card-head", head);
                 for (int r = 0; r < groups[g].count; r++)
                     card.Add(BuildRow(groups[g].first + r));
-                (g == groups.Count - 1 ? right : left).Add(card);
+                (g >= groups.Count - rightCards ? right : left).Add(card);
             }
             Refresh();
         }
