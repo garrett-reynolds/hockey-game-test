@@ -186,7 +186,7 @@ namespace HockeyGame.Core.Tests
         [TestCase(ShotResultKind.Save, 12.0, 82.0, TestName = "Blocker save")]
         [TestCase(ShotResultKind.Save, 15.0, 12.0, TestName = "Pad save in the butterfly")]
         [TestCase(ShotResultKind.Save, 50.0, 5.0, TestName = "Stick save")]
-        [TestCase(ShotResultKind.Goal, 50.0, 90.0, TestName = "Goal top middle: stick slap after a long push")]
+        [TestCase(ShotResultKind.Goal, 50.0, 90.0, TestName = "Goal top middle: stick slap")]
         [TestCase(ShotResultKind.Goal, 15.0, 85.0, TestName = "Goal top left: slump")]
         [TestCase(ShotResultKind.Miss, 112.0, 50.0, TestName = "Wide miss")]
         public void After_the_result_the_goalie_is_back_in_the_Ready_Stance_on_his_spot_before_the_hold_ends_with_no_snap(ShotResultKind kind, double x, double y)
@@ -221,7 +221,7 @@ namespace HockeyGame.Core.Tests
             Assert.Less(atEnd, 0.01f, "back in the Ready Stance on his spot 2.4 s after the puck got there: the " + Name(endPoint));
             Assert.Less(boundary, 0.002f, "no snap when the hold ends: the " + Name(boundaryPoint));
             Assert.Less(worstStep, 0.05f, "recovers smoothly (at most 3 m/s): the " + Name(worstPoint) + " at " + worstAt + " s");
-            if (x == 50.0 && y == 90.0) Assert.Greater(furthest, 0.5f, "this goal pushes him well aside first");
+            if (kind != ShotResultKind.Save) Assert.LessOrEqual(furthest, GoalieCharacter.BeatenMaxSlide + 0.05f, "a beaten goalie no longer pushes aside (#45)");
         }
 
         [Test]
