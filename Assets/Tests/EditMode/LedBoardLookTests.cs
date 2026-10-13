@@ -13,6 +13,7 @@ namespace HockeyGame.Core.Tests
     {
         GameObject _rink, _eye;
         Camera _camera;
+        int _skippedLit; // cells lit inside the skipped logo rect on the last PictureDiffers
         RenderTexture _target, _replay;
         Texture2D _ramp;
 
@@ -336,8 +337,9 @@ namespace HockeyGame.Core.Tests
         /// Returns what is wrong (nothing when the picture is the table): lit cells with no table cell (the lone-cell kind are counted
         /// apart: no lit neighbour), table cells that are not lit, cells that are neither colour, and cells outside the frame.
         /// </summary>
-        string PictureDiffers(VideoBoards boards, int screen, float metres, string pngName)
+        string PictureDiffers(VideoBoards boards, int screen, float metres, string pngName, bool skipLogo = false)
         {
+            _skippedLit = 0;
             Vector3 centre = boards.CentreOf(screen), facing = boards.FacingOf(screen), up = boards.UpOf(screen);
             _eye.transform.position = centre + facing * metres;
             _eye.transform.LookAt(centre);
@@ -350,6 +352,8 @@ namespace HockeyGame.Core.Tests
             Color32 fore = boards.WordsColourOn(screen), back = boards.BackColour;
             bool[] expected = LedBoardWordsTests.Expected(cellsX, cellsY, boards.HeadlineOn(screen), boards.DetailsOn(screen));
             var shown = new bool[cellsX * cellsY];
+            // The start card's logo is art, not font-table words: its cells are left out of the table check (counted lit apart).
+            RectInt logo = skipLogo ? StartCardArt.LogoRect(cellsX, cellsY) : new RectInt(0, 0, 0, 0);
             int outside = 0, neither = 0, extra = 0, missing = 0, lone = 0, litCells = 0;
             for (int y = 0; y < cellsY; y++)
                 for (int x = 0; x < cellsX; x++)
@@ -359,12 +363,18 @@ namespace HockeyGame.Core.Tests
                     if (px < 0 || px >= width || py < 0 || py >= height) { outside++; continue; }
                     Color32 c = pixels[py * width + px];
                     float toFore = Distance(c, fore), toBack = Distance(c, back);
+                    if (logo.Contains(new Vector2Int(x, y)))
+                    {
+                        if (toBack > 40f) _skippedLit++;
+                        continue;
+                    }
                     if (Mathf.Min(toFore, toBack) > 40f) neither++;
                     shown[y * cellsX + x] = toFore < toBack;
                 }
             for (int y = 0; y < cellsY; y++)
                 for (int x = 0; x < cellsX; x++)
                 {
+                    if (logo.Contains(new Vector2Int(x, y))) continue;
                     bool on = shown[y * cellsX + x], want = expected[y * cellsX + x];
                     if (want) litCells++;
                     if (on && !want)
@@ -396,17 +406,19 @@ namespace HockeyGame.Core.Tests
         {
             VideoBoards boards = VideoBoards.Build(_rink.transform);
             var failures = new System.Collections.Generic.List<string>();
-            void Check(string what, int screen, float metres, string png)
+            void Check(string what, int screen, float metres, string png, bool skipLogo = false)
             {
-                string differs = PictureDiffers(boards, screen, metres, png);
+                string differs = PictureDiffers(boards, screen, metres, png, skipLogo);
                 if (differs.Length > 0) failures.Add(what + ": " + differs);
+                if (skipLogo && _skippedLit < 20) failures.Add(what + ": the logo area is not lit (" + _skippedLit + " lit cells)");
             }
             boards.Show(Show(RoundPhase.SkateIn), 0.0);
             Check("score, Centre Board", 1, 6f, null);
             Check("score, Video Board", 0, 12f, null);
             boards.Show(Show(RoundPhase.Idle), 0.0);
-            Check("start card, Centre Board", 1, 6f, null);
-            Check("start card, Video Board", 0, 12f, null);
+            Check("start card, Centre Board", 1, 6f, null, true);
+            Check("start card, Video Board", 0, 12f, null, true);
+            boards.Show(Show(RoundPhase.SkateIn), 0.0); // the start card is still on the screens until another card is shown (ShowWords does not turn it off)
             boards.ShowWords("Big Timber Burgers", "Saves, goals & Y/N? gjpqy");
             Check("mixed case with descenders, Centre Board", 1, 6f, null);
             Check("mixed case with descenders, Video Board", 0, 12f, null);
