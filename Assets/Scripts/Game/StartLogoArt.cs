@@ -7,18 +7,12 @@ namespace HockeyGame
     /// <summary>
     /// The Shootout logo's picture (#140), look C "TV graphic" of #137: a red band with slanted ends, a blue end cap and a gold
     /// stripe, and SHOOTOUT in white block italic letters (built from boxes here, so no font and no licence). Made once on the
-    /// CPU, anti-aliased, as a Texture2D; the start screen draws it. The colours are the League Skin's (a test checks them).
+    /// CPU, anti-aliased, as a Texture2D; the start screen draws it. The colours are look C's (LookC, one list; a test checks them against the League Skin).
     /// </summary>
     public static class StartLogoArt
     {
         public const int Width = 1200, Height = 330;
         public const float Aspect = Width / (float)Height;
-
-        public static readonly Color32 Navy = new Color32(10, 16, 34, 255);
-        public static readonly Color32 Blue = new Color32(20, 60, 150, 255);
-        public static readonly Color32 Gold = new Color32(232, 190, 40, 255);
-        public static readonly Color32 Red = new Color32(200, 30, 45, 255);
-        public static readonly Color32 White = new Color32(255, 255, 255, 255);
 
         /// <summary>The text strip under the logo: see-through navy with a gold top edge (look C).</summary>
         public static readonly Color StripBack = new Color(10 / 255f, 16 / 255f, 34 / 255f, 0.8f);
@@ -59,18 +53,18 @@ namespace HockeyGame
         {
             var s = new List<Shape>();
             // The band: red, slanted ends; blue cap with a gold bar at the left (as the settings title); gold stripe under; white streak over.
-            s.Add(Box(30, 40, 960, 262, Red));
-            s.Add(Box(-30, 40, 36, 262, Blue));
-            s.Add(Box(30, 40, 42, 262, Gold));
-            s.Add(Box(954, 40, 1010, 262, Blue));
-            s.Add(Box(-10, 270, 1000, 292, Gold));
-            s.Add(Box(110, 18, 880, 30, White));
+            s.Add(Box(30, 40, 960, 262, LookC.Red));
+            s.Add(Box(-30, 40, 36, 262, LookC.Blue));
+            s.Add(Box(30, 40, 42, 262, LookC.Gold));
+            s.Add(Box(954, 40, 1010, 262, LookC.Blue));
+            s.Add(Box(-10, 270, 1000, 292, LookC.Gold));
+            s.Add(Box(110, 18, 880, 30, LookC.White));
             // Letter shadows (navy), then the letters (white).
             const string word = "SHOOTOUT";
             for (int pass = 0; pass < 2; pass++)
             {
                 float shift = pass == 0 ? 7f : 0f;
-                Color32 colour = pass == 0 ? Navy : White;
+                Color32 colour = pass == 0 ? LookC.Navy : LookC.White;
                 for (int i = 0; i < word.Length; i++)
                     foreach (float[] b in LetterBoxes(word[i]))
                     {
@@ -93,7 +87,7 @@ namespace HockeyGame
             {
                 // Clear pixels carry navy, so the bilinear edge of the picture does not pick up black.
                 pixels[i] = a[i] <= 0f
-                    ? new Color32(Navy.r, Navy.g, Navy.b, 0)
+                    ? new Color32(LookC.Navy.r, LookC.Navy.g, LookC.Navy.b, 0)
                     : new Color32((byte)Mathf.RoundToInt(r[i]), (byte)Mathf.RoundToInt(g[i]), (byte)Mathf.RoundToInt(b[i]), (byte)Mathf.RoundToInt(a[i] * 255f));
             }
             var t = new Texture2D(Width, Height, TextureFormat.RGBA32, false) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };

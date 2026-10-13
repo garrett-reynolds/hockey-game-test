@@ -45,6 +45,7 @@ namespace HockeyGame
         Texture2D _scoreBoxBack; // made with the styles; freed in OnDestroy
         Texture2D _logo; // the Shootout logo, made with the styles; freed in OnDestroy
         readonly LowerThirdView _lowerThird = new LowerThirdView(); // the TV bar with a Round number after each Shot (#141)
+        readonly LowerThirdWords _lowerThirdWords = new LowerThirdWords(); // its words, built once per Shot (#151)
         ArenaState _show; // this frame's Arena Show, worked out once in Update and read by everything that frame, OnGUI too
         const float ScoreBoxWidth = 330f;
         TeamSkin _skin; // picked by the save file's teamSkin setting before the rink is built
@@ -236,7 +237,7 @@ namespace HockeyGame
                 Color was = GUI.color;
                 GUI.color = StartLogoArt.StripBack;
                 GUI.DrawTexture(strip, Texture2D.whiteTexture);
-                GUI.color = StartLogoArt.Gold;
+                GUI.color = LookC.Gold;
                 GUI.DrawTexture(new Rect(strip.x, strip.y, strip.width, StartLogoArt.StripEdgeHeight), Texture2D.whiteTexture);
                 GUI.color = was;
             }
@@ -262,7 +263,7 @@ namespace HockeyGame
             }
 
             if (_flow.Screen == FlowScreen.Playing) // early in the result hold only (LowerThird): never over the Replay or the result word
-                _lowerThird.Draw(w, h, LowerThird.Of(_round));
+                _lowerThird.Draw(w, h, LowerThird.Of(_round, _lowerThirdWords));
 
             switch (_flow.Screen)
             {

@@ -189,7 +189,7 @@ namespace HockeyGame.Core.Tests
                 ["GOAL!"] = (2, 2),
                 ["REPLAY"] = (2, 2),
                 ["NEW BEST!"] = (2, 2),
-                ["HOCKEY GAME"] = (2, 1),
+                ["SHOOTOUT"] = (2, 2), // the start card's name (8 letters fit the Centre Board at scale 2)
                 ["FINAL SCORE"] = (2, 1),
                 ["GOALS 2 · SHOT 4 OF 6"] = (1, 1),
                 ["BIG TIMBER BURGERS"] = (1, 1),

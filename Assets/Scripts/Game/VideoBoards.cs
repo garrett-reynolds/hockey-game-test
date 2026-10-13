@@ -175,6 +175,12 @@ namespace HockeyGame
             SetStill(state.VideoBoard == VideoBoardContent.CalmStill);
             string headline = state.VideoBoardWords.Headline, details = state.VideoBoardWords.Details;
             Color back = _skinBack, fore = _skinWords;
+            if (state.VideoBoard == VideoBoardContent.StartCard)
+            {
+                // The Shootout logo's look (#151) as far as one colour of LED words allows: its white letters on its red band.
+                back = LookC.Red;
+                fore = LookC.White;
+            }
             if (state.VideoBoard == VideoBoardContent.AdSlide)
             {
                 Brands.Brand b = Brands.All[(int)System.Math.Floor(seconds / AdSeconds) % Brands.All.Length];

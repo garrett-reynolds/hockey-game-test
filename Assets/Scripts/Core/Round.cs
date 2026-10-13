@@ -34,6 +34,7 @@ namespace HockeyGame.Core
         private readonly RoundSettings _settings;
         private readonly IGoalieReach _reach;
         private readonly List<ShotResultKind> _results = new List<ShotResultKind>();
+        private readonly List<double?> _speeds = new List<double?>();
         private double _phaseElapsed;
         private double _resultDelay; // real seconds from the Shot to its Whistle
         private SetUpKind[] _setUps = new SetUpKind[ShotsPerRound];
@@ -75,6 +76,9 @@ namespace HockeyGame.Core
 
         /// <summary>Result per finished Shot, in order (TooLate counts as a Miss in the tally).</summary>
         public IReadOnlyList<ShotResultKind> Results => _results;
+
+        /// <summary>Speed (km/h) per finished Shot, in order, parallel to Results; null for a Shot with no puck (Too Late).</summary>
+        public IReadOnlyList<double?> ShotSpeedsKmh => _speeds;
 
         public int Goals { get; private set; }
 
@@ -151,6 +155,7 @@ namespace HockeyGame.Core
             _setUps = RoundDecks.SetUps(_random);
             _sides = RoundDecks.AttackSides(_random);
             _results.Clear();
+            _speeds.Clear();
             Goals = 0;
             IsNewBest = false;
             LastResult = null;
@@ -270,6 +275,7 @@ namespace HockeyGame.Core
             LastResult = result;
             LastShotSpeedKmh = result.HasShot ? result.SpeedKmh : (double?)null;
             _results.Add(result.Kind);
+            _speeds.Add(LastShotSpeedKmh);
             if (result.Kind == ShotResultKind.Goal)
                 Goals++;
         }
