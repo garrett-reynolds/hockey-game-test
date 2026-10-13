@@ -35,7 +35,8 @@ namespace HockeyGame.Core
         public double Step(Round round, double realDt)
         {
             RoundPhase phase = round.Phase;
-            if (phase == RoundPhase.ResultHold && round.ShotNumber < round.ShotCount)
+            if (round.TestMode) Amount = 0; // Test Mode (#156): one still camera, no cut between Shots, no black
+            else if (phase == RoundPhase.ResultHold && round.ShotNumber < round.ShotCount)
                 Amount = Out(round.ResultHoldSecondsLeft);
             else if (phase == RoundPhase.SkateIn && round.ShotNumber > 1) // Shot 1 follows the start screen: no fade
             {

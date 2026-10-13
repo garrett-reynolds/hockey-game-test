@@ -27,6 +27,10 @@ namespace HockeyGame.Core
     /// 4. Then one Next() for the Reaction Time wobble: ReactionSeconds + ReactionWobbleSeconds * (2 * Next() - 1).
     /// Nothing else rolls: not the Shot's result, a Miss or TooLate.
     /// </para>
+    /// <para>
+    /// Test Mode (#156, StartTestMode) rolls the same way: steps 1 to 4 for Shot 1 (a deck of 6), and the same two decks again
+    /// (steps 1 and 2) each time the Shots pass a multiple of 6, just before step 3 for that Shot.
+    /// </para>
     /// </summary>
     public sealed class Round
     {
@@ -65,7 +69,7 @@ namespace HockeyGame.Core
 
         /// <summary>Real seconds left in the shooting window; 0 outside the window.</summary>
         public double WindowSecondsLeft =>
-            Phase == RoundPhase.ShootingWindow ? _settings.ShootingWindowSeconds - _phaseElapsed : 0;
+            Phase == RoundPhase.ShootingWindow && !_settings.TestMode ? _settings.ShootingWindowSeconds - _phaseElapsed : 0; // Test Mode: the window never closes, no clock
 
         /// <summary>Real seconds left of the result hold; infinity before the Whistle (the hold has not started) and outside the hold.</summary>
         public double ResultHoldSecondsLeft =>
@@ -131,7 +135,10 @@ namespace HockeyGame.Core
         /// True when a Replay follows this result: the setting is on (RoundSettings.ReplayOn, #145) and it is a Goal, a Save or a
         /// Frame Hit. The hold length does not depend on it: with the Replay off a Goal, Save or Frame Hit still holds 4.5 s.
         /// </summary>
-        public bool ReplayFollows => _settings.ReplayOn && ReplayTiming.Follows(LastResult);
+        public bool ReplayFollows => ReplayOn && ReplayTiming.Follows(LastResult);
+
+        /// <summary>The Replay setting as it counts: on, and never in Test Mode (#156), whatever RoundSettings.ReplayOn says.</summary>
+        public bool ReplayOn => _settings.ReplayOn && !_settings.TestMode;
 
         /// <summary>
         /// How long the current result holds once it shows (after the Whistle): ReplayTiming.HoldSeconds (about 4.5 s)
@@ -139,7 +146,7 @@ namespace HockeyGame.Core
         /// Before Shots 2 to 6 a Replay's hold runs ShotFade.LeadSeconds (0.35 s) longer, so the fade to black starts after the
         /// Replay's look-back has ended, never over it (#129): 4.85 s.
         /// </summary>
-        public double ResultHoldLength =>
+        public double ResultHoldLength => _settings.TestMode ? _settings.TestModeHoldSeconds : // Test Mode (#156): one short hold, no Replay, no fade lead
             (ReplayTiming.Follows(LastResult) ? ReplayTiming.HoldSeconds : _settings.ResultHoldSeconds)
             + (ReplayTiming.Follows(LastResult) && ShotNumber < ShotCount ? ShotFade.LeadSeconds : 0);
 
@@ -175,11 +182,62 @@ namespace HockeyGame.Core
             StartRound();
         }
 
-        /// <summary>Starts a Round with the best score and the number of Shots (ShotCount; 6 if none yet) the Round already holds.</summary>
-        public void StartRound()
+        /// <summary>True while Test Mode runs (RoundSettings.TestMode).</summary>
+        public bool TestMode => _settings.TestMode;
+
+        /// <summary>
+        /// Starts Test Mode (#156): endless Shots from the shooter's spot. The first Shot is in the shooting window at once (no skate-in,
+        /// no slow-down); the window never closes (no Too late); each Whistle holds TestModeHoldSeconds, then the next Shot (a new Set-up
+        /// and Attack Side) is in the window again. The Round never ends, and bestScore never changes (IsNewBest stays false).
+        /// ShotNumber counts on past ShotCount; the Set-up and Attack Side decks (ShotCount cards each, dealt as StartRound deals them) are
+        /// dealt again, on the same source, each time they run out. Test Shots and real Shots both count. Leave with EndTestMode.
+        /// </summary>
+        public void StartTestMode(int bestScore)
+        {
+            _settings.TestMode = true;
+            ShotCount = ShotsPerRound;
+            BestScore = bestScore;
+            DealDecks();
+            _results.Clear();
+            _speeds.Clear();
+            Goals = 0;
+            IsNewBest = false;
+            LastResult = null;
+            ShotsSubmitted = 0;
+            LastShotSpeedKmh = null;
+            ShotNumber = 1;
+            StartShot();
+            EnterPhase(RoundPhase.ShootingWindow);
+        }
+
+        /// <summary>Leaves Test Mode: the Round goes back to Idle (the start screen), with nothing of the Test Mode Shots kept.</summary>
+        public void EndTestMode()
+        {
+            if (!_settings.TestMode) return;
+            _settings.TestMode = false;
+            _results.Clear();
+            _speeds.Clear();
+            Goals = 0;
+            LastResult = null;
+            LastShot = null;
+            LastRace = null;
+            ShotsSubmitted = 0;
+            LastShotSpeedKmh = null;
+            ShotNumber = 0;
+            EnterPhase(RoundPhase.Idle);
+        }
+
+        private void DealDecks()
         {
             _setUps = RoundDecks.SetUps(_random, ShotCount);
             _sides = RoundDecks.AttackSides(_random, ShotCount);
+        }
+
+        /// <summary>Starts a Round with the best score and the number of Shots (ShotCount; 6 if none yet) the Round already holds.</summary>
+        public void StartRound()
+        {
+            _settings.TestMode = false; // a Round is never Test Mode (#156)
+            DealDecks();
             _results.Clear();
             _speeds.Clear();
             Goals = 0;
@@ -259,7 +317,16 @@ namespace HockeyGame.Core
                     Finish(new ShotResult(ShotResultKind.TooLate, false, 0, 0, 0, false));
                     break;
                 case RoundPhase.ResultHold:
-                    if (ShotNumber >= ShotCount)
+                    if (_settings.TestMode)
+                    {
+                        // Test Mode: endless. The decks run out every ShotCount Shots and are dealt again; the next Shot is in the window at once.
+                        ShotNumber++;
+                        if ((ShotNumber - 1) % ShotCount == 0) DealDecks();
+                        StartShot();
+                        LastResult = null;
+                        EnterPhase(RoundPhase.ShootingWindow);
+                    }
+                    else if (ShotNumber >= ShotCount)
                     {
                         EndRound();
                     }
@@ -281,9 +348,10 @@ namespace HockeyGame.Core
         /// <summary>A new Shot: its Attack Side and Set-up from the Round's shuffles, its post side and its Reaction Time, in the roll order.</summary>
         private void StartShot()
         {
-            AttackSide = _sides[ShotNumber - 1];
+            int card = (ShotNumber - 1) % ShotCount; // Test Mode goes past the deck and deals it again (Advance)
+            AttackSide = _sides[card];
             Post post = _random.Next() < 0.5 ? Post.Left : Post.Right;
-            SetUp = SetUp.Of(_setUps[ShotNumber - 1], post);
+            SetUp = SetUp.Of(_setUps[card], post);
             ReactionSeconds = _settings.ReactionSeconds + _settings.ReactionWobbleSeconds * (2 * _random.Next() - 1);
             LastRace = null;
             LastShot = null;
@@ -330,7 +398,7 @@ namespace HockeyGame.Core
             {
                 case RoundPhase.SkateIn: return _settings.SkateInSeconds;
                 case RoundPhase.SlowDown: return _settings.SlowDownSeconds;
-                case RoundPhase.ShootingWindow: return _settings.ShootingWindowSeconds;
+                case RoundPhase.ShootingWindow: return _settings.TestMode ? double.PositiveInfinity : _settings.ShootingWindowSeconds; // Test Mode: never Too late
                 default: return AwaitingWhistle ? double.PositiveInfinity : _resultDelay + ResultHoldLength;
             }
         }

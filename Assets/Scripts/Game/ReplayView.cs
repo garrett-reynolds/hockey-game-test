@@ -135,7 +135,7 @@ namespace HockeyGame
             if (!_begun)
             {
                 _begun = true;
-                _recording = _round.LastShot.HasValue && _round.Settings.ReplayOn; // the Shot frame; Too late has no Shot; Replay off (#145): nothing to record
+                _recording = _round.LastShot.HasValue && _round.ReplayOn; // (off in Test Mode too, #156) // the Shot frame; Too late has no Shot; Replay off (#145): nothing to record
                 if (_recording)
                 {
                     _track.Begin(Parts());

@@ -134,10 +134,13 @@ namespace HockeyGame
 
         public SettingsMenu Menu => _menu;
 
+        /// <summary>Raised when the Dev part's Test Mode button is pressed (#156). The game closes the page and opens Test Mode.</summary>
+        public System.Action TestModeRequested;
+
         /// <summary>Opens the page on the Player part, with a fresh port list.</summary>
         public void Open()
         {
-            _menu = new SettingsMenu(_save, PortNames());
+            _menu = new SettingsMenu(_save, PortNames(), () => TestModeRequested?.Invoke());
             _dragRow = -1;
             Rebuild();
             _page.RemoveFromClassList("lc-hidden");
