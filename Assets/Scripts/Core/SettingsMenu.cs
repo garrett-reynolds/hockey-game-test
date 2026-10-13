@@ -95,6 +95,14 @@ namespace HockeyGame.Core
             AddToggle(SettingsPart.Dev, "SHOW", "Show the block goalie", () => _save.ForceGoalieBlocks, v => _save.ForceGoalieBlocks = v);
             _all[_all.Count - 1].Hint = "(next launch)"; // RoundDriver builds the goalie when the game starts
 
+            // The goalie's values (#147): they act from the next Round (ScreenFlow applies them when a Round starts).
+            AddGoalie("Reaction time", () => _save.ReactionSeconds, v => _save.ReactionSeconds = v, SaveData.ReactionRange, Seconds2, () => _save.ReactionAllowed);
+            AddGoalie("Reaction wobble", () => _save.ReactionWobbleSeconds, v => _save.ReactionWobbleSeconds = v, SaveData.WobbleRange, Seconds2, () => _save.WobbleAllowed);
+            AddGoalie("Hand speed", () => _save.HandMetresPerSecond, v => _save.HandMetresPerSecond = v, SaveData.HandRange, Speed, () => _save.HandAllowed);
+            AddGoalie("Leg speed", () => _save.LegMetresPerSecond, v => _save.LegMetresPerSecond = v, SaveData.LegRange, Speed, () => _save.LegAllowed);
+            AddGoalie("Max push", () => _save.MaxPushMetres, v => _save.MaxPushMetres = v, SaveData.MaxPushRange, Metres, () => _save.MaxPushAllowed);
+            AddGoalie("Shuffle max", () => _save.ShuffleMaxMetres, v => _save.ShuffleMaxMetres = v, SaveData.ShuffleMaxRange, Metres, () => _save.ShuffleMaxAllowed);
+
             FillRows();
         }
 
@@ -195,6 +203,12 @@ namespace HockeyGame.Core
             else
             {
                 _save.ForceGoalieBlocks = defaults.ForceGoalieBlocks;
+                _save.ReactionSeconds = defaults.ReactionSeconds;
+                _save.ReactionWobbleSeconds = defaults.ReactionWobbleSeconds;
+                _save.HandMetresPerSecond = defaults.HandMetresPerSecond;
+                _save.LegMetresPerSecond = defaults.LegMetresPerSecond;
+                _save.MaxPushMetres = defaults.MaxPushMetres;
+                _save.ShuffleMaxMetres = defaults.ShuffleMaxMetres;
             }
             return true;
         }
@@ -234,23 +248,31 @@ namespace HockeyGame.Core
             AddRow(part, group, SettingsRowKind.Toggle, label, () => get() ? "ON" : "OFF", step => flip(), flip);
         }
 
+        // range: the slider's track. allowed (optional): what a linked partner allows now, inside the track (#147); values clamp to it.
         private void AddNumber(SettingsPart part, string group, string label, Func<double> get, Action<double> set,
-            SaveData.NumberRange range, Func<double, string> format)
+            SaveData.NumberRange range, Func<double, string> format, Func<SaveData.NumberRange> allowed = null)
         {
             AddRow(part, group, SettingsRowKind.Slider, label, () => format(get()), dir =>
             {
                 double old = get();
                 // Snap to the step grid so repeated steps do not drift (0.1 + 0.2 ...).
                 double next = Math.Round((old + dir * range.Step) / range.Step) * range.Step;
-                return Store(get, set, range, next);
+                return Store(get, set, allowed != null ? allowed() : range, next);
             }, null);
             var row = _all[_all.Count - 1];
             row.Fraction = () => (range.Clamp(get()) - range.Min) / (range.Max - range.Min);
             row.SetFraction = f =>
             {
                 double next = range.Min + Math.Round(f * (range.Max - range.Min) / range.Step) * range.Step;
-                return Store(get, set, range, next);
+                return Store(get, set, allowed != null ? allowed() : range, next);
             };
+        }
+
+        private void AddGoalie(string label, Func<double> get, Action<double> set, SaveData.NumberRange range,
+            Func<double, string> format, Func<SaveData.NumberRange> allowed)
+        {
+            AddNumber(SettingsPart.Dev, "GOALIE", label, get, set, range, format, allowed);
+            _all[_all.Count - 1].Hint = "(next Round)";
         }
 
         private static bool Store(Func<double> get, Action<double> set, SaveData.NumberRange range, double next)
@@ -282,5 +304,11 @@ namespace HockeyGame.Core
         private static string Percent(double v) => Format("0", v * 100) + "%";
 
         private static string Seconds(double v) => Format("0.0", v) + " s";
+
+        private static string Seconds2(double v) => Format("0.00", v) + " s";
+
+        private static string Speed(double v) => Format("0.0", v) + " m/s";
+
+        private static string Metres(double v) => Format("0.00", v) + " m";
     }
 }

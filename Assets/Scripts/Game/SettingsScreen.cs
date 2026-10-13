@@ -297,7 +297,11 @@ namespace HockeyGame
                 var card = new VisualElement();
                 card.AddToClassList("lc-card");
                 card.AddToClassList("lc-c" + (g % 3));
-                Add(card, "lc-card-head", groups[g].name);
+                // A slider row has no room for its hint, so a card of sliders carries it once in its title (the goalie values: "next Round").
+                int first = groups[g].first;
+                string head = _menu.Kind(first) == SettingsRowKind.Slider && _menu.Hint(first) != null
+                    ? groups[g].name + "   " + _menu.Hint(first) : groups[g].name;
+                Add(card, "lc-card-head", head);
                 for (int r = 0; r < groups[g].count; r++)
                     card.Add(BuildRow(groups[g].first + r));
                 (g == groups.Count - 1 ? right : left).Add(card);
