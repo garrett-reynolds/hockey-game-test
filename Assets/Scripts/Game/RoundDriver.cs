@@ -244,7 +244,7 @@ namespace HockeyGame
 
             string phase = _flow.Screen == FlowScreen.Playing ? _round.Phase.ToString() : _flow.Screen + " screen";
             if (_flow.Screen == FlowScreen.Playing)
-                phase += "  -  Shot " + _round.ShotNumber + " of " + Round.ShotsPerRound;
+                phase += "  -  Shot " + _round.ShotNumber + " of " + _round.ShotCount;
             GUI.Label(new Rect(10, 10, w / 3f, 30), phase, _small);
 
             switch (_round.Phase)
@@ -268,13 +268,13 @@ namespace HockeyGame
             switch (_flow.Screen)
             {
                 case FlowScreen.Start:
-                    GUI.Label(StartScreenLayout.BestScore(w, h), "Best score: " + _save.BestScore + " / " + Round.ShotsPerRound, _mid);
+                    GUI.Label(StartScreenLayout.BestScore(w, h), "Best score: " + _save.BestScore + " / " + _flow.ShotsPerRound, _mid);
                     GUI.Label(StartScreenLayout.Prompt(w, h), "Shoot or press any key", _mid);
                     GUI.Label(StartScreenLayout.UsbStatus(w, h), _usb.StatusText, _mid);
                     break;
                 case FlowScreen.End:
-                    GUI.Label(new Rect(0, h * 0.2f, w, 60), _round.Goals + " / " + Round.ShotsPerRound + " goals", _big);
-                    string best = "Best score: " + _save.BestScore + " / " + Round.ShotsPerRound;
+                    GUI.Label(new Rect(0, h * 0.2f, w, 60), _round.Goals + " / " + _round.ShotCount + " goals", _big);
+                    string best = "Best score: " + _save.BestScore + " / " + _round.ShotCount;
                     if (_round.IsNewBest) best = "New best! " + best;
                     GUI.Label(new Rect(0, h * 0.2f + 70, w, 40), best, _mid);
                     if (_flow.EndAcceptsInput)
@@ -286,11 +286,12 @@ namespace HockeyGame
         void DrawDots(float width)
         {
             const float size = 24f, gap = 12f;
-            float total = Round.ShotsPerRound * size + (Round.ShotsPerRound - 1) * gap;
+            int count = _round.ShotCount;
+            float total = count * size + (count - 1) * gap;
             float left = (width - total) / 2f;
             var results = _round.Results;
             int shown = results.Count; // the Shot in flight has no result yet: it shows at the Whistle
-            for (int i = 0; i < Round.ShotsPerRound; i++)
+            for (int i = 0; i < count; i++)
             {
                 Color colour = i < shown ? DotColour(results[i]) : new Color(1f, 1f, 1f, 0.15f);
                 var rect = new Rect(left + i * (size + gap), 36, size, size);

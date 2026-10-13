@@ -28,7 +28,11 @@ namespace HockeyGame.Core
     /// </summary>
     public sealed class Round
     {
-        public const int ShotsPerRound = 6;
+        /// <summary>The default number of Shots in a Round (SaveData.DefaultShotsPerRound). A Round plays ShotCount, set when it starts.</summary>
+        public const int ShotsPerRound = SaveData.DefaultShotsPerRound;
+
+        /// <summary>Shots in this Round (3 to 10): the number given to StartRound(best, shots), the default 6 until then.</summary>
+        public int ShotCount { get; private set; } = ShotsPerRound;
 
         private readonly IRandomSource _random;
         private readonly RoundSettings _settings;
@@ -54,7 +58,7 @@ namespace HockeyGame.Core
 
         public RoundPhase Phase { get; private set; }
 
-        /// <summary>Current Shot number, 1 to 6. 0 before the Round starts.</summary>
+        /// <summary>Current Shot number, 1 to ShotCount. 0 before the Round starts.</summary>
         public int ShotNumber { get; private set; }
 
         /// <summary>Real seconds left in the shooting window; 0 outside the window.</summary>
@@ -129,7 +133,7 @@ namespace HockeyGame.Core
         /// </summary>
         public double ResultHoldLength =>
             (ReplayTiming.Follows(LastResult) ? ReplayTiming.HoldSeconds : _settings.ResultHoldSeconds)
-            + (ReplayTiming.Follows(LastResult) && ShotNumber < ShotsPerRound ? ShotFade.LeadSeconds : 0);
+            + (ReplayTiming.Follows(LastResult) && ShotNumber < ShotCount ? ShotFade.LeadSeconds : 0);
 
         /// <summary>
         /// Real seconds from the Shot to its Whistle (Shot-to-Whistle, since #108: not the puck's flight); 0 until the Whistle.
@@ -144,6 +148,12 @@ namespace HockeyGame.Core
         public int ShotsSubmitted { get; private set; }
 
         /// <summary>Starts a Round against the given best score (for example after a reset on the settings screen).</summary>
+        public void StartRound(int bestScore, int shots)
+        {
+            ShotCount = (int)SaveData.ShotsPerRoundRange.Clamp(shots);
+            StartRound(bestScore);
+        }
+
         public void StartRound(int bestScore)
         {
             BestScore = bestScore;
@@ -152,8 +162,8 @@ namespace HockeyGame.Core
 
         public void StartRound()
         {
-            _setUps = RoundDecks.SetUps(_random);
-            _sides = RoundDecks.AttackSides(_random);
+            _setUps = RoundDecks.SetUps(_random, ShotCount);
+            _sides = RoundDecks.AttackSides(_random, ShotCount);
             _results.Clear();
             _speeds.Clear();
             Goals = 0;
@@ -233,7 +243,7 @@ namespace HockeyGame.Core
                     Finish(new ShotResult(ShotResultKind.TooLate, false, 0, 0, 0, false));
                     break;
                 case RoundPhase.ResultHold:
-                    if (ShotNumber >= ShotsPerRound)
+                    if (ShotNumber >= ShotCount)
                     {
                         EndRound();
                     }

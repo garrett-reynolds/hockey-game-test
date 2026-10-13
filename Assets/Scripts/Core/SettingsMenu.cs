@@ -79,12 +79,14 @@ namespace HockeyGame.Core
             AddNumber(player, "SOUND", "Master volume", () => _save.MasterVolume, v => _save.MasterVolume = v, SaveData.VolumeRange, Percent);
             AddToggle(player, "SOUND", "Mute", () => _save.Mute, v => _save.Mute = v);
             AddToggle(player, "SOUND", "Tick", () => _save.TickOn, v => _save.TickOn = v);
+            AddNumber(player, "ROUND", "Shots per Round", () => _save.ShotsPerRound, v => _save.ShotsPerRound = (int)v, SaveData.ShotsPerRoundRange, v => Format("0", v));
             AddToggle(player, "ROUND", "Easy mode", () => _save.EasyMode, v => _save.EasyMode = v);
             AddToggle(player, "ROUND", "Test Shots on at start", () => _save.TestShotOnAtStart, v => _save.TestShotOnAtStart = v);
             AddRow(player, "OPERATOR", SettingsRowKind.Choice, "USB port", () => _save.UsbPort, ChangePort, null);
             AddNumber(player, "OPERATOR", "End screen input-ignore time", () => _save.InputIgnoreSeconds, v => _save.InputIgnoreSeconds = v, SaveData.InputIgnoreRange, Seconds);
             AddNumber(player, "OPERATOR", "End screen auto-return time", () => _save.AutoReturnSeconds, v => _save.AutoReturnSeconds = v, SaveData.AutoReturnRange, Seconds);
             AddRow(player, "OPERATOR", SettingsRowKind.Button, "Reset best score", () => "best " + _save.BestScore.ToString(CultureInfo.InvariantCulture), null, ResetBestScore);
+            _all[_all.Count - 1].Hint = "(all numbers)"; // the best of every Shots per Round number; short, as the hint box is narrow
 
             AddToggle(SettingsPart.Dev, "SHOW", "Show the block goalie", () => _save.ForceGoalieBlocks, v => _save.ForceGoalieBlocks = v);
             _all[_all.Count - 1].Hint = "(next launch)"; // RoundDriver builds the goalie when the game starts
@@ -175,6 +177,7 @@ namespace HockeyGame.Core
                 _save.MasterVolume = defaults.MasterVolume;
                 _save.Mute = defaults.Mute;
                 _save.TickOn = defaults.TickOn;
+                _save.ShotsPerRound = defaults.ShotsPerRound;
                 _save.EasyMode = defaults.EasyMode;
                 _save.TestShotOnAtStart = defaults.TestShotOnAtStart;
                 _save.UsbPort = defaults.UsbPort;
@@ -262,7 +265,7 @@ namespace HockeyGame.Core
 
         private bool ResetBestScore()
         {
-            _save.BestScore = 0;
+            _save.ClearBestScores();
             return true;
         }
 

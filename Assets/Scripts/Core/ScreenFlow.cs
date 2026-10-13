@@ -47,6 +47,9 @@ namespace HockeyGame.Core
         /// <summary>The saved best score (the start screen shows it; a reset on the settings screen shows at once).</summary>
         public int BestScore => _save.BestScore;
 
+        /// <summary>Shots in the Round: the chosen number on the start screen (the Settings page changes it there), the Round's own once it has started.</summary>
+        public int ShotsPerRound => Screen == FlowScreen.Start ? _save.ShotsPerRound : Round.ShotCount;
+
         /// <summary>The one Round for the whole run: idle (or the last Round, over) on the start screen.</summary>
         public Round Round { get; }
 
@@ -86,7 +89,7 @@ namespace HockeyGame.Core
             switch (Screen)
             {
                 case FlowScreen.Start:
-                    Round.StartRound(_save.BestScore);
+                    Round.StartRound(_save.BestScore, _save.ShotsPerRound);
                     Screen = FlowScreen.Playing;
                     break;
                 case FlowScreen.End:

@@ -340,6 +340,7 @@ namespace HockeyGame
                     _hits.Add(new Hit { El = view.OffCell, Kind = HitKind.ToggleOff, Row = i });
                     break;
                 default:
+                    if (_menu.Hint(i) != null) Add(control, "lc-hint", _menu.Hint(i)); // "Reset best score" says it clears every Shots per Round number
                     view.Value = Add(control, "lc-wide-cell");
                     _hits.Add(new Hit { El = view.Value, Kind = HitKind.Cell, Row = i });
                     break;
