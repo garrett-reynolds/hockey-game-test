@@ -307,8 +307,9 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void No_test_or_editor_tool_reads_the_save_file()
         {
-            // The only readers of save.txt are SaveStore (the running game) and SaveData.Load itself. A test or tool that read the file
-            // would pick up Garrett's tuned goalie values, so this fails if one starts to.
+            // The real save.txt is only reached through SaveStore or Application.persistentDataPath (SaveStore.FilePath). A test or tool
+            // that read it would pick up Garrett's tuned goalie values, so this fails if one names either. SaveData.Load on a temp
+            // path is fine (SaveDataTests, ShotsPerRoundTests do it). Only this file is skipped: it names both words to scan for them.
             string tools = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, "Scripts", "Game", "Editor"));
             string tests = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, "Tests"));
             int scanned = 0;
@@ -318,11 +319,11 @@ namespace HockeyGame.Core.Tests
                 foreach (string file in Directory.GetFiles(folder, "*.cs", SearchOption.AllDirectories))
                 {
                     string name = Path.GetFileName(file);
-                    if (name == "GoalieDevSettingsTests.cs" || name == "SaveDataTests.cs") continue; // these write temp files on purpose
+                    if (name == "GoalieDevSettingsTests.cs") continue;
                     scanned++;
                     string text = File.ReadAllText(file);
                     Assert.IsFalse(text.Contains("SaveStore"), file + " uses SaveStore (the real save.txt)");
-                    Assert.IsFalse(text.Contains("SaveData.Load("), file + " loads a save file");
+                    Assert.IsFalse(text.Contains("persistentDataPath"), file + " reaches the real save folder");
                 }
             }
             Assert.Greater(scanned, 5, "the scan found the tool and test files");
