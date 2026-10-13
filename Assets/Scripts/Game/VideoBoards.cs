@@ -56,6 +56,9 @@ namespace HockeyGame
             public bool[] Cells;
             public Screen Master;  // the screen whose words are written
             public bool Stale;     // its words changed since they were written
+            public Texture2D StartCard;   // the start card picture for this board's shape (StartCardArt), made when first shown
+            public Material StartMaterial; // draws StartCard sharp, for every screen of this board
+            public string StartDetails;    // the small words StartCard was made with
             public bool Written;   // its texture holds WrittenHeadline and WrittenDetails
             public string WrittenHeadline, WrittenDetails;
         }
@@ -64,6 +67,7 @@ namespace HockeyGame
         readonly List<WordsBoard> _boards = new List<WordsBoard>();
         Material _picture, _frame, _cable, _stillPicture;
         bool _still; // the Video Board shows the Calm Area's one dim still colour (CalmStill)
+        bool _startCard; // the Arena Show says start card: the screens draw the Shootout logo picture (#153)
         double _cell;
         int _wordsUploads;
         Transform _videoBoard, _centreBoard;
@@ -89,6 +93,10 @@ namespace HockeyGame
         public string HeadlineOn(int screen) => WordsVisible ? _screens[screen].Headline : "";
         public string DetailsOn(int screen) => WordsVisible ? _screens[screen].Details : "";
         public Color WordsColourOn(int screen) => _screens[screen].WordsColour;
+        /// <summary>True while the screens show the start card's logo picture (the Replay picture and the Calm Area's still go over it).</summary>
+        public bool StartLogoShown => _startCard && !_still && _shownPicture == null;
+        /// <summary>The start card picture of a screen's board (the Centre Board's four share one); null until the start card has shown.</summary>
+        public Texture2D StartCardTextureOn(int screen) => _screens[screen].Board.StartCard;
         /// <summary>The screen's picture: its own words material, the shared still or the shared Replay picture.</summary>
         public Material PictureOn(int screen) => _screens[screen].Picture.sharedMaterial;
         /// <summary>The colour the screens show behind the words (or the tint over a picture).</summary>
@@ -175,12 +183,9 @@ namespace HockeyGame
             SetStill(state.VideoBoard == VideoBoardContent.CalmStill);
             string headline = state.VideoBoardWords.Headline, details = state.VideoBoardWords.Details;
             Color back = _skinBack, fore = _skinWords;
-            if (state.VideoBoard == VideoBoardContent.StartCard)
-            {
-                // The Shootout logo's look (#151) as far as one colour of LED words allows: its white letters on its red band.
-                back = LookC.Red;
-                fore = LookC.White;
-            }
+            // The start card is the real Shootout logo as a picture (#153), in the logo's own colours on every Team Skin; the skin's
+            // colours are left alone. Test Mode never gets it (the Arena Show turns that card into the Score board, #157).
+            SetStartCard(state.VideoBoard == VideoBoardContent.StartCard, details);
             if (state.VideoBoard == VideoBoardContent.AdSlide)
             {
                 Brands.Brand b = Brands.All[(int)System.Math.Floor(seconds / AdSeconds) % Brands.All.Length];
@@ -253,12 +258,34 @@ namespace HockeyGame
         {
             foreach (Screen s in _screens)
             {
-                Material m = _shownPicture != null ? _picture : _still ? _stillPicture : s.WordsMaterial;
+                Material m = _shownPicture != null ? _picture : _still ? _stillPicture : _startCard ? s.Board.StartMaterial : s.WordsMaterial;
                 if (s.Picture.sharedMaterial != m) s.Picture.sharedMaterial = m;
             }
         }
 
         // From goalie set to the Shot the boards show one dim still colour and no words (the Calm Area rules).
+        // On: every board has its start card picture (made again only when the small words change), and the screens draw it.
+        void SetStartCard(bool on, string details)
+        {
+            if (on)
+                foreach (WordsBoard b in _boards)
+                {
+                    if (b.StartCard != null && b.StartDetails == details) continue;
+                    if (b.StartCard != null) SceneObjects.DestroySafely(b.StartCard);
+                    Screen master = b.Master;
+                    b.StartCard = StartCardArt.Make(master.CellsX, master.CellsY, details);
+                    b.StartDetails = details;
+                    if (b.StartMaterial == null)
+                    {
+                        b.StartMaterial = LedBoardMaterial.Screen("Video Board Start Card", _cell, Color.white);
+                        LedBoardMaterial.SetPlain(b.StartMaterial, true);
+                    }
+                    b.StartMaterial.mainTexture = b.StartCard;
+                }
+            _startCard = on;
+            ShowScreenMaterials();
+        }
+
         void SetStill(bool still)
         {
             _still = still;
@@ -411,7 +438,11 @@ namespace HockeyGame
             foreach (Screen s in _screens)
                 if (s.WordsMaterial != null) SceneObjects.DestroySafely(s.WordsMaterial);
             foreach (WordsBoard b in _boards)
+            {
                 if (b.Texture != null) SceneObjects.DestroySafely(b.Texture);
+                if (b.StartCard != null) SceneObjects.DestroySafely(b.StartCard);
+                if (b.StartMaterial != null) SceneObjects.DestroySafely(b.StartMaterial);
+            }
         }
 
         void AddCable(Transform parent, Vector3 bottom)

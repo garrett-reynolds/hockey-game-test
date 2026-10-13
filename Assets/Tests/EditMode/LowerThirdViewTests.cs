@@ -36,7 +36,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void The_kicker_words_stay_inside_the_red_tab_with_a_margin_at_3_screen_sizes()
+        public void The_kicker_words_stay_inside_the_red_tab_with_a_margin_at_4_screen_sizes()
         {
             // The widest the words can get is TextFit of the kicker's box, centred in it (the view shrinks the font until they fit).
             foreach (Vector2 screen in Screens)
@@ -58,7 +58,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void The_bar_fits_the_screen_and_stays_clear_of_the_result_word_at_3_screen_sizes()
+        public void The_bar_fits_the_screen_and_stays_clear_of_the_result_word_at_4_screen_sizes()
         {
             foreach (Vector2 screen in Screens)
             {

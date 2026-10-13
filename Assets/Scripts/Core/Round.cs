@@ -87,7 +87,7 @@ namespace HockeyGame.Core
         /// <summary>Result per finished Shot, in order (TooLate counts as a Miss in the tally).</summary>
         public IReadOnlyList<ShotResultKind> Results => _results;
 
-        /// <summary>Speed (km/h) per finished Shot, in order, parallel to Results; null for a Shot with no puck (Too Late).</summary>
+        /// <summary>Speed (km/h) per finished Shot, in order, parallel to Results; null for a Shot with no puck (Too Late) and for a Test Shot (dev only: it never counts in the Round's average speed, #153).</summary>
         public IReadOnlyList<double?> ShotSpeedsKmh => _speeds;
 
         public int Goals { get; private set; }
@@ -375,7 +375,7 @@ namespace HockeyGame.Core
             LastResult = result;
             LastShotSpeedKmh = result.HasShot ? result.SpeedKmh : (double?)null;
             _results.Add(result.Kind);
-            _speeds.Add(LastShotSpeedKmh);
+            _speeds.Add(result.IsTestShot ? null : LastShotSpeedKmh); // a Test Shot is a Shot in the Results but has no speed in the average (#153)
             if (result.Kind == ShotResultKind.Goal)
                 Goals++;
         }
