@@ -319,24 +319,25 @@ namespace HockeyGame.Core.Tests
             Assert.IsTrue(!Directory.Exists(Notes) || File.Exists(PngPath("shooter")), "the picture file was written");
         }
 
-        // ---- Words on the Centre Board with a chosen string and grid phase (the tests below guard LedBoard.shader's glyph-quad corner) ----
+        // ---- Words on the Centre Board with a chosen string and grid phase (the tests below guard the words' cell average and grid alignment) ----
 
         const int WordsW = 1920, WordsH = 1080;
 
-        /// <summary>Shows the Skate-in words, keeps only the Centre Board's first Headline on, and points the camera at that screen from 6 m.</summary>
-        TextMesh CentreHeadline(VideoBoards boards)
+        /// <summary>Shows the Skate-in words, keeps only the Centre Board's first Headline (the words object the board draws its picture from;
+        /// its Details are cleared), and points the camera at that screen from 6 m.</summary>
+        TextMesh CentreHeadline(VideoBoards boards, bool details = false)
         {
             boards.Show(Show(RoundPhase.SkateIn), 0.0);
             TextMesh best = null;
             float bestDistance = float.MaxValue;
+            string wanted = details ? "Details" : "Headline", other = details ? "Headline" : "Details";
             foreach (TextMesh t in boards.CentreBoard.GetComponentsInChildren<TextMesh>(true))
             {
-                t.GetComponent<Renderer>().enabled = false;
-                if (!t.name.Contains("Headline")) continue;
+                if (t.name.Contains(other)) t.text = "";
+                if (!t.name.Contains(wanted)) continue;
                 float d = Vector3.Distance(t.transform.position, boards.CentreOf(1));
                 if (d < bestDistance) { bestDistance = d; best = t; }
             }
-            best.GetComponent<Renderer>().enabled = true;
             _eye.transform.position = boards.CentreOf(1) + boards.FacingOf(1) * 6f;
             _eye.transform.LookAt(boards.CentreOf(1));
             _camera.fieldOfView = 60f;
@@ -348,8 +349,9 @@ namespace HockeyGame.Core.Tests
         {
             words.text = text;
             words.font.RequestCharactersInTexture(text, words.fontSize, FontStyle.Bold);
-            BoardWordsMaterial.Follow(words.GetComponent<Renderer>().sharedMaterial, words.font);
+            BoardWordsMaterial.Follow(boards.WordsMaterial, words.font);
             words.transform.position = origin + words.transform.right * right + words.transform.up * up;
+            boards.RedrawWords(); // the words are drawn into the board's RenderTexture only when asked
             Color32[] pixels = Render(WordsW, WordsH, null);
             Vector2[] polygon = ScreenPolygon(_camera, boards, 1, WordsW, WordsH);
             var lit = new bool[pixels.Length];
@@ -394,31 +396,45 @@ namespace HockeyGame.Core.Tests
             return letters;
         }
 
-        // Guards the cell-centre-in-glyph-quad rule in LedBoard.shader (the corner from SV_VertexID, and the trim of round letters' overshoot).
-        // Flat letters (E L T 4 5) must keep their cap and baseline rows whatever the phase of the cell grid under them; round ones (O S 6)
-        // must not light a cell above the cap row or below the baseline row.
+        // Guards the words' alignment to the LED grid (VideoBoards.SetWords: whole-cell capitals, baseline on a row line) and the cell
+        // average with its 0.5 threshold (LedBoardMaterial.WordsLitAbove). Flat letters (E L T 4 5) must keep their cap and baseline rows
+        // and round ones (O S 6) must not light a cell above the cap row or below the baseline row, for the Headline and the Details line,
+        // at every horizontal phase of the grid under the words. (The words' vertical phase is fixed by the board, not free: SetWords puts
+        // the baseline on a row line, so a half-cell vertical offset is not a state the board can be in. An earlier version of this test
+        // moved the words up by phase/8 of a cell; with the rows snapped that tests nothing real, and any area threshold fails at some such offset.)
         [Test]
         [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void Flat_letters_keep_their_cap_and_baseline_rows_and_round_letters_stay_inside_at_every_grid_phase()
         {
-            VideoBoards boards = VideoBoards.Build(_rink.transform);
-            TextMesh words = CentreHeadline(boards);
-            Vector3 origin = words.transform.position;
+            var failures = new System.Collections.Generic.List<string>();
+            foreach (bool details in new[] { false, true })
+            {
+                VideoBoards boards = VideoBoards.Build(_rink.transform);
+                TextMesh words = CentreHeadline(boards, details);
+                FlatAndRoundRows(boards, words, details ? "Details" : "Headline", failures);
+                Object.DestroyImmediate(boards.gameObject);
+            }
+            Assert.IsEmpty(failures, string.Join("\n", failures));
+        }
+
+        void FlatAndRoundRows(VideoBoards boards, TextMesh words, string line, System.Collections.Generic.List<string> failures)
+        {
             const string text = "E L T 4 O S 6 5";
             const string shown = "ELT4OS65"; // the letters in order; spaces keep neighbours apart so each is found as one run
-            var failures = new System.Collections.Generic.List<string>();
+            if (line == "Details") boards.ShowWords("", text); else boards.ShowWords(text, "");
+            Vector3 origin = words.transform.position;
             for (int phase = 0; phase < 8; phase++)
             {
-                bool[] lit = LitWords(boards, words, origin, text, 0f, phase / 8f * LedCell);
+                bool[] lit = LitWords(boards, words, origin, text, phase / 8f * LedCell, 0f);
                 float cell = CellPixels(boards, words);
                 // A cell row is a whole cell (about 12 px) away; a lit cell cut by its letter's quad edge is a few px shorter, so half a cell is the tolerance.
-                float tolerance = 0.5f * cell;
+                float tolerance = 0.2f * cell; // strict (was half a cell): a cell row more or less is 12 px, so this allows only edge antialiasing
                 var letters = Letters(lit, cell);
-                if (letters.Count != shown.Length) { failures.Add("phase " + phase + ": " + letters.Count + " letters found, not " + shown.Length); continue; }
+                if (letters.Count != shown.Length) { failures.Add(line + ", phase " + phase + ": " + letters.Count + " letters found, not " + shown.Length); continue; }
                 int Widest(int index) { int w = 0; foreach (int r in letters[index].RowCounts) w = Mathf.Max(w, r); return w; }
                 bool TopWide(int i) => letters[i].RowCounts[letters[i].Top] >= 0.6f * Widest(i);
                 bool BottomWide(int i) => letters[i].RowCounts[letters[i].Bottom] >= 0.6f * Widest(i);
-                string at = "phase " + phase + " (" + phase / 8f + " cell up): ";
+                string at = line + ", phase " + phase + " (" + phase / 8f + " cell right): ";
                 if (!TopWide(0)) failures.Add(at + "E has no full top bar row");
                 if (!BottomWide(0)) failures.Add(at + "E has no full bottom bar row");
                 if (!BottomWide(1)) failures.Add(at + "L has no full foot row");
@@ -432,14 +448,59 @@ namespace HockeyGame.Core.Tests
                     if (letters[round].Bottom < baseBottom - tolerance) failures.Add(at + "letter " + shown[round] + " lights a cell below the baseline row (its bottom pixel row " + letters[round].Bottom + ", flat letters' " + baseBottom + ")");
                 }
             }
+        }
+
+        // Mixed case from the ad brands (the Ribbon Boards will show these in #122): the letters sit on the baseline of a flat capital, and only
+        // g, y, p, q, j reach below it. A cell lit below the baseline anywhere else is an overshoot of a round letter (e, s, o, B's curves).
+        [Test]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
+        public void Mixed_case_words_light_cells_below_the_baseline_only_under_descenders_at_every_grid_phase()
+        {
+            Brands.Brand brand = System.Array.Find(Brands.All, b => b.Name == "Big Timber Burgers");
+            Assert.IsNotNull(brand, "Big Timber Burgers is one of the brands");
+            VideoBoards boards = VideoBoards.Build(_rink.transform);
+            TextMesh words = CentreHeadline(boards);
+            boards.ShowWords(brand.Name, ""); // sized and put on the grid as the board does it (18 letters are narrowed to fit the screen)
+            Vector3 origin = words.transform.position;
+            int descenders = 0;
+            foreach (char c in brand.Name) if ("gypqj".IndexOf(c) >= 0) descenders++;
+            Assert.AreEqual(2, descenders, "the g in Big and the g in Burgers");
+            var failures = new System.Collections.Generic.List<string>();
+            for (int phase = 0; phase < 8; phase++)
+            {
+                bool[] lit = LitWords(boards, words, origin, brand.Name, 0f, phase / 8f * LedCell);
+                float cell = CellPixels(boards, words);
+                var columns = new int[WordsW];
+                int left = -1;
+                for (int i = 0; i < lit.Length; i++) if (lit[i]) { columns[i % WordsW]++; if (left < 0 || i % WordsW < left) left = i % WordsW; }
+                Assert.GreaterOrEqual(left, 0, "the words are lit");
+                // The baseline: the lowest lit pixel row in the first cell and a bit of the capital B (its foot is flat).
+                int baseline = WordsH;
+                for (int y = 0; y < WordsH; y++)
+                    for (int x = left; x <= left + (int)cell && x < WordsW; x++)
+                        if (lit[y * WordsW + x]) baseline = Mathf.Min(baseline, y);
+                int limit = baseline - (int)(0.2f * cell);
+                var below = new bool[WordsW];
+                for (int y = 0; y < limit; y++)
+                    for (int x = 0; x < WordsW; x++)
+                        if (lit[y * WordsW + x]) below[x] = true;
+                int runs = 0, start = -1, last = -1;
+                for (int x = 0; x <= WordsW; x++)
+                {
+                    if (x < WordsW && below[x]) { if (start < 0) start = x; last = x; continue; }
+                    if (start >= 0 && (x == WordsW || x - last > 0.5f * cell)) { runs++; start = -1; }
+                }
+                string at = "phase " + phase + " (" + phase / 8f + " cell up): ";
+                if (runs > descenders) failures.Add(at + runs + " places below the baseline; only " + descenders + " (the g's) are allowed");
+                if (runs < descenders) failures.Add(at + "only " + runs + " places below the baseline: the g tails are missing (" + descenders + " expected)");
+            }
             Assert.IsEmpty(failures, string.Join("\n", failures));
         }
 
-        // Guards the glyph-quad corner in LedBoard.shader (assumes TextMesh's 4 vertices per letter go round the corners). A cell whose centre
-        // is outside its letter's quad read the neighbouring letter's atlas pixels and showed as a thin bar (under a third of a cell wide) at the
-        // quad's edge. Every lit run of pixels along a row must be a cell (or a cell cut by the quad's edge, over half a cell), at every phase
-        // of the grid under the words. (A wrong vertex order would also fail the full bars of E, T, L in the test above: the corner would be
-        // wrong across the quad. TextMesh's own mesh is not readable in EditMode, so the order is proved by these renders.)
+        // No thin bars: every lit run of pixels along a row is a whole lit cell or more (never under 0.3 of a cell: bar tolerance 0), at every
+        // horizontal phase of the grid under the words. The old per-glyph-quad words mode let a cell read the neighbouring letter's atlas
+        // pixels and lit slivers (60 to 127 pixel rows in 3 of 8 phases, then 12 in one phase after its patches); the cell average of the
+        // words' RenderTexture has no such edge.
         [Test]
         [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void Words_show_no_thin_bars_at_any_grid_phase()
@@ -466,9 +527,7 @@ namespace HockeyGame.Core.Tests
                     }
                 }
                 Assert.Greater(total, 0, "the words are lit");
-                // The bleed made 60 to 127 such pixel rows (5 to 10 cells) in 3 of the 8 phases. One cell is 12 pixel rows; a single sliver
-                // cell is left in one phase where a cell's centre falls on a quad edge (known, reported), so the limit is 1 cell.
-                if (bars > 14) failures.Add("phase " + phase + " (" + phase / 8f + " cell right): " + bars + " pixel rows with a bar under 0.3 cell wide" + first);
+                if (bars > 0) failures.Add("phase " + phase + " (" + phase / 8f + " cell right): " + bars + " pixel rows with a bar under 0.3 cell wide" + first);
             }
             Assert.IsEmpty(failures, string.Join("\n", failures));
         }
