@@ -78,11 +78,16 @@ namespace HockeyGame.Core.Tests
         // ---- The soak: once per hit ----
 
         /// <summary>Flies one Shot at a wall of this feel and returns the puck's speed 2 steps after the first hit, how many touches were told, and the step of the first hit.</summary>
-        (float speed, int touches, int hitStep) HeadOn(PhysicsMaterial feel)
+        (float speed, int touches, int hitStep) HeadOn(PhysicsMaterial feel, bool overlapped = false)
         {
-            GameObject old = GameObject.Find(WallName);
-            if (old != null) Object.DestroyImmediate(old);
+            foreach (string name in new[] { WallName, WallName + " 2" })
+            {
+                GameObject old = GameObject.Find(name);
+                if (old != null) Object.DestroyImmediate(old);
+            }
             Wall(feel);
+            // A second piece overlapping the first, its front face (the one the puck meets) level with it: both report the same hit.
+            if (overlapped) Box(feel, new Vector3(6f, 4f, 0.4f), new Vector3(0f, 1.5f, -0.95f), Quaternion.identity, WallName + " 2");
             using (var shot = new PhysicsShot(_root.transform, _camera, Defaults, new SeededRandom(3), name => null))
             {
                 int touches = 0, hitStep = -1, step = 0;
@@ -112,6 +117,35 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(1, soaked.touches, "one touch told");
             Assert.Greater(plain.speed, 0.5f, "the control keeps some speed to compare with");
             Assert.AreEqual(keep, soaked.speed / plain.speed, 0.08f, $"soaked {soaked.speed:F2} m/s, unsoaked {plain.speed:F2} m/s");
+        }
+
+        [Test]
+        public void A_hit_on_two_overlapping_pieces_soaks_once_not_once_per_piece()
+        {
+            var one = HeadOn(ShotColliders.GearPads);
+            var two = HeadOn(ShotColliders.GearPads, overlapped: true);
+
+            Assert.AreEqual(1, two.touches, "one touch told");
+            Assert.Greater(one.speed, 0.5f, "the single piece keeps some speed to compare with");
+            // soaked twice it would keep 0.7 of what one piece leaves
+            Assert.AreEqual(1f, two.speed / one.speed, 0.1f, $"two pieces {two.speed:F2} m/s, one piece {one.speed:F2} m/s");
+        }
+
+        // ---- A dead puck ----
+
+        [Test]
+        public void A_PuckReach_whose_puck_is_gone_is_skipped_not_thrown_on()
+        {
+            var body = new GameObject("Dead puck (test)", typeof(Rigidbody), typeof(SphereCollider)).GetComponent<Rigidbody>();
+            var reach = new PuckReach(body);
+            reach.LookAhead(Step); // so it is looking, as a live Shot's is
+            Object.DestroyImmediate(body.gameObject); // never disposed, as after a Play session with domain reload off
+            try
+            {
+                Assert.DoesNotThrow(PuckReach.GearMoved);
+                Assert.DoesNotThrow(PuckReach.GearMoved, "and it is dropped, not tried again");
+            }
+            finally { reach.Dispose(); } // already dropped: harmless
         }
 
         // ---- The Save and the Goal ----

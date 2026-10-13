@@ -26,8 +26,9 @@ namespace HockeyGame
         readonly HashSet<Collider> _ownShapes = new HashSet<Collider>();
         readonly Plane[] _view = new Plane[6];
         readonly PuckReach _reach;
-        // The physics step (AfterStep count) of each gear piece's latest contact: a touch episode is one run of steps in contact.
-        readonly Dictionary<Collider, int> _gearContactStep = new Dictionary<Collider, int>();
+        // The physics step (AfterStep count) of the latest contact with any gear: a touch episode is one run of steps in contact.
+        int _gearContactStep = -100;
+        bool _episodeGlove; // the glove is among the pieces of this episode, and the puck is soaked as that
         int _steps;
         bool _touched, _gearTouched;
 
@@ -201,15 +202,26 @@ namespace HockeyGame
         /// <summary>
         /// A real contact with a piece of gear: the Shot is gear touched, and the first contact of each touch soaks the puck (it
         /// keeps GearKeep of its speed, the glove GloveKeep: Unity's bounce only sets the speed along the normal) and is told.
+        /// Pieces that overlap report together: one touch soaks once, whatever the number of pieces; if the glove is among them
+        /// the puck ends up soaked as the glove's.
         /// </summary>
         void TouchGear(Collider gear)
         {
             _gearTouched = true;
-            // Contacts come during step _steps + 1: a piece touched in the step before this one (or in this one) is the same touch.
-            bool sameTouch = _gearContactStep.TryGetValue(gear, out int last) && _steps - last < 2;
-            _gearContactStep[gear] = _steps;
-            if (sameTouch) return;
-            float keep = gear.sharedMaterial == ShotColliders.GearGlove ? GloveKeep : GearKeep;
+            // Contacts come during step _steps + 1: gear touched in the step before this one (or in this one) is the same touch.
+            bool sameTouch = _steps - _gearContactStep < 2;
+            _gearContactStep = _steps;
+            bool glove = gear.sharedMaterial == ShotColliders.GearGlove;
+            if (sameTouch)
+            {
+                if (!glove || _episodeGlove) return;
+                _episodeGlove = true; // the glove came after a pad: soak the rest of the way to the glove's share
+                Puck.linearVelocity *= GloveKeep / GearKeep;
+                Puck.angularVelocity *= GloveKeep / GearKeep;
+                return;
+            }
+            _episodeGlove = glove;
+            float keep = glove ? GloveKeep : GearKeep;
             Puck.linearVelocity *= keep;
             Puck.angularVelocity *= keep;
             GearTouch?.Invoke(gear);

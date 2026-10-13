@@ -66,7 +66,12 @@ namespace HockeyGame
         /// <summary>Call once every piece of gear has told GearMoves for the step about to run: each look-ahead sweeps the gear again with its true move.</summary>
         public static void GearMoved()
         {
-            foreach (PuckReach reach in Live) reach.SweepGear();
+            // Domain reload is off: a Shot never disposed leaves a PuckReach whose puck is gone. Drop it, never throw on it.
+            for (int i = Live.Count - 1; i >= 0; i--)
+            {
+                if (Live[i]._puck == null) Live[i].Dispose();
+                else Live[i].SweepGear();
+            }
         }
 
         /// <summary>Undoes KeepContactsWith.</summary>
