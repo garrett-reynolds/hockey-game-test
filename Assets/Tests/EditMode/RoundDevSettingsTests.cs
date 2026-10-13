@@ -43,7 +43,7 @@ namespace HockeyGame.Core.Tests
             {
                 int row = RowOf(menu, label);
                 Assert.AreEqual(SettingsRowKind.Slider, menu.Kind(row), label);
-                Assert.AreEqual("(next Round)", menu.Hint(row), label);
+                Assert.AreEqual(label == "Result hold" ? "(no Replay)" : "(next Round)", menu.Hint(row), label);
             }
             Assert.AreEqual("ROUND TIMING", menu.Group(RowOf(menu, "Skate-in time")));
             Assert.AreEqual("ROUND TIMING", menu.Group(RowOf(menu, "Result hold")));
@@ -159,6 +159,30 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(0.6, save.LateSettleMetres, 1e-9, "its own top, 0.6");
             Step(menu, "Max push", -1, 100);
             Assert.LessOrEqual(save.LateSettleMetres, save.MaxPushMetres);
+        }
+
+        [Test]
+        public void With_Max_push_below_the_size_floor_the_size_is_held_to_the_push_and_its_slider_stays_on_the_track()
+        {
+            string path = TempFile("goalieMaxPushMetres=0.1\ngoalieShuffleMaxMetres=0.1\nsetUpLateSettleMetres=0.5\n");
+            try
+            {
+                var save = SaveData.Load(path);
+                Assert.AreEqual(0.1, save.LateSettleMetres, 1e-9, "held to Max push, under its own floor 0.2");
+                var menu = DevMenu(save);
+                int row = RowOf(menu, "Late Settle size");
+                Assert.GreaterOrEqual(menu.Fraction(row), 0);
+                Assert.LessOrEqual(menu.Fraction(row), 1);
+                Step(menu, "Late Settle size", +1, 100);
+                Assert.AreEqual(0.1, save.LateSettleMetres, 1e-9, "cannot go above the push");
+                Step(menu, "Late Settle size", -1, 100);
+                Assert.AreEqual(0.1, save.LateSettleMetres, 1e-9);
+                menu.SetFraction(row, 1);
+                Assert.AreEqual(0.1, save.LateSettleMetres, 1e-9);
+                Assert.GreaterOrEqual(menu.Fraction(row), 0);
+                Assert.LessOrEqual(menu.Fraction(row), 1);
+            }
+            finally { File.Delete(path); }
         }
 
         [Test]

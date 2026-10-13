@@ -108,6 +108,7 @@ namespace HockeyGame.Core
             AddDevRound("ROUND TIMING", "Skate-in time", () => _save.SkateInSeconds, v => _save.SkateInSeconds = v, SaveData.SkateInRange, Seconds, null);
             AddDevRound("ROUND TIMING", "Shooting window", () => _save.ShootingWindowSeconds, v => _save.ShootingWindowSeconds = v, SaveData.ShootingWindowRange, Seconds, () => _save.ShootingWindowAllowed);
             AddDevRound("ROUND TIMING", "Result hold", () => _save.ResultHoldSeconds, v => _save.ResultHoldSeconds = v, SaveData.ResultHoldRange, Seconds, null);
+            _all[_all.Count - 1].Hint = "(no Replay)"; // a Goal, Save or Frame Hit holds the fixed Replay time; only results with no Replay use this
             AddDevRound("SET-UP MISTAKES", "Cheat size", () => _save.CheatMetres, v => _save.CheatMetres = v, SaveData.CheatRange, Metres, null);
             AddDevRound("SET-UP MISTAKES", "Late Settle size", () => _save.LateSettleMetres, v => _save.LateSettleMetres = v, SaveData.LateSettleMetresRange, Metres, () => _save.LateSettleMetresAllowed);
             AddDevRound("SET-UP MISTAKES", "Late Settle time", () => _save.LateSettleSeconds, v => _save.LateSettleSeconds = v, SaveData.LateSettleSecondsRange, Seconds, () => _save.LateSettleSecondsAllowed);

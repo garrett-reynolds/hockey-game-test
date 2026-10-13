@@ -315,7 +315,11 @@ namespace HockeyGame
         {
             var view = new RowView { Row = new VisualElement() };
             view.Row.AddToClassList("lc-row");
-            Add(view.Row, "lc-row-label", _menu.Label(i));
+            // A slider's usual hint "(next Round)" is in its card's title; a different one (Result hold: "(no Replay)") goes after the label.
+            string label = _menu.Label(i);
+            if (_menu.Kind(i) == SettingsRowKind.Slider && _menu.Hint(i) != null && _menu.Hint(i) != "(next Round)")
+                label += "  " + _menu.Hint(i);
+            Add(view.Row, "lc-row-label", label);
             var control = new VisualElement();
             control.AddToClassList("lc-control");
             control.pickingMode = PickingMode.Ignore;
