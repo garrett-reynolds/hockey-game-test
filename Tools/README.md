@@ -28,7 +28,7 @@ These run inside Blender 4.5 (`bpy`), not plain Python. Each needs a downloaded 
 
 | Script | Makes |
 |---|---|
-| `make_crowd.py` | one 3D crowd fan body at one level, with its body shapes, hair styles, clips and (far) card pictures (`Assets/Resources/Crowd/*.bytes`), from a Quaternius base character and its hair; `make_crowd.sh` makes all four |
+| `make_crowd.py` | one 3D crowd fan outfit at one level (near or far), with its palette, clips and (far) card pictures (`Assets/Resources/Crowd/*.bytes`), from a Quaternius Modular men or women outfit FBX; `make_crowd.sh` makes all 24 |
 | `make_lifelike_goalie.py` | `goalie-dressing.fbx` and its textures |
 | `make_supplied_net.py` | `net.fbx` |
 | `make_supplied_puck.py` | `puck.fbx` |

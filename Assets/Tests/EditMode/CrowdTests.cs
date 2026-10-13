@@ -132,33 +132,28 @@ namespace HockeyGame.Core.Tests
 
         [Test]
         [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
-        public void No_two_neighbouring_fans_look_alike()
+        public void No_two_neighbouring_fans_wear_the_same_outfit()
         {
             for (int a = 0; a < Seats.Length; a++)
                 foreach (int b in Neighbours[a])
-                    Assert.That(Looks[a].Body, Is.Not.EqualTo(Looks[b].Body), Seats[a] + " / " + Seats[b]);
+                    Assert.That(CrowdLooks.BodyTypes[Looks[a].Body].Base, Is.Not.EqualTo(CrowdLooks.BodyTypes[Looks[b].Body].Base), Seats[a] + " / " + Seats[b]);
         }
 
         [Test]
-        public void There_are_six_body_types_each_well_used_and_teens_are_shorter()
+        public void Every_outfit_is_worn_all_round_the_bowl_and_teens_are_shorter()
         {
-            Assert.That(CrowdLooks.BodyTypes.Length, Is.EqualTo(6));
-            for (int b = 0; b < 6; b++)
-                Assert.That(Looks.Count(l => l.Body == b) / (double)Looks.Length, Is.GreaterThan(0.1), "body type " + b);
-            double Height(int b) => Looks.Where(l => l.Body == b).Average(l => l.Height);
+            Assert.That(CrowdLooks.BodyTypes.Select(t => t.Base).Distinct().Count(), Is.EqualTo(CrowdLooks.Outfits));
+            for (int o = 0; o < CrowdLooks.Outfits; o++)
+            {
+                double share = Looks.Count(l => CrowdLooks.BodyTypes[l.Body].Base == o) / (double)Looks.Length;
+                Assert.That(share, Is.GreaterThan(0.04), "outfit " + o);
+                foreach (bool nearHalf in new[] { true, false })
+                    Assert.That(Looks.Where((l, i) => (Seats[i].Z < RinkLayout.CentreLineZ) == nearHalf).Any(l => CrowdLooks.BodyTypes[l.Body].Base == o), "outfit " + o + (nearHalf ? " near half" : " far half"));
+            }
             BodyType[] types = CrowdLooks.BodyTypes;
-            for (int b = 0; b < 6; b++)
+            for (int b = 0; b < types.Length; b++)
                 if (types[b].Name.StartsWith("teen"))
-                    Assert.That(Height(b), Is.LessThan(Height(types.ToList().FindIndex(t => t.Name == (types[b].Base == 0 ? "man" : "woman")))));
-            Assert.That(types.Select(t => (t.Base, t.Shape)).Distinct().Count(), Is.GreaterThanOrEqualTo(6));
-        }
-
-        [Test]
-        public void Fans_have_many_hair_styles()
-        {
-            int styles = Looks.Select(l => (CrowdLooks.BodyTypes[l.Body].Base, l.HairStyle)).Distinct().Count();
-            Assert.That(styles, Is.GreaterThanOrEqualTo(10));
-            Assert.That(Looks.Select(l => l.Hair).Distinct().Count(), Is.GreaterThanOrEqualTo(8), "hair and cap colours");
+                    Assert.That(types[b].MaxHeight, Is.LessThan(types.First(t => t.Base == types[b].Base && !t.Name.StartsWith("teen")).MinHeight), types[b].Name);
         }
 
         [Test]
@@ -166,28 +161,30 @@ namespace HockeyGame.Core.Tests
         {
             Assert.That(Looks.All(l => l.Phase >= 0 && l.Phase < 1));
             Assert.That(Looks.Select(l => Math.Round(l.Phase, 2)).Distinct().Count(), Is.GreaterThan(90));
-            double home = Looks.Count(l => l.Shirt.Equals(HomeJersey)) / (double)Looks.Length;
+            double home = Looks.Count(l => l.TeamTop) / (double)Looks.Length;
             Assert.That(home, Is.EqualTo(CrowdLooks.HomeShare).Within(0.03));
             Assert.That(CrowdLooks.HomeShare, Is.InRange(0.3, 0.35));
         }
 
         [Test]
-        public void The_rest_wear_plain_shirts_in_many_colours_light_and_dark()
+        public void About_a_third_wear_a_team_top_in_the_home_jersey_and_the_rest_their_outfits_own_colours()
         {
-            var others = Looks.Where(l => !l.Shirt.Equals(HomeJersey)).ToList();
-            foreach (FanLook look in others) Assert.That(CrowdLooks.Shirts, Does.Contain(look.Shirt));
-            Assert.That(others.Select(l => l.Shirt).Distinct().Count(), Is.GreaterThanOrEqualTo(15), "shirt colours");
-            Assert.That(others.Count(l => l.Shirt.R + l.Shirt.G + l.Shirt.B > 450), Is.GreaterThan(others.Count / 10), "light shirts");
-            Assert.That(others.Count(l => l.Shirt.R + l.Shirt.G + l.Shirt.B < 200), Is.GreaterThan(others.Count / 10), "dark shirts");
+            double team = Looks.Count(l => l.TeamTop) / (double)Looks.Length;
+            Assert.That(team, Is.EqualTo(CrowdLooks.HomeShare).Within(0.03));
+            Assert.That(Looks.Where(l => l.TeamTop).All(l => l.Shirt.Equals(HomeJersey)));
         }
 
         [Test]
-        public void Fans_wear_many_pants_and_shoes()
+        public void An_outfit_colour_near_a_reserved_colour_is_nudged_to_a_safe_one_and_safe_ones_are_kept()
         {
-            Assert.That(Looks.All(l => CrowdLooks.Pants.Contains(l.Pants) && CrowdLooks.Shoes.Contains(l.Shoes)));
-            Assert.That(Looks.Select(l => l.Pants).Distinct().Count(), Is.GreaterThanOrEqualTo(6), "pants colours");
-            Assert.That(Looks.Select(l => l.Shoes).Distinct().Count(), Is.GreaterThanOrEqualTo(4), "shoe colours");
-            Assert.That(Looks.Select(l => l.Hair).Distinct().Count(), Is.GreaterThanOrEqualTo(12), "hair and cap colours");
+            foreach (ArenaColour r in ReservedColours.All)
+            {
+                ArenaColour c = CrowdLooks.SafeOutfitColour(r);
+                Assert.That(ReservedColours.IsSafe(c), r + " -> " + c);
+            }
+            var safe = new ArenaColour(40, 98, 62);
+            Assert.That(CrowdLooks.SafeOutfitColour(safe), Is.EqualTo(safe));
+            Assert.That(CrowdLooks.SafeOutfitColour(new ArenaColour(20, 20, 22)), Is.Not.EqualTo(new ArenaColour(20, 20, 22)), "puck-ish black moves");
         }
 
         [Test]
@@ -202,13 +199,11 @@ namespace HockeyGame.Core.Tests
         public void No_crowd_colour_is_a_reserved_colour()
         {
             var colours = new List<ArenaColour>();
-            // Every Team Skin's home jersey (and home caps): the near fans wear them in the Calm Area.
+            // Every Team Skin's home jersey: the team-top fans wear it in the Calm Area. (The outfits' own colours go
+            // through CrowdLooks.SafeOutfitColour; CrowdViewTests checks every baked palette.)
             TeamSkin[] skins = UnityEngine.Resources.LoadAll<TeamSkin>(TeamSkin.Folder);
             Assert.That(skins, Is.Not.Empty);
-            foreach (TeamSkin skin in skins) colours.AddRange(CrowdLooks.Caps(skin.HomeJerseyColour));
-            colours.AddRange(CrowdLooks.Shirts);
-            colours.AddRange(CrowdLooks.Pants);
-            colours.AddRange(CrowdLooks.Shoes);
+            foreach (TeamSkin skin in skins) colours.Add(skin.HomeJerseyColour);
             colours.AddRange(CrowdLooks.Skins);
             colours.AddRange(CrowdLooks.Hairs);
             colours.AddRange(Looks.Select(l => l.Hair).Distinct());
@@ -228,6 +223,64 @@ namespace HockeyGame.Core.Tests
             Assert.That(a.Select(l => l.Phase), Is.EqualTo(b.Select(l => l.Phase)));
             Assert.That(a.Select(l => l.Shirt), Is.EqualTo(b.Select(l => l.Shirt)));
             Assert.That(a.Select(l => l.Body), Is.EqualTo(b.Select(l => l.Body)));
+            Assert.That(a.Select(l => l.GoalAct), Is.EqualTo(b.Select(l => l.GoalAct)));
+            Assert.That(a.Select(l => l.OhBack), Is.EqualTo(b.Select(l => l.OhBack)));
+        }
+
+        [Test]
+        public void On_a_Goal_about_one_fan_in_five_stays_seated_half_clapping_half_still_spread_round_the_bowl()
+        {
+            double Share(Func<FanLook, bool> p, IEnumerable<FanLook> ls) => ls.Count(p) / (double)ls.Count();
+            bool Seated(FanLook l) => l.GoalAct == CrowdLooks.GoalAct.SeatedClap || l.GoalAct == CrowdLooks.GoalAct.SeatedStill;
+            Assert.That(Share(Seated, Looks), Is.EqualTo(CrowdLooks.SeatedOnGoalShare).Within(0.02));
+            Assert.That(Share(l => l.GoalAct == CrowdLooks.GoalAct.SeatedClap, Looks), Is.EqualTo(CrowdLooks.SeatedOnGoalShare / 2).Within(0.015));
+            Assert.That(CrowdLooks.SeatedOnGoalShare, Is.InRange(0.15, 0.25));
+            for (int sector = 0; sector < 8; sector++)
+            {
+                var part = Looks.Where((l, i) => (int)((Math.Atan2(Seats[i].Z - RinkLayout.CentreLineZ, Seats[i].X) + Math.PI) / (2 * Math.PI) * 8) % 8 == sector).ToList();
+                Assert.That(Share(Seated, part), Is.InRange(0.1, 0.3), "part " + sector + " of the bowl");
+            }
+        }
+
+        [Test]
+        public void Standing_fans_pump_left_and_right_fists_about_equally()
+        {
+            int left = Looks.Count(l => l.GoalAct == CrowdLooks.GoalAct.FistPumpLeft);
+            int right = Looks.Count(l => l.GoalAct == CrowdLooks.GoalAct.FistPumpRight);
+            Assert.That(left / (double)(left + right), Is.InRange(0.45, 0.55));
+        }
+
+        [Test]
+        public void Each_fan_plays_its_own_goal_act_and_oh_and_the_zone_clip_otherwise()
+        {
+            Assert.That(CrowdMotion.FanClip(CrowdClip.StandCheer, CrowdLooks.GoalAct.FistPumpLeft, false), Is.EqualTo(CrowdClip.StandCheer));
+            Assert.That(CrowdMotion.FanClip(CrowdClip.StandCheer, CrowdLooks.GoalAct.FistPumpRight, false), Is.EqualTo(CrowdClip.StandCheerRight));
+            Assert.That(CrowdMotion.FanClip(CrowdClip.StandCheer, CrowdLooks.GoalAct.SeatedClap, true), Is.EqualTo(CrowdClip.Clap));
+            Assert.That(CrowdMotion.FanClip(CrowdClip.StandCheer, CrowdLooks.GoalAct.SeatedStill, true), Is.EqualTo(CrowdClip.SitIdle));
+            Assert.That(CrowdMotion.FanClip(CrowdClip.Oh, CrowdLooks.GoalAct.SeatedClap, true), Is.EqualTo(CrowdClip.OhBack));
+            Assert.That(CrowdMotion.FanClip(CrowdClip.Oh, CrowdLooks.GoalAct.FistPumpLeft, false), Is.EqualTo(CrowdClip.Oh));
+            foreach (CrowdClip c in new[] { CrowdClip.SitIdle, CrowdClip.Wave, CrowdClip.Clap, CrowdClip.Miss })
+                for (int act = 0; act < 4; act++)
+                    Assert.That(CrowdMotion.FanClip(c, act, act % 2 == 0), Is.EqualTo(c), c + " act " + act);
+        }
+
+        [Test]
+        public void A_fans_own_clip_fits_its_zones_loop_clock()
+        {
+            // A seated fan plays clap or sit-idle on the cheer's clock: both must loop a whole number of times in it.
+            var m = new CrowdMotion(ClipSeconds);
+            foreach (CrowdClip c in new[] { CrowdClip.StandCheerRight, CrowdClip.Clap, CrowdClip.SitIdle })
+            {
+                double fits = m.LoopPeriod / ClipSeconds[(int)c];
+                Assert.That(fits, Is.EqualTo(Math.Round(fits)).Within(1e-6), c.ToString());
+            }
+            Assert.That(ClipSeconds[(int)CrowdClip.OhBack], Is.EqualTo(ClipSeconds[(int)CrowdClip.Oh]));
+        }
+
+        [Test]
+        public void About_three_in_ten_fans_oh_with_the_head_back()
+        {
+            Assert.That(Looks.Count(l => l.OhBack) / (double)Looks.Length, Is.EqualTo(CrowdLooks.OhBackShare).Within(0.03));
         }
 
         // ---- what the fans in a zone do ----
@@ -254,7 +307,7 @@ namespace HockeyGame.Core.Tests
             Assert.That(CrowdLooks.Motion(skateIn.CrowdIn(ArenaZone.CalmArea)), Is.GreaterThan(0));
         }
 
-        private static readonly double[] ClipSeconds = { 4, 2, 2, 1.5, 1 };
+        private static readonly double[] ClipSeconds = { 2, 2, 1, 1.5, 1, 20 / 12.0, 1, 1.5 };
 
         private static CrowdClip Settled(CrowdState state, double seconds = 2)
         {
@@ -276,6 +329,9 @@ namespace HockeyGame.Core.Tests
                 Assert.That(Settled(In(RoundPhase.Idle).CrowdIn(z)), Is.EqualTo(CrowdClip.Clap), "start screen: clap with the chant");
                 Assert.That(Settled(In(RoundPhase.RoundOver).CrowdIn(z)), Is.EqualTo(CrowdClip.Clap), "Round over: clap with the chant");
                 Assert.That(Settled(In(RoundPhase.SlowDown).CrowdIn(z)), Is.EqualTo(CrowdClip.SitIdle));
+                var miss = new CrowdMotion(ClipSeconds);
+                miss.Step(In(RoundPhase.ResultHold, ArenaResult.WideMiss).CrowdIn(z), 0.1);
+                Assert.That(miss.Clip, Is.EqualTo(CrowdClip.Miss), "Miss: a frustrated swipe, " + z);
             }
             var save = new CrowdMotion(ClipSeconds);
             save.Step(In(RoundPhase.ResultHold, ArenaResult.Save).CrowdIn(ArenaZone.Near), 0.1);
@@ -295,6 +351,37 @@ namespace HockeyGame.Core.Tests
             Assert.That(t, Is.EqualTo(ClipSeconds[(int)CrowdClip.Oh] + CrowdMotion.OhSpreadSeconds).Within(0.06));
             for (int i = 0; i < 100; i++) m.Step(CrowdState.Oh, 0.05);
             Assert.That(m.Clip, Is.EqualTo(CrowdClip.SitIdle), "no second oh in the same result hold");
+        }
+
+        [Test]
+        public void On_a_Miss_fans_swipe_once_then_sit()
+        {
+            var m = new CrowdMotion(ClipSeconds);
+            m.Step(CrowdState.Miss, 0.0);
+            Assert.That(m.Clip, Is.EqualTo(CrowdClip.Miss));
+            double t = 0;
+            while (m.Clip == CrowdClip.Miss && t < 10) { m.Step(CrowdState.Miss, 0.05); t += 0.05; }
+            Assert.That(m.Clip, Is.EqualTo(CrowdClip.SitIdle));
+            Assert.That(t, Is.EqualTo(ClipSeconds[(int)CrowdClip.Miss] + CrowdMotion.OhSpreadSeconds).Within(0.06));
+            for (int i = 0; i < 100; i++) m.Step(CrowdState.Miss, 0.05);
+            Assert.That(m.Clip, Is.EqualTo(CrowdClip.SitIdle), "no second swipe in the same result hold");
+        }
+
+        [Test]
+        public void A_Miss_after_an_Oh_still_swipes()
+        {
+            var m = new CrowdMotion(ClipSeconds);
+            for (int i = 0; i < 100; i++) m.Step(CrowdState.Oh, 0.05);
+            m.Step(CrowdState.Sit, 0.05);
+            m.Step(CrowdState.Miss, 0.05);
+            Assert.That(m.Clip, Is.EqualTo(CrowdClip.Miss));
+        }
+
+        [Test]
+        public void Once_clips_do_not_loop_and_the_rest_do()
+        {
+            Assert.That(Enum.GetValues(typeof(CrowdClip)).Cast<CrowdClip>().Where(c => !CrowdMotion.Loops(c)),
+                Is.EquivalentTo(new[] { CrowdClip.Oh, CrowdClip.Miss, CrowdClip.OhBack }));
         }
 
         [Test]
@@ -370,8 +457,8 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void Every_loop_fits_a_whole_number_of_times_in_the_clock_period()
         {
-            Assert.That(() => new CrowdMotion(new double[] { 4, 3, 2, 1.5, 1 }), Throws.ArgumentException);
-            Assert.That(new CrowdMotion(ClipSeconds).LoopPeriod, Is.EqualTo(4));
+            Assert.That(() => new CrowdMotion(new double[] { 2, 3, 1, 1.5, 1, 20 / 12.0, 1, 1.5 }), Throws.ArgumentException);
+            Assert.That(new CrowdMotion(ClipSeconds).LoopPeriod, Is.EqualTo(2));
         }
 
         [Test]

@@ -19,23 +19,28 @@ namespace HockeyGame.Core.Tests
             ArenaShow.At(new ArenaShowInput { Phase = phase, Result = result, ShotNumber = 1 });
 
         [Test]
-        public void Near_bodies_are_about_one_and_a_half_thousand_triangles_and_far_bodies_about_four_hundred_with_all_five_clips()
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
+        public void Every_outfit_has_a_near_body_of_about_1500_triangles_and_a_far_one_of_about_400_with_all_eight_clips()
         {
-            for (int b = 0; b < 2; b++)
+            for (int o = 0; o < Crowd.BodyFiles.GetLength(0); o++)
                 for (int level = 0; level < 2; level++)
                 {
-                    string file = Crowd.BodyFiles[b, level];
+                    string file = Crowd.BodyFiles[o, level];
                     CrowdBody body = CrowdBody.Load(file);
                     try
                     {
                         Assert.IsNotNull(body, "Assets/Resources/Crowd/" + file + ".bytes (Tools/make_crowd.sh)");
-                        int triangles = body.Mesh.triangles.Length / 3;
-                        Assert.That(triangles, level == 0 ? Is.InRange(1300, 1700) : Is.InRange(300, 500), file);
+                        Assert.That(body.Mesh.triangles.Length / 3, level == 0 ? Is.InRange(1300, 1700) : Is.InRange(300, 500), file);
                         Assert.That(body.Clips.Select(c => c.Name), Is.EqualTo(Crowd.ClipNames), file);
-                        Assert.That(body.Clips.All(c => c.Seconds >= 0.5f && c.Seconds <= 8f), file);
-                        Assert.That(body.Shapes, Is.EqualTo(3), file + ": regular, heavy and slim");
-                        Assert.That(body.Cards != null, Is.EqualTo(level == 1), file + ": far bodies have card pictures");
-                        if (level == 1) Assert.That(body.CardSeatedTop, Is.InRange(0.45f, 0.8f), file + ": a seated card is cut to the seated fan");
+                        Assert.That(body.Shapes, Is.EqualTo(1), file);
+                        Assert.That(body.Palette.Length, Is.InRange(3, 16), file);
+                        Assert.That(body.Palette.Count(p => p.Kind == CrowdBody.PaintKind.TeamTop), Is.GreaterThanOrEqualTo(1), file + ": a team top");
+                        foreach (var p in body.Palette.Where(p => p.Kind == CrowdBody.PaintKind.Own))
+                            Assert.That(ReservedColours.IsSafe(CrowdLooks.SafeOutfitColour(new ArenaColour(p.Colour.r, p.Colour.g, p.Colour.b))), file);
+                        Assert.That(body.ClipNamed("oh").Seconds, Is.EqualTo(body.ClipNamed("oh-back").Seconds), file);
+                        Assert.That(body.ClipNamed("stand-cheer").Seconds, Is.EqualTo(body.ClipNamed("stand-cheer-right").Seconds), file);
+                        Assert.That(body.Cards != null, Is.EqualTo(level == 1), file);
+                        if (level == 1) Assert.That(body.CardSeatedTop, Is.InRange(0.45f, 0.8f), file);
                     }
                     finally { body?.Destroy(); }
                 }
@@ -44,14 +49,14 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void The_seated_bodies_are_seated_adults_on_the_floor_facing_plus_z()
         {
-            for (int b = 0; b < 2; b++)
+            for (int o = 0; o < Crowd.BodyFiles.GetLength(0); o++)
             {
-                CrowdBody body = CrowdBody.Load(Crowd.BodyFiles[b, 0]);
+                CrowdBody body = CrowdBody.Load(Crowd.BodyFiles[o, 0]);
                 try
                 {
                     Bounds box = body.Mesh.bounds;
                     Assert.AreEqual(0f, box.min.y, 0.02f, "the feet on the floor");
-                    Assert.That(box.size.y, Is.InRange(1.2f, 1.5f), "a seated adult's height");
+                    Assert.That(box.size.y, Is.InRange(1.2f, 1.6f), "a seated adult's height (the punks' tall hair reaches 1.58)");
                     Assert.That(box.max.z, Is.GreaterThan(0.4f), "the knees and feet reach forward (+z) of the hips");
                     Assert.That(box.min.z, Is.GreaterThan(-0.4f), "nothing far behind the hips");
                 }

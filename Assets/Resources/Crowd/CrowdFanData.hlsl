@@ -9,18 +9,22 @@
 #define CLIP_STAND_CHEER 2
 #define CLIP_OH 3
 #define CLIP_CLAP 4
-#define HAIR_CAP 4
-#define HAIR_BALD 5
+#define CLIP_MISS 5
+#define CLIP_STAND_CHEER_RIGHT 6
+#define CLIP_OH_BACK 7
+#define PAINT_SKIN 0
+#define PAINT_TEAM_TOP 1
+#define PAINT_HAIR 2
+#define PAINT_OWN 3
 
 struct Fan
 {
     float4 place; // xyz seat (crowd space), w yaw
-    float4 shirt; // rgb, w phase
+    float4 shirt; // the team top: rgb, w phase
     float4 skin;  // rgb, w zone
-    float4 hair;  // rgb (hair or cap), w height
-    float4 look;  // x body shape, y hair style, z waves (1) or not (0)
-    float4 pants; // rgb
-    float4 shoes; // rgb
+    float4 hair;  // rgb, w height
+    float4 look;  // x body shape, z waves (1) or not (0), w team top (1) or not (0)
+    float4 acts;  // x the Goal act (CrowdLooks.GoalAct), y the head-back oh (1) or not (0)
 };
 StructuredBuffer<Fan> _Fans;
 float _FanStart;          // this draw's first fan in _Fans
@@ -30,6 +34,7 @@ float4 _ZoneBlend;        // per ArenaZone: how far the clip has faded in (1 = a
 float4 _ZoneLight;        // per ArenaZone: brightness (1 = as lit)
 float4 _ZoneContrast;     // per ArenaZone: how much of the fans' own colour and shading shows (1 = all)
 float4 _FlatTone;         // what low-contrast fans go toward
+float4 _Palette[16];      // the outfit's paints (CrowdBody.Palette): linear rgb, w the kind (PAINT_*)
 float _Light, _OhSpread;
 
 Fan FanOf(uint svInstanceID)
@@ -39,6 +44,17 @@ Fan FanOf(uint svInstanceID)
 }
 
 uint FanZone(Fan f) { return min(2u, (uint)(f.skin.w + 0.5)); }
+
+// A copy of CrowdMotion.FanClip (keep them the same), plus the Wave pick: the clip this fan plays while its zone plays clip.
+uint FanClip(uint clip, Fan f)
+{
+    uint act = (uint)(f.acts.x + 0.5);
+    if (clip == CLIP_WAVE && f.look.z < 0.5) return CLIP_SIT_IDLE;
+    if (clip == CLIP_STAND_CHEER)
+        return act == 1 ? CLIP_STAND_CHEER_RIGHT : act == 2 ? CLIP_CLAP : act == 3 ? CLIP_SIT_IDLE : CLIP_STAND_CHEER;
+    if (clip == CLIP_OH && f.acts.y > 0.5) return CLIP_OH_BACK;
+    return clip;
+}
 
 float3 FanTurn(Fan f, float3 p)
 {
@@ -63,14 +79,26 @@ float3 FanTone(float3 colour, uint zone)
     return lerp(_FlatTone.rgb, colour, _ZoneContrast[zone]) * _Light * _ZoneLight[zone];
 }
 
-// The colour of a body region (CrowdBody.Region) on this fan, at its zone's contrast and light.
-float3 FanColour(Fan f, uint region, uint zone)
+// The colour of a palette entry (CrowdBody.Palette) on this fan, before the zone's tone: by the entry's kind, the fan's
+// skin, its team top (the home jersey for the fans who wear one, else the entry's own colour), its hair, or the entry's own.
+float3 PaintColour(float3 skin, float3 teamTop, float wearsTeamTop, float3 hair, uint paint)
 {
-    uint style = (uint)(f.look.y + 0.5);
-    float3 scalp = style == HAIR_BALD ? f.skin.rgb : f.hair.rgb;
-    float3 colour = region == 0 ? f.skin.rgb : region == 1 ? f.shirt.rgb : region == 2 ? f.pants.rgb
-                  : region == 3 ? f.shoes.rgb : scalp;
-    return FanTone(colour, zone);
+    float4 entry = _Palette[paint];
+    uint kind = (uint)(entry.w + 0.5);
+    return kind == PAINT_SKIN ? skin
+         : kind == PAINT_TEAM_TOP ? (wearsTeamTop > 0.5 ? teamTop : entry.rgb)
+         : kind == PAINT_HAIR ? hair : entry.rgb;
+}
+
+float3 FanPaint(Fan f, uint paint)
+{
+    return PaintColour(f.skin.rgb, f.shirt.rgb, f.look.w, f.hair.rgb, paint);
+}
+
+// The colour of a palette entry on this fan, at its zone's contrast and light.
+float3 FanColour(Fan f, uint paint, uint zone)
+{
+    return FanTone(FanPaint(f, paint), zone);
 }
 
 // Lighting at the zone's contrast: low-contrast fans are lit more evenly.

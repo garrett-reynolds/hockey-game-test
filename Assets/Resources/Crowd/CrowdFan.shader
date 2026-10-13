@@ -2,10 +2,10 @@
 // the per-fan buffer starting at _FanStart; GetIndirectInstanceID picks the fan). The vertex shader poses each vertex from
 // the body's vertex animation texture (_Vat: column = vertex number from uv0.x; rows = body shape, then clip, then frame),
 // blending the two nearest frames, at its zone's clip clock plus the fan's own phase; while a zone's new clip fades in it
-// blends in the last clip too. It folds away the hair meshes the fan does not wear (uv1.x = the vertex's hair style), then
-// turns, sizes and seats the fan. Each body region (uv0.y) takes the fan's shirt, skin or hair colour, or the dark pants
-// and shoes. Lit simply by the main light and the ambient light, then dimmed like the stands and by the zone's light (the
-// Calm Area's still fans are dim). Casts no shadow. Numbers: CrowdBody.Region, CrowdClip, CrowdLooks.HairStyle.
+// blends in the last clip too. It then turns, sizes and seats the fan. Each vertex's paint (uv0.y, an index into the outfit's
+// _Palette) gives the fan's skin, hair or team top colour, or the outfit's own colour. Lit simply by the main light and the
+// ambient light, then dimmed like the stands and by the zone's light (the Calm Area's still fans are dim). Casts no shadow.
+// Numbers: CrowdBody.PaintKind, CrowdClip.
 Shader "Hockey Game/Crowd Fan"
 {
     Properties
@@ -24,22 +24,21 @@ Shader "Hockey Game/Crowd Fan"
         #include "CrowdFanData.hlsl"
 
         TEXTURE2D(_Vat);
-        float4 _ClipInfo[5];   // per CrowdClip: first row (within a shape), frames, frames per second, loops
+        float4 _ClipInfo[8];   // per CrowdClip: first row (within a shape), frames, frames per second, loops
         float _RowsPerShape;
 
         struct Attributes
         {
             float3 positionOS : POSITION;
             float3 normalOS : NORMAL;
-            float2 uv : TEXCOORD0;
-            float2 hair : TEXCOORD1;
+            float2 uv : TEXCOORD0;  // x vertex number, y paint
             uint instanceID : SV_InstanceID;
         };
 
         // Where the vertex is at clip's clock for this fan (body space).
         float3 Sample(uint clip, float clock, Fan f, uint vertex)
         {
-            if (clip == CLIP_WAVE && f.look.z < 0.5) clip = CLIP_SIT_IDLE; // only some fans wave; the rest sit
+            clip = FanClip(clip, f); // this fan's own clip (only some wave, some stay seated on a Goal, ...)
             float4 info = _ClipInfo[clip];
             uint frames = (uint)info.y;
             float seconds = info.y / info.z;
@@ -70,9 +69,6 @@ Shader "Hockey Game/Crowd Fan"
             uint vertex = (uint)(v.uv.x + 0.5);
             float3 p = Sample((uint)z.x, z.y, f, vertex);
             if (blend < 1) p = lerp(Sample((uint)z.z, z.w, f, vertex), p, blend);
-
-            uint style = (uint)(f.look.y + 0.5), hair = (uint)(v.hair.x + 0.5);
-            if (hair != 0 && hair != style) p = 0; // not this fan's hair: folded to one point (no area, nothing drawn)
 
             positionWS = FanToWorld(f, p);
             normalWS = FanNormalToWorld(f, v.normalOS);
