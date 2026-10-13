@@ -19,7 +19,7 @@ namespace HockeyGame.Core
     /// Playing: Shots go to the Round; keys and clicks do nothing (no pause). The Round ending shows End.
     /// End: all input is ignored until InputIgnoreSeconds; from then a key, click or Shot goes to Start.
     /// At AutoReturnSeconds it goes to Start by itself.
-    /// Settings: F2 (ToggleSettings) opens and closes the settings screen over the start screen only.
+    /// Settings: F2 or Esc (ToggleSettings) and the Settings button (OpenSettings) open the Settings page over the start screen only.
     /// While it is open, keys, clicks and Shots do not start a Round.
     /// </para>
     /// </summary>
@@ -56,14 +56,21 @@ namespace HockeyGame.Core
         /// <summary>True on the end screen once the input-ignore time has passed.</summary>
         public bool EndAcceptsInput => Screen == FlowScreen.End && EndSecondsElapsed >= _save.InputIgnoreSeconds;
 
-        /// <summary>True while the operator settings screen is open (only ever on the start screen).</summary>
+        /// <summary>True while the Settings page is open (only ever on the start screen).</summary>
         public bool SettingsOpen { get; private set; }
 
-        /// <summary>F2: opens or closes the settings screen. Does nothing during a Round or on the end screen.</summary>
+        /// <summary>F2 or Esc: opens or closes the Settings page. Does nothing during a Round or on the end screen.</summary>
         public void ToggleSettings()
         {
             if (Screen == FlowScreen.Start)
                 SettingsOpen = !SettingsOpen;
+        }
+
+        /// <summary>The Settings button on the start screen: opens the page (and leaves it open when it already is). Does nothing during a Round or on the end screen.</summary>
+        public void OpenSettings()
+        {
+            if (Screen == FlowScreen.Start)
+                SettingsOpen = true;
         }
 
         /// <summary>A key or a mouse click.</summary>
