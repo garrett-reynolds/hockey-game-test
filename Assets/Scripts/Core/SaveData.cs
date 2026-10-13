@@ -40,6 +40,9 @@ namespace HockeyGame.Core
         private const string TickOnKey = "tickOn";
         private const string MasterVolumeKey = "masterVolume";
         private const string MuteKey = "mute";
+        private const string CrowdVolumeKey = "crowdVolume";
+        private const string GameVolumeKey = "gameVolume";
+        private const string MusicVolumeKey = "musicVolume";
         private const string TeamSkinKey = "teamSkin";
         private const string ForceGoalieBlocksKey = "forceGoalieBlocks"; // replaces goalieCharacterOn (#27), which old files hold as false
 
@@ -54,6 +57,12 @@ namespace HockeyGame.Core
         public bool TickOn = true;
         public double MasterVolume = 1.0;
         public bool Mute = false;
+        /// <summary>Crowd sounds (crowd loop, cheers, groans, Clap Chant), 0..1, under the master volume.</summary>
+        public double CrowdVolume = 1.0;
+        /// <summary>Game sounds (horn, buzzer, tick, puck, posts, goalie, strides), 0..1, under the master volume.</summary>
+        public double GameVolume = 1.0;
+        /// <summary>Music (the goal song), 0..1, under the master volume.</summary>
+        public double MusicVolume = 1.0;
         /// <summary>
         /// Developer flag, a toggle in the Settings page's Dev part: shows the block goalie instead of the goalie character
         /// (read when the game starts). Or set forceGoalieBlocks=true in the settings file. The old goalieCharacterOn key is ignored.
@@ -99,6 +108,9 @@ namespace HockeyGame.Core
             data.TickOn = ReadBool(values, TickOnKey, data.TickOn);
             data.MasterVolume = ReadDouble(values, MasterVolumeKey, data.MasterVolume, VolumeRange);
             data.Mute = ReadBool(values, MuteKey, data.Mute);
+            data.CrowdVolume = ReadDouble(values, CrowdVolumeKey, data.CrowdVolume, VolumeRange);
+            data.GameVolume = ReadDouble(values, GameVolumeKey, data.GameVolume, VolumeRange);
+            data.MusicVolume = ReadDouble(values, MusicVolumeKey, data.MusicVolume, VolumeRange);
             data.ForceGoalieBlocks = ReadBool(values, ForceGoalieBlocksKey, data.ForceGoalieBlocks);
             if (values.TryGetValue(TeamSkinKey, out var skin) && skin.Length > 0) data.TeamSkin = skin;
             return data;
@@ -124,6 +136,9 @@ namespace HockeyGame.Core
                 sb.Append(TickOnKey).Append('=').Append(TickOn ? "true" : "false").Append('\n');
                 sb.Append(MasterVolumeKey).Append('=').Append(MasterVolume.ToString("R", inv)).Append('\n');
                 sb.Append(MuteKey).Append('=').Append(Mute ? "true" : "false").Append('\n');
+                sb.Append(CrowdVolumeKey).Append('=').Append(CrowdVolume.ToString("R", inv)).Append('\n');
+                sb.Append(GameVolumeKey).Append('=').Append(GameVolume.ToString("R", inv)).Append('\n');
+                sb.Append(MusicVolumeKey).Append('=').Append(MusicVolume.ToString("R", inv)).Append('\n');
                 sb.Append(ForceGoalieBlocksKey).Append('=').Append(ForceGoalieBlocks ? "true" : "false").Append('\n');
                 sb.Append(TeamSkinKey).Append('=').Append(TeamSkin).Append('\n');
                 File.WriteAllText(path, sb.ToString(), new UTF8Encoding(false));

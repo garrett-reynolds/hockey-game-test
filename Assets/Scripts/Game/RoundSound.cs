@@ -13,7 +13,9 @@ namespace HockeyGame
     /// camera's stride (a different variation each time, panned to the side the camera leans to), and the hockey stop,
     /// placed so it ends with the skate-in, fading in briefly if it starts mid-clip and fading out when the skate-in ends.
     /// The Clap Chant has its own source too (RoundSoundCues times it); a chant cut short by a new Round fades out.
-    /// Each cue plays at RoundSoundCues.Volume; the master volume and mute apply to everything through the AudioListener.
+    /// Each cue plays at RoundSoundCues.Volume times its group slider (Crowd, Game sounds, Music: RoundSoundCues.GroupOf);
+    /// the master volume and mute apply to everything through the AudioListener. Loops and the goal song follow their slider at
+    /// once; a one-shot already playing keeps the volume it started with.
     /// </summary>
     public sealed class RoundSound
     {
@@ -42,6 +44,8 @@ namespace HockeyGame
         int _lastStride = -1;
         float _hockeyStopTarget;
         float _chantTarget;
+        float _crowdLevel; // the crowd loop's fade level (0..1); the Crowd slider scales it, so a drag is heard at once
+        float _crowdGain, _gameGain, _musicGain; // the three group sliders this frame (0..1; master and mute are on the AudioListener)
 
         /// <summary>
         /// Tick on/off, master volume and mute are read from save every frame; the settings screen just changes them.
@@ -57,7 +61,8 @@ namespace HockeyGame
             _crowd = Source(listener, "Crowd", out _crowdFilter);
             _crowd.clip = SoundFiles.Load(SoundFiles.CrowdLoop, PlaceholderSounds.CrowdLoop);
             _crowd.loop = true;
-            _crowd.volume = (float)RoundSoundCues.CrowdLevel(RoundPhase.Idle, 0, settings);
+            _crowdLevel = (float)RoundSoundCues.CrowdLevel(RoundPhase.Idle, 0, settings);
+            _crowd.volume = _crowdLevel * (float)RoundSoundCues.GroupVolume(save, SoundGroup.Crowd);
             _crowd.Play();
 
             _heartbeat = Source(listener, "Heartbeat", out _heartbeatFilter);
@@ -119,6 +124,9 @@ namespace HockeyGame
         public void Update(ScreenFlow flow, ArenaState show, float realSeconds, SoundCue? hit = null)
         {
             AudioListener.volume = (float)RoundSoundCues.ListenerVolume(_save);
+            _crowdGain = (float)RoundSoundCues.GroupVolume(_save, SoundGroup.Crowd);
+            _gameGain = (float)RoundSoundCues.GroupVolume(_save, SoundGroup.Game);
+            _musicGain = (float)RoundSoundCues.GroupVolume(_save, SoundGroup.Music);
             Round round = flow.Round;
             RoundPhase phase = round.Phase;
             double phaseSeconds = round.PhaseSecondsElapsed;
@@ -136,23 +144,29 @@ namespace HockeyGame
                 }
                 if (cue == SoundCue.GoalImpact && _goalSong != null)
                 {
-                    _goalSong.volume = (float)RoundSoundCues.Volume(cue);
+                    _goalSong.volume = (float)RoundSoundCues.Volume(cue) * _musicGain;
                     _goalSong.Play();
                 }
                 AudioSource source = cue == SoundCue.Tick || cue == SoundCue.FastTick ? _tick : _world;
+                float gain = RoundSoundCues.GroupOf(cue) == SoundGroup.Crowd ? _crowdGain : _gameGain;
                 foreach (AudioClip clip in _clips[cue])
-                    source.PlayOneShot(clip, (float)RoundSoundCues.Volume(cue));
+                    source.PlayOneShot(clip, (float)RoundSoundCues.Volume(cue) * gain);
             }
 
-            _chant.volume = Mathf.MoveTowards(_chant.volume, _chantTarget,
-                (float)RoundSoundCues.ChantVolume * realSeconds / ChantFadeSeconds);
+            // The song follows the Music slider while it plays (a drag is heard at once).
+            if (_goalSong != null) _goalSong.volume = (float)RoundSoundCues.HornVolume * _musicGain;
+
+            if (_chantTarget > 0f) _chant.volume = _chantTarget * _crowdGain; // follows the Crowd slider at once
+            else _chant.volume = Mathf.MoveTowards(_chant.volume, 0f, (float)RoundSoundCues.ChantVolume * realSeconds / ChantFadeSeconds);
             if (_chantTarget == 0f && _chant.volume == 0f && _chant.isPlaying) _chant.Stop();
 
-            _hockeyStop.volume = Mathf.MoveTowards(_hockeyStop.volume, _hockeyStopTarget, realSeconds / HockeyStopFadeSeconds);
+            _hockeyStop.volume = Mathf.MoveTowards(_hockeyStop.volume, _hockeyStopTarget * _gameGain, realSeconds / HockeyStopFadeSeconds);
             if (_hockeyStopTarget == 0f && _hockeyStop.volume == 0f && _hockeyStop.isPlaying) _hockeyStop.Stop();
 
             float target = (float)RoundSoundCues.CrowdLevel(phase, phaseSeconds, round.Settings);
-            _crowd.volume = Mathf.MoveTowards(_crowd.volume, target, CrowdFadePerSecond * realSeconds);
+            _crowdLevel = Mathf.MoveTowards(_crowdLevel, target, CrowdFadePerSecond * realSeconds);
+            _crowd.volume = _crowdLevel * _crowdGain;
+            _heartbeat.volume = _gameGain;
 
             SlowMoSound slow = RoundSoundCues.SlowMo(phase, phaseSeconds);
             float cutoff = (float)slow.LowPassHz, pitch = (float)slow.Pitch;
@@ -175,7 +189,7 @@ namespace HockeyGame
             }
             _lastStride = pick;
             side.pitch = 1f + StridePitchSpread * (float)(_random.NextDouble() * 2 - 1);
-            side.PlayOneShot(_strides[pick]);
+            side.PlayOneShot(_strides[pick], _gameGain);
         }
 
         /// <summary>How long a cue's sound plays (its longest clip), so RoundSoundCues can time the chant around it.</summary>
@@ -206,12 +220,12 @@ namespace HockeyGame
             _hockeyStopTarget = 1f;
             if (at < 0)
             {
-                _hockeyStop.volume = 1f; // the clip's own fade-in plays
+                _hockeyStop.volume = _gameGain; // the clip's own fade-in plays
                 _hockeyStop.PlayDelayed((float)-at);
             }
             else if (at < clip.length)
             {
-                _hockeyStop.volume = at > 0 ? 0f : 1f; // starting mid-clip: fade in so it does not click
+                _hockeyStop.volume = at > 0 ? 0f : _gameGain; // starting mid-clip: fade in so it does not click
                 _hockeyStop.Play();
                 _hockeyStop.time = (float)at;
             }

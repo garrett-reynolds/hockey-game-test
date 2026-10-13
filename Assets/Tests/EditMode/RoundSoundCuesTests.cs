@@ -465,6 +465,74 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(expected, RoundSoundCues.ListenerVolume(save), 1e-9);
         }
 
+        // Every cue sits under exactly one slider (GroupOf is a switch with one answer per cue); the goal song is the Music group.
+        [TestCase(SoundCue.Cheer, SoundGroup.Crowd)]
+        [TestCase(SoundCue.NewBestCheer, SoundGroup.Crowd)]
+        [TestCase(SoundCue.Groan, SoundGroup.Crowd)]
+        [TestCase(SoundCue.SmallGroan, SoundGroup.Crowd)]
+        [TestCase(SoundCue.Ooh, SoundGroup.Crowd)]
+        [TestCase(SoundCue.Chant, SoundGroup.Crowd)]
+        [TestCase(SoundCue.ChantEnd, SoundGroup.Crowd)]
+        [TestCase(SoundCue.Tick, SoundGroup.Game)]
+        [TestCase(SoundCue.FastTick, SoundGroup.Game)]
+        [TestCase(SoundCue.Buzzer, SoundGroup.Game)]
+        [TestCase(SoundCue.GoalImpact, SoundGroup.Game)]
+        [TestCase(SoundCue.SaveImpact, SoundGroup.Game)]
+        [TestCase(SoundCue.MissImpact, SoundGroup.Game)]
+        [TestCase(SoundCue.PostPing, SoundGroup.Game)]
+        [TestCase(SoundCue.GloveCatch, SoundGroup.Game)]
+        [TestCase(SoundCue.NetRustle, SoundGroup.Game)]
+        [TestCase(SoundCue.BlockerHit, SoundGroup.Game)]
+        [TestCase(SoundCue.HockeyStop, SoundGroup.Game)]
+        [TestCase(SoundCue.HockeyStopEnd, SoundGroup.Game)]
+        [TestCase(SoundCue.StrideLeft, SoundGroup.Game)]
+        [TestCase(SoundCue.StrideRight, SoundGroup.Game)]
+        [TestCase(SoundCue.GlassImpact, SoundGroup.Game)]
+        public void Each_cue_belongs_to_its_group(SoundCue cue, SoundGroup expected)
+        {
+            Assert.AreEqual(expected, RoundSoundCues.GroupOf(cue));
+        }
+
+        [Test]
+        public void The_group_table_above_names_every_cue()
+        {
+            var named = new HashSet<SoundCue>
+            {
+                SoundCue.Cheer, SoundCue.NewBestCheer, SoundCue.Groan, SoundCue.SmallGroan, SoundCue.Ooh, SoundCue.Chant,
+                SoundCue.ChantEnd, SoundCue.Tick, SoundCue.FastTick, SoundCue.Buzzer, SoundCue.GoalImpact, SoundCue.SaveImpact,
+                SoundCue.MissImpact, SoundCue.PostPing, SoundCue.GloveCatch, SoundCue.NetRustle, SoundCue.BlockerHit,
+                SoundCue.HockeyStop, SoundCue.HockeyStopEnd, SoundCue.StrideLeft, SoundCue.StrideRight, SoundCue.GlassImpact
+            };
+            foreach (SoundCue cue in System.Enum.GetValues(typeof(SoundCue)))
+                Assert.IsTrue(named.Contains(cue), cue + " has no group in the table: add it to Each_cue_belongs_to_its_group");
+        }
+
+        [TestCase(SoundGroup.Crowd, 0.5, 0.8, false, 0.4)]
+        [TestCase(SoundGroup.Game, 0.5, 0.8, false, 0.4)]
+        [TestCase(SoundGroup.Music, 0.5, 0.8, false, 0.4)]
+        [TestCase(SoundGroup.Crowd, 0.5, 0.8, true, 0.0)]
+        [TestCase(SoundGroup.Music, 1.0, 0.0, false, 0.0)]
+        [TestCase(SoundGroup.Game, 1.5, 1.0, false, 1.0)]
+        [TestCase(SoundGroup.Game, -0.5, 1.0, false, 0.0)]
+        public void Played_volume_is_group_times_master_and_zero_when_muted(
+            SoundGroup group, double groupVolume, double master, bool mute, double expected)
+        {
+            var save = new SaveData { MasterVolume = master, Mute = mute, CrowdVolume = 1, GameVolume = 1, MusicVolume = 1 };
+            if (group == SoundGroup.Crowd) save.CrowdVolume = groupVolume;
+            if (group == SoundGroup.Game) save.GameVolume = groupVolume;
+            if (group == SoundGroup.Music) save.MusicVolume = groupVolume;
+            Assert.AreEqual(expected, RoundSoundCues.PlayedVolume(save, group), 1e-9);
+        }
+
+        [Test]
+        public void Each_slider_moves_only_its_own_group()
+        {
+            var save = new SaveData { CrowdVolume = 0.2, GameVolume = 0.5, MusicVolume = 0.9 };
+            Assert.AreEqual(0.2, RoundSoundCues.GroupVolume(save, SoundGroup.Crowd), 1e-9);
+            Assert.AreEqual(0.5, RoundSoundCues.GroupVolume(save, SoundGroup.Game), 1e-9);
+            Assert.AreEqual(0.9, RoundSoundCues.GroupVolume(save, SoundGroup.Music), 1e-9);
+        }
+
         [Test]
         public void Tick_setting_changed_mid_window_applies_at_once()
         {
