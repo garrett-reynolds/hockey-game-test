@@ -73,6 +73,21 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void The_skate_is_picked_by_its_world_X_when_he_faces_the_other_way([Values(Skate.Right, Skate.Left)] Skate skate)
+        {
+            _goalie.ShowReaction(0f, 180f); // turned right round: his bone names swap sides in the world
+            Transform[] feet = FeetByX();
+            Vector3[] before = { feet[0].position, feet[1].position };
+            int push = skate == Skate.Right ? 1 : 0, other = 1 - push;
+            float outward = skate == Skate.Right ? 1f : -1f;
+
+            _goalie.ShowPush(Shown(PushKind.Shuffle, skate), new PushPoseMoment(1, 0));
+
+            Assert.Greater((feet[push].position.x - before[push].x) * outward, GoalieSkatePush.PushOutMetres * 0.5f, "the foot with the " + (push == 1 ? "larger" : "smaller") + " world X pushes");
+            Assert.Less(Vector3.Distance(feet[other].position, before[other]), 0.01f, "the other skate stays");
+        }
+
+        [Test]
         public void A_shuffle_leaves_the_lead_skate_square([Values(Skate.Right, Skate.Left)] Skate skate)
         {
             Transform[] feet = FeetByX();

@@ -173,7 +173,7 @@ namespace HockeyGame
             }
             // The skate push (#126) goes on right after the reaction (it sets the legs) and before SitLower and Live, which plant from
             // the feet as they are. PoseForPhysics poses again with the same push: only ShowPush steps it.
-            _character.ShowPush(_push, _pushMoment);
+            _character.ShowPush(_pushTracker.Acting, _pushMoment); // the push the pose is acting on: a Done fades the same foot
             // Before the Shot (#70): once set he sits lower and quieter, his head on the puck; each fades as the reaction comes in.
             float lifeShare = 1f;
             if (_before != null)

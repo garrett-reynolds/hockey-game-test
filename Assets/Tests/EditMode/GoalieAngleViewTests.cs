@@ -183,7 +183,7 @@ namespace HockeyGame.Core.Tests
             var failures = new List<string>();
             var phases = new List<PushPhase>();
             int windowFrames = 0;
-            double firstX = double.NaN, lastX = 0;
+            double firstX = double.NaN, lastX = 0, mostOutInPush = 0;
             PlayPush(ScriptedRandom.Forcing(AttackSide.Middle, HockeyGame.Core.SetUp.LateSettle(post)), settings, FakeReach.NeverReaches(), -1, 0, 0, f =>
             {
                 if (f.Phase != RoundPhase.ShootingWindow) return f.Phase != RoundPhase.ResultHold && f.Phase != RoundPhase.RoundOver;
@@ -194,6 +194,7 @@ namespace HockeyGame.Core.Tests
                 PushShown s = f.View.Push;
                 if (!Same(s, expected)) failures.Add(f.Seconds.ToString("F3") + " s: shows " + Describe(s) + ", Spot shape " + Describe(expected));
                 if (phases.Count == 0 || phases[phases.Count - 1] != s.Phase) phases.Add(s.Phase);
+                if (s.Phase == PushPhase.Push) mostOutInPush = Math.Max(mostOutInPush, f.View.PushMoment.PushOut);
                 if (s.Phase != PushPhase.Done && (s.Kind != reference.Kind || s.Skate != reference.PushingSkate))
                     failures.Add(f.Seconds.ToString("F3") + " s: " + Describe(s) + ", SkatePush says " + reference.Kind + " " + reference.PushingSkate);
                 if (f.Seconds >= settings.LateSettleSeconds && s.Phase != PushPhase.Done) failures.Add(f.Seconds.ToString("F3") + " s: still pushing after the Late Settle");
@@ -201,6 +202,7 @@ namespace HockeyGame.Core.Tests
             });
             Assert.IsEmpty(failures, string.Join("\n", failures));
             Assert.Greater(windowFrames, 30);
+            Assert.GreaterOrEqual(mostOutInPush, 0.9, "the pose steps on the Round's clock (the window runs slow), so the skate is fully out within the Push");
             Assert.AreEqual(new[] { PushPhase.Push, PushPhase.Glide, PushPhase.Done }, phases.ToArray(), "Push, Glide, Done, never back");
             Assert.AreEqual(post == Post.Left ? Skate.Left : Skate.Right, reference.PushingSkate, "the Left post's side moves +X from the left skate");
             Assert.AreEqual(Math.Sign(signed), Math.Sign(lastX - firstX), "he really moves that way");
@@ -260,16 +262,19 @@ namespace HockeyGame.Core.Tests
         {
             var failures = new List<string>();
             int holdFrames = 0;
+            float mostSlide = 0f;
             PlayPush(ScriptedRandom.Forcing(AttackSide.Middle), PushSettings(), FakeReach.InTheWay(), 0.5, 20, 20, f =>
             {
                 if (f.Phase != RoundPhase.ResultHold) return f.Phase != RoundPhase.RoundOver;
-                Assume.That(f.Round.LastRace.Value.SaveReaction, Is.EqualTo(SaveReaction.Pads));
+                Assert.AreEqual(SaveReaction.Pads, f.Round.LastRace.Value.SaveReaction);
                 holdFrames++;
+                mostSlide = Mathf.Max(mostSlide, Mathf.Abs(f.View.ReactionSlideMetres));
                 if (f.View.Push.Phase != PushPhase.Done) failures.Add("set " + f.Set.ToString("F3") + ": " + Describe(f.View.Push));
                 if (f.View.PushMoment.PushOut != 0.0 || f.View.PushMoment.LeadTurn != 0.0) failures.Add("set " + f.Set.ToString("F3") + ": pose " + f.View.PushMoment.PushOut);
                 return f.Seconds < 1.0;
             });
             Assert.Greater(holdFrames, 20);
+            Assert.GreaterOrEqual(mostSlide, PushShown.MinMetres, "the Pads reaction does slide, so a push would show if Pads were not left out");
             Assert.IsEmpty(failures, string.Join("\n", failures));
         }
 

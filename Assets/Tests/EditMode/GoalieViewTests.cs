@@ -304,6 +304,30 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void During_the_Done_frames_after_a_push_the_same_foot_stays_out_and_the_other_does_not_move()
+        {
+            GoalieView view = PushView(out GoalieCharacter character);
+            Transform l = character.Bone(HumanBodyBones.LeftFoot), r = character.Bone(HumanBodyBones.RightFoot);
+            Transform small = l.position.x < r.position.x ? l : r, large = small == l ? r : l;
+            float smallRest = small.position.x, largeRest = large.position.x;
+
+            Settle(view, new PushShown(PushKind.Shuffle, Skate.Right, PushPhase.Push, 1)); // a move toward -X: the larger-X foot pushes
+            int outFrames = 0;
+            for (int i = 0; i < 20; i++)
+            {
+                view.ShowPush(PushShown.None, PushFrame); // hold, then return
+                view.SetProgress(0f);
+                if (view.PushMoment.PushOut > 0.0)
+                {
+                    outFrames++;
+                    Assert.Greater(large.position.x - largeRest, 0.0f, "frame " + i + ": the pushing foot stays out toward +X");
+                    Assert.AreEqual(smallRest, small.position.x, 1e-5f, "frame " + i + ": the other foot does not move");
+                }
+            }
+            Assert.Greater(outFrames, 10, "the hold and the return were seen");
+        }
+
+        [Test]
         public void A_hidden_goalie_forgets_the_push()
         {
             GoalieView view = PushView(out GoalieCharacter character);

@@ -238,6 +238,27 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void Acting_is_the_last_real_push_while_the_pose_is_out_and_none_once_it_is_gone()
+        {
+            var t = new PushPoseTracker();
+            Assert.AreEqual(PushPhase.Done, t.Acting.Phase);
+            var push = new PushShown(PushKind.TPush, Skate.Right, PushPhase.Push, 1);
+            Run(t, push, 0.2);
+            for (int i = 0; i < 60; i++)
+            {
+                t.Step(PushShown.None, Frame);
+                if (t.Now.PushOut > 0 || t.Now.LeadTurn > 0)
+                {
+                    Assert.AreEqual(Skate.Right, t.Acting.Skate, "frame " + i + ": the skate still pushing");
+                    Assert.AreEqual(PushKind.TPush, t.Acting.Kind, "frame " + i);
+                }
+            }
+            Assert.AreEqual(0, t.Now.PushOut, Tol);
+            t.Reset();
+            Assert.AreEqual(PushPhase.Done, t.Acting.Phase);
+        }
+
+        [Test]
         public void A_Done_that_lasts_starts_the_return_after_HoldSeconds()
         {
             var t = new PushPoseTracker();

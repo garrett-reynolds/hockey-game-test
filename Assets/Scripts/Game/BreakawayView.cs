@@ -180,7 +180,7 @@ namespace HockeyGame
             }
             _goalie.Stand(ToVector(_shuffle.Shown));
             _goalie.Face((float)_turn.Shown, target);
-            FeedPush(phase, phaseSeconds, set, dt);
+            FeedPush(phase, phaseSeconds, set, dt, realDt);
             _goalie.SetProgress(set);
         }
 
@@ -194,7 +194,7 @@ namespace HockeyGame
         /// own shape (SetUps.Spot: a push then a glide over LateSettleSeconds); in the result hold from the Save Reaction's slide, none
         /// for Pads (the pose sets the legs itself). Seen in the goalie view as a pose, never as a change of where he is.
         /// </summary>
-        void FeedPush(RoundPhase phase, double phaseSeconds, float set, float dt)
+        void FeedPush(RoundPhase phase, double phaseSeconds, float set, float dt, float realDt)
         {
             RoundSettings settings = _round.Settings;
             PushShown shown = PushShown.None;
@@ -228,7 +228,10 @@ namespace HockeyGame
                 else if (phase == RoundPhase.ResultHold && _round.LastRace.HasValue && _round.LastRace.Value.SaveReaction != SaveReaction.Pads)
                     shown = PushShown.AtProgress(_goalie.ReactionSlideMetres, set, settings);
             }
-            _goalie.ShowPush(shown, dt);
+            // Each push is stepped on the clock of the move that feeds it. The shuffle moves on game (scaled) time, so its pose does too.
+            // The Late Settle's Spot and the Save Reaction's set run on the Round's real clock (the window is slowed to a quarter by
+            // Time.timeScale), so those poses step on real seconds.
+            _goalie.ShowPush(shown, phase == RoundPhase.SkateIn || phase == RoundPhase.SlowDown ? dt : realDt);
         }
 
         static Vector3 ToVector(RinkPoint p) => new Vector3((float)p.X, (float)p.Y, (float)p.Z);

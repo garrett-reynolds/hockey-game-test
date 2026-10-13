@@ -94,6 +94,13 @@ namespace HockeyGame.Core
         /// <summary>The pose after the last Step.</summary>
         public PushPoseMoment Now => new PushPoseMoment(_pushOut, _leadTurn);
 
+        /// <summary>
+        /// The push the pose is still acting on: the last Push or Glide given to Step, which the pose keeps (kind and skate) through
+        /// the Done hold and the return, so the same foot fades out. PushShown.None before any and after Reset. Only meaningful while
+        /// Now has a PushOut or LeadTurn above 0.
+        /// </summary>
+        public PushShown Acting => _last;
+
         public void Reset()
         {
             _pushOut = 0;
