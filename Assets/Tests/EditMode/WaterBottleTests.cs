@@ -166,6 +166,45 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void A_knocked_bottle_leaves_the_net_lands_on_the_ice_inside_the_rink_and_PutBack_returns_it()
+        {
+            ShotColliders.Build(_rink.transform);
+            WaterBottle bottle = WaterBottle.Build(_rink.transform);
+            bottle.Knock();
+            Assert.That(bottle.Knocked, "let go");
+
+            Run(5f);
+
+            Vector3 p = bottle.Root.transform.position - Origin;
+            Assert.That(p.z, Is.GreaterThan(0.7f), "past the back of the net (0.6 m)");
+            Assert.That(p.y, Is.InRange(0.02f, 0.3f), "on the ice: above its surface, not through it");
+            Assert.That(Mathf.Abs(p.x), Is.LessThan(RinkIce.Size / 2f), "inside the rink (side to side)");
+            Assert.That(Mathf.Abs(p.z - RinkIce.CentreZ), Is.LessThan(RinkIce.Size / 2f), "inside the rink (end to end)");
+
+            bottle.PutBack();
+            Run(1f);
+
+            Assert.That(Vector3.Distance(bottle.RestPosition, bottle.Root.transform.position), Is.LessThan(0.001f), "back in place");
+            Assert.That(bottle.Body.isKinematic, "still, held again");
+            Assert.That(bottle.Body.linearVelocity.magnitude, Is.LessThan(0.001f));
+        }
+
+        [Test]
+        public void A_second_Knock_while_knocked_does_nothing()
+        {
+            ShotColliders.Build(_rink.transform);
+            WaterBottle bottle = WaterBottle.Build(_rink.transform);
+            bottle.Knock();
+            Run(0.5f);
+            Vector3 velocity = bottle.Body.linearVelocity, position = bottle.Root.transform.position;
+
+            bottle.Knock();
+
+            Assert.AreEqual(velocity, bottle.Body.linearVelocity, "the second Knock gave no new push");
+            Assert.AreEqual(position, bottle.Root.transform.position, "and did not move it");
+        }
+
+        [Test]
         public void The_bottle_and_the_puck_are_on_layers_that_never_collide_and_the_bottle_still_meets_the_ice()
         {
             WaterBottle bottle = WaterBottle.Build(_rink.transform);

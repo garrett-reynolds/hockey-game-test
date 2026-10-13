@@ -83,6 +83,23 @@ namespace HockeyGame
             return new WaterBottle { Root = root, Body = body, RestPosition = root.transform.position, RestRotation = root.transform.rotation };
         }
 
+        /// <summary>The one fixed push (#164): the speed it is given, up and back away from the net (+z, behind the goal line). Always the same.</summary>
+        public static readonly Vector3 KnockSpeed = new Vector3(0f, 2.5f, 3f);
+        /// <summary>True once Knock has let it go, until PutBack.</summary>
+        public bool Knocked => Body != null && !Body.isKinematic;
+
+        /// <summary>
+        /// The bottle gets its push (#164): it becomes a normal rigid body and is given KnockSpeed, so it leaves the net, then bounces
+        /// and rolls on the ice. A second Knock while it is already knocked does nothing.
+        /// </summary>
+        public void Knock()
+        {
+            if (Knocked) return;
+            Body.isKinematic = false;
+            Body.linearVelocity = KnockSpeed;
+            Body.angularVelocity = Vector3.zero;
+        }
+
         /// <summary>Back on the net, lying as it did, still, held there again.</summary>
         public void PutBack()
         {
