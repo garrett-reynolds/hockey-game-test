@@ -91,12 +91,14 @@ namespace HockeyGame.Core.Tests
             return round;
         }
 
-        [TestCase(0.25, 0.3)]
-        [TestCase(0.5, 0.2)]
-        [TestCase(1.5, 0.0)]
-        public void A_Late_Settle_is_measured_where_he_is_at_the_Shot_moment(double windowSeconds, double shortBy)
+        [TestCase(0.25)]
+        [TestCase(0.5)]
+        [TestCase(1.5)]
+        public void A_Late_Settle_is_measured_where_he_is_at_the_Shot_moment(double windowSeconds)
         {
             var settings = Fixed();
+            // 0.4 m short in 1.0 s (the defaults), closing in a push then a glide (#125).
+            double shortBy = 0.4 * (1 - SkatePush.Fraction(windowSeconds / 1.0, settings));
             var reach = FakeReach.NeverReaches();
             var round = InWindow(reach, settings, AttackSide.Right, SetUp.LateSettle(Post.Left), windowSeconds);
             round.SubmitShotAndWhistle(40, 60, 100, false);

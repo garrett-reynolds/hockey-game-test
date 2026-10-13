@@ -78,7 +78,7 @@ namespace HockeyGame.Core
         /// Where the goalie stands (on the ice, Y = 0) in this Set-up, secondsSinceWindowOpened into the shooting window, for a
         /// puck at shotStart. Clean: on the angle (OnTheAngle). Depth: on the goal line (depth 0, whatever NormalDepthMetres
         /// is). Cheat: CheatMetres across from the angle toward its post. Late Settle: LateSettleMetres across toward its post
-        /// as the window opens, closing linearly onto the angle over LateSettleSeconds. Mistakes mirror left and right: the
+        /// as the window opens, closing in a push then a glide onto the angle over LateSettleSeconds. Mistakes mirror left and right: the
         /// angle mirrors with the puck, and the post side is the Set-up's own.
         /// </summary>
         public static RinkPoint Spot(SetUp setUp, AttackSide side, double secondsSinceWindowOpened, RinkPoint shotStart, RoundSettings settings)
@@ -89,7 +89,7 @@ namespace HockeyGame.Core
             if (setUp.Kind == SetUpKind.Cheat)
                 across = settings.CheatMetres;
             else if (setUp.Kind == SetUpKind.LateSettle)
-                across = settings.LateSettleMetres * (1 - Numbers.Clamp01(secondsSinceWindowOpened / Math.Max(1e-6, settings.LateSettleSeconds)));
+                across = settings.LateSettleMetres * (1 - SkatePush.Fraction(secondsSinceWindowOpened / Math.Max(1e-6, settings.LateSettleSeconds), settings));
             if (setUp.Toward == Post.Left) across = -across;
             return new RinkPoint(angle.X + across, 0, angle.Z);
         }

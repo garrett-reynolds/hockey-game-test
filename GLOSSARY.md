@@ -32,7 +32,7 @@ _Avoid_: position
 A Set-up on the line from the shooter to the net centre, at his normal depth (about 0.2 m out from the Net Face, see docs/adr/0005-depth-mistake-sets-on-the-goal-line.md), settled in time.
 
 **Set-up Mistake**:
-A visible gap in a Set-up that the shooter can read: a Cheat (set off the angle line toward one post, opening the other side), Depth (set on the goal line, too deep, showing more net high and in the corners) or a Late Settle (still sliding across when the shooting window opens, the gap closing over about a second).
+A visible gap in a Set-up that the shooter can read: a Cheat (set off the angle line toward one post, opening the other side), Depth (set on the goal line, too deep, showing more net high and in the corners) or a Late Settle (still sliding across when the shooting window opens, the gap closing over about a second, in a push then a glide).
 _Avoid_: Weakness, tell, hole
 
 **Gap**:
