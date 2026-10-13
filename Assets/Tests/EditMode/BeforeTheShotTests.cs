@@ -18,14 +18,21 @@ namespace HockeyGame.Core.Tests
         const double Dt = 1.0 / 60.0;
         const float Frame = 1f / 60f;
         GameObject _parent;
+        SimulationMode _oldMode;
 
         [SetUp]
-        public void SetUp() { _parent = new GameObject("Rink (test)"); }
+        public void SetUp()
+        {
+            _oldMode = Physics.simulationMode;
+            Physics.simulationMode = SimulationMode.Script;
+            _parent = new GameObject("Rink (test)");
+        }
 
         [TearDown]
         public void TearDown()
         {
             Object.DestroyImmediate(_parent);
+            Physics.simulationMode = _oldMode;
             Time.timeScale = 1f;
         }
 
@@ -242,8 +249,8 @@ namespace HockeyGame.Core.Tests
         static double OffTheLine(Vector3 spot, RinkPoint puck) =>
             Math.Abs(puck.X * spot.z - puck.Z * spot.x) / Math.Sqrt(puck.X * puck.X + puck.Z * puck.Z);
 
-        // To the micrometre and microsecond: the Shot frames can fall a hair apart with the pieces on and off (most likely the on-screen flight of
-        // a Save that stops on the gear (ShotEffects -> Round.DelayResult) follows his pose, and so then does when the next hold ends).
+        // To the micrometre and microsecond: the Shot frames can fall a hair apart with the pieces on and off (most likely the Whistle: the physics
+        // puck's comes at its own moment, so the hold ends, and the next Shot starts, a hair apart).
         // #91's longer Replay hold made that show (a Shot start 1e-8 m apart). The race itself is the same.
         static string R(RinkPoint p) => "(" + p.X.ToString("F6") + ", " + p.Y.ToString("F6") + ", " + p.Z.ToString("F6") + ")";
 
@@ -255,13 +262,15 @@ namespace HockeyGame.Core.Tests
             NetBuilder.Build(rink.transform);
             var cameraObject = new GameObject("Camera (test)", typeof(Camera));
             var driver = new GameObject("Breakaway (test)");
+            PhysicsShotEffects effects = null;
             try
             {
                 var camera = cameraObject.GetComponent<Camera>();
                 var character = new GoalieCharacter(rink.transform);
                 Assume.That(character.Present, "needs the goalie model");
                 var view = new GoalieView(rink.transform, character);
-                var effects = new ShotEffects(rink.transform, camera, null, view);
+                effects = new PhysicsShotEffects(rink.transform, camera, new SeededRandom(7), view, name => null);
+                Physics.SyncTransforms();
                 // Every Set-up type, Cheat and Late Settle on both posts' sides, on the real race.
                 var round = new Round(ScriptedRandom.Dealing(
                     new[] { AttackSide.Left, AttackSide.Middle, AttackSide.Right, AttackSide.Left, AttackSide.Right, AttackSide.Middle },
@@ -277,6 +286,11 @@ namespace HockeyGame.Core.Tests
                 round.StartRound();
                 for (int frame = 0; frame < 60 * 80 && round.Phase != RoundPhase.RoundOver; frame++)
                 {
+                    for (int step = 0; step < 2; step++) // a frame is 1/60 s: two physics steps of 1/120 s
+                    {
+                        Physics.Simulate(PhysicsShot.StepSeconds);
+                        effects.AfterPhysicsStep(PhysicsShot.StepSeconds);
+                    }
                     round.Tick(Frame);
                     view.Show(true);
                     // Shots at 0.3 .. 0.8 s into the window: a Late Settle is still closing.
@@ -319,6 +333,7 @@ namespace HockeyGame.Core.Tests
             }
             finally
             {
+                effects?.Dispose();
                 Object.DestroyImmediate(driver);
                 Object.DestroyImmediate(cameraObject);
                 Object.DestroyImmediate(rink);

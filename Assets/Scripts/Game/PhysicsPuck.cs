@@ -50,7 +50,7 @@ namespace HockeyGame
                 box.providesContacts = true;
                 box.hasModifiableContacts = true; // PuckReach ignores the contacts it foresees but never reaches (#114)
             }
-            ModelFiles.Place(puck.transform, ModelFiles.Puck, ShotEffects.PlaceholderPuck, findFile, new Vector3(Diameter, Thickness, Diameter));
+            ModelFiles.Place(puck.transform, ModelFiles.Puck, PlaceholderPuck, findFile, new Vector3(Diameter, Thickness, Diameter));
 
             var rb = puck.AddComponent<Rigidbody>();
             rb.mass = Mass;
@@ -72,7 +72,16 @@ namespace HockeyGame
         {
             var puck = new GameObject("Replay Puck");
             puck.transform.SetParent(parent, false);
-            ModelFiles.Place(puck.transform, ModelFiles.Puck, ShotEffects.PlaceholderPuck, findFile, new Vector3(Diameter, Thickness, Diameter));
+            ModelFiles.Place(puck.transform, ModelFiles.Puck, PlaceholderPuck, findFile, new Vector3(Diameter, Thickness, Diameter));
+            return puck;
+        }
+
+        /// <summary>Today's black cylinder puck, used when Assets/Resources/Models has no puck model.</summary>
+        internal static GameObject PlaceholderPuck()
+        {
+            var puck = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            puck.name = "Puck Placeholder";
+            RinkBuilder.Paint(puck, new Color(0.05f, 0.05f, 0.05f));
             return puck;
         }
 

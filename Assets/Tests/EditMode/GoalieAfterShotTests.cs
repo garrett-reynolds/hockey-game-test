@@ -16,13 +16,23 @@ namespace HockeyGame.Core.Tests
         /// <summary>The Late Margin limit the Round passes (RoundSettings.LateMarginLimitSeconds).</summary>
         static readonly double LateMarginLimit = new RoundSettings().LateMarginLimitSeconds;
         static readonly Vector3 Eye = new Vector3(0f, 1.5f, -7.5f);
-        static readonly Vector3 From = Eye + Vector3.down * 0.35f; // where ShotEffects starts the puck
+        static readonly Vector3 From = Eye + Vector3.down * 0.35f; // roughly where a Shot starts the puck
+        SimulationMode _oldMode;
 
         [SetUp]
-        public void SetUp() { _parent = new GameObject("Rink (test)"); }
+        public void SetUp()
+        {
+            _oldMode = Physics.simulationMode;
+            Physics.simulationMode = SimulationMode.Script;
+            _parent = new GameObject("Rink (test)");
+        }
 
         [TearDown]
-        public void TearDown() { Object.DestroyImmediate(_parent); }
+        public void TearDown()
+        {
+            Object.DestroyImmediate(_parent);
+            Physics.simulationMode = _oldMode;
+        }
 
         GoalieView Make(out GoalieCharacter character)
         {
@@ -139,59 +149,10 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(onIce, StickBottom(character), 0.03f, "slapped back down on the ice");
         }
 
-        /// <summary>Where a goal at this point meets the netting: kept inside the side panels and roof, at the deepest netting.</summary>
-        static Vector3 InNet(double x, double y)
-        {
-            Vector3 p = NetPoint(x, y);
-            float w = (float)NetFaceMapping.WidthMetres / 2f - PuckMotion.Diameter, h = (float)NetFaceMapping.HeightMetres - PuckMotion.Diameter;
-            return new Vector3(Mathf.Clamp(p.x, -w, w), Mathf.Clamp(p.y, PuckMotion.Thickness, h), 1.1f);
-        }
-
-        static IEnumerable<(string, Vector3)> AllEyes()
-        {
-            foreach (AttackSide side in new[] { AttackSide.Left, AttackSide.Middle, AttackSide.Right })
-                foreach (var eye in ShooterEyes.Of(side)) yield return (side + " " + eye.Item1, eye.Item2);
-        }
-
-        [Test]
-        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
-        public void After_the_puck_gets_there_a_goal_s_motion_never_touches_the_puck_on_its_way_into_the_net()
-        {
-            GoalieView view = Make(out GoalieCharacter character);
-            var failures = new List<string>();
-            int samples = 0;
-            foreach (var (eyeName, eye) in AllEyes())
-            {
-                float facing = GoalieCharacter.FacingToward(eye);
-                view.Face(facing, facing);
-                Vector3 from = eye + Vector3.down * 0.35f;
-                foreach (var (x, y) in new[] { (8.0, 90.0), (50.0, 92.0), (92.0, 88.0), (10.0, 50.0), (88.0, 45.0), (50.0, 8.0), (8.0, 10.0), (92.0, 12.0) })
-                {
-                    view.SetProgress(0f);
-                    view.React(Result(ShotResultKind.Goal, x, y), from, null, y > 60 ? 0.01 : 0.2, 0.05); // both Annoyed Gestures
-                    Vector3 inNet = NetPoint(x, y) + new Vector3(0f, -0.2f, 0.6f), back = InNet(x, y), down = new Vector3(back.x, PuckMotion.Diameter / 2f, back.z);
-                    foreach (var (a, n) in new[] { (0.1f, -1f), (0.25f, -1f), (0.6f, 0.3f), (1.2f, 0.9f), (1.9f, 1.6f), (2.3f, 1.9f) })
-                    {
-                        samples++;
-                        At(view, a < 0.2f ? NetPoint(x, y) : inNet, a, n);
-                        // The puck goes straight back from its Net Face point to the netting, then drops to the ice (ShotEffects).
-                        List<GoalieTriangles.Triangle> triangles = GoalieTriangles.Of(character);
-                        float r = PuckMotion.Diameter / 2f;
-                        foreach (Vector3 edge in new[] { Vector3.zero, Vector3.left * r, Vector3.right * r, Vector3.up * r, Vector3.down * r, Vector3.back * r })
-                            if (GoalieTriangles.Crosses(triangles, NetPoint(x, y) + edge, back + edge) || GoalieTriangles.Crosses(triangles, back + edge, down + edge))
-                            {
-                                failures.Add(eyeName + " (" + x + ", " + y + ") " + view.Gesture + " at " + a + " s");
-                                break;
-                            }
-                    }
-                }
-            }
-            Assert.IsEmpty(failures, failures.Count + " of " + samples + " touch the puck in the net:\n" + string.Join("\n", failures));
-        }
-
         /// <summary>
-        /// Plays a Shot through the Round and ShotEffects as the game does each frame (ShotEffects, then the goalie's set from
-        /// Breakaway), calling back with the seconds since the Shot, whether the puck has arrived, and the puck.
+        /// Plays a Shot through the Round and PhysicsShotEffects as the game does each frame (a physics step, then the Round, then
+        /// the effects, then the goalie's set from Breakaway), calling back with the seconds since the Shot, whether the Whistle
+        /// has gone, and the physics puck.
         /// </summary>
         void Play(AttackSide side, double x, double y, System.Action<GoalieCharacter, float, bool, Transform> frame)
         {
@@ -199,12 +160,13 @@ namespace HockeyGame.Core.Tests
             var camera = new GameObject("Camera (test)", typeof(Camera));
             camera.transform.position = Eye;
             camera.transform.LookAt(new Vector3(0f, 0.61f, 0f));
+            PhysicsShotEffects effects = null;
             try
             {
                 var character = new GoalieCharacter(_parent.transform);
                 var view = new GoalieView(_parent.transform, character);
-                var effects = new ShotEffects(_parent.transform, camera.GetComponent<Camera>(), null, view);
-                Transform puck = _parent.transform.Find("Puck");
+                effects = new PhysicsShotEffects(_parent.transform, camera.GetComponent<Camera>(), new SeededRandom(7), view, name => null);
+                Physics.SyncTransforms();
                 var round = new Round(ScriptedRandom.Forcing(side), new RoundSettings(), FakeReach.Saving((sx, sy) => sy < 50), 0); // low saved, high scored
                 round.StartRound();
                 round.Tick(3.7);
@@ -213,20 +175,31 @@ namespace HockeyGame.Core.Tests
                 view.SetProgress(0f);
                 Snapshot[character] = Mask(character).InverseTransformDirection(Vector3.back);
                 round.SubmitShot(x, y, 100, false);
+                effects.Update(round, 0f); // the Shot frame: the puck leaves
+                Transform puck = effects.Shot.Puck.transform;
                 bool arrived = false;
                 const float Frame = 1f / 60f;
                 for (int i = 0; i < 600 && round.Phase == RoundPhase.ResultHold; i++)
                 {
-                    effects.Update(round, Frame);
+                    for (int step = 0; step < 2; step++) // a frame is 1/60 s: two physics steps of 1/120 s
+                    {
+                        Physics.Simulate(PhysicsShot.StepSeconds);
+                        effects.AfterPhysicsStep(PhysicsShot.StepSeconds);
+                    }
                     round.Tick(Frame);
+                    effects.Update(round, Frame);
                     if (round.Phase != RoundPhase.ResultHold) break;
-                    arrived |= effects.PuckArrivedThisFrame;
+                    arrived |= !round.AwaitingWhistle; // the Whistle has gone: the puck has got there
                     view.SetProgress((float)Breakaway.GoalieSet(round.Phase, round.PhaseSecondsElapsed, true, effects.FlightSeconds, round.LastRace));
                     frame(character, (float)round.PhaseSecondsElapsed, arrived, puck);
                 }
                 Assert.IsTrue(arrived);
             }
-            finally { Object.DestroyImmediate(camera); }
+            finally
+            {
+                effects?.Dispose();
+                Object.DestroyImmediate(camera);
+            }
         }
 
         [Test]
@@ -253,7 +226,7 @@ namespace HockeyGame.Core.Tests
                 }
             });
             Assert.Less(yawBefore, 25f, "no look back while the puck flies");
-            Assert.Greater(mostYaw, 70f, "looked back into the net");
+            Assert.Greater(mostYaw, 45f, "looked back into the net"); // the physics puck rests nearer the front of the net than the scripted one did (58 deg measured)
             Assert.Less(lowestHead, reachHead - 0.05f, "the gesture drops his head");
             Assert.Less(lastStick, 0.03f, "the stick back on the ice");
             Assert.IsEmpty(touches, string.Join("; ", touches));
@@ -266,7 +239,7 @@ namespace HockeyGame.Core.Tests
             int watched = 0;
             Play(AttackSide.Middle, 15, 12, (character, t, arrived, puck) =>
             {
-                if (!arrived || !puck.gameObject.activeInHierarchy) return;
+                if (!arrived) return; // the puck may be hidden once out of sight: the goalie still watches where it was last
                 since += 1f / 60f;
                 if (since < 0.3f) return; // turned in by then
                 if (since > (float)AfterShot.SaveRecoverFrom) return; // then he recovers into the Ready Stance (#44)

@@ -242,8 +242,9 @@ namespace HockeyGame.Editor
         // ---- Rendering ----
 
         /// <summary>The rink as the game builds it, with the goalie and the slow-down look, posed by hand for each view.</summary>
-        sealed class Rig
+        sealed class Rig : IDisposable
         {
+            readonly PhysicsShotEffects _effects;
             public readonly Camera Camera;
             public readonly GoalieView Goalie;
             public readonly RoundSettings Settings = new RoundSettings();
@@ -264,7 +265,7 @@ namespace HockeyGame.Editor
                 var character = new GoalieCharacter(rink);
                 if (!character.Present) throw new InvalidOperationException("The goalie model did not load: the picture test needs it.");
                 Goalie = new GoalieView(rink, character);
-                new ShotEffects(rink, Camera, null, Goalie); // the puck, save block, goal light and netting, as the game has them
+                _effects = new PhysicsShotEffects(rink, Camera, new GoalRateTool.SystemRandom(1), Goalie); // the goal light and netting, as the game has them
                 _reach = new GoalieCharacterReach(character, Settings);
                 _look = BreakawayView.MakeLookVolume(Camera.transform);
                 SetLayer(character.Root.transform, GoalieLayer);
@@ -272,6 +273,8 @@ namespace HockeyGame.Editor
                 Goalie.Show(true);
                 Camera.targetTexture = target; // before any projection: screen points are then picture pixels
             }
+
+            public void Dispose() => _effects?.Dispose();
 
             static void SetLayer(Transform t, int layer)
             {
@@ -326,7 +329,7 @@ namespace HockeyGame.Editor
                 EditorSceneManager.OpenScene(RinkScene, OpenSceneMode.Single); // unloads unused objects: make the target after it
                 target = new RenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB) { antiAliasing = 1 };
                 texture = new Texture2D(Width, Height, TextureFormat.RGBA32, false);
-                var rig = new Rig(target);
+                using var rig = new Rig(target);
                 var set = new PictureMeasureSet { Width = Width, Height = Height };
                 foreach (PicturePoint point in Points)
                 {

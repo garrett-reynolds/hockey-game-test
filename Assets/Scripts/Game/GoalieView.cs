@@ -41,9 +41,6 @@ namespace HockeyGame
         readonly GoalieCharacter _character; // null or without a model: the block goalie is drawn
         readonly GoalieHitShapes _hits;      // the physics puck's hit shapes on his gear and body (#111); null for the block goalie
         float _life;                             // Stance Life clock (Live)
-        Transform _carried, _carrier;            // Carry: the resting puck, and what it moves with
-        Vector3 _carriedAt;
-        Quaternion _carriedTurn;
         bool _reacted;
         readonly PuckObstacles _reaction = new PuckObstacles(); // the reaction's gear and body, from React (refilled each Shot)
         readonly string[] _reactionPiece = new string[1];       // SaveStop's cast: the reaction's piece alone
@@ -185,11 +182,6 @@ namespace HockeyGame
             _character.Live(StanceLife.At(_life), (1f - _set * (1f - recovered)) * lifeShare);
             if (_before != null)
                 _character.WatchPuck(_puckOnStick, (float)BeforeTheShot.HeadWeight(_watching, _set, _before), (float)_before.HeadShoulderShare);
-            if (_carried != null)
-            {
-                _carried.position = _carrier.TransformPoint(_carriedAt);
-                _carried.rotation = _carrier.rotation * _carriedTurn;
-            }
         }
 
         /// <summary>
@@ -228,27 +220,6 @@ namespace HockeyGame
 
         /// <summary>The parent of Easy mode's glow cells (the picture test tells the glow apart from the arena).</summary>
         public GameObject GapGlow => _gapGlow;
-
-        /// <summary>
-        /// A puck held in the catching glove (the only gear that keeps it, #48) moves with the glove as he follows through and
-        /// recovers: placed by each SetProgress. Null lets go. Nothing without the character.
-        /// </summary>
-        public void Carry(Transform puck)
-        {
-            _carried = null;
-            if (puck == null || _character == null || !_visible) return;
-            // The catch was measured on the reaction as it ends (SaveStop): the puck is held where that glove has it, even when
-            // the puck gets there in the frame before he is shown fully in it (gear already in the way, a very short flight, #63).
-            _character.ShowReaction(1f, PosedFacing());
-            _carrier = _character.Carrier(puck.position);
-            if (_carrier != null)
-            {
-                _carried = puck;
-                _carriedAt = _carrier.InverseTransformPoint(puck.position);
-                _carriedTurn = Quaternion.Inverse(_carrier.rotation) * puck.rotation;
-            }
-            PoseCharacter();
-        }
 
         /// <summary>Show the goalie (or hide it, and the Easy mode glow, when visible is false).</summary>
         public void Show(bool visible)
@@ -305,7 +276,6 @@ namespace HockeyGame
         public void React(ShotResult result, Vector3 from, SaveReaction? reaction, double lateMarginSeconds, double lateMarginLimitSeconds)
         {
             _reacted = false;
-            _carried = null;
             if (_character == null || !_visible || !result.HasShot) return;
             NetFaceMapping.ToMetres(result.X, result.Y, out double right, out double up);
             var netPoint = new Vector3((float)right, (float)up, 0f);
@@ -340,7 +310,7 @@ namespace HockeyGame
 
         /// <summary>
         /// Each frame of the result hold, from PhysicsShotEffects: where the puck is (shown or not), the seconds since it got
-        /// there (the Whistle; in ShotEffects, the scripted puck's arrival) and since a GOAL! met the netting (negative: not
+        /// there (the Whistle) and since a GOAL! met the netting (negative: not
         /// yet). From these the goalie carries on after its reach (AfterShot, #43): its head follows the puck, then a GOAL!
         /// looks back into the net and shows an Annoyed Gesture, and a Miss shows Relief. Shown by the next SetProgress.
         /// </summary>

@@ -5,7 +5,7 @@ namespace HockeyGame.Core
     /// <summary>
     /// The reserved colours of the Calm Area rules: never used behind the near net from goalie set to the Shot, so the
     /// goalie, the Easy mode glow, the puck and the posts stay easy to read. Values as the game draws them: the goalie's
-    /// blue (GoalieView) and its white and grey gear, the Easy mode glow green (EasyGlow), puck black (ShotEffects) and the
+    /// blue (GoalieView) and its white and grey gear, the Easy mode glow green (EasyGlow), puck black (PhysicsPuck) and the
     /// red posts (NetBuilder).
     /// </summary>
     public static class ReservedColours

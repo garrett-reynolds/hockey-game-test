@@ -992,30 +992,6 @@ namespace HockeyGame
             if (Present && weight > 0f) GoalieGestures.Watch(this, _faceLocal, point, weight, WatchDegrees, shoulderShare);
         }
 
-        /// <summary>
-        /// What a puck resting at `point` on the goalie moves with as he moves on: the gear piece it lies in or on (the catching
-        /// glove holding it), or else the nearest bone. Null without a model, or with the point off the goalie.
-        /// </summary>
-        public Transform Carrier(Vector3 point)
-        {
-            if (!Present) return null;
-            Transform best = null;
-            float nearest = 0.15f * 0.15f;
-            foreach (MeshRenderer r in _gear)
-            {
-                float d = r.bounds.SqrDistance(point);
-                if (d < nearest) { nearest = d; best = r.transform; }
-            }
-            if (best != null) return best;
-            nearest = 0.3f * 0.3f; // not on the goalie (on the frame, say): nothing
-            foreach (Transform b in _bones)
-            {
-                float d = (b.position - point).sqrMagnitude;
-                if (d < nearest) { nearest = d; best = b; }
-            }
-            return best;
-        }
-
         float _bladeY; // the stick's lowest point in the Ready Stance (Prepare)
 
         /// <summary>The lowest corner of a piece's measured box as it stands now (world y).</summary>

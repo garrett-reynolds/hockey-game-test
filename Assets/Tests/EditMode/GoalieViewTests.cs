@@ -234,7 +234,7 @@ namespace HockeyGame.Core.Tests
             {
                 float facing = GoalieCharacter.FacingToward(eye);
                 view.Face(facing, facing);
-                Vector3 from = eye + Vector3.down * 0.35f; // where ShotEffects starts the puck: below the camera
+                Vector3 from = eye + Vector3.down * 0.35f; // roughly where a Shot starts the puck: below the camera
                 for (double x = 5; x < 100; x += 10)
                 for (double y = 4; y < 100; y += 9)
                 {
