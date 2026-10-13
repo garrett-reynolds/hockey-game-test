@@ -450,6 +450,25 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void Every_words_material_on_the_Video_Board_and_the_Centre_Board_is_depth_tested_and_draws_front_faces_only()
+        {
+            VideoBoards boards = VideoBoards.Build(_rink.transform);
+            boards.Show(At(RoundPhase.SkateIn), 0.0);
+            TextMesh[] words = boards.GetComponentsInChildren<TextMesh>(true);
+            Assert.AreEqual(10, words.Length, "2 words objects on each of the 5 screens");
+            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            foreach (TextMesh t in words)
+            {
+                Material m = t.GetComponent<Renderer>().sharedMaterial;
+                Assert.AreEqual(BoardWordsMaterial.ShaderName, m.shader.name, t.name);
+                Assert.IsTrue(m.shader.isSupported, t.name + " shader works");
+                BoardWordsAssert.AssertSolid(m, t.name);
+                Assert.AreNotSame(font.material, m, t.name + " is not the font's own material");
+            }
+            Assert.AreEqual(font.material.mainTexture, boards.WordsMaterial.mainTexture, "the font's atlas");
+        }
+
+        [Test]
         public void Removing_the_Video_Boards_frees_the_materials_they_made_but_not_the_shown_picture()
         {
             VideoBoards boards = VideoBoards.Build(_rink.transform);
@@ -463,6 +482,7 @@ namespace HockeyGame.Core.Tests
                         if (r.GetComponent<TextMesh>() == null) made.Add(r.sharedMaterial); // the words' font material is Unity's
                 }
                 Collect();
+                made.Add(boards.WordsMaterial); // the words' material is ours now
                 boards.Show(At(RoundPhase.ShootingWindow), 0.0); // the Calm Area's still picture
                 Collect();
                 boards.ShowPicture(replay);

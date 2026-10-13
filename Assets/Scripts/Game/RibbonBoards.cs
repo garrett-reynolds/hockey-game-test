@@ -60,9 +60,12 @@ namespace HockeyGame
 
         readonly List<Panel> _panels = new List<Panel>();
         Font _font;
+        Material _words;
         Material _edge; // the skin's edge colour; null: no edges
 
         public int PanelCount => _panels.Count;
+        /// <summary>The one material every words object uses (depth-tested, front faces only).</summary>
+        public Material WordsMaterial => _words;
         /// <summary>The ring's panels left out because the Video Board hides them wholly (their two ends), for tests.</summary>
         public readonly List<(Vector2 From, Vector2 To)> LeftOut = new List<(Vector2 From, Vector2 To)>();
         public Vector3 CentreOf(int panel) => _panels[panel].Centre;
@@ -76,12 +79,13 @@ namespace HockeyGame
 
         public static Color ColourOf(ArenaColour c) => new Color32(c.R, c.G, c.B, 255);
 
-        /// <summary>Frees the materials the boards made: each panel's glow and the edge strips' (not the font's).</summary>
+        /// <summary>Frees the materials the boards made: each panel's glow and the edge strips' and the words' material (not the font's).</summary>
         void OnDestroy()
         {
             foreach (Panel p in _panels)
                 if (p.Back != null) SceneObjects.DestroySafely(p.Back);
             if (_edge != null) SceneObjects.DestroySafely(_edge);
+            if (_words != null) SceneObjects.DestroySafely(_words);
         }
 
         /// <summary>Adds the Ribbon Boards under rink, with the skin's edges (null: the League Skin's), and hides the arena
@@ -96,6 +100,7 @@ namespace HockeyGame
             root.transform.SetParent(rink, false);
             var ribbons = root.AddComponent<RibbonBoards>();
             ribbons._font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            ribbons._words = BoardWordsMaterial.Make(ribbons._font);
             if (skin.RibbonEdgesOn)
             {
                 ribbons._edge = ArenaLighting.Glow(Color.black, skin.RibbonEdge);
@@ -159,6 +164,7 @@ namespace HockeyGame
             float scale = height / (FontSize * 0.1f);
             if (text.Length == 0) return scale;
             _font.RequestCharactersInTexture(text, FontSize, FontStyle.Bold);
+            BoardWordsMaterial.Follow(_words, _font);
             float advance = 0f;
             foreach (char c in text)
                 if (_font.GetCharacterInfo(c, out CharacterInfo info, FontSize, FontStyle.Bold))
@@ -207,7 +213,7 @@ namespace HockeyGame
             text.anchor = TextAnchor.MiddleCenter;
             text.alignment = TextAlignment.Center;
             var wordsRenderer = words.GetComponent<MeshRenderer>();
-            wordsRenderer.sharedMaterial = _font.material;
+            wordsRenderer.sharedMaterial = _words;
             wordsRenderer.shadowCastingMode = ShadowCastingMode.Off;
             wordsRenderer.receiveShadows = false;
 

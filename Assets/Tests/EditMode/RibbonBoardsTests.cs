@@ -24,11 +24,40 @@ namespace HockeyGame.Core.Tests
             var made = new System.Collections.Generic.HashSet<Material>();
             foreach (Renderer r in ribbons.GetComponentsInChildren<Renderer>())
                 if (r.GetComponent<TextMesh>() == null) made.Add(r.sharedMaterial); // the words' font material is Unity's
+            made.Add(ribbons.WordsMaterial); // the words' material is ours now
             Assert.That(made.Count, Is.GreaterThan(30), "one glow per panel");
 
             Object.DestroyImmediate(ribbons.gameObject);
 
             foreach (Material m in made) Assert.IsTrue(m == null, m + " freed");
+        }
+
+        [Test]
+        public void Every_Ribbon_Board_words_material_is_depth_tested_and_draws_front_faces_only()
+        {
+            RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
+            ribbons.Show(At(RoundPhase.ResultHold, ArenaResult.Goal), 0.0);
+            TextMesh[] words = ribbons.GetComponentsInChildren<TextMesh>(true);
+            Assert.AreEqual(ribbons.PanelCount, words.Length, "one words object per panel");
+            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            foreach (TextMesh t in words)
+            {
+                Material m = t.GetComponent<Renderer>().sharedMaterial;
+                Assert.AreEqual(BoardWordsMaterial.ShaderName, m.shader.name, t.name);
+                Assert.IsTrue(m.shader.isSupported, t.name + " shader works");
+                BoardWordsAssert.AssertSolid(m, t.name);
+                Assert.AreNotSame(font.material, m, t.name + " is not the font's own material");
+            }
+            Assert.AreEqual(font.material.mainTexture, ribbons.WordsMaterial.mainTexture, "the font's atlas");
+        }
+
+        [Test]
+        public void New_letters_keep_the_words_material_on_the_fonts_current_atlas()
+        {
+            RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
+            ribbons.Show(At(RoundPhase.ResultHold, ArenaResult.FrameHitBar), 0.0); // "OFF THE BAR!": letters not asked for yet
+            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            Assert.AreEqual(font.material.mainTexture, ribbons.WordsMaterial.mainTexture);
         }
 
         [Test]

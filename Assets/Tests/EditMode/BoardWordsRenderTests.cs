@@ -32,6 +32,8 @@ namespace HockeyGame.Core.Tests
             if (_target != null) Object.DestroyImmediate(_target);
         }
 
+        const int IsolatedLayer = 31;
+
         static string Notes => Path.GetFullPath(Path.Combine(Application.dataPath, "../../_notes"));
 
         static string Stage
@@ -65,6 +67,10 @@ namespace HockeyGame.Core.Tests
 
         Color32[] Render(int width, int height, string pngName)
         {
+            // Other tests can leave objects in the open scene (a whole arena showed up in a full run, with yellow of its own):
+            // draw only what this test built, on a layer nothing else uses.
+            foreach (Transform t in _rink.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = IsolatedLayer;
+            _camera.cullingMask = 1 << IsolatedLayer;
             _target = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
             _camera.targetTexture = _target;
             _camera.aspect = width / (float)height;
@@ -195,6 +201,22 @@ namespace HockeyGame.Core.Tests
             }
             Assert.Greater(own, 0, "the facing Centre Board screens' words show (the check is not empty)");
             Assert.AreEqual(0, words, "word pixels seen through the Centre Board from screens facing away; the words material uses shader " + shader);
+        }
+    }
+
+    /// <summary>One copy of the "words draw like a solid surface" check for the Video Board and Ribbon Board builder tests.</summary>
+    static class BoardWordsAssert
+    {
+        /// <summary>Unity has no runtime API for a pass's ZTest or Cull, so this reads the shader file the build ships;
+        /// the render tests are the proof by pixels.</summary>
+        public static void AssertSolid(Material m, string what)
+        {
+            Assert.AreEqual((int)RenderQueue.Transparent, m.renderQueue, what + " draws in the Transparent queue");
+            string text = File.ReadAllText(Path.Combine(Application.dataPath, "Resources/Lighting/BoardWords.shader"));
+            StringAssert.Contains("ZTest LEqual", text, what);
+            StringAssert.Contains("Cull Back", text, what);
+            StringAssert.DoesNotContain("ZTest Always", text, what);
+            StringAssert.DoesNotContain("Cull Off", text, what);
         }
     }
 }
