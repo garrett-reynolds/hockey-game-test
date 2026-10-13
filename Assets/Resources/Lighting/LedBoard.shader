@@ -1,10 +1,10 @@
 // LED board (Video Board and Centre Board now, Ribbon Boards in #122): one shader for the screens' pictures and for the board
-// words, so both sit on the same grid of square LED cells with a thin dark gap between them.
+// words, so both sit on the same grid of square LED cells with a thin dark gap between them (_GapShare and _GapColour are set by LedBoardMaterial).
 //
 // The grid lives on the board's plane, in metres, measured from _GridOrigin (the screen's lower-left corner; LedBoardMaterial.Anchor
 // sets it per renderer, so a screen and its two words objects share one grid). Each fragment finds the centre of its cell and
 // reads the picture (or the font atlas) once there, so a cell is one flat colour. The gap is dark. A cell only a few pixels wide
-// would crawl and shimmer, so the gap fades to its average as the cell shrinks on screen.
+// would crawl and shimmer, so the gap fades away (to the full cell colour) as the cell shrinks on screen.
 //
 // _CellSize <= 0 switches the grid off: the picture is drawn plain and the words as plain smooth text (the Ribbon Boards until #122).
 //
@@ -18,6 +18,8 @@ Shader "Hockey Game/LED Board"
         [MainTexture] _BaseMap("Picture or font atlas", 2D) = "white" {}
         [MainColor] _BaseColor("Colour", Color) = (1,1,1,1)
         _CellSize("LED cell size (m)", Float) = 0.1
+        _GapShare("Gap share of a cell's side", Range(0, 0.9)) = 0.2
+        _GapColour("Gap colour", Color) = (0.02,0.02,0.02,1)
         _GridOrigin("Grid origin (world)", Vector) = (0,0,0,0)
         [HideInInspector] _SrcBlend("Source blend", Float) = 1
         [HideInInspector] _DstBlend("Destination blend", Float) = 0
@@ -47,12 +49,10 @@ Shader "Hockey Game/LED Board"
                 float4 _BaseMap_ST;
                 half4 _BaseColor;
                 float _CellSize;
+                float _GapShare;
+                half4 _GapColour;
                 float4 _GridOrigin;
             CBUFFER_END
-
-            static const float GapShare = 0.2;      // LedBoardMaterial.GapShare
-            // LedBoardMaterial.GapColour: a Color of 0.02 as Unity converts it in this Linear project (0.02 in sRGB is 0.00155 linear).
-            static const half3 GapColour = half3(0.00155, 0.00155, 0.00155);
 
             struct Attributes { float4 positionOS : POSITION; half4 color : COLOR; float2 uv : TEXCOORD0; };
             struct Varyings
@@ -110,20 +110,20 @@ Shader "Hockey Game/LED Board"
                 float2 uvCentre = input.uv + duvdx * steps.x + duvdy * steps.y;
 
                 // Square dot: lit inside the cell with half the gap trimmed from each side.
-                float2 inside = step(GapShare * 0.5, cellUV) * step(cellUV, 1.0 - GapShare * 0.5);
+                float2 inside = step(_GapShare * 0.5, cellUV) * step(cellUV, 1.0 - _GapShare * 0.5);
                 float lit = inside.x * inside.y;
-                // A cell under about 2 to 4 pixels would crawl: fade to the gap's average.
+                // A cell under about 2 to 4 pixels would crawl: fade the gap away to the full cell colour, so a far board keeps its colours.
                 float tooSmall = smoothstep(0.25, 0.5, max(pixelsInCells.x, pixelsInCells.y));
-                lit = lerp(lit, (1.0 - GapShare) * (1.0 - GapShare), tooSmall);
+                lit = lerp(lit, 1.0, tooSmall);
 
                 #ifdef _LED_WORDS
                     // The cell is lit only where its centre is inside a letter; elsewhere the board behind shows.
                     half glyph = SAMPLE_TEXTURE2D_LOD(_BaseMap, sampler_BaseMap, uvCentre, 0).a * input.color.a;
                     clip(glyph - 0.5);
-                    return half4(lerp(GapColour, input.color.rgb, lit), 1);
+                    return half4(lerp(_GapColour.rgb, input.color.rgb, lit), 1);
                 #else
                     half3 picture = _BaseColor.rgb * SAMPLE_TEXTURE2D_LOD(_BaseMap, sampler_LedPointClamp, saturate(uvCentre), 0).rgb;
-                    return half4(lerp(GapColour, picture, lit), 1);
+                    return half4(lerp(_GapColour.rgb, picture, lit), 1);
                 #endif
             }
             ENDHLSL

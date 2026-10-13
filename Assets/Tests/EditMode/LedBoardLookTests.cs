@@ -44,23 +44,13 @@ namespace HockeyGame.Core.Tests
 
         static string Notes => Path.GetFullPath(Path.Combine(Application.dataPath, "../../_notes"));
 
-        // The stage file holds "before" while the before pictures are made; without it the pictures are "after".
-        static string Stage
-        {
-            get
-            {
-                string file = Path.Combine(Notes, "t121-stage.txt");
-                return Directory.Exists(Notes) && File.Exists(file) ? File.ReadAllText(file).Trim() : "after";
-            }
-        }
-
         static void SavePng(Texture2D t, string name)
         {
             if (!Directory.Exists(Notes)) return; // only the dev checkout has a _notes folder; the assertions run either way
-            File.WriteAllBytes(Path.Combine(Notes, "t121-" + Stage + "-" + name + ".png"), t.EncodeToPNG());
+            File.WriteAllBytes(PngPath(name), t.EncodeToPNG());
         }
 
-        static string PngPath(string name) => Path.Combine(Notes, "t121-" + Stage + "-" + name + ".png");
+        static string PngPath(string name) => Path.Combine(Notes, "t121-after-" + name + ".png");
 
         static ArenaState Show(RoundPhase phase) =>
             ArenaShow.At(new ArenaShowInput
@@ -291,6 +281,41 @@ namespace HockeyGame.Core.Tests
                     failures.Add("cells " + first + " and " + (first + 1) + " centres differ little (" + centreRed[0] + " vs " + centreRed[1] + " of 255): not blocky cells");
             }
             Assert.IsEmpty(failures, string.Join("\n", failures));
+        }
+
+        [Test]
+        public void A_far_Video_Board_keeps_the_colour_of_its_cells()
+        {
+            VideoBoards boards = VideoBoards.Build(_rink.transform);
+            _ramp = new Texture2D(1, 1, TextureFormat.RGB24, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
+            _ramp.SetPixel(0, 0, new Color(0.8f, 0.8f, 0.8f));
+            _ramp.Apply();
+            boards.ShowPicture(_ramp);
+
+            Vector3 centre = boards.CentreOf(0), facing = boards.FacingOf(0);
+            _eye.transform.position = centre + facing * 5f;
+            _eye.transform.rotation = Quaternion.LookRotation(-facing, Vector3.up);
+            _camera.orthographic = true;
+            _camera.nearClipPlane = 0.1f;
+            _camera.farClipPlane = 50f;
+
+            // Near: a cell centre is the picture's colour. Far: a 200 x 112 render holds the whole board in well under 2 px per cell.
+            const int nearW = 1900, nearH = 1040, farW = 200, farH = 112;
+            _camera.orthographicSize = boards.SizeOf(0).y / 2f + VideoBoards.FrameMargin;
+            Color32[] near = Render(nearW, nearH, null);
+            float nearCentre = 0f; // the middle may fall in a gap (the board is a whole number of cells tall): take the brightest pixel nearby
+            for (int dy = -15; dy <= 15; dy++)
+                for (int dx = -15; dx <= 15; dx++) nearCentre = Mathf.Max(nearCentre, near[(nearH / 2 + dy) * nearW + nearW / 2 + dx].r);
+
+            float cellPixels = LedCell * farH / (2f * _camera.orthographicSize);
+            Assert.Less(cellPixels, 1.5f, "the far render has to be far: a cell is " + cellPixels + " px");
+            Color32[] far = Render(farW, farH, null);
+            float sum = 0f;
+            int n = 0;
+            for (int y = farH / 2 - 8; y < farH / 2 + 8; y++)
+                for (int x = farW / 2 - 16; x < farW / 2 + 16; x++) { sum += far[y * farW + x].r; n++; }
+            float farMean = sum / n;
+            Assert.AreEqual(nearCentre, farMean, nearCentre * 0.08f, "a far board is as bright as its cells (a gap-averaged fade is about 36 % darker)");
         }
     }
 }

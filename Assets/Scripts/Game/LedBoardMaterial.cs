@@ -11,13 +11,15 @@ namespace HockeyGame
     public static class LedBoardMaterial
     {
         public const string ShaderPath = "Lighting/LedBoard", ShaderName = "Hockey Game/LED Board";
-        /// <summary>The share of a cell's side taken by the gap (the shader has the same number).</summary>
+        /// <summary>The share of a cell's side taken by the gap (set on every material; the one source).</summary>
         public const float GapShare = 0.2f;
-        /// <summary>The colour in the gap (the shader has the same number).</summary>
+        /// <summary>The colour in the gap (set on every material; the one source). A Color is read as sRGB: 0.02 is 0.00155 linear.</summary>
         public static readonly Color GapColour = new Color(0.02f, 0.02f, 0.02f);
 
         const string WordsKeyword = "_LED_WORDS";
         static readonly int CellSize = Shader.PropertyToID("_CellSize");
+        static readonly int GapShareId = Shader.PropertyToID("_GapShare");
+        static readonly int GapColourId = Shader.PropertyToID("_GapColour");
         static readonly int GridOrigin = Shader.PropertyToID("_GridOrigin");
         static readonly int SrcBlend = Shader.PropertyToID("_SrcBlend");
         static readonly int DstBlend = Shader.PropertyToID("_DstBlend");
@@ -59,6 +61,8 @@ namespace HockeyGame
         {
             var m = new Material(Resources.Load<Shader>(ShaderPath)) { name = name };
             m.SetFloat(CellSize, (float)cellMetres);
+            m.SetFloat(GapShareId, GapShare);
+            m.SetColor(GapColourId, GapColour);
             return m;
         }
     }
