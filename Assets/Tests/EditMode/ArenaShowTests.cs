@@ -533,7 +533,7 @@ namespace HockeyGame.Core.Tests
             flow.Tick(3.7 + 0.5);
             flow.SubmitShot(50, 90, 87.6, false);
             flow.Round.WhistleNow();
-            flow.Tick(ReplayTiming.HoldSeconds + 0.01); // a Goal's result hold (with its Replay), into shot 2's skate-in
+            flow.Tick(ReplayTiming.HoldSeconds + ShotFade.LeadSeconds + 0.01); // a Goal's result hold (with its Replay), into shot 2's skate-in
             Assert.AreEqual(RoundPhase.SkateIn, flow.Round.Phase);
             Assert.AreEqual("LAST SHOT 88 km/h", ArenaShow.From(flow).VideoBoardWords.Details);
 
