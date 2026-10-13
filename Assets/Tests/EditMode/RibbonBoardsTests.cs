@@ -22,49 +22,196 @@ namespace HockeyGame.Core.Tests
         {
             RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
             var made = new System.Collections.Generic.HashSet<Material>();
-            foreach (Renderer r in ribbons.GetComponentsInChildren<Renderer>())
-                if (r.GetComponent<TextMesh>() == null) made.Add(r.sharedMaterial); // the words' font material is Unity's
-            made.Add(ribbons.WordsMaterial); // the words' material is ours now
-            Assert.That(made.Count, Is.GreaterThan(30), "one glow per panel");
+            var textures = new System.Collections.Generic.List<Texture2D>();
+            foreach (Renderer r in ribbons.GetComponentsInChildren<Renderer>()) made.Add(r.sharedMaterial);
+            for (int i = 0; i < ribbons.PanelCount; i++) textures.Add(ribbons.WordsTextureOn(i));
+            Assert.That(made.Count, Is.GreaterThan(30), "one LED material per panel");
+            Assert.AreEqual(ribbons.PanelCount, textures.Count);
+            foreach (Texture2D t in textures) Assert.IsTrue(t != null, "each panel has its own words texture");
 
             Object.DestroyImmediate(ribbons.gameObject);
 
             foreach (Material m in made) Assert.IsTrue(m == null, m + " freed");
+            foreach (Texture2D t in textures) Assert.IsTrue(t == null, "a panel's words texture freed");
         }
 
+        static Renderer PanelRenderer(RibbonBoards ribbons, int panel) => ribbons.transform.Find("Ribbon Panel " + panel).GetComponent<Renderer>();
+
+        /// <summary>The states the Ribbon Boards show: ads, GOAL!, SAVE and the Calm Area's still (the shooting window).</summary>
+        static (string Name, ArenaState State)[] States() => new[]
+        {
+            ("ads", At(RoundPhase.Idle)),
+            ("GOAL!", At(RoundPhase.ResultHold, ArenaResult.Goal)),
+            ("SAVE", At(RoundPhase.ResultHold, ArenaResult.Save)),
+            ("Calm still", At(RoundPhase.ShootingWindow)),
+        };
+
         [Test]
-        public void Every_Ribbon_Board_words_material_is_depth_tested_and_draws_front_faces_only()
+        public void Every_Ribbon_Board_panel_uses_the_LED_shader_with_the_Ribbon_Board_cell_size()
         {
             RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
-            ribbons.Show(At(RoundPhase.ResultHold, ArenaResult.Goal), 0.0);
-            TextMesh[] words = ribbons.GetComponentsInChildren<TextMesh>(true);
-            Assert.AreEqual(ribbons.PanelCount, words.Length, "one words object per panel");
-            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            foreach (TextMesh t in words)
+            foreach ((string name, ArenaState state) in States())
             {
-                Material m = t.GetComponent<Renderer>().sharedMaterial;
-                Assert.AreEqual(LedBoardMaterial.ShaderName, m.shader.name, t.name);
-                Assert.IsTrue(m.shader.isSupported, t.name + " shader works");
-                BoardWordsAssert.AssertSolid(m, t.name);
-                Assert.AreNotSame(font.material, m, t.name + " is not the font's own material");
+                ribbons.Show(state, 0.0);
+                for (int i = 0; i < ribbons.PanelCount; i++)
+                {
+                    Material m = PanelRenderer(ribbons, i).sharedMaterial;
+                    Assert.AreEqual(LedBoardMaterial.ShaderName, m.shader.name, name + ": panel " + i);
+                    Assert.AreEqual((float)RinkLayout.RibbonBoardLedCell, LedBoardMaterial.CellOf(m), name + ": panel " + i + " cell size");
+                }
+                Assert.AreEqual(0, ribbons.GetComponentsInChildren<TextMesh>(true).Length, name + ": no drawn text on a Ribbon Board");
             }
-            Assert.AreEqual(font.material.mainTexture, ribbons.WordsMaterial.mainTexture, "the font's atlas");
         }
 
         [Test]
-        public void Ribbon_Board_words_have_no_LED_cell_until_122()
+        public void The_Ribbon_Board_LED_grid_is_anchored_at_each_panels_lower_left_corner()
         {
             RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
-            Assert.AreEqual(0f, LedBoardMaterial.CellOf(ribbons.WordsMaterial), "cell size 0 means the plain look");
+            ribbons.Show(At(RoundPhase.ResultHold, ArenaResult.Goal), 0.0); // the text changed after Build
+            var block = new MaterialPropertyBlock();
+            for (int i = 0; i < ribbons.PanelCount; i++)
+            {
+                Renderer r = PanelRenderer(ribbons, i);
+                r.GetPropertyBlock(block);
+                Vector3 corner = ribbons.CentreOf(i) - r.transform.right * ribbons.LengthOf(i) / 2f - Vector3.up * RibbonBoards.Height / 2f;
+                Vector3 origin = block.GetVector("_GridOrigin");
+                Assert.AreEqual(0f, Vector3.Distance(corner, origin), 1e-3f, "panel " + i + " grid origin " + origin + " vs corner " + corner);
+            }
         }
 
         [Test]
-        public void New_letters_keep_the_words_material_on_the_fonts_current_atlas()
+        public void Ribbon_Board_panels_are_whole_cells_tall_and_their_words_texture_has_one_texel_per_whole_cell()
         {
             RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
-            ribbons.Show(At(RoundPhase.ResultHold, ArenaResult.FrameHitBar), 0.0); // "OFF THE BAR!": letters not asked for yet
-            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            Assert.AreEqual(font.material.mainTexture, ribbons.WordsMaterial.mainTexture);
+            double cells = RibbonBoards.Height / RinkLayout.RibbonBoardLedCell;
+            Assert.AreEqual(System.Math.Round(cells), cells, 1e-6, "the panel height is a whole number of cells");
+            for (int i = 0; i < ribbons.PanelCount; i++)
+            {
+                Texture2D t = ribbons.WordsTextureOn(i);
+                Assert.AreEqual(Mathf.FloorToInt(ribbons.LengthOf(i) / (float)RinkLayout.RibbonBoardLedCell), t.width, "panel " + i + " texels across");
+                Assert.AreEqual(ribbons.CellsAcross(i), t.width, "panel " + i);
+                Assert.AreEqual((int)System.Math.Round(cells), t.height, "panel " + i + " texels up");
+                Assert.AreEqual(FilterMode.Point, t.filterMode);
+            }
+        }
+
+        [Test]
+        public void Ribbon_Board_words_are_the_LED_font_cell_for_cell()
+        {
+            RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
+            var failures = new System.Collections.Generic.List<string>();
+            var table = new System.Collections.Generic.SortedDictionary<string, string>();
+            void Check(string message, string requested)
+            {
+                for (int i = 0; i < ribbons.PanelCount; i++)
+                {
+                    if (ribbons.TextOn(i) != requested) continue;
+                    LedWords.Fitted fit = ribbons.FitOn(i);
+                    int cx = ribbons.CellsAcross(i), cy = ribbons.WordsTextureOn(i).height;
+                    string who = message + ", panel " + i + " (" + cx + " cells), scale " + fit.Scale + ", clipped " + (fit.Clipped ? "yes" : "no");
+                    var expected = new bool[cx * cy];
+                    LedFont.Plot(expected, cx, cy, fit.Text, fit.Scale, fit.Left, fit.Baseline);
+                    Unity.Collections.NativeArray<byte> texels = ribbons.WordsTextureOn(i).GetRawTextureData<byte>();
+                    int wrong = 0, lit = 0, margin = 0;
+                    for (int c = 0; c < expected.Length; c++)
+                    {
+                        bool on = texels[c] != 0;
+                        if (on != expected[c]) wrong++;
+                        if (on) { lit++; int x = c % cx; if (x < LedWords.SideMargin || x >= cx - LedWords.SideMargin) margin++; }
+                    }
+                    if (wrong > 0) failures.Add(who + ": " + wrong + " cells differ from the font table");
+                    if (margin > 0) failures.Add(who + ": " + margin + " lit cells in the side margin");
+                    if (fit.Scale < 1) failures.Add(who + ": scale below 1");
+                    // GOAL! is at least scale 2 wherever the panel is wide enough for it (a bench cut is only 48 cells: too narrow, scale 1).
+                    bool holdsTwo = cx >= LedFont.LineWidth("GOAL!") * 2 + 2 * LedWords.SideMargin;
+                    if (message == "GOAL!" && holdsTwo && fit.Scale < 2) failures.Add(who + ": GOAL! below scale 2");
+                    if (!requested.StartsWith(fit.Text) || (!fit.Clipped && fit.Text != requested)) failures.Add(who + ": kept '" + fit.Text + "' is not whole letters of '" + requested + "'");
+                    if (fit.Clipped && fit.Text.Length > 0 && LedFont.LineWidth(fit.Text) * fit.Scale > cx - 2 * LedWords.SideMargin) failures.Add(who + ": clipped line still too wide");
+                    if (lit == 0) failures.Add(who + ": nothing lit");
+                    string key = message + " / scale " + fit.Scale + (fit.Clipped ? " clipped to '" + fit.Text + "'" : "");
+                    table[key] = (table.TryGetValue(key, out string s) ? s + "," : "") + i;
+                }
+            }
+
+            ribbons.Show(At(RoundPhase.ResultHold, ArenaResult.Goal), 0.0);
+            Check("GOAL!", "GOAL!");
+            ribbons.Show(At(RoundPhase.ResultHold, ArenaResult.Save), 0.0);
+            Check("SAVE", "SAVE");
+            ribbons.Show(At(RoundPhase.ResultHold, ArenaResult.FrameHitPost), 0.0);
+            Check("OFF THE POST!", "OFF THE POST!");
+            ribbons.Show(At(RoundPhase.ResultHold, ArenaResult.FrameHitBar), 0.0);
+            Check("OFF THE BAR!", "OFF THE BAR!");
+            for (int step = 0; step < Brands.All.Length; step++)
+            {
+                ribbons.Show(At(RoundPhase.Idle), step * RibbonBoards.AdSeconds);
+                foreach (Brands.Brand b in Brands.All) Check("ad " + b.AdWords, b.AdWords);
+            }
+            TestContext.Out.WriteLine("RIBBON SCALE TABLE (message / scale: panels)\n" + string.Join("\n", System.Linq.Enumerable.Select(table, kv => kv.Key + ": " + kv.Value)));
+            Assert.IsEmpty(failures, string.Join("\n", failures));
+        }
+
+        [Test]
+        public void Ribbon_Board_panels_draw_as_opaque_depth_tested_front_face_only_screens()
+        {
+            RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
+            for (int i = 0; i < ribbons.PanelCount; i++)
+            {
+                Material m = PanelRenderer(ribbons, i).sharedMaterial;
+                Assert.IsTrue(m.shader.isSupported, "panel " + i + " shader works");
+                BoardWordsAssert.AssertSolid(m, "panel " + i, (int)UnityEngine.Rendering.RenderQueue.Geometry);
+            }
+        }
+
+        [Test]
+        public void A_static_frame_uploads_nothing_and_a_text_change_uploads_once_per_changed_panel()
+        {
+            RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
+            ArenaState ads = At(RoundPhase.Idle);
+            ribbons.Show(ads, 0.0);
+            int before = ribbons.WordsUploads;
+            for (int frame = 1; frame <= 5; frame++) ribbons.Show(ads, 0.0 + frame * 0.016);
+            Assert.AreEqual(before, ribbons.WordsUploads, "no text change: no upload");
+
+            var was = new string[ribbons.PanelCount];
+            for (int i = 0; i < was.Length; i++) was[i] = ribbons.TextOn(i);
+            ribbons.Show(ads, RibbonBoards.AdSeconds + 0.01); // the next ad on every panel
+            int changed = 0;
+            for (int i = 0; i < was.Length; i++) if (was[i] != ribbons.TextOn(i)) changed++;
+            Assert.AreEqual(ribbons.PanelCount, changed, "every panel moved on to another ad");
+            Assert.AreEqual(before + changed, ribbons.WordsUploads, "one upload per changed panel");
+
+            // A colour change alone is a material value: no upload.
+            int afterAds = ribbons.WordsUploads;
+            ribbons.Show(ArenaShow.At(new ArenaShowInput { Phase = RoundPhase.ResultHold, PhaseSeconds = 1.0, Result = ArenaResult.Goal, ShotNumber = 1 }), 0.0);
+            Assert.AreEqual(afterAds + ribbons.PanelCount, ribbons.WordsUploads, "GOAL! on every panel: one upload each");
+            ribbons.Show(At(RoundPhase.ResultHold, ArenaResult.Goal), 0.5);
+            Assert.AreEqual(afterAds + ribbons.PanelCount, ribbons.WordsUploads, "the same GOAL! again: none");
+        }
+
+        [Test]
+        public void A_Round_of_6_Shots_uploads_only_when_a_panels_words_change()
+        {
+            RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
+            var s = new RoundSettings();
+            (RoundPhase phase, double length)[] phases =
+            {
+                (RoundPhase.SkateIn, s.SkateInSeconds), (RoundPhase.SlowDown, s.SlowDownSeconds),
+                (RoundPhase.ShootingWindow, s.ShootingWindowSeconds), (RoundPhase.ResultHold, s.ResultHoldSeconds)
+            };
+            int start = ribbons.WordsUploads, frames = 0;
+            double clock = 0.0;
+            for (int shot = 1; shot <= 6; shot++)
+                foreach ((RoundPhase phase, double length) in phases)
+                    for (double t = 0.0; t < length; t += 1.0 / 60.0, clock += 1.0 / 60.0, frames++)
+                    {
+                        ArenaResult result = phase == RoundPhase.ResultHold ? (shot % 2 == 0 ? ArenaResult.Save : ArenaResult.Goal) : ArenaResult.None;
+                        ribbons.Show(ArenaShow.At(new ArenaShowInput { Phase = phase, PhaseSeconds = t, Result = result, ShotNumber = shot }), clock);
+                    }
+            int uploads = ribbons.WordsUploads - start;
+            TestContext.Out.WriteLine("RIBBON UPLOADS: " + uploads + " uploads over " + frames + " frames of a Round of 6 Shots (" + ribbons.PanelCount + " panels)");
+            Assert.Greater(uploads, ribbons.PanelCount, "the ads and the results do change the words");
+            Assert.Less(uploads, frames,"far fewer uploads than frames (one per panel per change, never one per frame)");
+            Assert.Less(uploads, ribbons.PanelCount * 40, "a bounded handful per panel in a Round");
         }
 
         [Test]

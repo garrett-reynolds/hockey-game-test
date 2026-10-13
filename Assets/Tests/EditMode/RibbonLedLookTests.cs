@@ -17,7 +17,7 @@ namespace HockeyGame.Core.Tests
         RenderTexture _target;
 
         const int IsolatedLayer = 31;
-        const float LedCell = 0.05f; // replaced by RinkLayout.RibbonBoardLedCell in Task 2
+        const float LedCell = (float)RinkLayout.RibbonBoardLedCell;
 
         [SetUp]
         public void MakeRink()
@@ -319,7 +319,8 @@ namespace HockeyGame.Core.Tests
             int panel = ChoosePanel(ribbons);
             Transform t = PanelOf(ribbons, panel);
             Vector3 centre = ribbons.CentreOf(panel);
-            Color32 background = ribbons.BackOn(panel).gamma;
+            // The shown background is the panel's _Backdrop colour as set (an sRGB colour, like the Video Board's), not an emission value.
+            Color32 background = ribbons.BackOn(panel);
 
             // Face-on, orthographic, the panel's height filling the frame (a little over, to show the edge strips).
             const int width = 1920, height = 1080;
@@ -426,13 +427,14 @@ namespace HockeyGame.Core.Tests
             Assert.LessOrEqual(farSpread, 6f, "far: the band's pixels differ from each other by at most 6/255 (flat, no stripes)");
             Assert.LessOrEqual(farRange, 4f, "far: the 8 frame means differ by at most 4/255 (means " + string.Join(", ", farMeans) + ")");
 
-            // Near: one cell is about 4 pixels; the grid lines move but the average must not.
-            Steady(ribbons, panel, 4f, out float[] nearMeans, out float _);
+            // Near: one cell is about 4 pixels; the grid lines move but the average must not. (Not exactly 4.0: with a whole number of
+            // pixels per cell every cell has the same phase, so a gap hits all pixel centres or none and the mean jumps from frame to
+            // frame; a real camera never sees a whole number all along a band.)
+            Steady(ribbons, panel, 4.3f, out float[] nearMeans, out float _);
             float nearAverage = 0f;
             foreach (float m in nearMeans) nearAverage += m / nearMeans.Length;
             float nearRange = Mathf.Max(nearMeans) - Mathf.Min(nearMeans);
             Assert.LessOrEqual(nearRange, nearAverage * 0.06f,
-                "near: the 8 frame means differ by at most 6 % of their average " + nearAverage + " (means " + string.Join(", ", nearMeans) + ")");
-        }
+                "near: the 8 frame means differ by at most 6 % of their average " + nearAverage + " (means " + string.Join(", ", nearMeans) + ")");        }
     }
 }
