@@ -91,6 +91,26 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void Leaving_with_the_puck_in_flight_then_entering_again_counts_from_0_never_below()
+        {
+            ScreenFlow flow = NewTestModeFlow();
+            flow.SubmitShot(50, 90, 100, false);
+            Assert.IsTrue(flow.Round.AwaitingWhistle);
+            flow.LeaveTestMode(); // Esc mid-flight
+            flow.OpenSettings();
+            flow.StartTestMode();
+            Assert.IsFalse(flow.Round.AwaitingWhistle);
+            Assert.AreEqual(0, flow.Round.ShotsWhistled);
+            Assert.AreEqual("GOALS 0 · SHOTS 0", ArenaShow.From(flow).ScoreBox.Text);
+            // a Round started mid-flight too
+            ScreenFlow other = NewTestModeFlow();
+            other.SubmitShot(50, 90, 100, false);
+            other.Round.StartRound();
+            Assert.IsFalse(other.Round.AwaitingWhistle);
+            Assert.GreaterOrEqual(other.Round.ShotsWhistled, 0);
+        }
+
+        [Test]
         public void A_Round_keeps_its_own_Score_Box_words()
         {
             ScreenFlow flow = NewFlow();
