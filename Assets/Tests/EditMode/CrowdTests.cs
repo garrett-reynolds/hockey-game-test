@@ -242,6 +242,60 @@ namespace HockeyGame.Core.Tests
             }
         }
 
+        static CrowdClip InClapState(FanLook l) => CrowdMotion.FanClip(CrowdMotion.ClipFor(CrowdState.Clap), l.GoalAct, l.OhBack, l.Claps);
+
+        [Test]
+        public void In_the_Clap_state_the_fans_give_clappers_and_still_fans_near_the_clap_share_spread_round_the_bowl()
+        {
+            Assert.That(CrowdLooks.ClapShare, Is.InRange(0.5, 0.7));
+            double Share(IEnumerable<FanLook> ls) => ls.Count(l => InClapState(l) == CrowdClip.Clap) / (double)ls.Count();
+            Assert.That(Looks.All(l => InClapState(l) == CrowdClip.Clap || InClapState(l) == CrowdClip.SitIdle), "a fan claps or sits still");
+            Assert.That(Share(Looks), Is.EqualTo(CrowdLooks.ClapShare).Within(0.02));
+            for (int sector = 0; sector < 8; sector++)
+            {
+                var part = Looks.Where((l, i) => (int)((Math.Atan2(Seats[i].Z - RinkLayout.CentreLineZ, Seats[i].X) + Math.PI) / (2 * Math.PI) * 8) % 8 == sector).ToList();
+                Assert.That(Share(part), Is.InRange(0.45, 0.75), "part " + sector + " of the bowl");
+            }
+        }
+
+        [Test]
+        public void A_fans_clap_pick_is_the_same_every_frame_and_with_the_same_seed()
+        {
+            FanLook[] again = CrowdLooks.Make(Seats, Neighbours, new Random(95), HomeJersey);
+            Assert.That(again.Select(l => l.Claps), Is.EqualTo(Looks.Select(l => l.Claps)));
+            var motion = new CrowdMotion(new double[] { 2, 2, 2, 2, 1, 1, 2, 1 });
+            motion.Snap(CrowdState.Clap);
+            var first = Looks.Select(InClapState).ToArray();
+            Assert.That(first.Distinct().Count(), Is.EqualTo(2), "some fans clap and some sit still, so a flicker would show");
+            for (int frame = 0; frame < 120; frame++)
+            {
+                motion.Step(CrowdState.Clap, 1 / 60.0);
+                for (int i = 0; i < Looks.Length; i += 7)
+                    Assert.That(CrowdMotion.FanClip(motion.Clip, Looks[i].GoalAct, Looks[i].OhBack, Looks[i].Claps), Is.EqualTo(first[i]), "fan " + i + " at frame " + frame);
+            }
+        }
+
+        [Test]
+        public void The_fans_who_clap_do_not_all_clap_in_step()
+        {
+            double[] phases = Looks.Where(l => InClapState(l) == CrowdClip.Clap).Select(l => l.Phase).ToArray();
+            Assert.That(phases.Select(p => Math.Round(p, 2)).Distinct().Count(), Is.GreaterThan(80), "clappers' own offsets in the clip");
+            for (int tenth = 0; tenth < 10; tenth++)
+                Assert.That(phases.Count(p => (int)(p * 10) == tenth), Is.GreaterThan(phases.Length / 20), "clappers in tenth " + tenth + " of the loop");
+        }
+
+        [Test]
+        public void Not_clapping_changes_only_the_Clap_clip()
+        {
+            Assert.That(CrowdMotion.FanClip(CrowdClip.Clap, CrowdLooks.GoalAct.FistPumpLeft, false, false), Is.EqualTo(CrowdClip.SitIdle));
+            Assert.That(CrowdMotion.FanClip(CrowdClip.Clap, CrowdLooks.GoalAct.FistPumpLeft, false, true), Is.EqualTo(CrowdClip.Clap));
+            Assert.That(CrowdMotion.FanClip(CrowdClip.StandCheer, CrowdLooks.GoalAct.SeatedClap, false, false), Is.EqualTo(CrowdClip.Clap), "a Goal's seated clap stays");
+            Assert.That(CrowdMotion.FanClip(CrowdClip.StandCheer, CrowdLooks.GoalAct.FistPumpLeft, false, false), Is.EqualTo(CrowdClip.StandCheer));
+            Assert.That(CrowdMotion.FanClip(CrowdClip.Oh, CrowdLooks.GoalAct.SeatedClap, true, false), Is.EqualTo(CrowdClip.OhBack));
+            foreach (CrowdClip c in new[] { CrowdClip.SitIdle, CrowdClip.Wave, CrowdClip.Miss })
+                Assert.That(CrowdMotion.FanClip(c, CrowdLooks.GoalAct.SeatedClap, false, false), Is.EqualTo(c), c.ToString());
+        }
+
         [Test]
         public void Standing_fans_pump_left_and_right_fists_about_equally()
         {
