@@ -89,6 +89,17 @@ namespace HockeyGame.Core.Tests
             Assert.That(LowestY(Gear(character, GearPiece.RightPad)), Is.InRange(-0.035f, 0.03f), "the standing pad is on the ice");
         }
 
+        // The pieces that are hard gear; the rest (body, clothes, mask, visor) is "soft" and measured stiff on each bone.
+        static readonly string[] HardGear =
+            { GearPiece.LeftPad, GearPiece.RightPad, GearPiece.Blocker, GearPiece.Catcher, GearPiece.Stick, GearPiece.LeftSkate, GearPiece.RightSkate };
+
+        /// <summary>True when the first thing the line meets (at `at`) is not hard gear, so Body, mask or visor is nearer.</summary>
+        static bool FirstHitIsSoft(GoalieShape shape, Vector3 from, Vector3 to, Vector3 at)
+        {
+            return !shape.Cast(from, to, 0.01f, out Vector3 atGear, out _, HardGear)
+                || Vector3.Distance(from, atGear) > Vector3.Distance(from, at) + 1e-4f;
+        }
+
         [Test]
         [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void What_the_Shot_measures_is_the_goalie_as_the_reaction_ends_at_every_facing()
@@ -105,13 +116,13 @@ namespace HockeyGame.Core.Tests
                 Vector3 net = NetPoint(x, y);
                 character.ShowReaction(0f, facing * 0.5f); // the Ready Stance, part turned, on show when the Shot comes
                 character.React(SaveReactions.For(x, y), eye, net, facing, true);
-                var measured = new PuckObstacles();
+                var measured = new GoalieShape();
                 character.AddReaction(measured);
                 var placed = new Bounds[GearPiece.Gear.Length];
                 for (int i = 0; i < placed.Length; i++) Assert.IsTrue(character.ReactionGearBounds(GearPiece.Gear[i], out placed[i]));
 
                 character.ShowReaction(1f, facing);
-                var fresh = new PuckObstacles();
+                var fresh = new GoalieShape();
                 character.AddTo(fresh);
                 string where = "(" + x + ", " + y + ") from " + eye + ": ";
                 for (int i = 0; i < placed.Length; i++)
@@ -128,15 +139,16 @@ namespace HockeyGame.Core.Tests
                 {
                     lines++;
                     Vector3 to = net + new Vector3(dx, dy, 0f);
-                    bool a = measured.Cast(eye, to, 0.01f, out Vector3 atMeasured, out _, out PuckSurface sMeasured);
-                    bool b = fresh.Cast(eye, to, 0.01f, out Vector3 atFresh, out _, out PuckSurface sFresh);
+                    bool a = measured.Cast(eye, to, 0.01f, out Vector3 atMeasured, out _);
+                    bool b = fresh.Cast(eye, to, 0.01f, out Vector3 atFresh, out _);
                     string line = where + "line to " + to.ToString("F2") + ": ";
-                    bool body = sFresh == PuckSurface.Body || sMeasured == PuckSurface.Body;
-                    if (a != b) { (a && sMeasured == PuckSurface.Body || b && sFresh == PuckSurface.Body ? bodyOff : failures).Add(line + "hit " + a + " measured, " + b + " shown"); continue; }
+                    bool bodyM = a && FirstHitIsSoft(measured, eye, to, atMeasured), bodyF = b && FirstHitIsSoft(fresh, eye, to, atFresh);
+                    bool body = bodyF || bodyM;
+                    if (a != b) { (bodyM || bodyF ? bodyOff : failures).Add(line + "hit " + a + " measured, " + b + " shown"); continue; }
                     if (!a) continue;
                     float off = Vector3.Distance(atMeasured, atFresh);
-                    if (off > 0.002f && !body) failures.Add(line + sMeasured + " vs " + sFresh + ", " + off.ToString("F3") + " m apart");
-                    else if (off > 0.06f) bodyOff.Add(line + sMeasured + " vs " + sFresh + ", " + off.ToString("F3") + " m apart");
+                    if (off > 0.002f && !body) failures.Add(line + "gear " + off.ToString("F3") + " m apart");
+                    else if (off > 0.06f) bodyOff.Add(line + "body " + off.ToString("F3") + " m apart");
                 }
             }
             Assert.IsEmpty(failures, failures.Count + ":\n" + string.Join("\n", failures));

@@ -20,21 +20,6 @@ namespace HockeyGame
         /// <summary>Name of the netting part (the cloth netting, NetCloth, takes its place on the near net).</summary>
         public const string NettingName = "Netting";
 
-        /// <summary>The frame's pieces a puck can hit (AddFrame).</summary>
-        public const string LeftPostPiece = "Left Post", RightPostPiece = "Right Post", CrossbarPiece = "Crossbar";
-
-        /// <summary>
-        /// Adds the posts and crossbar to what a puck can hit, as round tubes Post across, centred on z = 0 just outside the
-        /// Net Face (where Build fits them). Pieces LeftPostPiece, RightPostPiece, CrossbarPiece.
-        /// </summary>
-        public static void AddFrame(PuckObstacles obstacles)
-        {
-            float x = W / 2f + Post / 2f, top = H + Post / 2f;
-            obstacles.AddTube(new Vector3(-x, 0f, 0f), new Vector3(-x, top, 0f), Post / 2f, PuckSurface.Frame, LeftPostPiece);
-            obstacles.AddTube(new Vector3(x, 0f, 0f), new Vector3(x, top, 0f), Post / 2f, PuckSurface.Frame, RightPostPiece);
-            obstacles.AddTube(new Vector3(-x, top, 0f), new Vector3(x, top, 0f), Post / 2f, PuckSurface.Frame, CrossbarPiece);
-        }
-
         /// <summary>The still net at the far end (no goalie, no shake) and its netting's name there.</summary>
         public const string FarNetName = "Far Net", FarNettingName = "Far Netting";
 

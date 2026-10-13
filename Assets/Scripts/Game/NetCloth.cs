@@ -101,13 +101,15 @@ namespace HockeyGame
             if (Cloth != null) Cloth.sphereColliders = new ClothSphereColliderPair[0];
         }
 
+        const float ProxyRadius = 0.075f; // as before #113: the netting's give is tuned to it
+
         SphereCollider Proxy(Vector3 at)
         {
             var go = new GameObject(ProxyName);
             go.transform.SetParent(Cloth.transform.parent, false);
             go.transform.position = at;
             var sphere = go.AddComponent<SphereCollider>();
-            sphere.radius = PuckMotion.Diameter / 2f;
+            sphere.radius = ProxyRadius;
             return sphere;
         }
 

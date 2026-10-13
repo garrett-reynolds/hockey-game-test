@@ -151,14 +151,12 @@ namespace HockeyGame.Core.Tests
         [TestCase(15.0, 12.0, TestName = "Pad save in the butterfly")]
         public void Fully_reacted_the_goalie_shows_exactly_what_the_Shot_measured_whatever_his_Stance_Life(double x, double y)
         {
-            Vector3 stopA, stopB;
             Vector3[] posedA, posedB;
             {
                 GoalieView view = Make(out GoalieCharacter character);
                 view.Live(0f);
                 view.SetProgress(0f);
                 view.React(Result(ShotResultKind.Save, x, y), From, null, double.PositiveInfinity, LateMarginLimit);
-                Assert.IsTrue(view.SaveStop(From, NetPoint(x, y), 0.0254f, out stopA));
                 view.SetProgress(1f);
                 posedA = Points(character);
                 Object.DestroyImmediate(character.Root);
@@ -168,11 +166,9 @@ namespace HockeyGame.Core.Tests
                 view.Live(5.3f); // mid breath, weight to one side
                 view.SetProgress(0f);
                 view.React(Result(ShotResultKind.Save, x, y), From, null, double.PositiveInfinity, LateMarginLimit);
-                Assert.IsTrue(view.SaveStop(From, NetPoint(x, y), 0.0254f, out stopB));
                 view.SetProgress(1f);
                 posedB = Points(character);
             }
-            Assert.AreEqual(0f, Vector3.Distance(stopA, stopB), 1e-4f, "the save stops on the same spot");
             Assert.AreEqual(0f, Most(posedA, posedB, out int i), 1e-4f, "fully reacted, the " + Name(i) + " is where it was measured");
         }
 

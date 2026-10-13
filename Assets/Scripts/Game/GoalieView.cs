@@ -42,8 +42,6 @@ namespace HockeyGame
         readonly GoalieHitShapes _hits;      // the physics puck's hit shapes on his gear and body (#111); null for the block goalie
         float _life;                             // Stance Life clock (Live)
         bool _reacted;
-        readonly PuckObstacles _reaction = new PuckObstacles(); // the reaction's gear and body, from React (refilled each Shot)
-        readonly string[] _reactionPiece = new string[1];       // SaveStop's cast: the reaction's piece alone
         AfterShotGesture _gesture;               // what the goalie does once the puck has got there (AfterShot)
         double _lateMargin = double.PositiveInfinity, _lateMarginLimit; // from React: they pick the Annoyed Gesture at Judge
         float _sinceArrival = -1f, _sinceNetting = -1f;
@@ -288,8 +286,6 @@ namespace HockeyGame
             _sinceArrival = _sinceNetting = -1f;
             _puck = netPoint;
             _post = new Vector3((netPoint.x >= 0f ? 1f : -1f) * (float)NetFaceMapping.WidthMetres / 2f, PostGlanceHeight, 0f);
-            _reaction.Clear();
-            _character.AddReaction(_reaction);
             PoseCharacter();
         }
 
@@ -326,48 +322,5 @@ namespace HockeyGame
 
         /// <summary>The piece of gear the Save Reaction put on the puck's line (GearPiece), or null.</summary>
         public string ReactionPiece => _reacted ? _character.ReactionPiece : null;
-
-        /// <summary>
-        /// Where a saved puck flying from `from` to `netPoint` stops when the goalie character is shown: where it first meets
-        /// the Save Reaction's gear (React) on its line, as the goalie stands once the reaction ends (it is asked for on the
-        /// Shot, before the goalie has moved). False with no character shown or no Save Reaction (the save block is used instead).
-        /// </summary>
-        public bool SaveStop(Vector3 from, Vector3 netPoint, float puckThickness, out Vector3 stop)
-        {
-            stop = default;
-            string piece = ReactionPiece;
-            if (piece == null) return false;
-            _reactionPiece[0] = piece;
-            if (_reaction.Cast(GoalieCharacter.NearGoalie(from, netPoint), netPoint, puckThickness / 2f, out stop, out _, out _, _reactionPiece)) return true;
-            // The gear stops short of the line (out of reach): just in front of it, on the line.
-            if (piece == GearPiece.Body || !_character.ReactionGearBounds(piece, out Bounds gear)) return false;
-            float z = gear.min.z - puckThickness / 2f;
-            float t = Mathf.Approximately(netPoint.z, from.z) ? 1f : Mathf.Clamp01((z - from.z) / (netPoint.z - from.z));
-            stop = Vector3.Lerp(from, netPoint, t);
-            return true;
-        }
-
-        /// <summary>
-        /// Adds the goalie character's gear and body to what the puck can hit, as the reaction ends (like SaveStop).
-        /// False (nothing added) with no character shown or no reaction yet.
-        /// </summary>
-        public bool AddObstacles(PuckObstacles obstacles)
-        {
-            if (_character == null || !_visible || !_reacted) return false;
-            _character.AddReaction(obstacles);
-            return true;
-        }
-
-        /// <summary>
-        /// The surface a save at `stop` (from SaveStop) is made on, and its outward normal there: the nearest real surface
-        /// of the Save Reaction's gear. obstacles: from AddObstacles.
-        /// </summary>
-        public bool SaveSurface(PuckObstacles obstacles, Vector3 stop, out Vector3 normal, out PuckSurface surface)
-        {
-            normal = Vector3.back;
-            surface = PuckSurface.Pad;
-            string piece = ReactionPiece;
-            return piece != null && obstacles.Nearest(stop, piece, out normal, out surface);
-        }
     }
 }

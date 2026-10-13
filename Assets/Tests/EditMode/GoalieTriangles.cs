@@ -6,7 +6,7 @@ namespace HockeyGame.Core.Tests
 {
     /// <summary>
     /// The goalie character's real triangles as it stands now (gear and the skinned body baked), and the tests' own
-    /// segment-through-triangle check: independent of PuckObstacles, so it can judge what the game measured.
+    /// segment-through-triangle check: independent of GoalieShape, so it can judge what the game measured.
     /// </summary>
     internal static class GoalieTriangles
     {
@@ -79,7 +79,7 @@ namespace HockeyGame.Core.Tests
         }
 
         /// <summary>
-        /// True when a face-on puck (PuckMotion.Diameter across) flying from `from` to `to` would touch a triangle: its
+        /// True when a face-on puck (GoalieShape.LinePuckDiameter across) flying from `from` to `to` would touch a triangle: its
         /// middle or any of four edge points, each a straight line. Only the stretch from 2.5 m out to the Net Face is checked
         /// (the goalie is nowhere else).
         /// </summary>
@@ -87,7 +87,7 @@ namespace HockeyGame.Core.Tests
         {
             float t = Mathf.Clamp01((-2.5f - from.z) / (to.z - from.z));
             Vector3 start = Vector3.Lerp(from, to, t);
-            float r = PuckMotion.Diameter / 2f;
+            float r = GoalieShape.LinePuckDiameter / 2f;
             var box = new Bounds(start, Vector3.zero);
             box.Encapsulate(to);
             List<Triangle> near = Near(triangles, box, r);
