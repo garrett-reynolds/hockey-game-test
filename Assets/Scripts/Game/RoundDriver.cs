@@ -35,6 +35,7 @@ namespace HockeyGame
         RoofLights _roofLights; // pulse in the Goal Show and the new-best show
         Crowd _crowd; // follows the Arena Show (null without the crowd body file)
         VideoBoards _boards;   // follow the Arena Show
+        StartShotsView _startShots; // the start screen's wide shots
         BreakawayView _breakaway; // the camera: looks up at the Video Board for the Replay
         ReplayView _replay;    // the Replay on both boards
         Plane _netFacePlane;
@@ -71,6 +72,7 @@ namespace HockeyGame
             _sound = new RoundSound(_camera.gameObject, _save, _round.Settings, new SystemRandomSource(), _skin); // the chant rolls on its own source
             _breakaway = gameObject.AddComponent<BreakawayView>();
             _breakaway.Init(_round, _camera, _goalie, () => _effects.FlightSeconds); // the Shot's Flight Time, before and after the Whistle
+            _startShots = new StartShotsView(_camera, (float)settings.ViewFieldOfViewDegrees);
             _replay = gameObject.AddComponent<ReplayView>();
             _replay.Init(_round, _boards, _camera, _goalie.Body);
             _replay.ReplayPhysicsPuck(() => _effects.Shot?.Puck); // a new Rigidbody each Shot: replayed on a stand-in, not in the track
@@ -173,7 +175,12 @@ namespace HockeyGame
                 _flow.Press();
                 _show = ArenaShow.From(_flow); // only on a Press frame: OnGUI shows the new screen's Score Box at once
             }
+
+            ShowStartShots();
         }
+
+        // After the Press: on the press frame the screen is already Playing, so the camera is handed back and BreakawayView places it.
+        void ShowStartShots() => _startShots.Step(_flow.Screen == FlowScreen.Start, Time.unscaledDeltaTime);
 
         void SubmitTestShot(Vector2 screenPosition)
         {
