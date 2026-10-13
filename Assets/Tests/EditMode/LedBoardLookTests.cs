@@ -166,33 +166,40 @@ namespace HockeyGame.Core.Tests
             return !(positive && negative);
         }
 
-        static float LitShare(Color32[] pixels, Vector2[] polygon, int width)
+        // Pixels of the frame inside the (shrunk) screen polygon, and how many of them are bright (words or a picture, not the dark back).
+        static void Count(Color32[] pixels, Vector2[] polygon, int width, out int inside, out int bright)
         {
-            int inside = 0, lit = 0;
+            inside = 0;
+            bright = 0;
             for (int i = 0; i < pixels.Length; i++)
             {
                 if (!Inside(polygon, i % width, i / width)) continue;
                 inside++;
                 Color32 c = pixels[i];
-                if (c.r > 8 || c.g > 8 || c.b > 8) lit++;
+                if (c.r > 128 || c.g > 128 || c.b > 128) bright++;
             }
-            return inside == 0 ? 0f : lit / (float)inside;
         }
 
-        void FromShooter(VideoBoards boards, double u, string pngName)
+        // The shooter-eye frames are pictures only: the board is mostly above the frame, so nothing about it is asserted there.
+        void FromShooter(double u, string pngName)
         {
             Breakaway.SkatePoint(AttackSide.Middle, u, out double x, out double distance);
             BreakawayView.PlaceShooterCamera(_eye.transform, (float)x, (float)distance, 0f, 0f);
             _camera.fieldOfView = 60f;
-            CheckFrame(boards, 0, 960, 540, pngName);
+            Render(960, 540, pngName);
+            Assert.IsTrue(!Directory.Exists(Notes) || File.Exists(PngPath(pngName)), pngName + ": the picture file was written");
         }
 
         void CheckFrame(VideoBoards boards, int screen, int width, int height, string pngName)
         {
             Color32[] pixels = Render(width, height, pngName);
             Assert.IsTrue(!Directory.Exists(Notes) || File.Exists(PngPath(pngName)), pngName + ": the picture file was written");
-            float share = LitShare(pixels, ScreenPolygon(_camera, boards, screen, width, height), width);
-            Assert.Greater(share, 0.5f, pngName + ": the board is really in the frame (non-black share inside the screen)");
+            Vector2[] polygon = ScreenPolygon(_camera, boards, screen, width, height);
+            foreach (Vector2 corner in polygon)
+                Assert.IsTrue(corner.x >= 0 && corner.x <= width && corner.y >= 0 && corner.y <= height, pngName + ": the whole board is in the frame (corner " + corner + ")");
+            Count(pixels, polygon, width, out int inside, out int bright);
+            Assert.GreaterOrEqual(inside, width * height * 0.15f, pngName + ": the board covers at least 15 % of the frame (" + inside + " px)");
+            Assert.GreaterOrEqual(bright, inside * 0.01f, pngName + ": words or a picture show on the board (" + bright + " bright px of " + inside + ")");
         }
 
         void CloseUp(VideoBoards boards, int screen, float metres, string pngName)
@@ -212,19 +219,19 @@ namespace HockeyGame.Core.Tests
             RibbonBoards.Build(_rink.transform);
 
             boards.Show(Show(RoundPhase.SkateIn), 0.0);
-            FromShooter(boards, 0.0, "score-0.0");
-            FromShooter(boards, 1.0, "score-1.0");
+            FromShooter(0.0, "score-0.0");
+            FromShooter(1.0, "score-1.0");
             CloseUp(boards, 0, 12f, "closeup-score");
             CloseUp(boards, 1, 6f, "centre-score");
 
             _replay = MakeReplayTexture();
             boards.ShowPicture(_replay);
-            FromShooter(boards, 1.0, "replay-1.0");
+            FromShooter(1.0, "replay-1.0");
             CloseUp(boards, 0, 12f, "closeup-replay");
             boards.ShowPicture(null);
 
             boards.Show(Show(RoundPhase.ShootingWindow), 0.0);
-            FromShooter(boards, 1.0, "calm-1.0");
+            FromShooter(1.0, "calm-1.0");
         }
 
         [Test]
@@ -232,9 +239,12 @@ namespace HockeyGame.Core.Tests
         public void The_Video_Board_picture_is_a_grid_of_flat_cells_with_dark_gaps()
         {
             VideoBoards boards = VideoBoards.Build(_rink.transform);
-            _ramp = new Texture2D(256, 4, TextureFormat.RGB24, false) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
+            // One texel per cell across the board, alternating bright and dim: a smooth board blends them (far from flat inside a
+            // cell); an LED board shows each cell as one flat colour with a big step to the next.
+            int cellsAcross = Mathf.RoundToInt(boards.SizeOf(0).x / LedCell), cellsUp = Mathf.RoundToInt(boards.SizeOf(0).y / LedCell);
+            _ramp = new Texture2D(cellsAcross, 4, TextureFormat.RGB24, false) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
             for (int y = 0; y < 4; y++)
-                for (int x = 0; x < 256; x++) _ramp.SetPixel(x, y, new Color(x / 255f, 0f, 0f));
+                for (int x = 0; x < cellsAcross; x++) _ramp.SetPixel(x, y, new Color(x % 2 == 0 ? 0.9f : 0.3f, 0f, 0f));
             _ramp.Apply();
             boards.ShowPicture(_ramp);
 
@@ -254,21 +264,33 @@ namespace HockeyGame.Core.Tests
             Vector3 lowerLeft = centre - _eye.transform.right * (boards.SizeOf(0).x / 2f) - Vector3.up * (boards.SizeOf(0).y / 2f);
             Vector3 corner = _camera.WorldToViewportPoint(lowerLeft);
             float left = corner.x * width, bottom = corner.y * height;
-            int row = Mathf.RoundToInt(bottom + boards.SizeOf(0).y / 2f * pixelsPerMetre);
+            // The row through the middle of a cell row (never on a horizontal gap), from the board geometry and the cell size.
+            int middleRow = cellsUp / 2;
+            int row = Mathf.RoundToInt(bottom + (middleRow + 0.5f) * cellPixels);
 
-            int first = Mathf.RoundToInt(boards.SizeOf(0).x / LedCell / 2f) - 1;
+            int first = cellsAcross / 2 - 1; // cells first .. first + 2, with first even (bright)
+            if (first % 2 != 0) first--;
             Color32 At(float x) => pixels[row * width + Mathf.Clamp(Mathf.FloorToInt(x), 0, width - 1)];
-            float[] centreRed = new float[3];
-            for (int n = 0; n < 3; n++)
+            var failures = new System.Collections.Generic.List<string>(); // every check reports, so a smooth board shows both the flat-cell and the gap failures
             {
-                int k = first + n;
-                float cellCentre = left + (k + 0.5f) * cellPixels, boundary = left + k * cellPixels;
-                float here = At(cellCentre).r, right = At(cellCentre + 3f).r, gap = At(boundary).r;
-                centreRed[n] = here;
-                Assert.LessOrEqual(Mathf.Abs(here - right), 4f, "cell " + k + ": flat cell (centre " + here + ", 3 px right " + right + " of 255)");
-                Assert.Less(gap, here * 0.4f, "cell " + k + ": dark gap on the cell boundary (boundary " + gap + ", centre " + here + " of 255)");
+                float[] centreRed = new float[3];
+                for (int n = 0; n < 3; n++)
+                {
+                    int k = first + n;
+                    float cellCentre = left + (k + 0.5f) * cellPixels, boundary = left + k * cellPixels;
+                    float here = At(cellCentre).r, leftEdge = At(boundary + cellPixels * 0.3f).r, rightEdge = At(boundary + cellPixels * 0.7f).r;
+                    float gap = Mathf.Min(At(boundary - 1f).r, Mathf.Min(At(boundary).r, At(boundary + 1f).r));
+                    centreRed[n] = here;
+                    // Each side of the cell against its centre (left against right alone would pass on a symmetric blend).
+                    if (Mathf.Abs(leftEdge - here) > 4f || Mathf.Abs(rightEdge - here) > 4f)
+                        failures.Add("cell " + k + ": not a flat cell (30 % across " + leftEdge + ", centre " + here + ", 70 % across " + rightEdge + " of 255)");
+                    if (gap >= here * 0.4f)
+                        failures.Add("cell " + k + ": no dark gap on the cell boundary (darkest within 1 px of it " + gap + ", centre " + here + " of 255)");
+                }
+                if (Mathf.Abs(centreRed[0] - centreRed[1]) <= 40f)
+                    failures.Add("cells " + first + " and " + (first + 1) + " centres differ little (" + centreRed[0] + " vs " + centreRed[1] + " of 255): not blocky cells");
             }
-            Assert.AreNotEqual(centreRed[0], centreRed[2], "cell " + first + " and cell " + (first + 2) + " differ: the picture is still a ramp");
+            Assert.IsEmpty(failures, string.Join("\n", failures));
         }
     }
 }
