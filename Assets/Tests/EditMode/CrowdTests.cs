@@ -278,6 +278,7 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void The_fans_who_clap_do_not_all_clap_in_step()
         {
+            // A regression pin: passes on the old code too (every fan already plays its clip at its own Phase); it guards the clappers' offsets.
             double[] phases = Looks.Where(l => InClapState(l) == CrowdClip.Clap).Select(l => l.Phase).ToArray();
             Assert.That(phases.Select(p => Math.Round(p, 2)).Distinct().Count(), Is.GreaterThan(80), "clappers' own offsets in the clip");
             for (int tenth = 0; tenth < 10; tenth++)
@@ -307,15 +308,15 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void Each_fan_plays_its_own_goal_act_and_oh_and_the_zone_clip_otherwise()
         {
-            Assert.That(CrowdMotion.FanClip(CrowdClip.StandCheer, CrowdLooks.GoalAct.FistPumpLeft, false), Is.EqualTo(CrowdClip.StandCheer));
-            Assert.That(CrowdMotion.FanClip(CrowdClip.StandCheer, CrowdLooks.GoalAct.FistPumpRight, false), Is.EqualTo(CrowdClip.StandCheerRight));
-            Assert.That(CrowdMotion.FanClip(CrowdClip.StandCheer, CrowdLooks.GoalAct.SeatedClap, true), Is.EqualTo(CrowdClip.Clap));
-            Assert.That(CrowdMotion.FanClip(CrowdClip.StandCheer, CrowdLooks.GoalAct.SeatedStill, true), Is.EqualTo(CrowdClip.SitIdle));
-            Assert.That(CrowdMotion.FanClip(CrowdClip.Oh, CrowdLooks.GoalAct.SeatedClap, true), Is.EqualTo(CrowdClip.OhBack));
-            Assert.That(CrowdMotion.FanClip(CrowdClip.Oh, CrowdLooks.GoalAct.FistPumpLeft, false), Is.EqualTo(CrowdClip.Oh));
+            Assert.That(CrowdMotion.FanClip(CrowdClip.StandCheer, CrowdLooks.GoalAct.FistPumpLeft, false, true), Is.EqualTo(CrowdClip.StandCheer));
+            Assert.That(CrowdMotion.FanClip(CrowdClip.StandCheer, CrowdLooks.GoalAct.FistPumpRight, false, true), Is.EqualTo(CrowdClip.StandCheerRight));
+            Assert.That(CrowdMotion.FanClip(CrowdClip.StandCheer, CrowdLooks.GoalAct.SeatedClap, true, true), Is.EqualTo(CrowdClip.Clap));
+            Assert.That(CrowdMotion.FanClip(CrowdClip.StandCheer, CrowdLooks.GoalAct.SeatedStill, true, true), Is.EqualTo(CrowdClip.SitIdle));
+            Assert.That(CrowdMotion.FanClip(CrowdClip.Oh, CrowdLooks.GoalAct.SeatedClap, true, true), Is.EqualTo(CrowdClip.OhBack));
+            Assert.That(CrowdMotion.FanClip(CrowdClip.Oh, CrowdLooks.GoalAct.FistPumpLeft, false, true), Is.EqualTo(CrowdClip.Oh));
             foreach (CrowdClip c in new[] { CrowdClip.SitIdle, CrowdClip.Wave, CrowdClip.Clap, CrowdClip.Miss })
                 for (int act = 0; act < 4; act++)
-                    Assert.That(CrowdMotion.FanClip(c, act, act % 2 == 0), Is.EqualTo(c), c + " act " + act);
+                    Assert.That(CrowdMotion.FanClip(c, act, act % 2 == 0, true), Is.EqualTo(c), c + " act " + act);
         }
 
         [Test]

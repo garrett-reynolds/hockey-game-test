@@ -68,7 +68,7 @@ namespace HockeyGame.Core
         /// pump, a seated clap, or sitting still), on an oh its OhBack pick, on a clap (the start screen, Round over) a clap
         /// or, for the fans who do not clap (FanLook.Claps), sit-idle; every other clip as the zone. The crowd
         /// shader's FanClip (CrowdFanData.hlsl) is a copy of this. The Wave pick stays in the shader (FanLook.Waves).</summary>
-        public static CrowdClip FanClip(CrowdClip zoneClip, int goalAct, bool ohBack, bool claps = true)
+        public static CrowdClip FanClip(CrowdClip zoneClip, int goalAct, bool ohBack, bool claps)
         {
             if (zoneClip == CrowdClip.StandCheer)
                 switch (goalAct)
