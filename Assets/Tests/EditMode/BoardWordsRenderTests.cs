@@ -36,15 +36,6 @@ namespace HockeyGame.Core.Tests
 
         static string Notes => Path.GetFullPath(Path.Combine(Application.dataPath, "../../_notes"));
 
-        static string Stage
-        {
-            get
-            {
-                string path = Path.Combine(Notes, "t120-stage.txt");
-                return File.Exists(path) ? File.ReadAllText(path).Trim() : "after";
-            }
-        }
-
         static bool IsGreen(Color32 c) => c.g > 204 && c.r < 90 && c.b < 90;
         static bool IsYellow(Color32 c) => c.r > 204 && c.g > 204 && c.b < 90;
 
@@ -97,7 +88,8 @@ namespace HockeyGame.Core.Tests
 
         static void SavePng(Texture2D t, string name)
         {
-            File.WriteAllBytes(Path.Combine(Notes, "t120-" + Stage + "-" + name + ".png"), t.EncodeToPNG());
+            if (!Directory.Exists(Notes)) return; // only the dev checkout has a _notes folder; the assertions run either way
+            File.WriteAllBytes(Path.Combine(Notes, "t120-render-" + name + ".png"), t.EncodeToPNG());
         }
 
         static Vector2[] ScreenPolygon(Camera cam, VideoBoards boards, int width, int height)
