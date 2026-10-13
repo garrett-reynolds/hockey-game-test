@@ -116,6 +116,9 @@ namespace HockeyGame.Core
             AddDevRound("SET-UP MISTAKES", "Late Settle size", () => _save.LateSettleMetres, v => _save.LateSettleMetres = v, SaveData.LateSettleMetresRange, Metres, () => _save.LateSettleMetresAllowed);
             AddDevRound("SET-UP MISTAKES", "Late Settle time", () => _save.LateSettleSeconds, v => _save.LateSettleSeconds = v, SaveData.LateSettleSecondsRange, Seconds, () => _save.LateSettleSecondsAllowed);
 
+            // Gaps (#160): how near thin gear must be to block a Gap; the Gap measure reads it from the Round's settings.
+            AddDevRound("GAPS", "Gap thin-gear reach", () => _save.GapThinGearReachMetres, v => _save.GapThinGearReachMetres = v, SaveData.GapThinGearReachRange, Metres, null);
+
             // Test Mode (#156), kept the last Dev row: endless Shots from the shooter's spot. A button that opens it; it changes no setting, so Activate says false (nothing to save).
             AddRow(SettingsPart.Dev, "TEST", SettingsRowKind.Button, "Test Mode", () => "open", null, () => { _openTestMode?.Invoke(); return false; });
 
@@ -231,6 +234,7 @@ namespace HockeyGame.Core
                 _save.CheatMetres = defaults.CheatMetres;
                 _save.LateSettleMetres = defaults.LateSettleMetres;
                 _save.LateSettleSeconds = defaults.LateSettleSeconds;
+                _save.GapThinGearReachMetres = defaults.GapThinGearReachMetres;
             }
             return true;
         }

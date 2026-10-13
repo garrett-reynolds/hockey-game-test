@@ -79,16 +79,18 @@ namespace HockeyGame.Core.Tests
         // ---- The real port (Game) ----
 
         /// <summary>A goalie character shown in the Ready Stance, and the real port on it.</summary>
-        GoalieCharacterReach Port(out GoalieCharacter character)
+        GoalieCharacterReach Port(out GoalieCharacter character) => PortAt(Defaults.GapThinGearReachMetres, out character);
+
+        /// <summary>The port with the Gap thin-gear reach (#160) set to `reach` metres; everything else as Defaults.</summary>
+        GoalieCharacterReach PortAt(double reach, out GoalieCharacter character)
         {
             character = new GoalieCharacter(_parent.transform);
             Assert.IsTrue(character.Present, "Assets/Resources/Models/goalie-dressing.fbx is missing");
             character.Show(true);
             character.Prepare();
             character.ShowReaction(0f);
-            return new GoalieCharacterReach(character, Defaults);
+            return new GoalieCharacterReach(character, new RoundSettings { GapThinGearReachMetres = reach });
         }
-
         /// <summary>The Net Face point (0-100) where a puck from `from` through `through` meets the Net Face (z = 0).</summary>
         static RinkPoint NetPointThrough(RinkPoint from, Vector3 through)
         {
@@ -241,6 +243,26 @@ namespace HockeyGame.Core.Tests
                 }
             }
             if (middleTies.Count > 0) Assert.Ignore("#160: Middle Depth = Clean with the exact room, waits for the Gap reach setting (" + string.Join("; ", middleTies) + ")");
+        }
+
+        [Test]
+        public void A_smaller_Gap_thin_gear_reach_shows_more_Gaps_and_a_larger_one_fewer()
+        {
+            // Depth/Left/0.5 alone does not move with the reach (11 Gaps at 0, 0.04 and 0.08 m), so count Clean and Depth together
+            // at Left 1.0, Right 1.0 and Right 0.5 (40, 35 and 34 Gaps when this was made).
+            var counts = new System.Collections.Generic.List<int>();
+            foreach (double reach in new[] { 0.0, 0.04, 0.08 })
+            {
+                GoalieCharacterReach port = PortAt(reach, out _);
+                int total = 0;
+                foreach (var (side, window) in new[] { (AttackSide.Left, 1.0), (AttackSide.Right, 1.0), (AttackSide.Right, 0.5) })
+                    total += GapsOf(port, SetUp.Clean, side, window).Count + GapsOf(port, SetUp.Depth, side, window).Count;
+                counts.Add(total);
+            }
+            string text = "Clean + Depth Gaps at reach 0 / 0.04 / 0.08 m: " + string.Join(" / ", counts);
+            Assert.GreaterOrEqual(counts[0], counts[1], text);
+            Assert.GreaterOrEqual(counts[1], counts[2], text);
+            Assert.Greater(counts[0], counts[2], text);
         }
 
         [Test]
