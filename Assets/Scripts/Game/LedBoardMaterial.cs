@@ -24,6 +24,7 @@ namespace HockeyGame
         static readonly int GridOrigin = Shader.PropertyToID("_GridOrigin");
         static readonly int LitAbove = Shader.PropertyToID("_LitAbove");
         static readonly int Backdrop = Shader.PropertyToID("_Backdrop");
+        static readonly int Plain = Shader.PropertyToID("_Plain");
 
         /// <summary>A screen's material: shows its colour (times a picture, if one is set as mainTexture).</summary>
         public static Material Screen(string name, double cellMetres, Color colour)
@@ -53,6 +54,15 @@ namespace HockeyGame
             m.color = words;
             m.SetColor(Backdrop, backdrop);
         }
+
+        /// <summary>
+        /// Plain mode (#127): the screen draws its picture sharp (the colour times the picture, smoothly filtered, at the picture's own
+        /// resolution) with no LED cells and no gaps. The Replay uses it; the board words never do.
+        /// </summary>
+        public static void SetPlain(Material m, bool plain) => m.SetFloat(Plain, plain ? 1f : 0f);
+
+        /// <summary>True while the material draws plain (see SetPlain).</summary>
+        public static bool IsPlain(Material m) => m.GetFloat(Plain) > 0.5f;
 
         /// <summary>Starts the renderer's cell grid at worldOrigin (the screen's lower-left corner).</summary>
         public static void Anchor(Renderer renderer, Vector3 worldOrigin)

@@ -1,7 +1,7 @@
 // LED board (Video Board, Centre Board and Ribbon Boards): one shader for the screens' pictures and for the board words.
 // The words are first written into a small texture with one texel per LED cell (VideoBoards, from the LED font), so a screen shows its
-// words the same way as the Replay's picture: as a picture on a grid of square LED cells with a thin dark gap between them (_GapShare
-// and _GapColour are set by LedBoardMaterial).
+// words as a picture on a grid of square LED cells with a thin dark gap between them (_GapShare and _GapColour are set by
+// LedBoardMaterial). The Replay's picture is the exception: it is drawn plain (see Plain mode below).
 //
 // The grid lives on the board's plane, in metres, measured from _GridOrigin (the screen's lower-left corner; LedBoardMaterial.Anchor
 // sets it per renderer). Each fragment finds the centre of its cell and reads the picture once there, so a cell is one flat colour.
@@ -11,6 +11,9 @@
 // Words as a picture: the texture is R8 with exactly one texel per cell (0 or 1), point filtered, its edges on the screen's cell grid,
 // so the texel read at a cell's centre is that cell. The cell is lit (the words colour _BaseColor) when the texel is at least _LitAbove,
 // otherwise _Backdrop. _LitAbove 0 means an ordinary picture: its colour times _BaseColor.
+//
+// Plain mode (_Plain above 0.5, #127): the Replay's picture is drawn sharp: _BaseColor times the picture at the fragment's own uv,
+// bilinear filtered, with no cells and no gaps. The board words and the Calm still never use it.
 //
 // Depth-tested, writes depth, front faces only: a board in front hides the text and it is not mirrored from behind.
 Shader "Hockey Game/LED Board"
@@ -25,6 +28,7 @@ Shader "Hockey Game/LED Board"
         _GridOrigin("Grid origin (world)", Vector) = (0,0,0,0)
         _LitAbove("Words: a cell is lit when its texel is at least this (0: ordinary picture)", Range(0, 1)) = 0
         _Backdrop("Words: colour of a cell with no words", Color) = (0,0,0,1)
+        _Plain("Plain picture: sharp, no LED cells or gaps (1), or LED cells (0)", Range(0, 1)) = 0
         [HideInInspector] _SrcBlend("Source blend", Float) = 1
         [HideInInspector] _DstBlend("Destination blend", Float) = 0
     }
@@ -48,6 +52,7 @@ Shader "Hockey Game/LED Board"
             TEXTURE2D(_BaseMap);
             SAMPLER(sampler_BaseMap);
             SAMPLER(sampler_LedPointClamp); // an inline sampler state: point filter, clamped (the picture is read once per cell)
+            SAMPLER(sampler_LedLinearClamp); // an inline sampler state: bilinear, clamped (the plain picture)
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseMap_ST;
                 float4 _BaseMap_TexelSize;
@@ -58,6 +63,7 @@ Shader "Hockey Game/LED Board"
                 float4 _GridOrigin;
                 float _LitAbove;
                 half4 _Backdrop;
+                float _Plain;
             CBUFFER_END
 
             struct Attributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; };
@@ -99,6 +105,10 @@ Shader "Hockey Game/LED Board"
 
             half4 Frag(Varyings input) : SV_Target
             {
+                // Plain picture (the Replay): the picture itself, smooth, no cell grid. The branch is uniform across the material.
+                if (_Plain > 0.5)
+                    return half4(_BaseColor.rgb * SAMPLE_TEXTURE2D(_BaseMap, sampler_LedLinearClamp, input.uv).rgb, 1);
+
                 float3 fromOrigin = input.positionWS - _GridOrigin.xyz;
                 float2 p = float2(dot(fromOrigin, input.right), dot(fromOrigin, input.up)); // metres on the board plane
                 float2 dpdx = ddx(p), dpdy = ddy(p), duvdx = ddx(input.uv), duvdy = ddy(input.uv);

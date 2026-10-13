@@ -230,13 +230,14 @@ namespace HockeyGame
 
         /// <summary>
         /// Shows picture (for example the Replay's render texture) on every screen instead of the words; null goes back to the
-        /// Arena Show's words.
+        /// Arena Show's words. A picture is drawn sharp (smoothly filtered, no LED cells or gaps); words always keep the LED look.
         /// </summary>
         public void ShowPicture(Texture picture)
         {
             _shownPicture = picture;
             _picture.mainTexture = picture;
             _picture.color = picture != null ? Color.white : _back;
+            LedBoardMaterial.SetPlain(_picture, picture != null); // the Replay is sharp, with no LED cells (#127); the words keep theirs
             ShowScreenMaterials();
             DrawStaleWords();
         }
