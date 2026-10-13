@@ -60,6 +60,10 @@ namespace HockeyGame.Core
         public double WindowSecondsLeft =>
             Phase == RoundPhase.ShootingWindow ? _settings.ShootingWindowSeconds - _phaseElapsed : 0;
 
+        /// <summary>Real seconds left of the result hold; infinity before the Whistle (the hold has not started) and outside the hold.</summary>
+        public double ResultHoldSecondsLeft =>
+            Phase == RoundPhase.ResultHold && !AwaitingWhistle ? _resultDelay + ResultHoldLength - _phaseElapsed : double.PositiveInfinity;
+
         /// <summary>Real seconds spent in the current phase.</summary>
         public double PhaseSecondsElapsed => _phaseElapsed;
 

@@ -306,6 +306,19 @@ namespace HockeyGame
 
         void OnGUI()
         {
+            // The black fade over the camera cut between Shots (#129): drawn over the HUD too (a low GUI depth draws last).
+            GUI.depth = -1000;
+            if (_round != null && Event.current.type == EventType.Repaint)
+            {
+                float black = (float)ShotFade.Amount(_round);
+                if (black > 0f)
+                {
+                    Color before = GUI.color;
+                    GUI.color = new Color(0f, 0f, 0f, black);
+                    GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), Texture2D.whiteTexture);
+                    GUI.color = before;
+                }
+            }
             if (_round == null || _round.Phase != RoundPhase.ShootingWindow || Event.current.type != EventType.Repaint) return;
 
             float fraction = (float)Breakaway.RingFraction(_round.WindowSecondsLeft, _round.Settings);
