@@ -128,6 +128,8 @@ namespace HockeyGame
             {
                 _goalie.Face((float)_turn.Shown, (float)_turn.Shown); // keeps facing the last shooter
                 _goalie.ShowPush(PushShown.None, dt); // a pose part-way out fades (it never freezes)
+                _pushFrom = _shuffle.Shown; // so the next skate-in's first frame reads no stale move
+                _pushPeak = 0;
                 _goalie.SetProgress(set);
                 return; // camera stays where it is
             }
