@@ -23,7 +23,6 @@ namespace HockeyGame
         public const string Boards = "boards";
         public const string Arena = "arena";
         public const string GoalLight = "goal-light";
-        public const string SaveGlove = "save-glove";
 
         /// <summary>
         /// A new scene object of the model in the file with this name (no extension), or the placeholder when there is none.

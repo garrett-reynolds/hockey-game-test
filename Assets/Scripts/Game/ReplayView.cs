@@ -51,8 +51,7 @@ namespace HockeyGame
 
         /// <summary>
         /// Sets the Replay up. parts: what the Replay plays back by their transforms, none with a Rigidbody (the physics puck
-        /// goes through ReplayPhysicsPuck): the goalie, then any scripted save block and puck (the puck last, since the puck
-        /// can ride in the glove). shooter: the player's camera, copied for the Replay camera's look.
+        /// goes through ReplayPhysicsPuck): the goalie and anything else that is seen. shooter: the player's camera, copied for the Replay camera's look.
         /// </summary>
         public void Init(Round round, VideoBoards boards, Camera shooter, params Transform[] parts)
         {

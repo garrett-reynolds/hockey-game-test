@@ -3,8 +3,7 @@ namespace HockeyGame.Core
     /// <summary>
     /// The race's result for a Shot: a Shot on the Net Face is a Save when the goalie's race says so, else a Goal; off the Net
     /// Face (a Frame Hit too) is a Miss. Not the Round's result, which comes from the Whistle rule (WhistleRule) since #109.
-    /// It picks the goalie's reach (PhysicsShotEffects: GoalieView.React) and is what the scripted flight (ShotEffects, until
-    /// #113) plays.
+    /// It picks the goalie's reach (PhysicsShotEffects: GoalieView.React).
     /// </summary>
     public static class ScriptedShot
     {

@@ -25,8 +25,7 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void The_supplied_puck_has_a_face_and_a_rim_material_both_near_black_URP_Lit()
         {
-            new ShotEffects(_rink.transform, _camera.GetComponent<Camera>());
-            Transform model = _rink.transform.Find("Puck").Find(ModelFiles.Puck);
+            Transform model = PhysicsPuck.MakeLook(_rink.transform).transform.Find(ModelFiles.Puck);
             Assert.IsNotNull(model, "the puck should show the puck model");
 
             var names = new System.Collections.Generic.List<string>();
@@ -46,15 +45,14 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void The_supplied_puck_fills_the_puck_size_with_its_flat_face_on_the_pivots_up_axis()
         {
-            new ShotEffects(_rink.transform, _camera.GetComponent<Camera>());
-            Transform pivot = _rink.transform.Find("Puck");
+            Transform pivot = PhysicsPuck.MakeLook(_rink.transform).transform;
             Transform model = pivot.Find(ModelFiles.Puck);
             Assert.IsNotNull(model);
 
             Bounds size = WorldBounds(pivot.gameObject);
-            Assert.AreEqual(0.15f, size.size.x, 0.005f);
-            Assert.AreEqual(0.05f, size.size.y, 0.005f);
-            Assert.AreEqual(0.15f, size.size.z, 0.005f);
+            Assert.AreEqual(PhysicsPuck.Diameter, size.size.x, 0.005f);
+            Assert.AreEqual(PhysicsPuck.Thickness, size.size.y, 0.005f);
+            Assert.AreEqual(PhysicsPuck.Diameter, size.size.z, 0.005f);
             Assert.AreEqual(0, pivot.GetComponentsInChildren<Collider>(true).Length);
 
             // The model's own thin axis is its Y: fitting scales it nearly evenly. A disc lying on its edge would need
@@ -68,8 +66,7 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void With_no_puck_model_the_puck_is_the_black_cylinder()
         {
-            new ShotEffects(_rink.transform, _camera.GetComponent<Camera>(), name => null);
-            Transform pivot = _rink.transform.Find("Puck");
+            Transform pivot = PhysicsPuck.MakeLook(_rink.transform, name => null).transform;
             Assert.IsNull(pivot.Find(ModelFiles.Puck));
             Assert.IsNotNull(pivot.Find("Puck Placeholder"));
             var renderer = pivot.GetComponentInChildren<Renderer>(true);
@@ -78,8 +75,8 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(0.05f, c.g, 0.001f);
             Assert.AreEqual(0.05f, c.b, 0.001f);
             Bounds size = WorldBounds(pivot.gameObject);
-            Assert.AreEqual(0.15f, size.size.x, 0.005f);
-            Assert.AreEqual(0.05f, size.size.y, 0.005f);
+            Assert.AreEqual(PhysicsPuck.Diameter, size.size.x, 0.005f);
+            Assert.AreEqual(PhysicsPuck.Thickness, size.size.y, 0.005f);
             Assert.AreEqual(0, pivot.GetComponentsInChildren<Collider>(true).Length);
         }
 

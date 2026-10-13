@@ -441,11 +441,13 @@ namespace HockeyGame.Core.Tests
             var settings = new RoundSettings { ReactionWobbleSeconds = 0 };
             var cameraObject = new GameObject("Camera (test)", typeof(Camera));
             var driver = new GameObject("Breakaway (test)");
+            PhysicsShotEffects effects = null;
             try
             {
                 var view = new GoalieView(_root.transform, _goalie);
-            _views.Add(view);
-                var effects = new ShotEffects(_root.transform, cameraObject.GetComponent<Camera>(), null, view);
+                _views.Add(view);
+                effects =new PhysicsShotEffects(_root.transform, cameraObject.GetComponent<Camera>(), new SeededRandom(7), view, name => null);
+                Physics.SyncTransforms();
                 var round = new Round(new SeededRandom(1), settings, FakeReach.NeverReaches(), 0);
                 var breakaway = driver.AddComponent<BreakawayView>();
                 breakaway.Init(round, cameraObject.GetComponent<Camera>(), view, () => effects.FlightSeconds);
@@ -455,6 +457,11 @@ namespace HockeyGame.Core.Tests
                 round.StartRound();
                 for (int frame = 0; frame < 60 * 30 && round.Phase != RoundPhase.ResultHold; frame++)
                 {
+                    for (int step = 0; step < 2; step++) // a frame is 1/60 s: two physics steps of 1/120 s
+                    {
+                        Physics.Simulate(PhysicsShot.StepSeconds);
+                        effects.AfterPhysicsStep(PhysicsShot.StepSeconds);
+                    }
                     round.Tick(Frame);
                     view.Show(true);
                     if (round.Phase == RoundPhase.ShootingWindow && round.PhaseSecondsElapsed > 0.5) round.SubmitShot(70, 60, 100, false);
@@ -475,6 +482,7 @@ namespace HockeyGame.Core.Tests
             }
             finally
             {
+                effects?.Dispose();
                 Object.DestroyImmediate(driver);
                 Object.DestroyImmediate(cameraObject);
                 Time.timeScale = 1f;

@@ -8,7 +8,7 @@ namespace HockeyGame.Core.Tests
     /// <summary>
     /// #44: the goalie character never freezes. After each result he plays out his reaction, glides back to his spot and
     /// recovers into the Ready Stance before the result hold ends; in the Ready Stance he shows Stance Life (breathing,
-    /// weight shifts, stick taps). Tested through GoalieView (React, Watch, Live, SetProgress), ShotEffects and
+    /// weight shifts, stick taps). Tested through GoalieView (React, Watch, Live, SetProgress), PhysicsShotEffects and
     /// BreakawayView.Step, judged from the gear's world bounds, the mask and the hips.
     /// </summary>
     public class GoalieRecoveryTests
@@ -17,23 +17,35 @@ namespace HockeyGame.Core.Tests
         /// <summary>The Late Margin limit the Round passes (RoundSettings.LateMarginLimitSeconds).</summary>
         static readonly double LateMarginLimit = new RoundSettings().LateMarginLimitSeconds;
         static readonly Vector3 Eye = new Vector3(0f, 1.5f, -7.5f);
-        static readonly Vector3 From = Eye + Vector3.down * 0.35f; // where ShotEffects starts the puck
+        static readonly Vector3 From = Eye + Vector3.down * 0.35f; // roughly where a Shot starts the puck
         const float Frame = 1f / 60f;
+        SimulationMode _oldMode;
 
         [SetUp]
-        public void SetUp() { _parent = new GameObject("Rink (test)"); }
+        public void SetUp()
+        {
+            _oldMode = Physics.simulationMode;
+            Physics.simulationMode = SimulationMode.Script;
+            _parent = new GameObject("Rink (test)");
+        }
 
         [TearDown]
         public void TearDown()
         {
+            foreach (GoalieView v in _views) v?.Dispose();
+            _views.Clear();
             Object.DestroyImmediate(_parent);
+            Physics.simulationMode = _oldMode;
             Time.timeScale = 1f;
         }
+
+        readonly List<GoalieView> _views = new List<GoalieView>(); // every view Make built, disposed in TearDown
 
         GoalieView Make(out GoalieCharacter character, float facing = 0f)
         {
             character = new GoalieCharacter(_parent.transform);
             var view = new GoalieView(_parent.transform, character);
+            _views.Add(view);
             view.Show(true);
             view.Face(facing, facing);
             view.SetProgress(0f);
@@ -144,14 +156,12 @@ namespace HockeyGame.Core.Tests
         [TestCase(15.0, 12.0, TestName = "Pad save in the butterfly")]
         public void Fully_reacted_the_goalie_shows_exactly_what_the_Shot_measured_whatever_his_Stance_Life(double x, double y)
         {
-            Vector3 stopA, stopB;
             Vector3[] posedA, posedB;
             {
                 GoalieView view = Make(out GoalieCharacter character);
                 view.Live(0f);
                 view.SetProgress(0f);
                 view.React(Result(ShotResultKind.Save, x, y), From, null, double.PositiveInfinity, LateMarginLimit);
-                Assert.IsTrue(view.SaveStop(From, NetPoint(x, y), 0.0254f, out stopA));
                 view.SetProgress(1f);
                 posedA = Points(character);
                 Object.DestroyImmediate(character.Root);
@@ -161,11 +171,9 @@ namespace HockeyGame.Core.Tests
                 view.Live(5.3f); // mid breath, weight to one side
                 view.SetProgress(0f);
                 view.React(Result(ShotResultKind.Save, x, y), From, null, double.PositiveInfinity, LateMarginLimit);
-                Assert.IsTrue(view.SaveStop(From, NetPoint(x, y), 0.0254f, out stopB));
                 view.SetProgress(1f);
                 posedB = Points(character);
             }
-            Assert.AreEqual(0f, Vector3.Distance(stopA, stopB), 1e-4f, "the save stops on the same spot");
             Assert.AreEqual(0f, Most(posedA, posedB, out int i), 1e-4f, "fully reacted, the " + Name(i) + " is where it was measured");
         }
 
@@ -235,53 +243,6 @@ namespace HockeyGame.Core.Tests
             }
         }
 
-        [Test]
-        public void Played_through_a_glove_save_the_puck_stays_in_the_glove_as_it_comes_up_and_he_recovers()
-        {
-            NetBuilder.Build(_parent.transform);
-            var camera = new GameObject("Camera (test)", typeof(Camera));
-            camera.transform.position = Eye;
-            camera.transform.LookAt(new Vector3(0f, 0.61f, 0f));
-            try
-            {
-                var character = new GoalieCharacter(_parent.transform);
-                var view = new GoalieView(_parent.transform, character);
-                var effects = new ShotEffects(_parent.transform, camera.GetComponent<Camera>(), null, view);
-                Transform puck = _parent.transform.Find("Puck");
-                var round = new Round(ScriptedRandom.Forcing(AttackSide.Middle), new RoundSettings(), FakeReach.InTheWay(), 0);
-                round.StartRound();
-                round.Tick(3.7);
-                view.Show(true);
-                view.Face(0f, 0f);
-                view.SetProgress(0f);
-                round.SubmitShot(88, 82, 100, false);
-                Assert.AreEqual(ShotResultKind.Save, ScriptedShot.Result(round).Kind);
-                bool arrived = false;
-                float since = 0f, worst = 0f, gloveMoved = 0f;
-                Vector3 offset = Vector3.zero, gloveAt = Vector3.zero;
-                for (int i = 0; i < 600 && round.Phase == RoundPhase.ResultHold; i++)
-                {
-                    effects.Update(round, Frame);
-                    round.Tick(Frame);
-                    if (round.Phase != RoundPhase.ResultHold) break;
-                    arrived |= effects.PuckArrivedThisFrame;
-                    view.SetProgress((float)Breakaway.GoalieSet(round.Phase, round.PhaseSecondsElapsed, true, effects.FlightSeconds, round.LastRace));
-                    if (!arrived) continue;
-                    since += Frame;
-                    Assert.IsTrue(character.GearBounds(GearPiece.Catcher, out Bounds glove));
-                    if (since < 0.1f) { offset = puck.position - glove.center; gloveAt = glove.center; continue; }
-                    worst = Mathf.Max(worst, Vector3.Distance(puck.position - glove.center, offset));
-                    gloveMoved = Mathf.Max(gloveMoved, Vector3.Distance(glove.center, gloveAt));
-                }
-                Assert.IsTrue(arrived);
-                TestContext.Out.WriteLine("glove moved " + gloveMoved.ToString("F2") + " m, puck off its spot in the glove by at most " + worst.ToString("F3") + " m");
-                Assert.Greater(gloveMoved, 0.08f, "the glove came up and back into the stance");
-                Assert.Less(worst, 0.03f, "the puck stays in the glove");
-                Assert.IsTrue(puck.gameObject.activeSelf);
-            }
-            finally { Object.DestroyImmediate(camera); }
-        }
-
         // ---- Between Shots ------------------------------------------------------------------------------------------------
 
         [Test]
@@ -290,12 +251,15 @@ namespace HockeyGame.Core.Tests
             NetBuilder.Build(_parent.transform);
             var cameraObject = new GameObject("Camera (test)", typeof(Camera));
             var driver = new GameObject("Breakaway (test)");
+            PhysicsShotEffects effects = null;
+            GoalieView view = null;
             try
             {
                 var camera = cameraObject.GetComponent<Camera>();
                 var character = new GoalieCharacter(_parent.transform);
-                var view = new GoalieView(_parent.transform, character);
-                var effects = new ShotEffects(_parent.transform, camera, null, view);
+                view = new GoalieView(_parent.transform, character);
+                effects = new PhysicsShotEffects(_parent.transform, camera, new SeededRandom(7), view, name => null);
+                Physics.SyncTransforms();
                 var round = new Round(ScriptedRandom.Picking(AttackSide.Left, AttackSide.Middle, AttackSide.Right,
                     AttackSide.Left, AttackSide.Middle, AttackSide.Right), new RoundSettings(),
                     FakeReach.Saving((x, y) => !((x == 88 && y == 82) || (x == 15 && y == 85))), 0); // two Goals, three Saves, a Miss
@@ -312,6 +276,11 @@ namespace HockeyGame.Core.Tests
                 round.StartRound();
                 for (int frame = 0; frame < 60 * 80 && !(round.Phase == RoundPhase.RoundOver && afterHold >= 1.5f); frame++)
                 {
+                    for (int step = 0; step < 2; step++) // a frame is 1/60 s: two physics steps of 1/120 s
+                    {
+                        Physics.Simulate(PhysicsShot.StepSeconds);
+                        effects.AfterPhysicsStep(PhysicsShot.StepSeconds);
+                    }
                     round.Tick(Frame);
                     view.Show(true);
                     if (round.Phase == RoundPhase.ShootingWindow && round.PhaseSecondsElapsed > 0.5 && shot < shots.Length)
@@ -355,6 +324,8 @@ namespace HockeyGame.Core.Tests
             }
             finally
             {
+                effects?.Dispose();
+                view?.Dispose();
                 Object.DestroyImmediate(driver);
                 Object.DestroyImmediate(cameraObject);
             }

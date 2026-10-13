@@ -16,7 +16,14 @@ namespace HockeyGame.Core.Tests
         public void SetUp() { _parent = new GameObject("Rink (test)"); }
 
         [TearDown]
-        public void TearDown() { Object.DestroyImmediate(_parent); }
+        public void TearDown()
+        {
+            foreach (GoalieView v in _views) v?.Dispose();
+            _views.Clear();
+            Object.DestroyImmediate(_parent);
+        }
+
+        readonly List<GoalieView> _views = new List<GoalieView>(); // every view a test built, disposed in TearDown
 
         Transform Group(string name) => _parent.transform.Find(name);
 
@@ -32,6 +39,7 @@ namespace HockeyGame.Core.Tests
         {
             var character = new GoalieCharacter(_parent.transform);
             var view = new GoalieView(_parent.transform, character);
+            _views.Add(view);
             view.Show(true);
 
             Assert.IsFalse(AnyDrawn(Group(GoalieView.BlockName)), "the goalie block is hidden");
@@ -45,6 +53,7 @@ namespace HockeyGame.Core.Tests
         public void Easy_mode_glow_still_shows_with_the_character()
         {
             var view = new GoalieView(_parent.transform, new GoalieCharacter(_parent.transform));
+            _views.Add(view);
             view.Show(true);
             view.ShowGaps(NetFaceGaps.Where((x, y) => x > 70));
             Transform glow = Group("Gap glow");
@@ -57,10 +66,12 @@ namespace HockeyGame.Core.Tests
         {
             var character = new GoalieCharacter(_parent.transform, name => null);
             var view = new GoalieView(_parent.transform, character);
+            _views.Add(view);
             view.Show(true);
             Assert.IsTrue(AnyDrawn(Group(GoalieView.BlockName)));
 
             var noCharacter = new GoalieView(_parent.transform);
+            _views.Add(noCharacter);
             Assert.DoesNotThrow(() => noCharacter.Show(true));
         }
 
@@ -68,6 +79,7 @@ namespace HockeyGame.Core.Tests
         public void The_goalie_block_stands_across_the_Net_Face_where_the_goalie_stands_and_hides_with_him()
         {
             var view = new GoalieView(_parent.transform);
+            _views.Add(view);
             view.Show(true);
             Transform block = Group(GoalieView.BlockName);
             Vector3 before = block.position;
@@ -100,6 +112,7 @@ namespace HockeyGame.Core.Tests
             var reference = new GoalieCharacter(new GameObject("Reference").transform);
             var character = new GoalieCharacter(_parent.transform);
             var view = new GoalieView(_parent.transform, character);
+            _views.Add(view);
             Transform hips = character.Bone(HumanBodyBones.Hips), referenceHips = reference.Bone(HumanBodyBones.Hips);
             view.Show(true);
             reference.ShowReaction(0f);
@@ -127,6 +140,7 @@ namespace HockeyGame.Core.Tests
         {
             var character = new GoalieCharacter(_parent.transform);
             var view = new GoalieView(_parent.transform, character);
+            _views.Add(view);
             view.Show(true);
             view.SetProgress(0f);
             Transform left = character.Bone(HumanBodyBones.LeftUpperArm), right = character.Bone(HumanBodyBones.RightUpperArm);
@@ -155,24 +169,12 @@ namespace HockeyGame.Core.Tests
             return new Vector3((float)right, (float)up, 0f);
         }
 
-        /// <summary>The gear each Save Reaction makes the save with: the test's own table (a pad save uses the pad on the puck's side).</summary>
-        static string Gear(double x, double y)
-        {
-            switch (SaveReactions.For(x, y))
-            {
-                case SaveReaction.Glove: return GearPiece.Catcher;
-                case SaveReaction.Blocker: return GearPiece.Blocker;
-                case SaveReaction.Stick: return GearPiece.Stick;
-                case SaveReaction.Body: return GearPiece.Body;
-                default: return x > 50 ? GearPiece.LeftPad : GearPiece.RightPad; // the goalie's left pad is on the shooter's right
-            }
-        }
-
         [Test]
         public void Without_a_Save_Reaction_from_the_race_a_save_reaction_comes_from_the_Shot_point()
         {
             var character = new GoalieCharacter(_parent.transform);
             var view = new GoalieView(_parent.transform, character);
+            _views.Add(view);
             var from = new Vector3(0f, 1.15f, -9f);
             view.Show(true);
             foreach (var (x, y, piece) in new[] { (85.0, 85.0, GearPiece.Catcher), (15.0, 85.0, GearPiece.Blocker), (15.0, 10.0, GearPiece.RightPad),
@@ -191,6 +193,7 @@ namespace HockeyGame.Core.Tests
             reference.ShowReaction(0f);
             var character = new GoalieCharacter(_parent.transform);
             var view = new GoalieView(_parent.transform, character);
+            _views.Add(view);
             view.Show(true);
             Transform hand = character.Bone(HumanBodyBones.LeftHand), referenceHand = reference.Bone(HumanBodyBones.LeftHand);
 
@@ -223,56 +226,11 @@ namespace HockeyGame.Core.Tests
 
         [Test]
         [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
-        public void From_every_shooter_eye_a_save_stops_where_the_puck_meets_the_reaction_s_gear_on_its_line()
-        {
-            var character = new GoalieCharacter(_parent.transform);
-            var view = new GoalieView(_parent.transform, character);
-            view.Show(true);
-            var failures = new List<string>();
-            int saves = 0, padSaves = 0, padRivalFirst = 0;
-            foreach (var (eyeName, eye) in AllEyes())
-            {
-                float facing = GoalieCharacter.FacingToward(eye);
-                view.Face(facing, facing);
-                Vector3 from = eye + Vector3.down * 0.35f; // where ShotEffects starts the puck: below the camera
-                for (double x = 5; x < 100; x += 10)
-                for (double y = 4; y < 100; y += 9)
-                {
-                    saves++;
-                    string where = eyeName + " (" + x + ", " + y + ") ";
-                    string piece = Gear(x, y);
-                    Vector3 net = NetPoint(x, y);
-                    view.SetProgress(0f);
-                    view.React(Result(ShotResultKind.Save, x, y), from, null, double.PositiveInfinity, LateMarginLimit);
-                    if (view.ReactionPiece != piece) { failures.Add(where + "reacts with " + view.ReactionPiece + ", not " + piece); continue; }
-                    if (!view.SaveStop(from, net, PuckMotion.Thickness, out Vector3 stop)) { failures.Add(where + "no stop"); continue; }
-                    if (Vector3.Cross(stop - from, (net - from).normalized).magnitude > 0.001f) failures.Add(where + "the stop is off the puck's line");
-                    var obstacles = new PuckObstacles();
-                    view.AddObstacles(obstacles);
-                    // Touching the gear's surface: no gap (the puck's middle at most its half thickness off it), not sunk into it.
-                    obstacles.Nearest(stop, piece, out _, out _, out float gap);
-                    if (gap > PuckMotion.Thickness / 2f + 0.005f || gap < 0.002f) failures.Add(where + "the stop is " + gap.ToString("F3") + " m from the " + piece);
-                    // Nothing of the goalie is in front of it on the line, but the stick or the blocker of a pad save may be (ShotEffects then stops it there).
-                    Vector3 back = stop - (stop - from).normalized * 0.003f;
-                    if (obstacles.Cast(from, back, PuckMotion.Thickness / 2f, out _, out _, out PuckSurface first))
-                    {
-                        bool rival = piece.EndsWith("Pad") && (first == PuckSurface.Stick || first == PuckSurface.Blocker);
-                        if (rival) padRivalFirst++;
-                        else failures.Add(where + first + " is in front of the " + piece);
-                    }
-                    if (piece.EndsWith("Pad")) padSaves++;
-                }
-            }
-            Assert.IsEmpty(failures, failures.Count + " of " + saves + ":\n" + string.Join("\n", failures));
-            Assert.Less(padRivalFirst, 0.02f * padSaves, padRivalFirst + " of " + padSaves + " pad saves meet the stick or blocker first");
-        }
-
-        [Test]
-        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void A_goal_or_miss_reach_never_touches_the_puck()
         {
             var character = new GoalieCharacter(_parent.transform);
             var view = new GoalieView(_parent.transform, character);
+            _views.Add(view);
             view.Show(true);
             var failures = new List<string>();
             int shots = 0;
@@ -295,44 +253,6 @@ namespace HockeyGame.Core.Tests
                 }
             }
             Assert.IsEmpty(failures, failures.Count + " of " + shots + " touch the puck:\n" + string.Join("\n", failures));
-        }
-
-        [Test]
-        public void A_save_is_measured_where_the_reaction_ends_turned_to_the_shooter_while_the_Ready_Stance_still_shows()
-        {
-            var character = new GoalieCharacter(_parent.transform);
-            var view = new GoalieView(_parent.transform, character);
-            var from = new Vector3(-2.4f, 1.2f, -8f);
-            var net = NetPoint(83, 82);
-            view.Show(true);
-
-            view.Face(0f, 0f);
-            view.React(Result(ShotResultKind.Save, 83, 82), from, null, double.PositiveInfinity, LateMarginLimit);
-            Assert.IsTrue(view.SaveStop(from, net, PuckMotion.Thickness, out Vector3 straight));
-
-            // The Shot frame: the goalie has shuffled to 15 degrees, the shooter is at 17.4; nothing has moved yet.
-            view.Face(15f, 17.4f);
-            view.SetProgress(0f);
-            Transform hips = character.Bone(HumanBodyBones.Hips);
-            Quaternion shown = hips.rotation;
-            view.React(Result(ShotResultKind.Save, 83, 82), from, null, double.PositiveInfinity, LateMarginLimit);
-            Assert.IsTrue(view.SaveStop(from, net, PuckMotion.Thickness, out Vector3 onShot));
-            Assert.Greater(Vector3.Distance(straight, onShot), 0.01f, "the turn moves the catcher");
-            Assert.AreEqual(0f, Quaternion.Angle(shown, hips.rotation), 0.01f, "still shown in the Ready Stance at 15 degrees");
-
-            view.SetProgress(1f);
-            Assert.IsTrue(character.GearBounds(GearPiece.Catcher, out Bounds gear));
-            Assert.IsTrue(character.ReactionGearBounds(GearPiece.Catcher, out Bounds measured));
-            Assert.AreEqual(0f, Vector3.Distance(gear.center, measured.center), 0.001f, "fully reacted at 17.4 degrees, the catcher is where it was measured");
-            var obstacles = new PuckObstacles();
-            view.AddObstacles(obstacles);
-            Assert.IsTrue(view.SaveSurface(obstacles, onShot, out _, out PuckSurface surface));
-            Assert.AreEqual(PuckSurface.Catcher, surface);
-
-            var blocks = new GoalieView(_parent.transform);
-            blocks.Show(true);
-            blocks.React(Result(ShotResultKind.Save, 83, 82), from, null, double.PositiveInfinity, LateMarginLimit);
-            Assert.IsFalse(blocks.SaveStop(from, net, PuckMotion.Thickness, out _), "the goalie block keeps the save block");
         }
     }
 }

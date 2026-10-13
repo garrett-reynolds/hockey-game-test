@@ -17,14 +17,21 @@ namespace HockeyGame.Core.Tests
     {
         const float Frame = 1f / 60f;
         GameObject _parent;
+        SimulationMode _oldMode;
 
         [SetUp]
-        public void SetUp() { _parent = new GameObject("Rink (test)"); }
+        public void SetUp()
+        {
+            _oldMode = Physics.simulationMode;
+            Physics.simulationMode = SimulationMode.Script;
+            _parent = new GameObject("Rink (test)");
+        }
 
         [TearDown]
         public void TearDown()
         {
             Object.DestroyImmediate(_parent);
+            Physics.simulationMode = _oldMode;
             Time.timeScale = 1f;
         }
 
@@ -40,13 +47,16 @@ namespace HockeyGame.Core.Tests
             var settings = new RoundSettings { NormalDepthMetres = 0.6, ReactionWobbleSeconds = 0, SkateInShuffles = false };
             var cameraObject = new GameObject("Camera (test)", typeof(Camera));
             var driver = new GameObject("Breakaway (test)");
+            PhysicsShotEffects effects = null;
+            GoalieView view = null;
             try
             {
                 var camera = cameraObject.GetComponent<Camera>();
                 var character = new GoalieCharacter(_parent.transform);
                 Assume.That(character.Present, "needs the goalie model");
-                var view = new GoalieView(_parent.transform, character);
-                var effects = new ShotEffects(_parent.transform, camera, null, view);
+                view = new GoalieView(_parent.transform, character);
+                effects = new PhysicsShotEffects(_parent.transform, camera, new SeededRandom(7), view, name => null);
+                Physics.SyncTransforms();
                 // Shots 1-3 (left, middle, right) are Clean, Depth (centred on a middle attack too) and Clean; 4-6 are dealt mistakes.
                 var round = new Round(ScriptedRandom.Dealing(new[] { AttackSide.Left, AttackSide.Middle, AttackSide.Right,
                     AttackSide.Left, AttackSide.Middle, AttackSide.Right }, new[] { HockeyGame.Core.SetUp.Clean, HockeyGame.Core.SetUp.Depth, HockeyGame.Core.SetUp.Clean }),
@@ -63,6 +73,11 @@ namespace HockeyGame.Core.Tests
                 round.StartRound();
                 for (int frame = 0; frame < 60 * 80 && round.Phase != RoundPhase.RoundOver; frame++)
                 {
+                    for (int step = 0; step < 2; step++) // a frame is 1/60 s: two physics steps of 1/120 s
+                    {
+                        Physics.Simulate(PhysicsShot.StepSeconds);
+                        effects.AfterPhysicsStep(PhysicsShot.StepSeconds);
+                    }
                     round.Tick(Frame);
                     view.Show(true);
                     bool shoot = round.Phase == RoundPhase.ShootingWindow && round.PhaseSecondsElapsed > 0.5;
@@ -123,6 +138,8 @@ namespace HockeyGame.Core.Tests
             }
             finally
             {
+                effects?.Dispose();
+                view?.Dispose();
                 Object.DestroyImmediate(driver);
                 Object.DestroyImmediate(cameraObject);
             }

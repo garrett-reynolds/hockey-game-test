@@ -23,12 +23,15 @@ namespace HockeyGame.Core.Tests
         {
             var inBuild = new HashSet<string>(Resources.LoadAll<Material>("").Select(Variant));
             Camera camera = null;
+            PhysicsShotEffects effects = null;
+            GoalieView goalie = null;
             try
             {
                 RinkBuilder.Build(out camera);
                 Transform rink = GameObject.Find("Rink").transform;
-                var goalie = new GoalieView(rink, new GoalieCharacter(rink));
-                new ShotEffects(rink, camera, null, goalie);
+                goalie = new GoalieView(rink, new GoalieCharacter(rink));
+                effects = new PhysicsShotEffects(rink, camera, new SeededRandom(1), goalie, null);
+                PhysicsPuck.MakeLook(rink); // the puck's material, which PhysicsShotEffects makes only on a Shot
                 new GoalLight(rink).SetOn(true);
                 goalie.Show(true);
                 goalie.ShowGaps(NetFaceGaps.Where((x, y) => true)); // Easy mode glow on
@@ -41,6 +44,8 @@ namespace HockeyGame.Core.Tests
             }
             finally
             {
+                effects?.Dispose();
+                goalie?.Dispose();
                 Object.DestroyImmediate(GameObject.Find("Rink"));
                 if (camera != null) Object.DestroyImmediate(camera.gameObject);
             }

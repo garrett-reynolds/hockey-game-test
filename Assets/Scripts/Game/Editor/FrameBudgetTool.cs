@@ -271,7 +271,7 @@ namespace HockeyGame.Editor
             {
                 EditorSceneManager.OpenScene(RinkScene, OpenSceneMode.Single);
                 target = new RenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
-                var game = new Game(target);
+                using var game = new Game(target);
                 var skateIn = new Frames();
                 var replay = new Frames();
                 game.Play(skateIn, replay);
@@ -302,8 +302,10 @@ namespace HockeyGame.Editor
         }
 
         /// <summary>The game as RoundDriver builds and steps it, without sound, USB, input or the HUD.</summary>
-        sealed class Game
+        sealed class Game : IDisposable
         {
+            readonly SimulationMode _oldMode = Physics.simulationMode;
+            float _physics; // real seconds not yet stepped through physics (fixed steps, as the game runs them)
             readonly RenderTexture _target;
             readonly SaveData _save = new SaveData { EasyMode = true };
             readonly Camera _camera;
@@ -312,7 +314,7 @@ namespace HockeyGame.Editor
             readonly Crowd _crowd;
             readonly VideoBoards _boards;
             readonly GoalieView _goalie;
-            readonly ShotEffects _effects;
+            readonly PhysicsShotEffects _effects;
             readonly EasyGlow _easyGlow = new EasyGlow();
             readonly ScreenFlow _flow;
             readonly Round _round;
@@ -334,7 +336,8 @@ namespace HockeyGame.Editor
                 var character = new GoalieCharacter(rink);
                 if (!character.Present) throw new InvalidOperationException("The goalie model did not load: the frame budget needs it.");
                 _goalie = new GoalieView(rink, character);
-                _effects = new ShotEffects(rink, _camera, null, _goalie);
+                Physics.simulationMode = SimulationMode.Script; // stepped by Step, as RoundDriver steps it
+                _effects = new PhysicsShotEffects(rink, _camera, new GoalRateTool.SystemRandom(1), _goalie);
                 var settings = new RoundSettings();
                 _reach = new GoalieCharacterReach(character, settings);
                 _flow = new ScreenFlow(new GoalRateTool.SystemRandom(Seed), _save, _reach, settings);
@@ -343,8 +346,14 @@ namespace HockeyGame.Editor
                 _breakaway = host.AddComponent<BreakawayView>();
                 _breakaway.Init(_round, _camera, _goalie, () => _effects.FlightSeconds);
                 _replay = host.AddComponent<ReplayView>();
-                _replay.Init(_round, _boards, _camera, _goalie.Body, _effects.SaveBlock, _effects.Puck);
+                _replay.Init(_round, _boards, _camera, _goalie.Body);
                 _camera.targetTexture = target;
+            }
+
+            public void Dispose()
+            {
+                _effects.Dispose();
+                Physics.simulationMode = _oldMode;
             }
 
             /// <summary>Plays Shots, crowd on and off in turn, until both moments have ShotsPerMode Shots each way.</summary>
@@ -425,6 +434,14 @@ namespace HockeyGame.Editor
                     GoalRateTool.AimAtAGap(_round, _round.Settings, _reach, ShotSpeedKmh, out double x, out double y);
                     _flow.SubmitShot(x, y, ShotSpeedKmh, false);
                     _effects.Update(_round, 0f);
+                }
+
+                _physics += realDt;
+                while (_physics >= 1f / 120f)
+                {
+                    Physics.Simulate(1f / 120f);
+                    _effects.AfterPhysicsStep(1f / 120f);
+                    _physics -= 1f / 120f;
                 }
 
                 RoundPhase phase = _round.Phase;

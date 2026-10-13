@@ -21,6 +21,8 @@ namespace HockeyGame
         public const float MaxSlide = 0.6f;
 
         SkinnedMeshRenderer[] _body = new SkinnedMeshRenderer[0];
+        Mesh[] _bodyAll = new Mesh[0], _bodyHidden = new Mesh[0]; // per _body renderer: the model's mesh, and a copy without the bare hand and feet
+        int[][] _bodyTriangles = new int[0][];                    // per _body renderer: the model's triangles (reach reads these, whatever is drawn)
         Renderer[] _skates = new Renderer[0];
         Quaternion _restLeftFoot = Quaternion.identity, _restRightFoot = Quaternion.identity; // in the Root frame
         Vector3 _leftFingers = Vector3.forward, _leftThumb = Vector3.up, _rightFingers = Vector3.forward, _rightThumb = Vector3.up; // hand-local
@@ -60,6 +62,7 @@ namespace HockeyGame
             animator.runtimeAnimatorController = null; // bones are posed from code
             model.transform.SetParent(Root.transform, false);
             _body = model.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+            HideBareParts(model);
             _gear = Array.FindAll(model.GetComponentsInChildren<MeshRenderer>(true), r => GearPiece.PieceOf(r.name) != null);
             _skates = Array.FindAll(model.GetComponentsInChildren<Renderer>(true), r => r.name == GearPiece.ObjectName(GearPiece.LeftSkate) || r.name == GearPiece.ObjectName(GearPiece.RightSkate));
 
@@ -258,16 +261,16 @@ namespace HockeyGame
         sealed class GearShape
         {
             public Transform Transform;
-            public readonly PuckObstacles Shape = new PuckObstacles();
+            public readonly GoalieShape Shape = new GoalieShape();
             public Bounds Local;
             public Vector3 Point; // where the piece reaches for the puck: its centre (the stick: the middle of its blade)
         }
 
         Dictionary<string, GearShape> _gearShapes;          // measured by Prepare
-        List<(Transform bone, PuckObstacles shape)> _readyBody, _butterflyBody; // the body and clothes in each base, in pieces carried by their bones
-        readonly List<(PuckObstacles shape, Matrix4x4 toWorld)> _placed = new List<(PuckObstacles, Matrix4x4)>(); // where React left them
+        List<(Transform bone, GoalieShape shape)> _readyBody, _butterflyBody; // the body and clothes in each base, in pieces carried by their bones
+        readonly List<(GoalieShape shape, Matrix4x4 toWorld)> _placed = new List<(GoalieShape, Matrix4x4)>(); // where React left them
         readonly Dictionary<string, Matrix4x4> _placedGear = new Dictionary<string, Matrix4x4>();
-        readonly PuckObstacles _scratch = new PuckObstacles(); // Placed()'s, reused so a Shot frame makes no new ones
+        readonly GoalieShape _scratch = new GoalieShape(); // Placed()'s, reused so a Shot frame makes no new ones
         readonly string[] _onePiece = new string[1];            // OnePiece()'s
 
         /// <summary>
@@ -295,7 +298,7 @@ namespace HockeyGame
                 Matrix4x4 toRigid = Rigid(r.transform).inverse * r.transform.localToWorldMatrix;
                 Vector3[] local = ToWorld(mesh.vertices, toRigid);
                 var gear = new GearShape { Transform = r.transform, Local = BoundsOf(local) };
-                gear.Shape.AddMesh(local, mesh.triangles, PuckMotion.SurfaceOf(piece), piece);
+                gear.Shape.AddMesh(local, mesh.triangles, piece);
                 gear.Point = piece == GearPiece.Stick ? Blade(local, Rigid(r.transform)) : gear.Local.center;
                 _gearShapes[piece] = gear;
             }
@@ -329,16 +332,17 @@ namespace HockeyGame
         /// heaviest skin weight) and kept in that bone's rigid frame. Placed by the bones as a reaction leaves them, an arm
         /// reaching for the puck takes its sleeve along (rigid per bone: only the bend at each joint is approximate).
         /// </summary>
-        List<(Transform bone, PuckObstacles shape)> BakeBody(Snapshot pose)
+        List<(Transform bone, GoalieShape shape)> BakeBody(Snapshot pose)
         {
             Put(pose);
             var groups = new Dictionary<Transform, (Matrix4x4 toBone, List<Vector3> corners)>();
             var baked = new Mesh();
-            foreach (SkinnedMeshRenderer body in _body)
+            for (int part = 0; part < _body.Length; part++)
             {
+                SkinnedMeshRenderer body = _body[part];
                 body.BakeMesh(baked, true);
                 Vector3[] vertices = baked.vertices;
-                int[] triangles = baked.triangles;
+                int[] triangles = _bodyTriangles[part]; // the model's, not the drawn mesh's (hidden hands and feet still reach)
                 BoneWeight[] weights = body.sharedMesh.boneWeights;
                 Transform[] bones = body.bones;
                 Matrix4x4 toWorld = Rigid(body.transform);
@@ -357,13 +361,13 @@ namespace HockeyGame
                 }
             }
             SceneObjects.DestroySafely(baked);
-            var parts = new List<(Transform, PuckObstacles)>();
+            var parts = new List<(Transform, GoalieShape)>();
             foreach (var kv in groups)
             {
-                var shape = new PuckObstacles();
+                var shape = new GoalieShape();
                 var order = new int[kv.Value.corners.Count];
                 for (int i = 0; i < order.Length; i++) order[i] = i;
-                shape.AddMesh(kv.Value.corners.ToArray(), order, PuckSurface.Body, GearPiece.Body);
+                shape.AddMesh(kv.Value.corners.ToArray(), order, GearPiece.Body);
                 parts.Add((kv.Key, shape));
             }
             return parts;
@@ -371,6 +375,97 @@ namespace HockeyGame
 
         /// <summary>The skinned mesh of the bare skin (Tools/make_lifelike_goalie.py), whose hands sit inside the gloves.</summary>
         const string BareSkin = "Skin";
+
+        /// <summary>Holds the hidden-parts mesh copies on the model so they are destroyed with the goalie.</summary>
+        [ExecuteAlways]
+        sealed class MeshOwner : MonoBehaviour
+        {
+            public Mesh[] Meshes = new Mesh[0];
+            void OnDestroy() { foreach (Mesh m in Meshes) if (m != null) SceneObjects.DestroySafely(m); }
+        }
+
+        /// <summary>
+        /// Gives each skinned renderer a mesh copy without the triangles that poke through the gear: the LEFT bare hand (in the
+        /// catcher; the right hand grips the stick inside the blocker and stays) and the feet (the socks' foot share, inside the
+        /// skates). Chosen by bone weights, so it holds in every pose. Reach reads the original triangles (_bodyTriangles).
+        /// </summary>
+        void HideBareParts(GameObject model)
+        {
+            int count = _body.Length;
+            _bodyAll = new Mesh[count];
+            _bodyHidden = new Mesh[count];
+            _bodyTriangles = new int[count][];
+            var owned = new List<Mesh>();
+            Transform leftHand = Bone(HumanBodyBones.LeftHand), leftFoot = Bone(HumanBodyBones.LeftFoot), rightFoot = Bone(HumanBodyBones.RightFoot);
+            for (int part = 0; part < count; part++)
+            {
+                SkinnedMeshRenderer body = _body[part];
+                Mesh all = body.sharedMesh;
+                _bodyAll[part] = _bodyHidden[part] = all;
+                if (all == null) { _bodyTriangles[part] = new int[0]; continue; }
+                _bodyTriangles[part] = all.triangles;
+                BoneWeight[] weights = all.boneWeights;
+                if (weights.Length != all.vertexCount) continue;
+                Transform[] bones = body.bones;
+                var handBone = new bool[bones.Length];
+                var footBone = new bool[bones.Length];
+                for (int i = 0; i < bones.Length; i++)
+                {
+                    handBone[i] = bones[i] != null && leftHand != null && bones[i].IsChildOf(leftHand);
+                    footBone[i] = bones[i] != null && ((leftFoot != null && bones[i].IsChildOf(leftFoot)) || (rightFoot != null && bones[i].IsChildOf(rightFoot)));
+                }
+                bool skin = body.name == BareSkin;
+                Mesh copy = UnityEngine.Object.Instantiate(all);
+                copy.name = all.name + " (hands and feet hidden)";
+                int removed = 0;
+                for (int sub = 0; sub < all.subMeshCount; sub++)
+                {
+                    int[] triangles = all.GetTriangles(sub);
+                    var kept = new List<int>(triangles.Length);
+                    for (int i = 0; i < triangles.Length; i += 3)
+                    {
+                        if (HiddenUnderGear(skin, handBone, footBone, weights,triangles[i], triangles[i + 1], triangles[i + 2])) { removed++; continue; }
+                        kept.Add(triangles[i]); kept.Add(triangles[i + 1]); kept.Add(triangles[i + 2]);
+                    }
+                    copy.SetTriangles(kept, sub);
+                }
+                if (removed == 0) { SceneObjects.DestroySafely(copy); continue; }
+                _bodyHidden[part] = copy;
+                owned.Add(copy);
+                body.sharedMesh = copy;
+            }
+            model.AddComponent<MeshOwner>().Meshes = owned.ToArray();
+        }
+
+        /// <summary>
+        /// Whether a triangle of the renderer is a bare left hand (the bare skin's, by its first corner's heaviest bone, as InHand
+        /// is used for reach) or a foot (any corner with at least half its weight on a foot bone or toe).
+        /// </summary>
+        static bool HiddenUnderGear(bool skin, bool[] handBone, bool[] footBone, BoneWeight[] weights, int a, int b, int c)
+        {
+            if (skin && handBone[weights[a].boneIndex0]) return true;
+            return FootShare(footBone, weights[a]) >= 0.5f || FootShare(footBone, weights[b]) >= 0.5f || FootShare(footBone, weights[c]) >= 0.5f;
+        }
+
+        static float FootShare(bool[] footBone, BoneWeight w)
+        {
+            float foot = 0f;
+            if (footBone[w.boneIndex0]) foot += w.weight0;
+            if (footBone[w.boneIndex1]) foot += w.weight1;
+            if (footBone[w.boneIndex2]) foot += w.weight2;
+            if (footBone[w.boneIndex3]) foot += w.weight3;
+            return foot;
+        }
+
+        /// <summary>
+        /// Draws the model's own meshes (true: the bare left hand and the feet show) or the copies without them (false, the default:
+        /// they never poke through the gear). Reach and hit shapes are the same either way.
+        /// </summary>
+        public void ShowUnderGear(bool show)
+        {
+            for (int part = 0; part < _body.Length; part++)
+                _body[part].sharedMesh = show ? _bodyAll[part] : _bodyHidden[part];
+        }
 
         bool InHand(Transform bone)
         {
@@ -471,7 +566,7 @@ namespace HockeyGame
             Prepare();
             Snapshot shown = Take(), kept = _reaction;
             string keptPiece = ReactionPiece;
-            var keptPlaced = new List<(PuckObstacles, Matrix4x4)>(_placed);
+            var keptPlaced = new List<(GoalieShape, Matrix4x4)>(_placed);
             var keptPlacedGear = new Dictionary<string, Matrix4x4>(_placedGear);
             Transform root = Root.transform;
             Vector3 rootPosition = root.localPosition, keptSpot = _spot;
@@ -521,7 +616,7 @@ namespace HockeyGame
             // A pad save with the stick or blocker in front of the pad on the puck's line: the blade goes further to the far
             // side, then the blocker comes up and out of the way (the pad stays put, so where the puck meets it is found once).
             Vector3 near = NearGoalie(from, to);
-            if (!Placed().Cast(near, to, PuckMotion.Thickness / 2f, out Vector3 onPad, out _, out _, OnePiece(piece))) return;
+            if (!Placed().Cast(near, to, GoalieShape.LinePuckThickness / 2f, out Vector3 onPad, out _,OnePiece(piece))) return;
             bool left = piece == GearPiece.LeftPad;
             for (int i = 1; i < FiveHoleBlades.Length + BlockerOut.Length && InFront(near, onPad); i++)
             {
@@ -545,14 +640,14 @@ namespace HockeyGame
         /// A glove or blocker save low enough that a pad of the stance stands in front of the hand on the puck's line: the
         /// hand reaches further out along the line, toward the shooter, until it is first.
         /// </summary>
-        void ReachPastPads(bool goalieLeft, string piece, Vector3 from, Vector3 to, float facing, List<(Transform bone, PuckObstacles shape)> body)
+        void ReachPastPads(bool goalieLeft, string piece, Vector3 from, Vector3 to, float facing, List<(Transform bone, GoalieShape shape)> body)
         {
             Vector3 near = NearGoalie(from, to);
             float depth = GearPoint(piece).z;
             if (LineAt(from, to, depth).y > PadTop) return; // above every pad of the stance
             for (int i = 0; i < ReachForward.Length; i++)
             {
-                if (!Placed().Cast(near, to, PuckMotion.Thickness / 2f, out Vector3 onHand, out _, out _, OnePiece(piece))) return;
+                if (!Placed().Cast(near, to, GoalieShape.LinePuckThickness / 2f, out Vector3 onHand, out _,OnePiece(piece))) return;
                 if (!InFront(near, onHand, HandRivals)) return;
                 ReachHand(goalieLeft, piece, LineAt(from, to, depth - ReachForward[i]), facing, true);
                 Finish(piece, body);
@@ -565,7 +660,7 @@ namespace HockeyGame
         /// <summary>True when one of the rivals (by default the stick, blocker or a skate) is on the puck's line before `onGear`.</summary>
         bool InFront(Vector3 near, Vector3 onGear, string[] rivals = null)
         {
-            return Placed().Cast(near, onGear - (onGear - near).normalized * 0.002f, PuckMotion.Thickness / 2f, out _, out _, out _, rivals ?? PadRivals);
+            return Placed().Cast(near, onGear - (onGear - near).normalized * 0.002f, GoalieShape.LinePuckThickness / 2f, out _, out _, rivals ?? PadRivals);
         }
 
         /// <summary>The gear that can stand in front of a pad on the puck's line in a pad save.</summary>
@@ -625,7 +720,7 @@ namespace HockeyGame
         /// <summary>Cautious and quick: false only when the puck surely passes clear of every gear and body box of the reaction.</summary>
         bool MayTouch(Vector3 from, Vector3 to)
         {
-            return Placed().NearAnyMesh(NearGoalie(from, to), to, PuckMotion.Diameter / 2f);
+            return Placed().NearAnyMesh(NearGoalie(from, to), to, GoalieShape.LinePuckDiameter / 2f);
         }
 
         /// <summary>
@@ -635,12 +730,12 @@ namespace HockeyGame
         /// <summary>The puck's middle and its edges as it flies face on (offsets from its centre).</summary>
         static readonly Vector3[] PuckEdges =
         {
-            Vector3.zero, Vector3.left * (PuckMotion.Diameter / 2f), Vector3.right * (PuckMotion.Diameter / 2f),
-            Vector3.up * (PuckMotion.Diameter / 2f), Vector3.down * (PuckMotion.Diameter / 2f),
+            Vector3.zero, Vector3.left * (GoalieShape.LinePuckDiameter / 2f), Vector3.right * (GoalieShape.LinePuckDiameter / 2f),
+            Vector3.up * (GoalieShape.LinePuckDiameter / 2f), Vector3.down * (GoalieShape.LinePuckDiameter / 2f),
         };
 
-        /// <summary>The reaction's gear and body as placed now (AddReaction), in one PuckObstacles reused for every check.</summary>
-        PuckObstacles Placed()
+        /// <summary>The reaction's gear and body as placed now (AddReaction), in one GoalieShape reused for every check.</summary>
+        GoalieShape Placed()
         {
             _scratch.Clear();
             AddReaction(_scratch);
@@ -658,21 +753,21 @@ namespace HockeyGame
 
         /// <summary>
         /// True when the puck, flying from `from` to `to`, would meet any of the last reaction's gear or body: its middle or
-        /// any edge (it flies face on, PuckMotion.Diameter across).
+        /// any edge (it flies face on, GoalieShape.LinePuckDiameter across).
         /// </summary>
         public bool Touches(Vector3 from, Vector3 to) => Touches(from, to, null);
 
         /// <summary>As Touches, only for these pieces (GearPiece; the body and clothes are GearPiece.Body); null: everything.</summary>
         bool Touches(Vector3 from, Vector3 to, string[] pieces)
         {
-            PuckObstacles obstacles = Placed();
+            GoalieShape obstacles = Placed();
             from = NearGoalie(from, to);
             foreach (Vector3 edge in PuckEdges)
-                if (obstacles.Cast(from + edge, to + edge, PuckMotion.Thickness / 2f, out _, out _, out _, pieces)) return true;
+                if (obstacles.Cast(from + edge, to + edge, GoalieShape.LinePuckThickness / 2f, out _, out _, pieces)) return true;
             return false;
         }
 
-        void Finish(string piece, List<(Transform bone, PuckObstacles shape)> body)
+        void Finish(string piece, List<(Transform bone, GoalieShape shape)> body)
         {
             _reaction = Take();
             ReactionPiece = piece;
@@ -992,30 +1087,6 @@ namespace HockeyGame
             if (Present && weight > 0f) GoalieGestures.Watch(this, _faceLocal, point, weight, WatchDegrees, shoulderShare);
         }
 
-        /// <summary>
-        /// What a puck resting at `point` on the goalie moves with as he moves on: the gear piece it lies in or on (the catching
-        /// glove holding it), or else the nearest bone. Null without a model, or with the point off the goalie.
-        /// </summary>
-        public Transform Carrier(Vector3 point)
-        {
-            if (!Present) return null;
-            Transform best = null;
-            float nearest = 0.15f * 0.15f;
-            foreach (MeshRenderer r in _gear)
-            {
-                float d = r.bounds.SqrDistance(point);
-                if (d < nearest) { nearest = d; best = r.transform; }
-            }
-            if (best != null) return best;
-            nearest = 0.3f * 0.3f; // not on the goalie (on the frame, say): nothing
-            foreach (Transform b in _bones)
-            {
-                float d = (b.position - point).sqrMagnitude;
-                if (d < nearest) { nearest = d; best = b; }
-            }
-            return best;
-        }
-
         float _bladeY; // the stick's lowest point in the Ready Stance (Prepare)
 
         /// <summary>The lowest corner of a piece's measured box as it stands now (world y).</summary>
@@ -1060,7 +1131,7 @@ namespace HockeyGame
         }
 
         /// <summary>Adds the reaction's gear and body, as the last React left them, to what a puck can hit (only placing).</summary>
-        public void AddReaction(PuckObstacles obstacles)
+        public void AddReaction(GoalieShape obstacles)
         {
             if (!Present || _placed.Count == 0) return;
             foreach (var (shape, toWorld) in _placed) obstacles.AddPlaced(shape, toWorld);
@@ -1086,21 +1157,22 @@ namespace HockeyGame
         /// Adds the gear and body as posed now, in world space, to what a puck can hit. Each gear piece is named as in
         /// GearBounds (GearPiece); the body and clothes are GearPiece.Body. Does nothing without a model.
         /// </summary>
-        public void AddTo(PuckObstacles obstacles)
+        public void AddTo(GoalieShape obstacles)
         {
             if (!Present) return;
             foreach (MeshRenderer r in _gear)
             {
                 string piece = GearPiece.PieceOf(r.name);
                 Mesh shared = r.GetComponent<MeshFilter>().sharedMesh;
-                obstacles.AddMesh(ToWorld(shared.vertices, r.transform.localToWorldMatrix), shared.triangles, PuckMotion.SurfaceOf(piece), piece);
+                obstacles.AddMesh(ToWorld(shared.vertices, r.transform.localToWorldMatrix), shared.triangles, piece);
             }
             var mesh = new Mesh();
-            foreach (SkinnedMeshRenderer body in _body)
+            for (int part = 0; part < _body.Length; part++)
             {
+                SkinnedMeshRenderer body = _body[part];
                 body.BakeMesh(mesh, true);
                 Matrix4x4 toWorld = Matrix4x4.TRS(body.transform.position, body.transform.rotation, Vector3.one);
-                obstacles.AddMesh(ToWorld(mesh.vertices, toWorld), WithoutBareHands(body, mesh.triangles), PuckSurface.Body, GearPiece.Body);
+                obstacles.AddMesh(ToWorld(mesh.vertices, toWorld), WithoutBareHands(body, _bodyTriangles[part]), GearPiece.Body);
             }
             SceneObjects.DestroySafely(mesh);
         }

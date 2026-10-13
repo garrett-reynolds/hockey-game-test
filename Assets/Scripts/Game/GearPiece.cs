@@ -5,7 +5,7 @@ namespace HockeyGame
     /// <summary>
     /// The names of the goalie character's pieces a puck can hit. Each piece of gear is an object named "Gear " + its
     /// name in goalie-dressing.fbx (Tools/make_lifelike_goalie.py names them); Body is the skinned body and clothes.
-    /// GoalieCharacter.GearBounds, PuckObstacles pieces and PuckMotion.SurfaceOf all use these names.
+    /// GoalieCharacter.GearBounds, GoalieShape pieces and GoalieHitShapes use these names.
     /// </summary>
     public static class GearPiece
     {

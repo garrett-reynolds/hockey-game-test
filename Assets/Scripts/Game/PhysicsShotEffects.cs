@@ -20,8 +20,7 @@ namespace HockeyGame
     /// when it comes back down. Builds the Shot colliders (ShotColliders) under the rink.
     /// </para>
     /// The goalie moves as the Round's race timed him (Reach in time), and his gear's hit shapes (GoalieHitShapes) stop or deflect
-    /// the puck: a touch makes the Shot a Save (if it does not go in), and sounds the gear (HitSound). The scripted flight
-    /// (ShotEffects) is not used.
+    /// the puck: a touch makes the Shot a Save (if it does not go in), and sounds the gear (HitSound).
     /// </summary>
     public sealed class PhysicsShotEffects : IDisposable
     {

@@ -4,7 +4,7 @@ using UnityEngine;
 namespace HockeyGame
 {
     /// <summary>
-    /// What was seen of a Shot, for the Replay: the poses of some scene parts (the puck, the save block, the goalie and every
+    /// What was seen of a Shot, for the Replay: the poses of some scene parts (the puck, the goalie and every
     /// part under him), recorded each frame against the Shot's clock. Apply puts the parts in their recorded poses at any
     /// recorded moment, between frames by blending; Restore puts back the live poses Apply replaced. Each part listed is kept
     /// in world space (the puck can change parent when the glove holds it); the parts under it in their parent's space.

@@ -89,6 +89,153 @@ namespace HockeyGame.Core.Tests
             Assert.That(LowestY(Gear(character, GearPiece.RightPad)), Is.InRange(-0.035f, 0.03f), "the standing pad is on the ice");
         }
 
+        /// <summary>Whether a triangle's corners say bare left hand (the skin's, by the first corner's heaviest bone) or foot (a corner at least half on a foot bone).</summary>
+        static bool IsHandOrFoot(GoalieCharacter character, SkinnedMeshRenderer r, BoneWeight[] w, int a, int b, int c, out bool hand)
+        {
+            Transform[] bones = r.bones;
+            Transform leftHand = character.Bone(HumanBodyBones.LeftHand), lf = character.Bone(HumanBodyBones.LeftFoot), rf = character.Bone(HumanBodyBones.RightFoot);
+            Transform main = bones[w[a].boneIndex0];
+            hand = r.name == "Skin" && main != null && main.IsChildOf(leftHand);
+            foreach (int v in new[] { a, b, c })
+            {
+                float foot = 0f;
+                int[] index = { w[v].boneIndex0, w[v].boneIndex1, w[v].boneIndex2, w[v].boneIndex3 };
+                float[] weight = { w[v].weight0, w[v].weight1, w[v].weight2, w[v].weight3 };
+                for (int k = 0; k < 4; k++)
+                    if (weight[k] > 0f && bones[index[k]] != null && (bones[index[k]].IsChildOf(lf) || bones[index[k]].IsChildOf(rf))) foot += weight[k];
+                if (foot >= 0.5f) return true;
+            }
+            return hand;
+        }
+
+        [Test]
+        public void The_glove_hand_and_feet_are_hidden_so_they_never_show_through_the_gear()
+        {
+            var character = new GoalieCharacter(_parent.transform);
+            Assume.That(character.Present, "needs the goalie model");
+            int shownDrawn = 0, hiddenDrawn = 0, handRemoved = 0, footRemoved = 0;
+            foreach (bool show in new[] { true, false })
+            {
+                character.ShowUnderGear(show);
+                foreach (var r in character.Root.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+                {
+                    BoneWeight[] w = r.sharedMesh.boneWeights;
+                    int[] t = r.sharedMesh.triangles;
+                    for (int i = 0; i < t.Length; i += 3)
+                    {
+                        if (!IsHandOrFoot(character, r, w, t[i], t[i + 1], t[i + 2], out bool hand)) continue;
+                        if (show) { if (hand) handRemoved++; else footRemoved++; shownDrawn++; }
+                        else hiddenDrawn++;
+                    }
+                }
+            }
+            character.ShowUnderGear(false);
+            Assert.AreEqual(0, hiddenDrawn, "no hand or foot triangle is drawn by default");
+            Assert.Greater(handRemoved, 0, "the left hand was there to hide");
+            Assert.Greater(footRemoved, 0, "the feet were there to hide (not just the hand)");
+            Assert.AreEqual(shownDrawn, handRemoved + footRemoved);
+        }
+
+        /// <summary>Every hit shape's kind, place and size, then the first hits of five lines through the reaction's goalie as measured.</summary>
+        static List<float> HitsAndReach(GoalieCharacter character, GoalieView view, Vector3 eye, Vector3 net, bool reactionShape)
+        {
+            view.MoveHitShapes();
+            var values = new List<float>();
+            Transform root = character.Root.transform.parent.Find(GoalieHitShapes.RootName);
+            foreach (Collider c in root.GetComponentsInChildren<Collider>(true))
+            {
+                values.Add(c.GetType().GetHashCode());
+                values.AddRange(new[] { c.transform.position.x, c.transform.position.y, c.transform.position.z });
+                Quaternion q = c.transform.rotation;
+                values.AddRange(new[] { q.x, q.y, q.z, q.w });
+                if (c is BoxCollider box) { values.AddRange(new[] { box.size.x, box.size.y, box.size.z, box.center.x, box.center.y, box.center.z }); }
+                else if (c is SphereCollider s) { values.AddRange(new[] { s.radius, s.center.x, s.center.y, s.center.z }); }
+                else if (c is CapsuleCollider cap) { values.AddRange(new[] { cap.radius, cap.height, cap.center.x, cap.center.y, cap.center.z }); }
+            }
+            var shape = new GoalieShape();
+            if (reactionShape) character.AddReaction(shape); else character.AddTo(shape);
+            foreach (Vector2 d in new[] { new Vector2(0f, 0f), new Vector2(0.3f, 0.2f), new Vector2(-0.3f, 0.2f), new Vector2(0.2f, -0.2f), new Vector2(-0.2f, -0.2f) })
+            {
+                bool hit = shape.Cast(eye, net + new Vector3(d.x, d.y, 0f), 0.01f, out Vector3 at, out _);
+                values.AddRange(new[] { hit ? 1f : 0f, hit ? at.x : 0f, hit ? at.y : 0f, hit ? at.z : 0f });
+            }
+            // Lines aimed straight at the left hand and both feet, meeting only the body and clothes: a reach built from the
+            // hidden mesh would let them through where the hands and feet were.
+            foreach (HumanBodyBones b in new[] { HumanBodyBones.LeftHand, HumanBodyBones.LeftFoot, HumanBodyBones.RightFoot, HumanBodyBones.LeftToes, HumanBodyBones.RightToes })
+            {
+                Transform bone = character.Bone(b);
+                if (bone == null) continue;
+                bool hit = shape.Cast(eye, bone.position, 0.01f, out Vector3 at, out _, new[] { GearPiece.Body });
+                values.AddRange(new[] { hit ? 1f : 0f, hit ? at.x : 0f, hit ? at.y : 0f, hit ? at.z : 0f });
+            }
+            return values;
+        }
+
+        [Test]
+        public void Hiding_the_hands_and_feet_changes_no_gear_hit_shape_or_reach()
+        {
+            // A fresh character and view per state, with the state set before the first Show: the character measures the gear and
+            // body once (Prepare), so only a fresh one measures again from the drawn mesh.
+            var parents = new List<GameObject>();
+            var views = new List<GoalieView>();
+            try
+            {
+                Vector3 eye = Eyes[0];
+                var states = new List<(string name, List<float> values)>[2];
+                for (int state = 0; state < 2; state++)
+                {
+                    var parent = new GameObject("Rink (test " + state + ")");
+                    parents.Add(parent);
+                    var character = new GoalieCharacter(parent.transform);
+                    Assume.That(character.Present, "needs the goalie model");
+                    character.ShowUnderGear(state == 1); // 0: hidden (the default), 1: the model's own mesh drawn
+                    var view = new GoalieView(parent.transform, character);
+                    views.Add(view);
+                    view.Show(true);
+                    states[state] = new List<(string, List<float>)>();
+                    character.ShowReaction(0f);
+                    states[state].Add(("Ready Stance", HitsAndReach(character, view, eye, NetPoint(50, 50), false)));
+                    var done = new HashSet<SaveReaction>();
+                    foreach (var (x, y) in Saves)
+                    {
+                        SaveReaction reaction = SaveReactions.For(x, y);
+                        if (!done.Add(reaction)) continue;
+                        character.React(reaction, eye, NetPoint(x, y), 0f, true);
+                        character.ShowReaction(1f);
+                        states[state].Add((reaction.ToString(), HitsAndReach(character, view, eye, NetPoint(x, y), true)));
+                    }
+                }
+                var failures = new List<string>();
+                Assert.Greater(states[0].Count, 4, "several poses were compared");
+                Assert.AreEqual(states[0].Count, states[1].Count);
+                for (int p = 0; p < states[0].Count; p++)
+                {
+                    List<float> a = states[0][p].values, b = states[1][p].values;
+                    string name = states[0][p].name;
+                    if (a.Count != b.Count) { failures.Add(name + ": " + a.Count + " values hidden, " + b.Count + " shown"); continue; }
+                    for (int i = 0; i < a.Count; i++)
+                        if (Mathf.Abs(a[i] - b[i]) > 1e-5f) { failures.Add(name + ": value " + i + " differs " + a[i] + " vs " + b[i]); break; }
+                }
+                Assert.IsEmpty(failures, string.Join("\n", failures));
+            }
+            finally
+            {
+                foreach (GoalieView v in views) v.Dispose();
+                foreach (GameObject p in parents) Object.DestroyImmediate(p);
+            }
+        }
+
+        // The pieces that are hard gear; the rest (body, clothes, mask, visor) is "soft" and measured stiff on each bone.
+        static readonly string[] HardGear =
+            { GearPiece.LeftPad, GearPiece.RightPad, GearPiece.Blocker, GearPiece.Catcher, GearPiece.Stick, GearPiece.LeftSkate, GearPiece.RightSkate };
+
+        /// <summary>True when the first thing the line meets (at `at`) is not hard gear, so Body, mask or visor is nearer.</summary>
+        static bool FirstHitIsSoft(GoalieShape shape, Vector3 from, Vector3 to, Vector3 at)
+        {
+            return !shape.Cast(from, to, 0.01f, out Vector3 atGear, out _, HardGear)
+                || Vector3.Distance(from, atGear) > Vector3.Distance(from, at) + 1e-4f;
+        }
+
         [Test]
         [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void What_the_Shot_measures_is_the_goalie_as_the_reaction_ends_at_every_facing()
@@ -105,13 +252,13 @@ namespace HockeyGame.Core.Tests
                 Vector3 net = NetPoint(x, y);
                 character.ShowReaction(0f, facing * 0.5f); // the Ready Stance, part turned, on show when the Shot comes
                 character.React(SaveReactions.For(x, y), eye, net, facing, true);
-                var measured = new PuckObstacles();
+                var measured = new GoalieShape();
                 character.AddReaction(measured);
                 var placed = new Bounds[GearPiece.Gear.Length];
                 for (int i = 0; i < placed.Length; i++) Assert.IsTrue(character.ReactionGearBounds(GearPiece.Gear[i], out placed[i]));
 
                 character.ShowReaction(1f, facing);
-                var fresh = new PuckObstacles();
+                var fresh = new GoalieShape();
                 character.AddTo(fresh);
                 string where = "(" + x + ", " + y + ") from " + eye + ": ";
                 for (int i = 0; i < placed.Length; i++)
@@ -128,15 +275,16 @@ namespace HockeyGame.Core.Tests
                 {
                     lines++;
                     Vector3 to = net + new Vector3(dx, dy, 0f);
-                    bool a = measured.Cast(eye, to, 0.01f, out Vector3 atMeasured, out _, out PuckSurface sMeasured);
-                    bool b = fresh.Cast(eye, to, 0.01f, out Vector3 atFresh, out _, out PuckSurface sFresh);
+                    bool a = measured.Cast(eye, to, 0.01f, out Vector3 atMeasured, out _);
+                    bool b = fresh.Cast(eye, to, 0.01f, out Vector3 atFresh, out _);
                     string line = where + "line to " + to.ToString("F2") + ": ";
-                    bool body = sFresh == PuckSurface.Body || sMeasured == PuckSurface.Body;
-                    if (a != b) { (a && sMeasured == PuckSurface.Body || b && sFresh == PuckSurface.Body ? bodyOff : failures).Add(line + "hit " + a + " measured, " + b + " shown"); continue; }
+                    bool bodyM = a && FirstHitIsSoft(measured, eye, to, atMeasured), bodyF = b && FirstHitIsSoft(fresh, eye, to, atFresh);
+                    bool body = bodyF || bodyM;
+                    if (a != b) { (bodyM || bodyF ? bodyOff : failures).Add(line + "hit " + a + " measured, " + b + " shown"); continue; }
                     if (!a) continue;
                     float off = Vector3.Distance(atMeasured, atFresh);
-                    if (off > 0.002f && !body) failures.Add(line + sMeasured + " vs " + sFresh + ", " + off.ToString("F3") + " m apart");
-                    else if (off > 0.06f) bodyOff.Add(line + sMeasured + " vs " + sFresh + ", " + off.ToString("F3") + " m apart");
+                    if (off > 0.002f && !body) failures.Add(line + "gear " + off.ToString("F3") + " m apart");
+                    else if (off > 0.06f) bodyOff.Add(line + "body " + off.ToString("F3") + " m apart");
                 }
             }
             Assert.IsEmpty(failures, failures.Count + ":\n" + string.Join("\n", failures));
