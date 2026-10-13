@@ -72,7 +72,7 @@ namespace HockeyGame.Core.Tests
                     Assert.Less(b.max.y, (float)RinkLayout.RoofHeight, banner.name + " hangs under the roof");
                     float nearestX = Mathf.Min(Mathf.Abs(b.min.x), Mathf.Abs(b.max.x));
                     Assert.IsTrue(b.min.x * b.max.x > 0f, banner.name + " is wholly on one side of the middle");
-                    Assert.GreaterOrEqual(nearestX, (float)RinkLayout.VideoBoardWidth / 2f, banner.name + " is clear of the Video Board's width");
+                    Assert.GreaterOrEqual(nearestX, (float)RinkLayout.VideoBoardWidth / 2f, banner.name + " is clear of the Video Board's width (bounds " + b + ")");
                     Assert.GreaterOrEqual(nearestX, (float)RinkLayout.CalmAreaHalfWidth, banner.name + " is outside the Calm Area strip");
                     Assert.Greater(b.min.z, 0f, banner.name + " is behind the near net, not on the ice");
                     // Round the end corner the lower stands rise with the offset from the boards; the banner's foot must clear them.
@@ -87,10 +87,178 @@ namespace HockeyGame.Core.Tests
             }
             finally
             {
-                if (row != null) DestroyMaterials(row);
-                if (rink != null) Object.DestroyImmediate(rink.gameObject);
+                if (rink != null) RinkTeardown.Destroy(rink.gameObject);
                 if (camera != null) Object.DestroyImmediate(camera.gameObject);
             }
+        }
+
+        [Test]
+        public void Each_banner_hangs_from_a_top_bar_and_two_dark_wires_up_to_the_roof()
+        {
+            Camera camera = null;
+            Transform rink = null;
+            try
+            {
+                rink = RinkBuilder.Build(out camera);
+                Transform row = rink.Find(RoofBanners.Part), wires = rink.Find(RoofBanners.WiresPart);
+                Assert.IsNotNull(wires, "the banners' wires are built");
+                Assert.AreEqual(3 * row.childCount, wires.childCount, "a top bar and two wires for each banner");
+                Renderer[] hardware = wires.GetComponentsInChildren<Renderer>();
+                foreach (Renderer r in hardware)
+                    Assert.Less(r.sharedMaterial.color.maxColorComponent, 0.25f, r.name + " is dark, so it reads as a wire and not as art");
+                foreach (Renderer banner in row.GetComponentsInChildren<Renderer>())
+                {
+                    Bounds b = banner.bounds;
+                    int bars = 0, reaching = 0;
+                    foreach (Renderer h in hardware)
+                    {
+                        Bounds w = h.bounds;
+                        bool above = Mathf.Abs(w.center.x - b.center.x) <= b.extents.x + 0.05f && Mathf.Abs(w.center.z - b.center.z) <= b.extents.z + 0.2f &&
+                                     w.min.y <= b.max.y + 0.05f && w.max.y >= b.max.y - 0.05f;
+                        if (!above) continue;
+                        if (w.size.y < 0.3f && w.size.x + w.size.z >= b.size.x + b.size.z - 0.5f) bars++;   // a short bar across the banner's top
+                        else if (w.size.x < 0.1f && w.size.z < 0.1f && w.max.y >= (float)RinkLayout.RoofHeight - 0.3f) reaching++; // a thin wire to the roof
+                    }
+                    Assert.AreEqual(1, bars, banner.name + " has a top bar");
+                    Assert.AreEqual(2, reaching, banner.name + " has two wires up to the roof");
+                }
+            }
+            finally
+            {
+                if (rink != null) RinkTeardown.Destroy(rink.gameObject);
+                if (camera != null) Object.DestroyImmediate(camera.gameObject);
+            }
+        }
+
+        [Test]
+        public void No_banner_covers_a_Ribbon_Board_panel_in_the_shooters_view()
+        {
+            Camera camera = null;
+            Transform rink = null;
+            try
+            {
+                rink = RinkBuilder.Build(out camera);
+                Breakaway.SkatePoint(AttackSide.Middle, 1.0, out double x, out double distance);
+                BreakawayView.PlaceShooterCamera(camera.transform, (float)x, (float)distance, 0f, 0f);
+                camera.aspect = 16f / 9f;
+                Renderer[] panels = rink.Find("Ribbon Boards").GetComponentsInChildren<Renderer>()
+                    .Where(r => r.name.StartsWith("Ribbon Panel")).ToArray();
+                Assert.IsNotEmpty(panels, "the Ribbon Board has panels");
+                foreach (Renderer banner in rink.Find(RoofBanners.Part).GetComponentsInChildren<Renderer>())
+                    foreach (string covered in CoveredPanels(camera, banner.bounds, panels))
+                        Assert.Fail(banner.name + " covers " + covered + " in the shooter's view");
+            }
+            finally
+            {
+                if (rink != null) RinkTeardown.Destroy(rink.gameObject);
+                if (camera != null) Object.DestroyImmediate(camera.gameObject);
+            }
+        }
+
+        [Test]
+        public void A_box_in_front_of_a_panel_covers_it_and_a_box_beside_it_does_not()
+        {
+            var camera = new GameObject("Test camera").AddComponent<Camera>();
+            var panel = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            try
+            {
+                camera.aspect = 16f / 9f;
+                camera.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+                panel.transform.position = new Vector3(0f, 0f, 20f);
+                Renderer[] panels = { panel.GetComponent<Renderer>() };
+                Assert.AreEqual(1, CoveredPanels(camera, new Bounds(new Vector3(0f, 0f, 10f), new Vector3(2f, 2f, 0.1f)), panels).Count(), "in front");
+                Assert.AreEqual(0, CoveredPanels(camera, new Bounds(new Vector3(0f, 8f, 10f), new Vector3(2f, 2f, 0.1f)), panels).Count(), "above it on the screen");
+            }
+            finally
+            {
+                Object.DestroyImmediate(panel);
+                Object.DestroyImmediate(camera.gameObject);
+            }
+        }
+
+        /// <summary>The panels (wholly in front of the camera) whose screen rectangle shares area with the screen rectangle of box.</summary>
+        static System.Collections.Generic.IEnumerable<string> CoveredPanels(Camera camera, Bounds box, Renderer[] panels)
+        {
+            Rect banner = ScreenRect(camera, box, out bool bannerFront);
+            if (!bannerFront) yield break;
+            foreach (Renderer panel in panels)
+            {
+                Rect other = ScreenRect(camera, panel.bounds, out bool front);
+                if (front && banner.Overlaps(other)) yield return panel.name;
+            }
+        }
+
+        static Rect ScreenRect(Camera camera, Bounds b, out bool inFront)
+        {
+            Vector3 min = new Vector3(float.MaxValue, float.MaxValue), max = new Vector3(float.MinValue, float.MinValue);
+            inFront = true;
+            for (int i = 0; i < 8; i++)
+            {
+                Vector3 e = b.extents;
+                Vector3 v = camera.WorldToViewportPoint(b.center + new Vector3((i & 1) == 0 ? -e.x : e.x, (i & 2) == 0 ? -e.y : e.y, (i & 4) == 0 ? -e.z : e.z));
+                if (v.z <= 0f) inFront = false;
+                min = Vector3.Min(min, v);
+                max = Vector3.Max(max, v);
+            }
+            return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+        }
+
+        [Test]
+        public void The_baked_banner_PNGs_match_what_BannerArt_makes()
+        {
+            foreach (BannerArt.Banner banner in BannerArt.League)
+            {
+                string path = System.IO.Path.Combine(Application.dataPath, "Resources", RinkAds.ArtFolder, banner.Name + ".png");
+                Assert.IsTrue(System.IO.File.Exists(path), banner.Name + ".png is baked (Hockey Game > Banner Art > Make)");
+                Texture2D made = BannerArt.Make(banner);
+                try
+                {
+                    Assert.IsTrue(SamePixels(System.IO.File.ReadAllBytes(path), made),
+                        banner.Name + ".png has drifted from BannerArt (run Hockey Game > Banner Art > Make)");
+                }
+                finally { Object.DestroyImmediate(made); }
+            }
+        }
+
+        [Test]
+        public void The_drift_check_sees_a_changed_banner()
+        {
+            BannerArt.Banner a = BannerArt.League[0], b = BannerArt.League[1];
+            Texture2D made = BannerArt.Make(a), other = BannerArt.Make(b);
+            try
+            {
+                byte[] right = made.EncodeToPNG(), wrong = other.EncodeToPNG();
+                Assert.IsTrue(SamePixels(right, made), "its own PNG matches");
+                Assert.IsFalse(SamePixels(wrong, made), "another banner's PNG does not match");
+            }
+            finally { Object.DestroyImmediate(made); Object.DestroyImmediate(other); }
+        }
+
+        /// <summary>True when the PNG decodes to exactly the pixels of made (the importer may re-encode the file, so bytes are not compared).</summary>
+        static bool SamePixels(byte[] png, Texture2D made)
+        {
+            var decoded = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            try
+            {
+                if (!decoded.LoadImage(png) || decoded.width != made.width || decoded.height != made.height) return false;
+                Color32[] x = decoded.GetPixels32(), y = made.GetPixels32();
+                for (int i = 0; i < x.Length; i++)
+                    if (x[i].r != y[i].r || x[i].g != y[i].g || x[i].b != y[i].b || x[i].a != y[i].a) return false;
+                return true;
+            }
+            finally { Object.DestroyImmediate(decoded); }
+        }
+
+        [Test]
+        public void Tearing_the_rink_down_frees_every_material_it_made()
+        {
+            int before = Resources.FindObjectsOfTypeAll<Material>().Length;
+            RinkBuilder.Build(out Camera camera);
+            int built = Resources.FindObjectsOfTypeAll<Material>().Length;
+            RinkTeardown.Destroy(GameObject.Find("Rink"));
+            Object.DestroyImmediate(camera.gameObject);
+            Assert.Greater(built, before, "the rink makes materials");
+            Assert.AreEqual(before, Resources.FindObjectsOfTypeAll<Material>().Length, "none are left after the teardown");
         }
 
         [Test]
@@ -120,13 +288,6 @@ namespace HockeyGame.Core.Tests
                 if (v.z <= 0f || v.x < 0f || v.x > 1f || v.y < 0f || v.y > 1f) return false;
             }
             return true;
-        }
-
-        /// <summary>The banner materials are made per banner, so they are not freed with the rink.</summary>
-        static void DestroyMaterials(Transform row)
-        {
-            foreach (Renderer r in row.GetComponentsInChildren<Renderer>())
-                if (r.sharedMaterial != null) Object.DestroyImmediate(r.sharedMaterial);
         }
     }
 }

@@ -63,7 +63,7 @@ namespace HockeyGame.Core.Tests
                 if (target != null) { target.Release(); Object.DestroyImmediate(target); }
                 if (logo != null) Object.DestroyImmediate(logo);
                 if (texture != null) Object.DestroyImmediate(texture);
-                Object.DestroyImmediate(GameObject.Find("Rink"));
+                RinkTeardown.Destroy(GameObject.Find("Rink"));
                 if (camera != null) Object.DestroyImmediate(camera.gameObject);
             }
         }

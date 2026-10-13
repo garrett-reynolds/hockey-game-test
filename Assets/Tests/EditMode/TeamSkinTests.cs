@@ -201,7 +201,7 @@ namespace HockeyGame.Core.Tests
             }
             finally
             {
-                if (rink != null) Object.DestroyImmediate(rink.gameObject);
+                if (rink != null) RinkTeardown.Destroy(rink.gameObject);
                 if (camera != null) Object.DestroyImmediate(camera.gameObject);
             }
         }

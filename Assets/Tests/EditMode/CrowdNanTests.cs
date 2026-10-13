@@ -21,7 +21,7 @@ namespace HockeyGame.Core.Tests
         public void Clean()
         {
             if (_camera != null) _camera.targetTexture = null;
-            if (_rink != null) Object.DestroyImmediate(_rink);
+            if (_rink != null) RinkTeardown.Destroy(_rink);
             if (_target != null) Object.DestroyImmediate(_target);
             if (_texture != null) Object.DestroyImmediate(_texture);
         }
