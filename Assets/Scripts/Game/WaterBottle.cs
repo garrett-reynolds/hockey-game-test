@@ -80,7 +80,19 @@ namespace HockeyGame
             body.isKinematic = true;
             body.interpolation = RigidbodyInterpolation.None;
             SetLayer(root.transform, Layer);
-            return new WaterBottle { Root = root, Body = body, RestPosition = root.transform.position, RestRotation = root.transform.rotation };
+            var made = new WaterBottle { Root = root, Body = body, RestPosition = root.transform.position, RestRotation = root.transform.rotation };
+            root.AddComponent<Link>().Bottle = made;
+            return made;
+        }
+
+        /// <summary>Lets the Round driver find the bottle the rink built.</summary>
+        sealed class Link : MonoBehaviour { public WaterBottle Bottle; }
+
+        /// <summary>The bottle built under this rink, or null.</summary>
+        public static WaterBottle In(Transform rink)
+        {
+            Link link = rink.GetComponentInChildren<Link>();
+            return link != null ? link.Bottle : null;
         }
 
         /// <summary>The one fixed push (#164): the speed it is given, up and back away from the net (+z, behind the goal line). Always the same.</summary>
@@ -98,6 +110,13 @@ namespace HockeyGame
             Body.isKinematic = false;
             Body.linearVelocity = KnockSpeed;
             Body.angularVelocity = Vector3.zero;
+        }
+
+        /// <summary>Once a frame with BottleKnock.Knocked (the Arena Show's state): knocked off while it is true, back on the net when it turns false.</summary>
+        public void Follow(bool knocked)
+        {
+            if (knocked) Knock();
+            else if (Knocked) PutBack();
         }
 
         /// <summary>Back on the net, lying as it did, still, held there again.</summary>

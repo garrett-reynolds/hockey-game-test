@@ -190,6 +190,21 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void Follow_knocks_the_bottle_when_the_state_turns_true_and_puts_it_back_when_it_turns_false()
+        {
+            WaterBottle bottle = WaterBottle.Build(_rink.transform);
+            Assert.AreSame(bottle, WaterBottle.In(_rink.transform), "the driver finds it");
+
+            bottle.Follow(false);
+            Assert.That(bottle.Body.isKinematic, "still on the net");
+            bottle.Follow(true);
+            Assert.That(bottle.Knocked, "knocked");
+            bottle.Follow(false);
+            Assert.That(bottle.Body.isKinematic, "put back");
+            Assert.That(Vector3.Distance(bottle.RestPosition, bottle.Root.transform.position), Is.LessThan(0.001f));
+        }
+
+        [Test]
         public void A_second_Knock_while_knocked_does_nothing()
         {
             ShotColliders.Build(_rink.transform);
