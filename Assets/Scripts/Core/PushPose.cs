@@ -69,6 +69,8 @@ namespace HockeyGame.Core
         public const double HoldSeconds = 0.10;
         /// <summary>The tracker steps in pieces no longer than this.</summary>
         public const double MaxStepSeconds = 1.0 / 120;
+        /// <summary>Float fuzz: a step that is an exact number of pieces, or a hold that ends exactly, must not gain a piece.</summary>
+        public const double Fuzz = 1e-9;
 
         /// <summary>The push's share of a move's time (and distance): GlideDecel / (PushAccel + GlideDecel), as SkatePush.Fraction.</summary>
         public static double PushShare(RoundSettings settings)
@@ -103,7 +105,7 @@ namespace HockeyGame.Core
         public PushPoseMoment Step(PushShown shown, double dt)
         {
             if (!(dt > 0)) return Now;
-            int pieces = (int)Math.Ceiling(dt / PushPose.MaxStepSeconds - 1e-9);
+            int pieces = (int)Math.Ceiling(dt / PushPose.MaxStepSeconds - PushPose.Fuzz);
             if (pieces < 1) pieces = 1;
             double h = dt / pieces;
             for (int i = 0; i < pieces; i++) Piece(shown, h);
@@ -117,7 +119,7 @@ namespace HockeyGame.Core
                 _last = shown;
                 _holdLeft = PushPose.HoldSeconds;
             }
-            else if (_holdLeft > 1e-9) // not > 0: a hold of exactly HoldSeconds in pieces must end on the last piece
+            else if (_holdLeft > PushPose.Fuzz) // not > 0: a hold of exactly HoldSeconds in pieces must end on the last piece
             {
                 shown = _last;
                 _holdLeft -= h;

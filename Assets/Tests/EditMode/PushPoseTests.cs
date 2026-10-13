@@ -112,7 +112,7 @@ namespace HockeyGame.Core.Tests
             for (int i = 0; i < 12; i++)
             {
                 m = t.Step(TPush(PushPhase.Push), Frame);
-                if (m.PushOut > 0) Assert.GreaterOrEqual(m.LeadTurn, 0.8 - Tol, "PushOut rises only after the lead skate has turned");
+                if (m.PushOut > 0) Assert.GreaterOrEqual(m.LeadTurn, PushPose.TurnedEnough - Tol, "PushOut rises only after the lead skate has turned");
             }
             Assert.AreEqual(1, m.LeadTurn, Tol);
             Assert.AreEqual(1, m.PushOut, Tol);
@@ -179,6 +179,31 @@ namespace HockeyGame.Core.Tests
                 var m = t.Step(s, dt);
                 Assert.LessOrEqual(Math.Abs(m.PushOut - before.PushOut), max);
                 Assert.LessOrEqual(Math.Abs(m.LeadTurn - before.LeadTurn), max);
+                before = m;
+            }
+
+            // A full Done return from a full pose: past the hold, then the return, each frame bounded by dt / ReturnSeconds.
+            double returnMax = dt / PushPose.ReturnSeconds + 1e-6;
+            Run(t, TPush(PushPhase.Push), 0.3);
+            before = t.Now;
+            int frames = (int)Math.Ceiling((PushPose.HoldSeconds + PushPose.ReturnSeconds) / dt) + 3;
+            for (int i = 0; i < frames; i++)
+            {
+                var m = t.Step(PushShown.None, dt);
+                Assert.LessOrEqual(Math.Abs(m.PushOut - before.PushOut), returnMax, "PushOut frame " + i);
+                Assert.LessOrEqual(Math.Abs(m.LeadTurn - before.LeadTurn), returnMax, "LeadTurn frame " + i);
+                before = m;
+            }
+            Assert.AreEqual(0, before.PushOut, Tol);
+            Assert.AreEqual(0, before.LeadTurn, Tol);
+
+            // A Glide return is bounded the same way.
+            Run(t, Shuffle(PushPhase.Push), 0.2);
+            before = t.Now;
+            for (int i = 0; i < 12; i++)
+            {
+                var m = t.Step(Shuffle(PushPhase.Glide, 0.5), dt);
+                Assert.LessOrEqual(Math.Abs(m.PushOut - before.PushOut), returnMax, "Glide frame " + i);
                 before = m;
             }
         }
@@ -248,17 +273,30 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(0, t.Now.LeadTurn, Tol);
             var m = t.Step(PushShown.None, Frame); // the hold is cleared too
             Assert.AreEqual(0, m.PushOut, Tol);
+
+            // Mid-hold, Reset, then a Push rises from 0 at once. (Reset also clears the held state, so a surviving hold timer
+            // alone could not be told apart from outside; this pins the whole Reset-then-Push path.)
+            var u = new PushPoseTracker();
+            Run(u, Shuffle(PushPhase.Push), 0.2);
+            u.Step(PushShown.None, Frame);
+            u.Reset();
+            m = u.Step(Shuffle(PushPhase.Push), Frame);
+            Assert.AreEqual(Frame / PushPose.PushInSeconds, m.PushOut, 1e-6);
         }
 
         [Test]
         public void Steps_of_different_sizes_end_the_same()
         {
+            // 0.05 s is shorter than PushInSeconds, so the shuffle's PushOut is still rising (about 0.6), not saturated at 1.
             foreach (var shown in new[] { Shuffle(PushPhase.Push), TPush(PushPhase.Push) })
             {
+                double seconds = shown.Kind == PushKind.Shuffle ? 0.05 : 0.1;
                 var ten = new PushPoseTracker();
-                for (int i = 0; i < 10; i++) ten.Step(shown, 0.01);
+                for (int i = 0; i < 10; i++) ten.Step(shown, seconds / 10);
                 var one = new PushPoseTracker();
-                one.Step(shown, 0.1);
+                one.Step(shown, seconds);
+                Assert.Less(one.Now.PushOut, 0.95, shown.Kind + " is not saturated");
+                Assert.Greater(one.Now.PushOut, 0.05, shown.Kind + " has moved");
                 Assert.AreEqual(ten.Now.PushOut, one.Now.PushOut, 0.02, shown.Kind + " PushOut");
                 Assert.AreEqual(ten.Now.LeadTurn, one.Now.LeadTurn, 0.02, shown.Kind + " LeadTurn");
             }
