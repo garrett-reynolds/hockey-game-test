@@ -9,7 +9,7 @@ namespace HockeyGame
     /// Assets/Resources/Models/ named after the piece below, for example Assets/Resources/Models/puck.fbx.
     /// A piece with no file uses its code-made placeholder (today's simple shape). No code change is needed.
     /// File names: ice, net, puck, goalie-dressing (the rigged goalie character, gear included), boards, arena, goal-light,
-    /// save-glove.
+    /// save-glove, bottle (the water bottle on the net).
     /// </summary>
     public static class ModelFiles
     {
@@ -23,6 +23,7 @@ namespace HockeyGame
         public const string Boards = "boards";
         public const string Arena = "arena";
         public const string GoalLight = "goal-light";
+        public const string WaterBottle = "bottle";
 
         /// <summary>
         /// A new scene object of the model in the file with this name (no extension), or the placeholder when there is none.

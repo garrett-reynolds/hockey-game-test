@@ -12,6 +12,7 @@ Install the packages once: `py -3 -m pip install -r Tools/requirements.txt` (Pil
 | `make_ads.py` | the board ad and ice logo art in `Assets/Resources/Ads` (`py -3 Tools/make_ads.py Assets/Resources/Ads C:/Windows/Fonts`) | Pillow, Windows fonts |
 | `make_arena.py` | `boards.obj`, `arena.obj` (+ `.mtl`) | none |
 | `make_goal_light.py` | `goal-light.obj` (+ `.mtl`) | - |
+| `make_water_bottle.py` | `bottle.obj` (+ `.mtl`), the water bottle on the net | - |
 | `make_goalie_gear.py` | `save-glove.obj` (+ `.mtl`) | - |
 | `make_ice.py` | `ice.obj` (+ `.mtl`) | - |
 | `make_ice_texture.py` | `ice-markings.jpg` | Pillow, numpy |

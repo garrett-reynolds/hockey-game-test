@@ -30,6 +30,7 @@ namespace HockeyGame
 
             NetBuilder.Build(root); // the net around the Net Face, back at z = +NetDepth
             NetBuilder.BuildFar(root); // the still far net, no goalie
+            WaterBottle.Build(root); // the water bottle on top of the near net (#163)
 
             ArenaLighting.Build(root);
             // After the lights: the reflection cubemap is rendered once, so a board in it would shine a frozen picture

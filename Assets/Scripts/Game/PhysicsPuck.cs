@@ -14,6 +14,8 @@ namespace HockeyGame
         public const float Thickness = (float)Breakaway.PuckThicknessMetres;
         public const float Radius = Diameter / 2f;
         public const float Mass = 0.17f;
+        /// <summary>The physics layer of the physics puck and all its parts (#163): the water bottle's layer rule ignores it.</summary>
+        public const int Layer = 29;
 
         /// <summary>Spin about the puck's own axis at launch (rad/s), one way or the other at random.</summary>
         public const float SpinRadiansPerSecond = 25f;
@@ -51,6 +53,8 @@ namespace HockeyGame
                 box.hasModifiableContacts = true; // PuckReach ignores the contacts it foresees but never reaches (#114)
             }
             ModelFiles.Place(puck.transform, ModelFiles.Puck, PlaceholderPuck, findFile, new Vector3(Diameter, Thickness, Diameter));
+            WaterBottle.SetLayer(puck.transform, Layer); // the water bottle's layer rule (#163): the bottle never meets the puck
+            WaterBottle.IgnorePuck();
 
             var rb = puck.AddComponent<Rigidbody>();
             rb.mass = Mass;
