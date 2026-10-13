@@ -750,31 +750,45 @@ namespace HockeyGame
         /// </summary>
         public const float GapRoomMetres = 0.09f;
 
-        /// <summary>The puck's middle and a ring of eight points GapRoomMetres beyond its edges (offsets from its centre).</summary>
-        static Vector3[] RoomEdges()
+        const int RoomRingPoints = 16;
+        const float RoomCastRadius = 0.04f;
+
+        /// <summary>A ring of points round the puck's line, so that with each cast RoomCastRadius wide their reach ends GapRoomMetres past the puck's edge (and neighbours overlap: nothing as thin as a stick shaft slips between).</summary>
+        static readonly Vector3[] RoomRing = MakeRoomRing();
+
+        static Vector3[] MakeRoomRing()
         {
-            float radius = GoalieShape.LinePuckDiameter / 2f + GapRoomMetres;
-            var edges = new Vector3[9];
-            for (int i = 0; i < 8; i++)
+            float radius = GoalieShape.LinePuckDiameter / 2f + GapRoomMetres + GoalieShape.LinePuckThickness / 2f - RoomCastRadius;
+            var ring = new Vector3[RoomRingPoints];
+            for (int i = 0; i < RoomRingPoints; i++)
             {
-                float angle = i * Mathf.PI / 4f;
-                edges[i + 1] = new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0f) * radius;
+                float angle = i * 2f * Mathf.PI / RoomRingPoints;
+                ring[i] = new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0f) * radius;
             }
-            return edges;
+            return ring;
         }
 
         /// <summary>
-        /// Whether his gear or body (as last placed) is in the puck's way with room to spare: Touches, with the puck's ring of
-        /// edges GapRoomMetres wider. Only the Gaps use this: a Gap is never in the way for Reach, but a cell nothing is in the way of
-        /// may be too tight to be a Gap.
+        /// Whether his gear or body (as last placed) is in the puck's way with room to spare: the plain puck (Touches) or a ring of
+        /// casts round it reaching GapRoomMetres past its edge. Only the Gaps use this: a Gap is never in the way for Reach, but a
+        /// cell nothing is in the way of may be too tight to be a Gap.
         /// </summary>
         bool InThePuckWay(Vector3 from, Vector3 to)
         {
+            if (Touches(from, to)) return true;
             GoalieShape obstacles = Placed();
             from = NearGoalie(from, to);
-            foreach (Vector3 edge in RoomEdges())
-                if (obstacles.Cast(from + edge, to + edge, GoalieShape.LinePuckThickness / 2f, out _, out _, null)) return true;
+            foreach (Vector3 point in RoomRing)
+                if (obstacles.Cast(from + point, to + point, RoomCastRadius, out _, out _, null)) return true;
             return false;
+        }
+
+        /// <summary>As MeasureInTheWay, for one point (the Reach side of the same measure, so a test can compare the two routes).</summary>
+        public bool MeasureOneInTheWay(Vector3 spot, float facing, Vector3 from, Vector3 to)
+        {
+            var one = new bool[1];
+            MeasureInTheWay(spot, facing, from, new[] { to }, one);
+            return one[0];
         }
 
         /// <summary>The reaction's gear and body as placed now (AddReaction), in one GoalieShape reused for every check.</summary>

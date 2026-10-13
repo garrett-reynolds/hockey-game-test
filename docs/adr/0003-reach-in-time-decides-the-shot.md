@@ -12,7 +12,7 @@ Each Shot the goalie shows an honest Set-up: a Clean Set-up or one Set-up Mistak
 
 - The goalie's motion uses the race's numbers: he starts after the Reaction Time and moves the winning gear at the race speeds, so on a Goal he is seen to arrive just too late. The Save Reaction is the gear that wins the race, or, when his gear is already in the puck's line, the gear for where the Shot meets the Net Face.
 - Shot speed matters only through the Flight Time. The Contested chance settings and the Top speed setting are gone from the settings screen and the settings file (old files still load; the old keys are ignored).
-- Easy mode glows the Gaps a puck can fit through, measured by the same goalie reach as the race. It is a hint only and changes no numbers.
+- Easy mode glows the Gaps: the cells a puck fits through with room all round it (GoalieCharacter.GapRoomMetres, 9 cm beyond the puck's edge, #134), measured at the same spot and facing as the race. The race itself uses the plain puck, so a Gap is never a cell the race finds gear in the way of, but a cell with nothing in the way may be too tight to glow. It is a hint only and changes no numbers.
 - The Annoyed Gesture comes from the Late Margin (a Stick Slap when he was only just too late, otherwise a Slump), not from where the Shot went.
 - The developer block goalie (forceGoalieBlocks) is one block that stands across the Net Face where the goalie stands. It draws no Zones or poses.
 - The Round's random rolls are the Set-up deck, the Attack Side shuffle, the Cheat post side and the Reaction Time wobble per Shot, in the order written on Round.

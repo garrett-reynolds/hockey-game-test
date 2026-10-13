@@ -50,6 +50,14 @@ namespace HockeyGame
             return quickest.HasValue ? GoalieReachAnswer.Reaches(quickest.Value, quickestSeconds) : GoalieReachAnswer.NoGearReaches;
         }
 
+        /// <summary>Whether gear or body is in the way of a puck with a Gap's room all round it, at this one Net Face point (what makes a Gap, cell by cell).</summary>
+        public bool InTheWayWithRoom(SetUp setUp, AttackSide side, double secondsSinceWindowOpened, RinkPoint shotStart, RinkPoint netPoint)
+        {
+            if (_character == null || !_character.Present) return false;
+            RinkPoint spot = SetUps.Spot(setUp, side, secondsSinceWindowOpened, shotStart, _settings);
+            return _character.MeasureOneInTheWay(ToVector(spot), (float)SetUps.Facing(spot, shotStart), ToVector(shotStart), ToVector(netPoint));
+        }
+
         /// <summary>
         /// Each Net Face cell whose centre has none of his gear or body already in the puck's line (Reach's in the way, with the
         /// puck's edges), measured at the same spot and facing as Reach, for the run of cells asked. With no goalie character

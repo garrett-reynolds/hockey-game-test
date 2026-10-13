@@ -36,11 +36,11 @@ A visible gap in a Set-up that the shooter can read: a Cheat (set off the angle 
 _Avoid_: Weakness, tell, hole
 
 **Gap**:
-Part of the Net Face the goalie's set gear leaves open, so the shooter can see it. A Set-up Mistake makes a bigger Gap; a Clean Set-up leaves only small ones. A Shot into a Gap is not a sure Goal: the goalie may still get his gear in the puck's way.
+Part of the Net Face the goalie's set gear leaves open, so the shooter can see it, with room all round the puck (a puck that only just fits is not a Gap: the physics puck meets the goalie's hit shapes, and his gear starts moving in as the Shot goes; #134). A Set-up Mistake makes a bigger Gap; a Clean Set-up leaves only small ones. A Shot into a Gap is not a sure Goal: the goalie may still get his gear in the puck's way.
 _Avoid_: hole, weak spot
 
 **Easy mode**:
-A player setting that glows each Gap a puck can fit through, from when the goalie is set until the Shot. It only makes the Gap easier to see; it does not change who wins the reach.
+A player setting that glows each Gap (a puck fits through with room all round it), from when the goalie is set until the Shot. It only makes the Gap easier to see; it does not change who wins the reach.
 _Avoid_: Assist, aim help
 
 **Reaction Time**:

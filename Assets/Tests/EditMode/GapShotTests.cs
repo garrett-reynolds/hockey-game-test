@@ -60,8 +60,11 @@ namespace HockeyGame.Core.Tests
             public int GapCount;
         }
 
-        /// <summary>Plays the Round of this seed to a seeded moment in its window and shoots at the centre of a Gap (intoGap) or of a cell that is not one.</summary>
-        Sample Play(int seed, bool intoGap)
+        /// <summary>Where the Shot is aimed: the centre of a shown Gap, of a cell that is not one, or of a cell the race finds gear in the way of (the cells that were not Gaps before #134).</summary>
+        enum Aim { Gap, NotGap, GearInTheWay }
+
+        /// <summary>Plays the Round of this seed to a seeded moment in its window and shoots at the centre of a cell picked by aim.</summary>
+        Sample Play(int seed, Aim aim)
         {
             var sample = new Sample();
             var cameraObject = new GameObject("Camera (test)", typeof(Camera));
@@ -79,7 +82,8 @@ namespace HockeyGame.Core.Tests
                 view = new GoalieView(_parent.transform, character);
                 effects = new PhysicsShotEffects(_parent.transform, camera, new SeededRandom(7), view, name => null);
                 Physics.SyncTransforms();
-                var round = new Round(new SeededRandom(seed), settings, new GoalieCharacterReach(character, settings), 0);
+                var port = new GoalieCharacterReach(character, settings);
+                var round = new Round(new SeededRandom(seed), settings, port, 0);
                 var breakaway = driver.AddComponent<BreakawayView>();
                 breakaway.Init(round, camera, view, () => effects.FlightSeconds);
                 round.StartRound();
@@ -98,8 +102,12 @@ namespace HockeyGame.Core.Tests
                     {
                         NetFaceGaps gaps = round.GapsNow();
                         var cells = new List<int>();
+                        RinkPoint start = Breakaway.ShotStart(round.AttackSide, round.PhaseSecondsElapsed, settings);
                         for (int cell = 0; cell < NetFaceGaps.Cells; cell++)
-                            if (gaps.IsGap(cell % NetFaceGaps.Columns, cell / NetFaceGaps.Columns) == intoGap) cells.Add(cell);
+                        {
+                            bool isGap = gaps.IsGap(cell % NetFaceGaps.Columns, cell / NetFaceGaps.Columns);
+                            if (aim == Aim.Gap ? isGap : aim == Aim.NotGap ? !isGap : WasInTheWay(port, round, start, cell)) cells.Add(cell);
+                        }
                         if (cells.Count == 0) return sample; // nothing to aim at this time: not played
                         int pick = cells[rng.Next(cells.Count)];
                         NetFaceGaps.CellCentre(pick % NetFaceGaps.Columns, pick / NetFaceGaps.Columns, out double x, out double y);
@@ -128,6 +136,12 @@ namespace HockeyGame.Core.Tests
             return sample;
         }
 
+        static bool WasInTheWay(GoalieCharacterReach port, Round round, RinkPoint start, int cell)
+        {
+            NetFaceGaps.CellCentre(cell % NetFaceGaps.Columns, cell / NetFaceGaps.Columns, out double x, out double y);
+            return port.Reach(round.SetUp, round.AttackSide, round.PhaseSecondsElapsed, start, RinkPoint.OnNetFace(x, y)).InTheWay;
+        }
+
         sealed class Rates
         {
             public int Shots, Goals, Saves, GapCells;
@@ -154,21 +168,26 @@ namespace HockeyGame.Core.Tests
             }
         }
 
-        Rates Measure(bool intoGap)
+        /// <summary>Seeds 1 to 90, or (second set) 1001 to 1090.</summary>
+        Rates Measure(Aim aim, int firstSeed, string name)
         {
             var rates = new Rates();
-            for (int seed = 1; seed <= Seeds; seed++)
+            for (int seed = firstSeed; seed < firstSeed + Seeds; seed++)
             {
-                Sample s = Play(seed, intoGap);
+                Sample s = Play(seed, aim);
                 if (s.Played) rates.Add(s);
             }
+            // The numbers are kept beside the notes when there is a notes folder (the main checkout has none).
+            string notes = System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, "../../_notes"));
+            if (System.IO.Directory.Exists(notes))
+                System.IO.File.AppendAllText(System.IO.Path.Combine(notes, "t134-rates.txt"), name + " (seeds from " + firstSeed + "): " + rates + "\n");
             return rates;
         }
 
         [Test, Timeout(600000), Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
-        public void A_Shot_into_the_centre_of_a_shown_Gap_is_a_Goal_most_of_the_time()
+        public void A_Shot_into_the_centre_of_a_shown_Gap_is_a_Goal_most_of_the_time([Values(1, 1001)] int firstSeed)
         {
-            Rates rates = Measure(true);
+            Rates rates = Measure(Aim.Gap, firstSeed, "into a shown Gap");
             Assert.GreaterOrEqual(rates.Shots, 60, "enough Shots were played: " + rates);
             Assert.GreaterOrEqual(rates.Goal, GapGoalBar, "Goal rate into a shown Gap (bar " + GapGoalBar.ToString("P0") + "): " + rates);
         }
@@ -176,9 +195,18 @@ namespace HockeyGame.Core.Tests
         [Test, Timeout(600000), Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
         public void A_Shot_into_a_cell_that_is_not_a_Gap_is_still_saved_most_of_the_time()
         {
-            Rates rates = Measure(false);
+            Rates rates = Measure(Aim.NotGap, 1, "into a cell that is not a Gap");
             Assert.GreaterOrEqual(rates.Shots, 60, "enough Shots were played: " + rates);
             Assert.GreaterOrEqual(rates.Save, NotGapSaveBar, "Save rate away from the Gaps (bar " + NotGapSaveBar.ToString("P0") + "): " + rates);
+        }
+
+        [Test, Timeout(600000), Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
+        public void A_Shot_into_a_cell_the_race_finds_gear_in_the_way_of_is_still_saved_most_of_the_time()
+        {
+            // The cells that were not Gaps before #134 (physics and the race are unchanged, so this is the old "away from the Gaps" rate).
+            Rates rates = Measure(Aim.GearInTheWay, 1, "into a cell the race finds gear in the way of");
+            Assert.GreaterOrEqual(rates.Shots, 60, "enough Shots were played: " + rates);
+            Assert.GreaterOrEqual(rates.Save, NotGapSaveBar, "Save rate into gear in the way (bar " + NotGapSaveBar.ToString("P0") + "): " + rates);
         }
     }
 }
