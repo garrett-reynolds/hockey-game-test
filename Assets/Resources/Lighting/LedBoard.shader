@@ -1,21 +1,20 @@
 // LED board (Video Board and Centre Board now, Ribbon Boards in #122): one shader for the screens' pictures and for the board words.
-// The words are first drawn into a RenderTexture (VideoBoards), so a screen shows its words the same way as the Replay's picture:
-// as a picture on a grid of square LED cells with a thin dark gap between them (_GapShare and _GapColour are set by LedBoardMaterial).
+// The words are first written into a small texture with one texel per LED cell (VideoBoards, from the LED font), so a screen shows its
+// words the same way as the Replay's picture: as a picture on a grid of square LED cells with a thin dark gap between them (_GapShare
+// and _GapColour are set by LedBoardMaterial).
 //
 // The grid lives on the board's plane, in metres, measured from _GridOrigin (the screen's lower-left corner; LedBoardMaterial.Anchor
 // sets it per renderer). Each fragment finds the centre of its cell and reads the picture once there, so a cell is one flat colour.
 // The gap is dark. A cell only a few pixels wide would crawl and shimmer, so the gap fades away (to the full cell colour) as the cell
 // shrinks on screen.
 //
-// Words as a picture: the RenderTexture holds the words' coverage (white on black) at a whole number of pixels per cell and has mip
-// levels, so reading level _CellMip (log2 of pixels per cell) at a cell's centre gives the average of that cell's pixels exactly
-// (the RenderTexture's edges lie on the screen's cell grid). The cell is lit (the words colour _BaseColor) when that average is at
-// least _LitAbove, otherwise _Backdrop. _LitAbove 0 means an ordinary picture: its colour times _BaseColor, read at level 0.
+// Words as a picture: the texture is R8 with exactly one texel per cell (0 or 1), point filtered, its edges on the screen's cell grid,
+// so the texel read at a cell's centre is that cell. The cell is lit (the words colour _BaseColor) when the texel is at least _LitAbove,
+// otherwise _Backdrop. _LitAbove 0 means an ordinary picture: its colour times _BaseColor.
 //
 // _CellSize <= 0 switches the grid off: the picture is drawn plain. With _FontAtlas on, the material instead draws smooth text from a
-// font atlas (the Ribbon Boards until #122, and the words' text when VideoBoards draws it into its RenderTexture; _CoverageOut then
-// writes white with the text's alpha, so the RenderTexture holds coverage). Depth-tested, writes depth, front faces only: a board
-// in front hides the text and it is not mirrored from behind (Unity's built-in font material ignores depth and draws both faces).
+// font atlas (the Ribbon Boards until #122). Depth-tested, writes depth, front faces only: a board in front hides the text and it is
+// not mirrored from behind (Unity's built-in font material ignores depth and draws both faces).
 Shader "Hockey Game/LED Board"
 {
     Properties
@@ -26,11 +25,9 @@ Shader "Hockey Game/LED Board"
         _GapShare("Gap share of a cell's side", Range(0, 0.9)) = 0.2
         _GapColour("Gap colour", Color) = (0.02,0.02,0.02,1)
         _GridOrigin("Grid origin (world)", Vector) = (0,0,0,0)
-        _LitAbove("Words: lit when the cell's average coverage is at least this (0: ordinary picture)", Range(0, 1)) = 0
-        _CellMip("Words: mip level that averages one cell", Float) = 0
+        _LitAbove("Words: a cell is lit when its texel is at least this (0: ordinary picture)", Range(0, 1)) = 0
         _Backdrop("Words: colour of a cell with no words", Color) = (0,0,0,1)
         _FontAtlas("Draw smooth text from a font atlas (1) or a picture (0)", Float) = 0
-        _CoverageOut("Font atlas: write white with the text's alpha (1)", Float) = 0
         [HideInInspector] _SrcBlend("Source blend", Float) = 1
         [HideInInspector] _DstBlend("Destination blend", Float) = 0
     }
@@ -63,10 +60,8 @@ Shader "Hockey Game/LED Board"
                 half4 _GapColour;
                 float4 _GridOrigin;
                 float _LitAbove;
-                float _CellMip;
                 half4 _Backdrop;
                 float _FontAtlas;
-                float _CoverageOut;
             CBUFFER_END
 
             struct Attributes { float4 positionOS : POSITION; half4 color : COLOR; float2 uv : TEXCOORD0; };
@@ -107,7 +102,7 @@ Shader "Hockey Game/LED Board"
                 {
                     half alpha = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv).a * input.color.a;
                     clip(alpha - 0.01);
-                    return _CoverageOut > 0.5 ? half4(1, 1, 1, alpha) : half4(input.color.rgb, alpha);
+                    return half4(input.color.rgb, alpha);
                 }
                 if (_CellSize <= 0.0)
                     return half4((_BaseColor * SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv)).rgb, 1);
@@ -129,7 +124,7 @@ Shader "Hockey Game/LED Board"
                 float tooSmall = smoothstep(0.25, 0.5, max(pixelsInCells.x, pixelsInCells.y));
                 lit = lerp(lit, 1.0, tooSmall);
 
-                half4 sampled = SAMPLE_TEXTURE2D_LOD(_BaseMap, sampler_LedPointClamp, saturate(uvCentre), _CellMip);
+                half4 sampled = SAMPLE_TEXTURE2D_LOD(_BaseMap, sampler_LedPointClamp, saturate(uvCentre), 0);
                 half3 picture = _LitAbove > 0.0
                     ? lerp(_Backdrop.rgb, _BaseColor.rgb, step(_LitAbove, sampled.r))
                     : _BaseColor.rgb * sampled.rgb;

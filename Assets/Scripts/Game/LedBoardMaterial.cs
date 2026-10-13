@@ -5,7 +5,7 @@ namespace HockeyGame
 {
     /// <summary>
     /// Materials for the LED boards (shader Hockey Game/LED Board): the Video Board and Centre Board now, the Ribbon Boards in #122.
-    /// A screen's picture and its words (drawn into a RenderTexture, then shown as a picture) share one grid of square cells with a
+    /// A screen's picture and its words (one texel per cell in the LED font, shown as a picture) share one grid of square cells with a
     /// dark gap, anchored at the screen's corner so the edge cells are whole. The builder that makes a material frees it.
     /// </summary>
     public static class LedBoardMaterial
@@ -15,16 +15,8 @@ namespace HockeyGame
         public const float GapShare = 0.2f;
         /// <summary>The colour in the gap (set on every material; the one source). A Color is read as sRGB: 0.02 is 0.00155 linear.</summary>
         public static readonly Color GapColour = new Color(0.02f, 0.02f, 0.02f);
-        /// <summary>
-        /// A words cell is lit when the words cover at least this share of it. Chosen between the two things it must tell apart, at
-        /// WordsPixelsPerCell = 8 (a Headline's capitals are about 13 cells tall, its bold strokes about 2 cells wide):
-        /// a round letter's overshoot past the cap line or baseline is about 2 per cent of the capital's height, so about a quarter of a
-        /// cell, and would light a stray row at any lower threshold; half a stroke is the most a threshold can ask before a thin bar
-        /// that crosses a cell loses it. 0.5 is in the middle and is the usual "more than half lit" rule.
-        /// </summary>
-        public const float WordsLitAbove = 0.5f;
-        /// <summary>The words' RenderTexture holds this many pixels (a power of two, so mips average exactly one cell) across each cell.</summary>
-        public const int WordsPixelsPerCell = 8;
+        /// <summary>A words texel (0 or 1 in R8) at or above this lights its cell with the words colour; a picture material has 0 here.</summary>
+        const float TexelLit = 0.5f;
 
         static readonly int CellSize = Shader.PropertyToID("_CellSize");
         static readonly int GapShareId = Shader.PropertyToID("_GapShare");
@@ -33,10 +25,8 @@ namespace HockeyGame
         static readonly int SrcBlend = Shader.PropertyToID("_SrcBlend");
         static readonly int DstBlend = Shader.PropertyToID("_DstBlend");
         static readonly int LitAbove = Shader.PropertyToID("_LitAbove");
-        static readonly int CellMip = Shader.PropertyToID("_CellMip");
         static readonly int Backdrop = Shader.PropertyToID("_Backdrop");
         static readonly int FontAtlas = Shader.PropertyToID("_FontAtlas");
-        static readonly int CoverageOut = Shader.PropertyToID("_CoverageOut");
 
         /// <summary>A screen's material: shows its colour (times a picture, if one is set as mainTexture). A cell of 0 m means no LED look.</summary>
         public static Material Screen(string name, double cellMetres, Color colour)
@@ -48,15 +38,14 @@ namespace HockeyGame
         }
 
         /// <summary>
-        /// A screen's material for words drawn into coverage (white on black, WordsPixelsPerCell pixels across each cell, with mips):
-        /// cells with words show colour, the others backdrop.
+        /// A screen's material for words: a texture with one R8 texel per LED cell, point filtered; a lit texel shows the words colour,
+        /// the others the backdrop.
         /// </summary>
-        public static Material WordsOnScreen(string name, double cellMetres, Texture coverage, Color words, Color backdrop)
+        public static Material WordsOnScreen(string name, double cellMetres, Texture texels, Color words, Color backdrop)
         {
             var screen = Screen(name, cellMetres, words);
-            screen.mainTexture = coverage;
-            screen.SetFloat(LitAbove, WordsLitAbove);
-            screen.SetFloat(CellMip, Mathf.Log(WordsPixelsPerCell, 2f));
+            screen.mainTexture = texels;
+            screen.SetFloat(LitAbove, TexelLit);
             screen.SetColor(Backdrop, backdrop);
             return screen;
         }
@@ -71,13 +60,11 @@ namespace HockeyGame
         /// <summary>
         /// The material that draws smooth text from the font's atlas (mainTexture): depth-tested, front faces only, drawn after the
         /// screens. The text is always smooth (the Ribbon Boards' plain look until #122); cellMetres is only recorded on the material.
-        /// coverageOut: write white with the text's alpha (for a coverage RenderTexture) instead of the text's colour.
         /// </summary>
-        public static Material PlainText(string name, double cellMetres, bool coverageOut)
+        public static Material PlainText(string name, double cellMetres)
         {
             var text = Make(name, cellMetres);
             text.SetFloat(FontAtlas, 1f);
-            text.SetFloat(CoverageOut, coverageOut ? 1f : 0f);
             // Smooth text needs blending; the LED look is opaque.
             text.SetFloat(SrcBlend, (float)BlendMode.SrcAlpha);
             text.SetFloat(DstBlend, (float)BlendMode.OneMinusSrcAlpha);

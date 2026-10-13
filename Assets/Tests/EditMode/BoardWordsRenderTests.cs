@@ -44,8 +44,8 @@ namespace HockeyGame.Core.Tests
             foreach (TextMesh t in root.GetComponentsInChildren<TextMesh>()) t.color = colour;
         }
 
-        // The Video Board's and Centre Board's words are shown by their screens now (the words objects are never drawn), so their colour
-        // is the screen's material colour.
+        // The Video Board's and Centre Board's words are LED cells of their screens (no text objects), so their colour is the screen's
+        // material colour.
         static void PaintScreens(VideoBoards boards, int first, int last, Color colour)
         {
             for (int i = first; i <= last; i++) boards.PaintWords(i, colour);
@@ -168,7 +168,7 @@ namespace HockeyGame.Core.Tests
         {
             VideoBoards boards = VideoBoards.Build(_rink.transform);
             boards.Show(Words(), 0.0);
-            PaintScreens(boards, 0, 0, Color.gray); // only the Centre Board's words are green or yellow (the Video Board's words object is never drawn)
+            PaintScreens(boards, 0, 0, Color.gray); // only the Centre Board's words are green or yellow (the Video Board's are grey)
             string shader = boards.PictureOn(1).shader.name;
 
             double start = StartShots.All[0].Seconds + StartShots.All[1].Seconds;
@@ -181,12 +181,11 @@ namespace HockeyGame.Core.Tests
 
             // Centre Board screens are 1..4 (0 is the Video Board). Facing-away screens get yellow words, facing screens green.
             int away = 0;
-            foreach (TextMesh t in boards.CentreBoard.GetComponentsInChildren<TextMesh>())
+            for (int index = 1; index < boards.ScreenCount; index++)
             {
-                int index = int.Parse(t.name.Substring(t.name.LastIndexOf(' ') + 1));
                 bool facingAway = Vector3.Dot(_eye.transform.position - boards.CentreOf(index), boards.FacingOf(index)) < 0f;
                 boards.PaintWords(index, facingAway ? new Color(1f, 1f, 0.1f) : new Color(0.1f, 1f, 0.1f));
-                if (facingAway && t.name.Contains("Headline")) away++;
+                if (facingAway) away++;
             }
             Assert.Greater(away, 0, "at least one Centre Board screen faces away from the eye");
 

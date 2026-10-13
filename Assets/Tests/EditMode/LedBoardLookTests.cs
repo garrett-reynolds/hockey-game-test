@@ -319,251 +319,90 @@ namespace HockeyGame.Core.Tests
             Assert.IsTrue(!Directory.Exists(Notes) || File.Exists(PngPath("shooter")), "the picture file was written");
         }
 
-        // ---- Words on the Centre Board with a chosen string and grid phase (the tests below guard the words' cell average and grid alignment) ----
+        static float Distance(Color32 a, Color32 b) =>
+            Mathf.Max(Mathf.Abs(a.r - b.r), Mathf.Max(Mathf.Abs(a.g - b.g), Mathf.Abs(a.b - b.b)));
 
-        const int WordsW = 1920, WordsH = 1080;
-
-        /// <summary>Shows the Skate-in words, keeps only the Centre Board's first Headline (the words object the board draws its picture from;
-        /// its Details are cleared), and points the camera at that screen from 6 m.</summary>
-        TextMesh CentreHeadline(VideoBoards boards, bool details = false)
+        /// <summary>
+        /// Looks at the screen from metres away, reads the camera's picture at the projected centre of every LED cell, calls the cell lit
+        /// when its colour is nearer the words' colour than the back colour, and compares with the font table at the same cell, tolerance 0.
+        /// Returns what is wrong (nothing when the picture is the table): lit cells with no table cell (the lone-cell kind are counted
+        /// apart: no lit neighbour), table cells that are not lit, cells that are neither colour, and cells outside the frame.
+        /// </summary>
+        string PictureDiffers(VideoBoards boards, int screen, float metres, string pngName)
         {
-            boards.Show(Show(RoundPhase.SkateIn), 0.0);
-            TextMesh best = null;
-            float bestDistance = float.MaxValue;
-            string wanted = details ? "Details" : "Headline", other = details ? "Headline" : "Details";
-            foreach (TextMesh t in boards.CentreBoard.GetComponentsInChildren<TextMesh>(true))
-            {
-                if (t.name.Contains(other)) t.text = "";
-                if (!t.name.Contains(wanted)) continue;
-                float d = Vector3.Distance(t.transform.position, boards.CentreOf(1));
-                if (d < bestDistance) { bestDistance = d; best = t; }
-            }
-            _eye.transform.position = boards.CentreOf(1) + boards.FacingOf(1) * 6f;
-            _eye.transform.LookAt(boards.CentreOf(1));
-            _camera.fieldOfView = 60f;
-            return best;
-        }
-
-        /// <summary>Renders text with the words' origin moved by (right, up) metres from where it was put; the lit pixels inside the screen.</summary>
-        bool[] LitWords(VideoBoards boards, TextMesh words, Vector3 origin, string text, float right, float up)
-        {
-            words.text = text;
-            words.font.RequestCharactersInTexture(text, words.fontSize, FontStyle.Bold);
-            BoardWordsMaterial.Follow(boards.WordsMaterial, words.font);
-            words.transform.position = origin + words.transform.right * right + words.transform.up * up;
-            boards.RedrawWords(); // the words are drawn into the board's RenderTexture only when asked
-            Color32[] pixels = Render(WordsW, WordsH, null);
-            Vector2[] polygon = ScreenPolygon(_camera, boards, 1, WordsW, WordsH);
-            var lit = new bool[pixels.Length];
-            for (int i = 0; i < pixels.Length; i++)
-            {
-                Color32 c = pixels[i];
-                lit[i] = (c.r > 128 || c.g > 128 || c.b > 128) && Inside(polygon, i % WordsW, i / WordsW);
-            }
-            return lit;
-        }
-
-        float CellPixels(VideoBoards boards, TextMesh words)
-        {
-            Vector3 a = _camera.WorldToViewportPoint(boards.CentreOf(1)), b = _camera.WorldToViewportPoint(boards.CentreOf(1) + words.transform.right * LedCell);
-            return Mathf.Abs(b.x - a.x) * WordsW;
-        }
-
-        /// <summary>The letters as runs of lit columns (a gap under 0.35 cell is inside a letter: a cell gap is 0.2), each with its lit pixel rows.</summary>
-        static System.Collections.Generic.List<(int Left, int Right, int Top, int Bottom, int[] RowCounts)> Letters(bool[] lit, float cellPixels)
-        {
-            var columns = new int[WordsW];
-            for (int i = 0; i < lit.Length; i++) if (lit[i]) columns[i % WordsW]++;
-            var letters = new System.Collections.Generic.List<(int Left, int Right, int Top, int Bottom, int[] RowCounts)>();
-            int start = -1, last = -1;
-            for (int x = 0; x <= WordsW; x++)
-            {
-                bool on = x < WordsW && columns[x] > 0;
-                if (on) { if (start < 0) start = x; last = x; }
-                else if (start >= 0 && (x == WordsW || x - last > 0.35f * cellPixels))
-                {
-                    var rows = new int[WordsH];
-                    int top = -1, bottom = WordsH;
-                    for (int y = 0; y < WordsH; y++)
-                    {
-                        for (int cx = start; cx <= last; cx++) if (lit[y * WordsW + cx]) rows[y]++;
-                        if (rows[y] > 0) { top = Mathf.Max(top, y); bottom = Mathf.Min(bottom, y); }
-                    }
-                    letters.Add((start, last, top, bottom, rows));
-                    start = -1;
-                }
-            }
-            return letters;
-        }
-
-        // Guards the words' alignment to the LED grid (VideoBoards.SetWords: whole-cell capitals, baseline on a row line) and the cell
-        // average with its 0.5 threshold (LedBoardMaterial.WordsLitAbove). Flat letters (E L T 4 5) must keep their cap and baseline rows
-        // and round ones (O S 6) must not light a cell above the cap row or below the baseline row, for the Headline and the Details line,
-        // at every horizontal phase of the grid under the words. (The words' vertical phase is fixed by the board, not free: SetWords puts
-        // the baseline on a row line, so a half-cell vertical offset is not a state the board can be in. An earlier version of this test
-        // moved the words up by phase/8 of a cell; with the rows snapped that tests nothing real, and any area threshold fails at some such offset.)
-        [Test]
-        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
-        public void Flat_letters_keep_their_cap_and_baseline_rows_and_round_letters_stay_inside_at_every_grid_phase()
-        {
-            var failures = new System.Collections.Generic.List<string>();
-            foreach (bool details in new[] { false, true })
-            {
-                VideoBoards boards = VideoBoards.Build(_rink.transform);
-                TextMesh words = CentreHeadline(boards, details);
-                FlatAndRoundRows(boards, words, details ? "Details" : "Headline", failures);
-                Object.DestroyImmediate(boards.gameObject);
-            }
-            Assert.IsEmpty(failures, string.Join("\n", failures));
-        }
-
-        void FlatAndRoundRows(VideoBoards boards, TextMesh words, string line, System.Collections.Generic.List<string> failures)
-        {
-            const string text = "E L T 4 O S 6 5";
-            const string shown = "ELT4OS65"; // the letters in order; spaces keep neighbours apart so each is found as one run
-            if (line == "Details") boards.ShowWords("", text); else boards.ShowWords(text, "");
-            Vector3 origin = words.transform.position;
-            for (int phase = 0; phase < 8; phase++)
-            {
-                bool[] lit = LitWords(boards, words, origin, text, phase / 8f * LedCell, 0f);
-                float cell = CellPixels(boards, words);
-                // A cell row is a whole cell (about 12 px) away; a lit cell cut by its letter's quad edge is a few px shorter, so half a cell is the tolerance.
-                float tolerance = 0.2f * cell; // strict (was half a cell): a cell row more or less is 12 px, so this allows only edge antialiasing
-                var letters = Letters(lit, cell);
-                if (letters.Count != shown.Length) { failures.Add(line + ", phase " + phase + ": " + letters.Count + " letters found, not " + shown.Length); continue; }
-                int Widest(int index) { int w = 0; foreach (int r in letters[index].RowCounts) w = Mathf.Max(w, r); return w; }
-                bool TopWide(int i) => letters[i].RowCounts[letters[i].Top] >= 0.6f * Widest(i);
-                bool BottomWide(int i) => letters[i].RowCounts[letters[i].Bottom] >= 0.6f * Widest(i);
-                string at = line + ", phase " + phase + " (" + phase / 8f + " cell right): ";
-                if (!TopWide(0)) failures.Add(at + "E has no full top bar row");
-                if (!BottomWide(0)) failures.Add(at + "E has no full bottom bar row");
-                if (!BottomWide(1)) failures.Add(at + "L has no full foot row");
-                if (!TopWide(2)) failures.Add(at + "T has no full top bar row");
-                if (!TopWide(7)) failures.Add(at + "5 has no full top bar row");
-                int capTop = Mathf.Max(letters[0].Top, Mathf.Max(letters[1].Top, letters[2].Top)), baseBottom = Mathf.Min(letters[0].Bottom, Mathf.Min(letters[1].Bottom, letters[2].Bottom));
-                if (Mathf.Abs(letters[0].Top - letters[2].Top) > tolerance) failures.Add(at + "E and T cap rows differ (" + letters[0].Top + " and " + letters[2].Top + ")");
-                foreach (int round in new[] { 4, 5, 6 })
-                {
-                    if (letters[round].Top > capTop + tolerance) failures.Add(at + "letter " + shown[round] + " lights a cell above the cap row (its top pixel row " + letters[round].Top + ", flat letters' " + capTop + ")");
-                    if (letters[round].Bottom < baseBottom - tolerance) failures.Add(at + "letter " + shown[round] + " lights a cell below the baseline row (its bottom pixel row " + letters[round].Bottom + ", flat letters' " + baseBottom + ")");
-                }
-            }
-        }
-
-        // Mixed case from the ad brands (the Ribbon Boards will show these in #122): the letters sit on the baseline of a flat capital, and only
-        // g, y, p, q, j reach below it. A cell lit below the baseline anywhere else is an overshoot of a round letter (e, s, o, B's curves).
-        [Test]
-        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
-        public void Mixed_case_words_light_cells_below_the_baseline_only_under_descenders_at_every_grid_phase()
-        {
-            Brands.Brand brand = System.Array.Find(Brands.All, b => b.Name == "Big Timber Burgers");
-            Assert.IsNotNull(brand, "Big Timber Burgers is one of the brands");
-            VideoBoards boards = VideoBoards.Build(_rink.transform);
-            TextMesh words = CentreHeadline(boards);
-            boards.ShowWords(brand.Name, ""); // sized and put on the grid as the board does it (18 letters are narrowed to fit the screen)
-            Vector3 origin = words.transform.position;
-            int descenders = 0;
-            foreach (char c in brand.Name) if ("gypqj".IndexOf(c) >= 0) descenders++;
-            Assert.AreEqual(2, descenders, "the g in Big and the g in Burgers");
-            var failures = new System.Collections.Generic.List<string>();
-            for (int phase = 0; phase < 8; phase++)
-            {
-                bool[] lit = LitWords(boards, words, origin, brand.Name, 0f, phase / 8f * LedCell);
-                float cell = CellPixels(boards, words);
-                var columns = new int[WordsW];
-                int left = -1;
-                for (int i = 0; i < lit.Length; i++) if (lit[i]) { columns[i % WordsW]++; if (left < 0 || i % WordsW < left) left = i % WordsW; }
-                Assert.GreaterOrEqual(left, 0, "the words are lit");
-                // The baseline: the lowest lit pixel row in the first cell and a bit of the capital B (its foot is flat).
-                int baseline = WordsH;
-                for (int y = 0; y < WordsH; y++)
-                    for (int x = left; x <= left + (int)cell && x < WordsW; x++)
-                        if (lit[y * WordsW + x]) baseline = Mathf.Min(baseline, y);
-                int limit = baseline - (int)(0.2f * cell);
-                var below = new bool[WordsW];
-                for (int y = 0; y < limit; y++)
-                    for (int x = 0; x < WordsW; x++)
-                        if (lit[y * WordsW + x]) below[x] = true;
-                int runs = 0, start = -1, last = -1;
-                for (int x = 0; x <= WordsW; x++)
-                {
-                    if (x < WordsW && below[x]) { if (start < 0) start = x; last = x; continue; }
-                    if (start >= 0 && (x == WordsW || x - last > 0.5f * cell)) { runs++; start = -1; }
-                }
-                string at = "phase " + phase + " (" + phase / 8f + " cell up): ";
-                if (runs > descenders) failures.Add(at + runs + " places below the baseline; only " + descenders + " (the g's) are allowed");
-                if (runs < descenders) failures.Add(at + "only " + runs + " places below the baseline: the g tails are missing (" + descenders + " expected)");
-            }
-            Assert.IsEmpty(failures, string.Join("\n", failures));
-        }
-
-        // No thin bars: every lit run of pixels along a row is a whole lit cell or more (never under 0.3 of a cell: bar tolerance 0), at every
-        // horizontal phase of the grid under the words. The old per-glyph-quad words mode let a cell read the neighbouring letter's atlas
-        // pixels and lit slivers (60 to 127 pixel rows in 3 of 8 phases, then 12 in one phase after its patches); the cell average of the
-        // words' RenderTexture has no such edge.
-        [Test]
-        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
-        public void Words_show_no_thin_bars_at_any_grid_phase()
-        {
-            VideoBoards boards = VideoBoards.Build(_rink.transform);
-            TextMesh words = CentreHeadline(boards);
-            Vector3 origin = words.transform.position;
-            const string text = "GOALS 2 SHOT 4 OF 6";
-            var failures = new System.Collections.Generic.List<string>();
-            for (int phase = 0; phase < 8; phase++)
-            {
-                bool[] lit = LitWords(boards, words, origin, text, phase / 8f * LedCell, 0f);
-                float cell = CellPixels(boards, words);
-                int bars = 0, total = 0;
-                string first = "";
-                for (int y = 0; y < WordsH; y++)
-                {
-                    int run = 0;
-                    for (int x = 0; x <= WordsW; x++)
-                    {
-                        if (x < WordsW && lit[y * WordsW + x]) { run++; total++; continue; }
-                        if (run > 0 && run < 0.3f * cell) { bars++; if (first.Length == 0) first = " (first at x " + (x - run) + ", y " + y + ", " + run + " px wide, cell " + cell + " px)"; }
-                        run = 0;
-                    }
-                }
-                Assert.Greater(total, 0, "the words are lit");
-                if (bars > 0) failures.Add("phase " + phase + " (" + phase / 8f + " cell right): " + bars + " pixel rows with a bar under 0.3 cell wide" + first);
-            }
-            Assert.IsEmpty(failures, string.Join("\n", failures));
-        }
-
-        [Test]
-        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
-        public void Centre_Board_words_light_no_cells_from_neighbouring_glyphs()
-        {
-            VideoBoards boards = VideoBoards.Build(_rink.transform);
-            boards.Show(Show(RoundPhase.SkateIn), 0.0); // "GOALS 2 . SHOT 4 OF 6": capitals and digits, no descenders
-            Vector3 spot = boards.CentreOf(1) + boards.FacingOf(1) * 6f;
-            _eye.transform.position = spot;
-            _eye.transform.LookAt(boards.CentreOf(1));
+            Vector3 centre = boards.CentreOf(screen), facing = boards.FacingOf(screen), up = boards.UpOf(screen);
+            _eye.transform.position = centre + facing * metres;
+            _eye.transform.LookAt(centre);
             _camera.fieldOfView = 60f;
             const int width = 1920, height = 1080;
-            Color32[] pixels = Render(width, height, null);
-            Vector2[] polygon = ScreenPolygon(_camera, boards, 1, width, height);
+            Color32[] pixels = Render(width, height, pngName);
+            Vector3 right = Vector3.Cross(up, -facing).normalized;
+            int cellsX = boards.CellsAcross(screen), cellsY = boards.CellsUp(screen);
+            Vector3 corner = centre - right * (boards.SizeOf(screen).x / 2f) - up * (boards.SizeOf(screen).y / 2f);
+            Color32 fore = boards.WordsColourOn(screen), back = boards.BackColour;
+            bool[] expected = LedBoardWordsTests.Expected(cellsX, cellsY, boards.HeadlineOn(screen), boards.DetailsOn(screen));
+            var shown = new bool[cellsX * cellsY];
+            int outside = 0, neither = 0, extra = 0, missing = 0, lone = 0, litCells = 0;
+            for (int y = 0; y < cellsY; y++)
+                for (int x = 0; x < cellsX; x++)
+                {
+                    Vector3 v = _camera.WorldToViewportPoint(corner + right * ((x + 0.5f) * LedCell) + up * ((y + 0.5f) * LedCell));
+                    int px = Mathf.FloorToInt(v.x * width), py = Mathf.FloorToInt(v.y * height);
+                    if (px < 0 || px >= width || py < 0 || py >= height) { outside++; continue; }
+                    Color32 c = pixels[py * width + px];
+                    float toFore = Distance(c, fore), toBack = Distance(c, back);
+                    if (Mathf.Min(toFore, toBack) > 40f) neither++;
+                    shown[y * cellsX + x] = toFore < toBack;
+                }
+            for (int y = 0; y < cellsY; y++)
+                for (int x = 0; x < cellsX; x++)
+                {
+                    bool on = shown[y * cellsX + x], want = expected[y * cellsX + x];
+                    if (want) litCells++;
+                    if (on && !want)
+                    {
+                        extra++;
+                        bool neighbour = false;
+                        for (int dy = -1; dy <= 1; dy++)
+                            for (int dx = -1; dx <= 1; dx++)
+                            {
+                                int nx = x + dx, ny = y + dy;
+                                if ((dx != 0 || dy != 0) && nx >= 0 && nx < cellsX && ny >= 0 && ny < cellsY && shown[ny * cellsX + nx]) neighbour = true;
+                            }
+                        if (!neighbour) lone++;
+                    }
+                    if (!on && want) missing++;
+                }
+            Assert.Greater(litCells, 50, "the table has cells to show on screen " + screen);
+            return outside + neither + extra + missing == 0 ? ""
+                : "screen " + screen + " from " + metres + " m: " + extra + " lit cells outside the table (" + lone + " of them lone, with no lit neighbour), "
+                  + missing + " table cells not lit, " + neither + " cells of neither colour, " + outside + " cells outside the frame (table: " + litCells + " cells)";
+        }
 
-            // Bright pixels per row inside the board. The words are one line of equal-height letters, so the letters' rows are the
-            // rows with a good share of the busiest row's count; a lit cell outside them came from another glyph.
-            var perRow = new int[height];
-            for (int i = 0; i < pixels.Length; i++)
+        // Task 3b's version of this test counted bright pixel ROWS outside the letters' row band (30 % of the busiest row, 2 px slack), on
+        // the Centre Board only. A lone cell next to a letter sits in the letters' own rows, so it was never outside the band. This one asks
+        // the cells themselves, at their absolute places, on both boards and on every kind of words.
+        [Test]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
+        public void The_rendered_picture_lights_exactly_the_font_table_cells_on_the_Centre_Board_and_the_Video_Board()
+        {
+            VideoBoards boards = VideoBoards.Build(_rink.transform);
+            var failures = new System.Collections.Generic.List<string>();
+            void Check(string what, int screen, float metres, string png)
             {
-                Color32 c = pixels[i];
-                if ((c.r > 128 || c.g > 128 || c.b > 128) && Inside(polygon, i % width, i / width)) perRow[i / width]++;
+                string differs = PictureDiffers(boards, screen, metres, png);
+                if (differs.Length > 0) failures.Add(what + ": " + differs);
             }
-            int busiest = 0;
-            for (int y = 0; y < height; y++) busiest = Mathf.Max(busiest, perRow[y]);
-            Assert.Greater(busiest, 0, "the Centre Board shows words");
-            int bottom = -1, top = height;
-            for (int y = 0; y < height; y++)
-                if (perRow[y] >= busiest * 0.3f) { bottom = Mathf.Max(bottom, y); top = Mathf.Min(top, y); }
-            int stray = 0;
-            for (int y = 0; y < height; y++)
-                if (y < top - 2 || y > bottom + 2) stray += perRow[y];
-            Assert.AreEqual(0, stray, "bright pixels outside the letters' rows " + top + " to " + bottom + " (cells from a neighbouring glyph)");
+            boards.Show(Show(RoundPhase.SkateIn), 0.0);
+            Check("score, Centre Board", 1, 6f, null);
+            Check("score, Video Board", 0, 12f, null);
+            boards.Show(Show(RoundPhase.Idle), 0.0);
+            Check("start card, Centre Board", 1, 6f, null);
+            Check("start card, Video Board", 0, 12f, null);
+            boards.ShowWords("Big Timber Burgers", "Saves, goals & Y/N? gjpqy");
+            Check("mixed case with descenders, Centre Board", 1, 6f, null);
+            Check("mixed case with descenders, Video Board", 0, 12f, null);
+            Assert.IsEmpty(failures, string.Join("\n", failures));
         }
 
         [Test]

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using HockeyGame.Core;
+using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -12,8 +13,8 @@ namespace HockeyGame
     /// and the last Shot speed, the result, the final score or NEW BEST! (its frame flashes with the Goal Show lights), and
     /// brand ad slides. Every screen shares one picture (one material), so the Centre Board always shows what the Video
     /// Board shows. ShowPicture puts a texture on every screen instead of the words (the Replay's render texture, #91).
-    /// The words (TextMeshes that no camera draws) are drawn into a RenderTexture per board, only when their text changes, and each screen
-    /// shows that texture as a picture on its LED grid (#121).
+    /// The words are drawn in the LED font (LedFont), one texel of a small texture per LED cell, so every letter is whole cells. The texture
+    /// is written only when the words change, and each screen shows it as a picture on its LED grid (#121).
     /// </summary>
     [ExecuteAlways] // OnDestroy frees the materials in edit mode too (the editor tools and EditMode tests)
     public sealed class VideoBoards : MonoBehaviour
@@ -23,51 +24,46 @@ namespace HockeyGame
         /// <summary>Seconds each ad slide shows before the next.</summary>
         public const float AdSeconds = 5f;
 
-        const float TextLift = 0.03f;                   // the words stand just in front of their screen
-        const float HeadlineShare = 0.24f, DetailsShare = 0.11f; // word heights as shares of the screen's height
-        const float HeadlineY = 0.14f, DetailsY = 0.22f;         // the Headline's origin is this share of the screen's height above its centre, the Details' below
-        // Measured for the font the TextMesh uses (LegacyRuntime.ttf, Liberation Sans Bold) at FontSize 64, in font pixels (0.1 TextMesh
-        // units each at scale 1): a one-line TextMesh anchored MiddleCenter has its baseline 23 below its origin, its capitals are 47
-        // tall, and lines are 69 apart. LedBoardLookTests (flat letters on whole rows at phase 0) fail if these drift.
-        const float BaselinePx = 23f, CapPx = 47f, LinePx = 69f;
-        const float TextWidth = 0.9f;                   // share of a screen the words may fill
+        /// <summary>Word heights as shares of the screen's height: the capitals of a line fit this much (LedWords picks the whole-number scale).</summary>
+        public const double HeadlineShare = 0.24, DetailsShare = 0.11;
+        /// <summary>The Headline's middle is this share of the screen's height above the screen's centre, the Details' middle this share below.</summary>
+        public const double HeadlineY = 0.14, DetailsY = 0.22;
         const float CableWidth = 0.08f;
         /// <summary>The name of the cables the boards hang from.</summary>
         public const string CablePart = "Cable";
-        const int FontSize = 64;
         static readonly Color CableColour = new Color32(14, 15, 18, 255);
 
         sealed class Screen
         {
             public Vector3 Centre, Facing, Up; // Facing: the way the picture faces; Up: the screen's up as seen from the front
             public float Width, Height;
+            public int CellsX, CellsY;         // the screen in LED cells
             public Renderer Picture;
-            public TextMesh Headline, Details;
-            public Material WordsMaterial; // this screen's own: the board's words RenderTexture as a picture, in this screen's colours
+            public string Headline = "", Details = "";
+            public Color WordsColour;
+            public Material WordsMaterial; // this screen's own: the board's words texture as a picture, in this screen's colours
             public WordsBoard Board;
         }
 
         /// <summary>
-        /// The words of one board as a picture: a RenderTexture of the words' coverage (white on black), WordsPixelsPerCell pixels per
-        /// LED cell, edges on the screen's cell grid, with mips so a shader reads one cell's average at one mip level. The Video Board has
-        /// one; the four Centre Board screens share one (they always show the same words), drawn from its first screen's words objects.
+        /// The words of one board as a picture: a texture with exactly one R8 texel per LED cell (255 lit, 0 not), point filtered, no mips.
+        /// The Video Board has one; the four Centre Board screens share one (they always show the same words), laid out from its first screen.
         /// </summary>
         sealed class WordsBoard
         {
-            public RenderTexture Texture;
-            public Screen Master;  // the screen whose two words objects are drawn
-            public bool Stale;     // its words changed since they were drawn
+            public Texture2D Texture;
+            public byte[] Texels;
+            public bool[] Cells;
+            public Screen Master;  // the screen whose words are written
+            public bool Stale;     // its words changed since they were written
         }
 
         readonly List<Screen> _screens = new List<Screen>();
         readonly List<WordsBoard> _boards = new List<WordsBoard>();
         Material _picture, _frame, _cable, _stillPicture;
         bool _still; // the Video Board shows the Calm Area's one dim still colour (CalmStill)
-        Font _font;
-        Material _words; // draws the words objects' text into a RenderTexture (the words objects are never drawn by a camera)
-        CommandBuffer _draw;
         double _cell;
-        int _wordsRenders;
+        int _wordsUploads;
         Transform _videoBoard, _centreBoard;
         // The Team Skin's look: the words' background, the words, and the frame (dark, and lit for a new best).
         Color _skinBack, _skinWords, _frameDark, _frameLit;
@@ -82,44 +78,48 @@ namespace HockeyGame
         /// <summary>The way the screen's picture faces (into the arena).</summary>
         public Vector3 FacingOf(int screen) => _screens[screen].Facing;
         public Vector2 SizeOf(int screen) => new Vector2(_screens[screen].Width, _screens[screen].Height);
-        public string HeadlineOn(int screen) => WordsVisible ? _screens[screen].Headline.text : "";
-        public string DetailsOn(int screen) => WordsVisible ? _screens[screen].Details.text : "";
-        public Color WordsColourOn(int screen) => _screens[screen].Headline.color;
-        /// <summary>The screen's picture: one material for every screen.</summary>
+        /// <summary>The way up on the screen's picture, as the player sees it.</summary>
+        public Vector3 UpOf(int screen) => _screens[screen].Up;
+        /// <summary>The screen's size in whole LED cells.</summary>
+        public int CellsAcross(int screen) => _screens[screen].CellsX;
+        public int CellsUp(int screen) => _screens[screen].CellsY;
+        /// <summary>The words the screens show now (the strings the LED cells are drawn from).</summary>
+        public string HeadlineOn(int screen) => WordsVisible ? _screens[screen].Headline : "";
+        public string DetailsOn(int screen) => WordsVisible ? _screens[screen].Details : "";
+        public Color WordsColourOn(int screen) => _screens[screen].WordsColour;
+        /// <summary>The screen's picture: its own words material, the shared still or the shared Replay picture.</summary>
         public Material PictureOn(int screen) => _screens[screen].Picture.sharedMaterial;
-        /// <summary>The one material every words object has, and draws its text into the RenderTexture with (depth-tested, front faces only).</summary>
-        public Material WordsMaterial => _words;
         /// <summary>The colour the screens show behind the words (or the tint over a picture).</summary>
         public Color BackColour => _picture.color;
         public Color FrameColour => _frame.color;
-        /// <summary>How many times a board's words have been drawn into its RenderTexture (cost: one per board per change of words).</summary>
-        public int WordsRenders => _wordsRenders;
-        /// <summary>How many words RenderTextures there are, and the bytes they take (all mip levels).</summary>
+        /// <summary>How many times a board's texture has been uploaded (cost: one per board per change of words; colours cost none).</summary>
+        public int WordsUploads => _wordsUploads;
+        /// <summary>How many words textures there are, and the bytes they take (R8, one byte per LED cell).</summary>
         public int WordsTextureCount => _boards.Count;
         public long WordsTextureBytes
         {
             get
             {
                 long bytes = 0;
-                foreach (WordsBoard b in _boards)
-                    bytes += (long)(b.Texture.width * b.Texture.height * BytesPerPixel(b.Texture.format) * 4L / 3L);
+                foreach (WordsBoard b in _boards) bytes += b.Texels.Length;
                 return bytes;
             }
         }
-        static int BytesPerPixel(RenderTextureFormat f) => f == RenderTextureFormat.R8 ? 1 : 4;
-        /// <summary>The words RenderTexture of a screen (the Centre Board's four share one).</summary>
-        public RenderTexture WordsTextureOn(int screen) => _screens[screen].Board.Texture;
-        /// <summary>Draws every board's words again (after a words object was moved or its text set directly).</summary>
-        public void RedrawWords()
+        /// <summary>The words texture of a screen (the Centre Board's four share one).</summary>
+        public Texture2D WordsTextureOn(int screen) => _screens[screen].Board.Texture;
+        /// <summary>The cells the screen's words texture has lit, read from the texels themselves (index y * CellsAcross + x, row 0 at the bottom).</summary>
+        public bool[] LitCellsOn(int screen)
         {
-            foreach (WordsBoard b in _boards) DrawWords(b);
+            NativeArray<byte> texels = _screens[screen].Board.Texture.GetRawTextureData<byte>();
+            var lit = new bool[texels.Length];
+            for (int i = 0; i < lit.Length; i++) lit[i] = texels[i] != 0;
+            return lit;
         }
         /// <summary>Colours the words of one screen (a test aid: the other screens keep theirs).</summary>
         public void PaintWords(int screen, Color colour)
         {
             Screen s = _screens[screen];
-            s.Headline.color = colour;
-            s.Details.color = colour;
+            s.WordsColour = colour;
             s.WordsMaterial.color = colour;
         }
         bool WordsVisible => !_still && _shownPicture == null;
@@ -152,11 +152,8 @@ namespace HockeyGame
             boards._skinWords = skin.VideoBoardWords;
             boards._frameDark = skin.VideoBoardFrame;
             boards._frameLit = skin.VideoBoardFrameLit;
-            boards._font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             double cell = RinkLayout.VideoBoardLedCell;
             boards._cell = cell;
-            boards._draw = new CommandBuffer { name = "Board words" };
-            boards._words = BoardWordsMaterial.MakeCoverage(boards._font);
             // The screens are LED walls: only their own picture in square cells, with no arena light or shine on them.
             boards._picture = LedBoardMaterial.Screen("Video Board Picture", cell, Color.white);
             boards._stillPicture = LedBoardMaterial.Screen("Video Board Still", cell, RibbonBoards.ColourOf(ArenaShow.CalmRibbonColour));
@@ -198,33 +195,33 @@ namespace HockeyGame
             _back = back;
             _fore = fore;
             if (_shownPicture == null) _picture.color = back;
-            if (newWords) ApplyWords(headline, details, fore);
+            if (newWords) ApplyWords(headline, details);
             foreach (Screen s in _screens)
             {
-                s.Headline.color = s.Details.color = fore;
-                LedBoardMaterial.SetWordsColours(s.WordsMaterial, fore, back); // colours are material values: no redraw
+                s.WordsColour = fore;
+                LedBoardMaterial.SetWordsColours(s.WordsMaterial, fore, back); // colours are material values: no upload
             }
             DrawStaleWords();
         }
 
         /// <summary>
-        /// Shows these words on every screen, as Show does for the Arena Show's: sized to whole LED cells, with the first baseline and the
-        /// lines on the cell grid, and drawn into the boards' RenderTextures. For text the Arena Show does not give (mixed case).
+        /// Shows these words on every screen, as Show does for the Arena Show's: in the LED font, in whole cells (see LedWords), and
+        /// written to the boards' textures. For text the Arena Show does not give (mixed case).
         /// </summary>
         public void ShowWords(string headline, string details)
         {
             _headline = headline;
             _details = details;
-            ApplyWords(headline, details, _fore);
+            ApplyWords(headline, details);
             DrawStaleWords();
         }
 
-        void ApplyWords(string headline, string details, Color fore)
+        void ApplyWords(string headline, string details)
         {
             foreach (Screen s in _screens)
             {
-                SetWords(s, s.Headline, headline, fore, s.Height * HeadlineY, s.Height * HeadlineShare);
-                SetWords(s, s.Details, details, fore, -s.Height * DetailsY, s.Height * DetailsShare);
+                s.Headline = headline;
+                s.Details = details;
             }
             foreach (WordsBoard b in _boards) b.Stale = true;
         }
@@ -264,30 +261,24 @@ namespace HockeyGame
         {
             if (!WordsVisible) return;
             foreach (WordsBoard b in _boards)
-                if (b.Stale || !b.Texture.IsCreated()) DrawWords(b);
+                if (b.Stale) WriteWords(b);
         }
 
-        /// <summary>Draws the board master's Headline and Details into the board's RenderTexture as coverage, then builds its mips.</summary>
-        void DrawWords(WordsBoard board)
+        /// <summary>
+        /// Writes the board master's Headline and Details into the board's texels from the font table (LedWords), and uploads the
+        /// texture once. The Headline is placed by HeadlineShare and HeadlineY, the Details by DetailsShare and DetailsY.
+        /// </summary>
+        void WriteWords(WordsBoard board)
         {
             Screen s = board.Master;
-            BoardWordsMaterial.Follow(_words, _font);
-            if (!board.Texture.IsCreated()) board.Texture.Create();
-            // Looks at the screen from 1 m in front, straight on, with the screen filling the picture: the words objects stand
-            // 0.03 m in front of it, so what the texture holds is what a viewer facing the screen sees.
-            Quaternion turn = Quaternion.LookRotation(-s.Facing);
-            Matrix4x4 view = Matrix4x4.Scale(new Vector3(1f, 1f, -1f)) * Matrix4x4.TRS(s.Centre + s.Facing, turn, Vector3.one).inverse;
-            Matrix4x4 projection = GL.GetGPUProjectionMatrix(Matrix4x4.Ortho(-s.Width / 2f, s.Width / 2f, -s.Height / 2f, s.Height / 2f, 0.1f, 2f), false);
-            _draw.Clear();
-            _draw.SetRenderTarget(board.Texture);
-            _draw.ClearRenderTarget(true, true, Color.black);
-            _draw.SetViewProjectionMatrices(view, projection);
-            foreach (TextMesh t in new[] { s.Headline, s.Details })
-                if (t.text.Length > 0) _draw.DrawRenderer(t.GetComponent<Renderer>(), _words, 0, 0);
-            _draw.GenerateMips(board.Texture);
-            Graphics.ExecuteCommandBuffer(_draw);
+            System.Array.Clear(board.Cells, 0, board.Cells.Length);
+            LedWords.Plot(board.Cells, s.CellsX, s.CellsY, LedWords.Place(s.Headline, s.CellsX, s.CellsY, HeadlineShare, HeadlineY));
+            LedWords.Plot(board.Cells, s.CellsX, s.CellsY, LedWords.Place(s.Details, s.CellsX, s.CellsY, DetailsShare, -DetailsY));
+            for (int i = 0; i < board.Cells.Length; i++) board.Texels[i] = board.Cells[i] ? (byte)255 : (byte)0;
+            board.Texture.SetPixelData(board.Texels, 0);
+            board.Texture.Apply(false);
             board.Stale = false;
-            _wordsRenders++;
+            _wordsUploads++;
         }
 
         void SetFrame(Color colour)
@@ -295,52 +286,6 @@ namespace HockeyGame
             if (colour == _frameColour) return;
             _frameColour = colour;
             _frame.color = colour;
-        }
-
-        /// <summary>
-        /// Sets the words object's text and puts it on the LED grid: its capitals a whole number of cells tall (never taller than asked
-        /// for, or wider than the screen allows), the baseline of the first line on a cell boundary and the lines a whole number of
-        /// cells apart. A flat capital then covers whole cells, and a round letter's overshoot past the cap line or baseline (about
-        /// a quarter of a cell) is under half of the cell it reaches into, so it does not light it.
-        /// yOffset: where the words object's origin is above the screen's centre, before the baseline is moved onto the grid.
-        /// </summary>
-        void SetWords(Screen s, TextMesh t, string text, Color colour, float yOffset, float height)
-        {
-            t.text = text;
-            t.color = colour;
-            float cell = (float)_cell;
-            float scale = TextScale(text, height, s.Width * TextWidth);
-            int capCells = Mathf.Max(1, Mathf.FloorToInt(CapPx * 0.1f * scale / cell));
-            scale = capCells * cell / (CapPx * 0.1f);
-            t.transform.localScale = new Vector3(scale, scale, 1f);
-            float lineMetres = LinePx * 0.1f * scale;
-            float pitch = Mathf.Max(1f, Mathf.Round(lineMetres / cell)) * cell; // between two lines' baselines
-            t.lineSpacing = pitch / lineMetres;
-            int lines = 1;
-            foreach (char c in text) if (c == '\n') lines++;
-            // The first line's baseline above the screen's bottom edge (the grid's first row line), and the nudge that puts it on a row line.
-            float baseline = s.Height / 2f + yOffset - BaselinePx * 0.1f * scale + (lines - 1) / 2f * pitch;
-            float nudge = Mathf.Round(baseline / cell) * cell - baseline;
-            t.transform.position = s.Centre + s.Facing * TextLift + s.Up * (yOffset + nudge);
-        }
-
-        /// <summary>The words' scale: each line height metres tall (one font size in TextMesh units is 0.1), narrowed so the longest line fits maxWidth.</summary>
-        float TextScale(string text, float height, float maxWidth)
-        {
-            float scale = height / (FontSize * 0.1f);
-            float widest = 0f;
-            foreach (string line in text.Split('\n'))
-            {
-                if (line.Length == 0) continue;
-                _font.RequestCharactersInTexture(line, FontSize, FontStyle.Bold);
-                BoardWordsMaterial.Follow(_words, _font);
-                float advance = 0f;
-                foreach (char c in line)
-                    if (_font.GetCharacterInfo(c, out CharacterInfo info, FontSize, FontStyle.Bold))
-                        advance += info.advance;
-                widest = Mathf.Max(widest, advance * 0.1f * scale);
-            }
-            return widest > maxWidth ? scale * maxWidth / widest : scale;
         }
 
         void BuildVideoBoard()
@@ -382,23 +327,17 @@ namespace HockeyGame
                 AddCable(_centreBoard, middle + new Vector3(x * w * 0.4f, h / 2f + FrameMargin, z * w * 0.4f));
         }
 
-        // The words' RenderTexture: a whole number of LED cells (the screens are) at WordsPixelsPerCell pixels each, so its edges lie on the
-        // screen's cell grid and a mip level averages exactly one cell. R8 holds the coverage (the words are white on black).
+        // The words' texture: exactly one texel per LED cell (the screens are whole cells), R8, point filtered, clamped, no mips.
         WordsBoard NewWordsBoard(string name, float width, float height)
         {
-            int p = LedBoardMaterial.WordsPixelsPerCell;
             int cellsX = Mathf.RoundToInt((float)(width / _cell)), cellsY = Mathf.RoundToInt((float)(height / _cell));
-            RenderTextureFormat format = SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.R8) ? RenderTextureFormat.R8 : RenderTextureFormat.ARGB32;
-            var texture = new RenderTexture(cellsX * p, cellsY * p, 0, format, RenderTextureReadWrite.Linear)
+            var texture = new Texture2D(cellsX, cellsY, TextureFormat.R8, false, true)
             {
                 name = name,
-                useMipMap = true,
-                autoGenerateMips = false,
                 filterMode = FilterMode.Point,
                 wrapMode = TextureWrapMode.Clamp
             };
-            texture.Create();
-            var board = new WordsBoard { Texture = texture, Stale = true };
+            var board = new WordsBoard { Texture = texture, Texels = new byte[cellsX * cellsY], Cells = new bool[cellsX * cellsY], Stale = true };
             _boards.Add(board);
             return board;
         }
@@ -417,41 +356,21 @@ namespace HockeyGame
             var renderer = quad.GetComponent<Renderer>();
             renderer.shadowCastingMode = ShadowCastingMode.Off;
             renderer.receiveShadows = false;
-            var screen = new Screen { Centre = centre, Facing = facing, Width = width, Height = height, Picture = renderer, Board = board };
+            var screen = new Screen
+            {
+                Centre = centre, Facing = facing, Width = width, Height = height, Picture = renderer, Board = board, WordsColour = _skinWords,
+                CellsX = Mathf.RoundToInt((float)(width / _cell)), CellsY = Mathf.RoundToInt((float)(height / _cell))
+            };
             screen.WordsMaterial = LedBoardMaterial.WordsOnScreen("Video Board Words " + index, _cell, board.Texture, _skinWords, _skinBack);
             renderer.sharedMaterial = screen.WordsMaterial;
             if (board.Master == null) board.Master = screen;
             Vector3 up = turn * Vector3.up;
             screen.Up = up;
-            screen.Headline = AddWords(parent, name + " Headline " + index, centre + facing * TextLift + up * height * HeadlineY, turn);
-            screen.Details = AddWords(parent, name + " Details " + index, centre + facing * TextLift - up * height * DetailsY, turn);
             // One LED grid per screen, starting at its lower-left corner (as the player sees it): whole cells at the edges.
-            // The words' RenderTexture has its edges there too. (The words objects are drawn into it, not into the arena.)
+            // The words' texture has one texel per cell, its first texel at that corner.
             Vector3 corner = centre - turn * Vector3.right * (width / 2f) - up * (height / 2f);
             LedBoardMaterial.Anchor(renderer, corner);
             _screens.Add(screen);
-        }
-
-        TextMesh AddWords(Transform parent, string name, Vector3 position, Quaternion turn)
-        {
-            var words = new GameObject(name);
-            words.transform.SetParent(parent, false);
-            words.transform.SetPositionAndRotation(position, turn);
-            var text = words.AddComponent<TextMesh>();
-            text.font = _font;
-            text.fontSize = FontSize;
-            text.characterSize = 1f;
-            text.fontStyle = FontStyle.Bold;
-            text.anchor = TextAnchor.MiddleCenter;
-            text.alignment = TextAlignment.Center;
-            var renderer = words.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial = _words;
-            renderer.shadowCastingMode = ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
-            // No camera draws the words objects (the Shooter Camera, the Replay Camera, a test's camera whatever its layer or mask):
-            // they are only the source of the text VideoBoards draws into the board's RenderTexture. The screen shows that.
-            renderer.enabled = false;
-            return text;
         }
 
         void AddBox(Transform parent, string name, Vector3 centre, Quaternion turn, Vector3 size, Material material)
@@ -467,20 +386,15 @@ namespace HockeyGame
             renderer.sharedMaterial = material;
         }
 
-        /// <summary>Frees the materials the boards made (not the shown picture: the Replay owns it; the words' material is ours; not the font's).</summary>
+        /// <summary>Frees the materials the boards made (not the shown picture: the Replay owns it) and the words textures.</summary>
         void OnDestroy()
         {
-            foreach (Material m in new[] { _picture, _frame, _cable, _stillPicture, _words })
+            foreach (Material m in new[] { _picture, _frame, _cable, _stillPicture })
                 if (m != null) SceneObjects.DestroySafely(m);
             foreach (Screen s in _screens)
                 if (s.WordsMaterial != null) SceneObjects.DestroySafely(s.WordsMaterial);
             foreach (WordsBoard b in _boards)
-                if (b.Texture != null)
-                {
-                    b.Texture.Release();
-                    SceneObjects.DestroySafely(b.Texture);
-                }
-            _draw?.Release();
+                if (b.Texture != null) SceneObjects.DestroySafely(b.Texture);
         }
 
         void AddCable(Transform parent, Vector3 bottom)

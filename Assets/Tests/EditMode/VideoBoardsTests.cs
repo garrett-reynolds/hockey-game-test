@@ -374,7 +374,7 @@ namespace HockeyGame.Core.Tests
                     Assert.AreEqual(boards.HeadlineOn(0), boards.HeadlineOn(i), state.VideoBoard + ", screen " + i);
                     Assert.AreEqual(boards.DetailsOn(0), boards.DetailsOn(i), state.VideoBoard + ", screen " + i);
                     Assert.AreEqual(boards.WordsColourOn(0), boards.WordsColourOn(i), state.VideoBoard + ", screen " + i);
-                    // Words: each screen has its own material on its board's RenderTexture; they must show the same colours.
+                    // Words: each screen has its own material on its board's texels; they must show the same colours.
                     Material a = boards.PictureOn(0), b = boards.PictureOn(i);
                     Assert.AreEqual(a.color, b.color, "the same colour on every screen");
                     Assert.AreEqual(a.GetColor("_Backdrop"), b.GetColor("_Backdrop"), "the same backdrop on every screen");
@@ -454,23 +454,18 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void Every_words_material_on_the_Video_Board_and_the_Centre_Board_is_depth_tested_and_draws_front_faces_only()
+        public void The_words_are_LED_cells_of_the_screens_own_material_with_no_text_objects()
         {
             VideoBoards boards = VideoBoards.Build(_rink.transform);
             boards.Show(At(RoundPhase.SkateIn), 0.0);
-            TextMesh[] words = boards.GetComponentsInChildren<TextMesh>(true);
-            Assert.AreEqual(10, words.Length, "2 words objects on each of the 5 screens");
-            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            foreach (TextMesh t in words)
+            Assert.AreEqual(0, boards.GetComponentsInChildren<TextMesh>(true).Length, "no text objects: the words are cells of the screens' textures");
+            for (int i = 0; i < boards.ScreenCount; i++)
             {
-                Material m = t.GetComponent<Renderer>().sharedMaterial;
-                Assert.AreEqual(LedBoardMaterial.ShaderName, m.shader.name, t.name);
-                Assert.IsTrue(m.shader.isSupported, t.name + " shader works");
-                BoardWordsAssert.AssertSolid(m, t.name);
-                Assert.AreNotSame(font.material, m, t.name + " is not the font's own material");
-                Assert.IsFalse(t.GetComponent<Renderer>().enabled, t.name + " is never drawn by a camera: VideoBoards draws its text into the board's RenderTexture");
+                Material m = boards.PictureOn(i);
+                Assert.AreEqual(LedBoardMaterial.ShaderName, m.shader.name, "screen " + i);
+                Assert.IsTrue(m.shader.isSupported, "screen " + i + " shader works");
+                Assert.AreEqual((int)UnityEngine.Rendering.RenderQueue.Geometry, m.renderQueue, "screen " + i + " is a solid screen, not blended text");
             }
-            Assert.AreEqual(font.material.mainTexture, boards.WordsMaterial.mainTexture, "the font's atlas");
         }
 
         // ---- LED look (#121) ----
@@ -499,18 +494,16 @@ namespace HockeyGame.Core.Tests
                         Assert.AreEqual(LedBoardMaterial.ShaderName, m.shader.name, "screen " + i + " " + m.name);
                         Assert.AreEqual(cell, LedBoardMaterial.CellOf(m), 1e-6f, "screen " + i + " cell size");
                     }
-                    Assert.AreEqual(10, boards.GetComponentsInChildren<TextMesh>(true).Length);
-                    // The words are a picture on the screen now (the words objects are text sources, not LED cells): the screen's material
-                    // reads the board's words RenderTexture (whole cells, WordsPixelsPerCell pixels each) and is lit by coverage.
+                    // The words are a picture on the screen: the screen's material reads the board's words texture (one texel per cell) and
+                    // lights a cell when its texel is on.
                     if (!ReferenceEquals(boards.PictureOn(0).mainTexture, boards.WordsTextureOn(0))) continue; // the Calm still or the Replay picture
                     for (int i = 0; i < boards.ScreenCount; i++)
                     {
-                        RenderTexture rt = boards.WordsTextureOn(i);
-                        Assert.AreSame(rt, boards.PictureOn(i).mainTexture, "screen " + i + " shows its board's words");
-                        Assert.AreEqual(boards.SizeOf(i).x / cell * LedBoardMaterial.WordsPixelsPerCell, rt.width, 1e-3f, "screen " + i + " texture width: whole cells of pixels");
-                        Assert.AreEqual(boards.SizeOf(i).y / cell * LedBoardMaterial.WordsPixelsPerCell, rt.height, 1e-3f, "screen " + i + " texture height");
-                        Assert.AreEqual(LedBoardMaterial.WordsLitAbove, boards.PictureOn(i).GetFloat("_LitAbove"), "screen " + i);
-                        Assert.AreEqual(3f, boards.PictureOn(i).GetFloat("_CellMip"), 1e-4f, "screen " + i + " reads the mip that averages 8 x 8 pixels");
+                        Texture2D texels = boards.WordsTextureOn(i);
+                        Assert.AreSame(texels, boards.PictureOn(i).mainTexture, "screen " + i + " shows its board's words");
+                        Assert.AreEqual(boards.SizeOf(i).x / cell, texels.width, 1e-3f, "screen " + i + " texture width: one texel per cell");
+                        Assert.AreEqual(boards.SizeOf(i).y / cell, texels.height, 1e-3f, "screen " + i + " texture height");
+                        Assert.AreEqual(0.5f, boards.PictureOn(i).GetFloat("_LitAbove"), "screen " + i + " lights a cell for a texel of 1");
                     }
                 }
             }
@@ -535,7 +528,7 @@ namespace HockeyGame.Core.Tests
                 int found = 0;
                 foreach (Renderer r in boards.GetComponentsInChildren<Renderer>(true))
                 {
-                    if (!r.name.EndsWith("Screen " + i)) continue; // the words objects are not on the grid: they are drawn into the screen's RenderTexture
+                    if (!r.name.EndsWith("Screen " + i)) continue; // the frame and cables are not on the grid
                     found++;
                     r.GetPropertyBlock(block);
                     Vector4 origin = block.GetVector("_GridOrigin");
@@ -555,33 +548,41 @@ namespace HockeyGame.Core.Tests
             Assert.GreaterOrEqual(RinkLayout.CentreBoardScreenHeight * 0.24 / cell, 14, "Headline cells tall on the Centre Board");
             Assert.GreaterOrEqual(RinkLayout.CentreBoardScreenHeight * 0.11 / cell, 5, "Details cells tall on the smallest Centre Board screen");
             Assert.GreaterOrEqual(RinkLayout.VideoBoardHeight * 0.11 / cell, 5, "Details cells tall on the Video Board");
+            // In the LED font a Headline's capitals are 7 x scale rows: a short word is at least 14 rows tall on both boards, and every line is at least 7.
+            foreach (int[] size in new[] { new[] { 143, 78 }, new[] { 110, 65 } })
+            {
+                Assert.GreaterOrEqual(LedWords.Place("GOAL!", size[0], size[1], VideoBoards.HeadlineShare, VideoBoards.HeadlineY).Scale * LedFont.CapHeight, 14, "Headline rows tall, " + size[0] + " cells across");
+                Assert.GreaterOrEqual(LedWords.Place("SHOOT TO PLAY", size[0], size[1], VideoBoards.DetailsShare, -VideoBoards.DetailsY).Scale * LedFont.CapHeight, 7, "Details rows tall, " + size[0] + " cells across");
+            }
         }
 
         [Test]
-        public void A_static_frame_draws_no_words_and_a_text_change_draws_each_board_once()
+        public void A_static_frame_uploads_nothing_and_a_text_change_uploads_each_board_once()
         {
             VideoBoards boards = VideoBoards.Build(_rink.transform);
-            int idle = boards.WordsRenders;
-            Assert.AreEqual(2, idle, "the Video Board's words and the Centre Board's, drawn once when built");
+            int idle = boards.WordsUploads;
+            Assert.AreEqual(2, idle, "the Video Board's texture and the Centre Board's, uploaded once when built");
             boards.Show(At(RoundPhase.SkateIn), 0.0);
-            int built = boards.WordsRenders;
-            Assert.AreEqual(idle + 2, built, "the Skate-in words differ from the start card's: one draw each");
+            int built = boards.WordsUploads;
+            Assert.AreEqual(idle + 2, built, "the Skate-in words differ from the start card's: one upload each");
             for (int frame = 1; frame <= 30; frame++) boards.Show(At(RoundPhase.SkateIn), frame / 60.0);
-            Assert.AreEqual(built, boards.WordsRenders, "30 frames with the same words: no RenderTexture is drawn");
+            Assert.AreEqual(built, boards.WordsUploads, "30 frames with the same words: no upload");
             boards.ShowPicture(null);
-            Assert.AreEqual(built, boards.WordsRenders, "showing the words again draws nothing");
+            Assert.AreEqual(built, boards.WordsUploads, "showing the words again uploads nothing");
             boards.Show(At(RoundPhase.ResultHold, 1.0, ArenaResult.Goal), 1.0);
-            Assert.AreEqual(built + 2, boards.WordsRenders, "new text on both boards: one draw each");
+            Assert.AreEqual(built + 2, boards.WordsUploads, "new text on both boards: one upload each");
             boards.Show(At(RoundPhase.ResultHold, 1.0, ArenaResult.Goal), 1.5);
-            Assert.AreEqual(built + 2, boards.WordsRenders, "the same words again: nothing");
+            Assert.AreEqual(built + 2, boards.WordsUploads, "the same words again: nothing");
+            boards.PaintWords(0, Color.green);
+            Assert.AreEqual(built + 2, boards.WordsUploads, "a colour is a material value: no upload");
         }
 
-        // Cost (#121 Task 3b): the words RenderTextures and how often a Round draws them. 60 frames of each phase, as the game runs them.
+        // Cost (#121 Task 3c): the words textures and how often a Round uploads them. 60 frames of each phase, as the game runs them.
         [Test]
-        public void A_Round_of_6_Shots_draws_the_words_a_few_dozen_times_and_the_textures_take_under_2_MB()
+        public void A_Round_of_6_Shots_uploads_the_words_a_few_dozen_times_and_the_textures_take_under_20_KB()
         {
             VideoBoards boards = VideoBoards.Build(_rink.transform);
-            int start = boards.WordsRenders;
+            int start = boards.WordsUploads;
             var results = new[] { ArenaResult.Goal, ArenaResult.Save, ArenaResult.WideMiss, ArenaResult.TooLate, ArenaResult.Goal, ArenaResult.Save };
             double clock = 0.0;
             int goals = 0;
@@ -605,13 +606,14 @@ namespace HockeyGame.Core.Tests
                 if (results[shot - 1] == ArenaResult.Goal) goals++;
             }
             for (int frame = 0; frame < 60; frame++) boards.Show(ArenaShow.At(new ArenaShowInput { Phase = RoundPhase.RoundOver, PhaseSeconds = frame / 60.0, Goals = goals, ShotNumber = 6, BestScore = 3 }), clock += 1.0 / 60.0);
-            int round = boards.WordsRenders - start;
-            Assert.AreEqual(2, boards.WordsTextureCount, "one RenderTexture for the Video Board, one shared by the Centre Board's four screens");
-            Assert.Less(boards.WordsTextureBytes, 2 * 1024 * 1024, "all mip levels");
+            int round = boards.WordsUploads - start;
+            Assert.AreEqual(2, boards.WordsTextureCount, "one texture for the Video Board, one shared by the Centre Board's four screens");
+            Assert.AreEqual(143 * 78 + 110 * 65, boards.WordsTextureBytes, "R8, one byte per LED cell: 18,304 bytes");
+            Assert.Less(boards.WordsTextureBytes, 20 * 1024);
             Assert.AreEqual(0, round % 2, "the boards change together");
-            // Measured: 15 changes of words, each drawn once on each board (2 x 15). The Calm Area's empty words are never drawn (the
-            // screens show the still colour), and words that repeat the last drawn ones cost nothing.
-            Assert.AreEqual(30, round, "draws in a Round of 6 Shots (" + boards.WordsTextureBytes + " bytes of textures)");
+            // Measured: 15 changes of words, each uploaded once on each board (2 x 15). The Calm Area's empty words are never written (the
+            // screens show the still colour), and words that repeat the last written ones cost nothing.
+            Assert.AreEqual(30, round, "uploads in a Round of 6 Shots (" + boards.WordsTextureBytes + " bytes of textures)");
         }
 
         [Test]
@@ -622,13 +624,13 @@ namespace HockeyGame.Core.Tests
             try
             {
                 var made = new System.Collections.Generic.HashSet<Material>();
+                var textures = new System.Collections.Generic.List<Texture2D>();
                 void Collect()
                 {
-                    foreach (Renderer r in boards.GetComponentsInChildren<Renderer>())
-                        if (r.GetComponent<TextMesh>() == null) made.Add(r.sharedMaterial); // the words' font material is Unity's
+                    foreach (Renderer r in boards.GetComponentsInChildren<Renderer>()) made.Add(r.sharedMaterial);
                 }
                 Collect();
-                made.Add(boards.WordsMaterial); // the words' material is ours now
+                for (int i = 0; i < boards.ScreenCount; i++) textures.Add(boards.WordsTextureOn(i));
                 boards.Show(At(RoundPhase.ShootingWindow), 0.0); // the Calm Area's still picture
                 Collect();
                 boards.ShowPicture(replay);
@@ -637,6 +639,7 @@ namespace HockeyGame.Core.Tests
                 Object.DestroyImmediate(boards.gameObject);
 
                 foreach (Material m in made) Assert.IsTrue(m == null, m + " freed");
+                foreach (Texture2D t in textures) Assert.IsTrue(t == null, "a words texture freed");
                 Assert.IsTrue(replay != null, "the Replay picture is the Replay's own");
             }
             finally
