@@ -9,7 +9,7 @@ namespace HockeyGame
     /// to the puck), for each Save Reaction's gear reaching the puck's line, and times each move with the gear speeds and the
     /// push limit (RoundSettings). The puck's edges count (GoalieCharacter.Touches). With no goalie character (no model, or
     /// the block goalie developer flag) no gear can reach: every Shot on the Net Face is a Goal. The Gaps use the same body,
-    /// spot and facing, so a cell is a Gap exactly when Reach finds no gear in the way at its centre.
+    /// spot and facing; a Gap is a cell with room all round the puck (GoalieCharacter.GapRoomMetres), so it is never a cell Reach finds gear in the way of.
     /// </summary>
     public sealed class GoalieCharacterReach : IGoalieReach
     {
@@ -48,6 +48,14 @@ namespace HockeyGame
             }
             if (inTheWay) return GoalieReachAnswer.AlreadyInTheWay(quickest);
             return quickest.HasValue ? GoalieReachAnswer.Reaches(quickest.Value, quickestSeconds) : GoalieReachAnswer.NoGearReaches;
+        }
+
+        /// <summary>Whether gear or body is in the way of a puck with a Gap's room all round it, at this one Net Face point (what makes a Gap, cell by cell).</summary>
+        public bool InTheWayWithRoom(SetUp setUp, AttackSide side, double secondsSinceWindowOpened, RinkPoint shotStart, RinkPoint netPoint)
+        {
+            if (_character == null || !_character.Present) return false;
+            RinkPoint spot = SetUps.Spot(setUp, side, secondsSinceWindowOpened, shotStart, _settings);
+            return _character.MeasureOneInTheWay(ToVector(spot), (float)SetUps.Facing(spot, shotStart), ToVector(shotStart), ToVector(netPoint));
         }
 
         /// <summary>

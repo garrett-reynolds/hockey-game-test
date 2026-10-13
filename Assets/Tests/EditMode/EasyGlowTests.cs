@@ -291,7 +291,7 @@ namespace HockeyGame.Core.Tests
             int covered = 0, glowing = 0;
             var problems = new List<string>();
             foreach (AttackSide side in new[] { AttackSide.Left, AttackSide.Middle, AttackSide.Right })
-            foreach (SetUp setUp in new[] { SetUp.Cheat(Post.Left), SetUp.Cheat(Post.Right), SetUp.Depth })
+            foreach (SetUp setUp in new[] { SetUp.Cheat(Post.Left), SetUp.Cheat(Post.Right), SetUp.Depth, SetUp.Clean, SetUp.Of(SetUpKind.LateSettle, Post.Left), SetUp.Of(SetUpKind.LateSettle, Post.Right) })
             {
                 Vector3 eye = ShooterEyes.Of(side).First().Item2; // the window opens
                 RinkPoint start = Breakaway.ShotStart(side, 0, Defaults);

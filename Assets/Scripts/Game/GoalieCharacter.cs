@@ -526,7 +526,7 @@ namespace HockeyGame
             bool blocked = false;
             bool reaches = InReadyStanceAt(spot, facing, () =>
             {
-                blocked = Touches(from, to);
+                blocked = Touches(from, to); // the race keeps the plain puck: only the Gaps ask for room (#134)
                 Vector3 readyHips = Bone(HumanBodyBones.Hips).position;
                 var start = new Dictionary<string, Vector3>();
                 foreach (var kv in _gearShapes) start[kv.Key] = GearPoint(kv.Key);
@@ -560,7 +560,7 @@ namespace HockeyGame
             }
             InReadyStanceAt(spot, facing, () =>
             {
-                for (int i = 0; i < to.Length; i++) inTheWay[i] = Touches(from, to[i]);
+                for (int i = 0; i < to.Length; i++) inTheWay[i] = InThePuckWay(from, to[i]);
                 return true;
             });
         }
@@ -741,6 +741,55 @@ namespace HockeyGame
             Vector3.zero, Vector3.left * (GoalieShape.LinePuckDiameter / 2f), Vector3.right * (GoalieShape.LinePuckDiameter / 2f),
             Vector3.up * (GoalieShape.LinePuckDiameter / 2f), Vector3.down * (GoalieShape.LinePuckDiameter / 2f),
         };
+
+        /// <summary>
+        /// A Gap leaves this much room (metres) all round the puck's edges (#134). The physics puck meets the goalie's hit shapes (a
+        /// box round each piece of gear, a fat capsule on each limb), not the meshes this measure casts at, and his gear starts
+        /// moving in as the Shot goes: a cell the puck only just fits would be saved too often. GapShotTests, 90 seeded Shots at the
+        /// centre of a shown Gap: Goal rate by room 0 m 61 %, 0.03 m 69 %, 0.06 m 72 %, 0.09 m 83 % (shown Gaps 15, 13, 11, 9 cells on average).
+        /// </summary>
+        public const float GapRoomMetres = 0.09f;
+
+        const int RoomRingPoints = 16;
+        const float RoomCastRadius = 0.04f;
+
+        /// <summary>A ring of points round the puck's line, so that with each cast RoomCastRadius wide their reach ends GapRoomMetres past the puck's edge (and neighbours overlap: nothing as thin as a stick shaft slips between).</summary>
+        static readonly Vector3[] RoomRing = MakeRoomRing();
+
+        static Vector3[] MakeRoomRing()
+        {
+            float radius = GoalieShape.LinePuckDiameter / 2f + GapRoomMetres + GoalieShape.LinePuckThickness / 2f - RoomCastRadius;
+            var ring = new Vector3[RoomRingPoints];
+            for (int i = 0; i < RoomRingPoints; i++)
+            {
+                float angle = i * 2f * Mathf.PI / RoomRingPoints;
+                ring[i] = new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0f) * radius;
+            }
+            return ring;
+        }
+
+        /// <summary>
+        /// Whether his gear or body (as last placed) is in the puck's way with room to spare: the plain puck (Touches) or a ring of
+        /// casts round it reaching GapRoomMetres past its edge. Only the Gaps use this: a Gap is never in the way for Reach, but a
+        /// cell nothing is in the way of may be too tight to be a Gap.
+        /// </summary>
+        bool InThePuckWay(Vector3 from, Vector3 to)
+        {
+            if (Touches(from, to)) return true;
+            GoalieShape obstacles = Placed();
+            from = NearGoalie(from, to);
+            foreach (Vector3 point in RoomRing)
+                if (obstacles.Cast(from + point, to + point, RoomCastRadius, out _, out _, null)) return true;
+            return false;
+        }
+
+        /// <summary>As MeasureInTheWay, for one point (the Reach side of the same measure, so a test can compare the two routes).</summary>
+        public bool MeasureOneInTheWay(Vector3 spot, float facing, Vector3 from, Vector3 to)
+        {
+            var one = new bool[1];
+            MeasureInTheWay(spot, facing, from, new[] { to }, one);
+            return one[0];
+        }
 
         /// <summary>The reaction's gear and body as placed now (AddReaction), in one GoalieShape reused for every check.</summary>
         GoalieShape Placed()

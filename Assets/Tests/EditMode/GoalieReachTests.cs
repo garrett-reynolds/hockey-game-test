@@ -195,20 +195,30 @@ namespace HockeyGame.Core.Tests
         [TestCase(SetUpKind.Cheat, AttackSide.Middle, 0.0)]
         [TestCase(SetUpKind.Depth, AttackSide.Left, 0.5)]
         [TestCase(SetUpKind.LateSettle, AttackSide.Right, 0.3)]
-        public void A_cell_is_a_Gap_exactly_when_the_race_finds_no_gear_in_the_way_at_its_centre(SetUpKind kind, AttackSide side, double windowSeconds)
+        public void A_cell_is_a_Gap_exactly_when_nothing_is_in_the_way_of_the_puck_with_room_and_never_when_the_race_finds_gear_there(SetUpKind kind, AttackSide side, double windowSeconds)
         {
             GoalieCharacterReach port = Port(out _);
             SetUp setUp = SetUp.Of(kind, Post.Left);
             RinkPoint start = Breakaway.ShotStart(side, windowSeconds, Defaults);
             NetFaceGaps gaps = port.Gaps(setUp, side, windowSeconds, start, 0, NetFaceGaps.Cells);
             Assert.Greater(gaps.Count, 0, "a Set-up Mistake leaves some Gap (else this test proves nothing)");
+            int free = 0;
             for (int column = 0; column < NetFaceGaps.Columns; column++)
             for (int row = 0; row < NetFaceGaps.Rows; row++)
             {
                 NetFaceGaps.CellCentre(column, row, out double x, out double y);
-                GoalieReachAnswer answer = port.Reach(setUp, side, windowSeconds, start, RinkPoint.OnNetFace(x, y));
-                Assert.AreEqual(!answer.InTheWay, gaps.IsGap(column, row), "cell " + column + "," + row + ": " + answer);
+                RinkPoint centre = RinkPoint.OnNetFace(x, y);
+                GoalieReachAnswer answer = port.Reach(setUp, side, windowSeconds, start, centre);
+                // A Gap has room all round the puck (#134): a cell is a Gap exactly when nothing is in the way of the puck plus that
+                // room (measured here cell by cell, the other route to the same measure) ...
+                Assert.AreEqual(!port.InTheWayWithRoom(setUp, side, windowSeconds, start, centre), gaps.IsGap(column, row), "cell " + column + "," + row);
+                // ... and room only takes cells away: a Gap is never a cell the race finds gear in the way of.
+                if (gaps.IsGap(column, row)) Assert.IsFalse(answer.InTheWay, "cell " + column + "," + row + " is a Gap but: " + answer);
+                if (!answer.InTheWay) free++;
             }
+            // ... but not too many away: a measure that shrank the Gaps to a few cells would still pass the lines above. The room takes
+            // away about a fifth to a half of the free cells in these three cases (78, 52 and 86 % stay); a third or less is too far.
+            Assert.GreaterOrEqual(gaps.Count, free * 0.4,gaps.Count + " Gaps of " + free + " cells with nothing in the way");
         }
 
         [Test]
