@@ -38,7 +38,9 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(0.04, settings.ReactionWobbleSeconds, Tol);
             Assert.AreEqual(8.0, settings.HandMetresPerSecond, Tol);
             Assert.AreEqual(6.0, settings.LegMetresPerSecond, Tol);
-            Assert.AreEqual(4.0, settings.PushMetresPerSecond, Tol);
+            Assert.AreEqual(0.3, settings.ShuffleMaxMetres, Tol);
+            Assert.AreEqual(40, settings.PushAccelMetresPerSecondSquared, Tol);
+            Assert.AreEqual(20, settings.GlideDecelMetresPerSecondSquared, Tol);
             Assert.AreEqual(0.6, settings.MaxPushMetres, Tol);
             Assert.AreEqual(0.2, settings.NormalDepthMetres, Tol);
         }
