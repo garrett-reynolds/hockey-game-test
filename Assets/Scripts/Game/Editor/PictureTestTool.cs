@@ -78,6 +78,32 @@ namespace HockeyGame.Editor
             new PicturePoint("right-late-settle", AttackSide.Right, SetUp.LateSettle(Post.Left)),
         };
 
+        /// <summary>A picture-only skate-push view (#126): a move of MetresSigned along X, shown U (0 to 1) of the way through its time,
+        /// or (Reaction) a Glove save far to +X at set 0.25. Not in the measures or the comparison.</summary>
+        public readonly struct PushPicture
+        {
+            public readonly string Name;
+            public readonly double MetresSigned;
+            public readonly double U;
+            public readonly bool Reaction;
+            public PushPicture(string name, double metresSigned, double u, bool reaction) { Name = name; MetresSigned = metresSigned; U = u; Reaction = reaction; }
+        }
+
+        /// <summary>Last in the list is the reaction, so the others never see a reaction's leftovers.</summary>
+        public static readonly PushPicture[] PushViews =
+        {
+            new PushPicture("push-shuffle", -0.2, 0.15, false),
+            new PushPicture("push-tpush-lead", -0.5, 0.2, false),
+            new PushPicture("push-tpush-square", -0.5, 0.8, false),
+            new PushPicture("push-reaction", 0, 0, true),
+        };
+
+        const float PushCameraMetres = 2.5f, PushCameraHeight = 0.55f, PushLookHeight = 0.9f, PushFieldOfView = 40f, PushReactionSet = 0.25f;
+        // Far to the glove side (+X): the Shot comes from 3 m out to that side at the net's corner, so the arm alone cannot reach and he
+        // slides (0.15 m at set 0.25, 0.6 m at full). From the middle the same aim needs no slide.
+        const float PushReactionFromX = 3f;
+        const double PushReactionX = 100, PushReactionY = 60;
+
         public static string ViewName(PicturePoint point, bool easyMode) => point.Name + (easyMode ? "-easy-on" : "-easy-off");
 
         // ---- Entry points ----
@@ -266,7 +292,7 @@ namespace HockeyGame.Editor
                 var character = new GoalieCharacter(rink);
                 if (!character.Present) throw new InvalidOperationException("The goalie model did not load: the picture test needs it.");
                 Goalie = new GoalieView(rink, character);
-                _effects = new PhysicsShotEffects(rink, Camera, new GoalRateTool.SystemRandom(1), Goalie); // the goal light and netting, as the game has them
+                _effects =new PhysicsShotEffects(rink, Camera, new GoalRateTool.SystemRandom(1), Goalie); // the goal light and netting, as the game has them
                 _reach = new GoalieCharacterReach(character, Settings);
                 _look = BreakawayView.MakeLookVolume(Camera.transform);
                 SetLayer(character.Root.transform, GoalieLayer);
@@ -314,6 +340,37 @@ namespace HockeyGame.Editor
                 return gaps;
             }
 
+            /// <summary>Poses the close push camera and the goalie for a push view (a function of the push shown and the set).</summary>
+            public void PosePush(PushPicture p)
+            {
+                const RoundPhase phase = RoundPhase.ShootingWindow;
+                const double t = WindowSeconds;
+                Goalie.ShowBeforeTheShot(Vector3.zero, 0f, 0f, null);
+                Goalie.ShowGaps(NetFaceGaps.None);
+                // (Task 4 seam: reset the push shown here, then Goalie.ShowPush(...) after Live below.)
+                RinkPoint spot = SetUps.Approach(SetUp.Clean, AttackSide.Middle, phase, t, Settings);
+                RinkPoint puck = Breakaway.Puck(AttackSide.Middle, phase, t, Settings);
+                float toShooter = puck.Z >= spot.Z ? 1f : -1f;
+                float x = 0f;
+                if (!p.Reaction)
+                {
+                    var move = new SkatePush(p.MetresSigned, Settings);
+                    x = (float)move.Position(p.U * move.TotalSeconds);
+                }
+                var at = new Vector3(x, (float)spot.Y, (float)spot.Z);
+                Goalie.Stand(at);
+                Goalie.Face(0f, 0f);
+                Goalie.Live(LifeSeconds);
+                Transform cam = Camera.transform;
+                Camera.fieldOfView = PushFieldOfView;
+                cam.position = new Vector3(at.x, at.y + PushCameraHeight, at.z + toShooter * PushCameraMetres);
+                cam.LookAt(new Vector3(at.x, at.y + PushLookHeight, at.z));
+                if (!p.Reaction) return;
+                var result = new ShotResult(ShotResultKind.Save, true, PushReactionX, PushReactionY, 100, false);
+                Goalie.React(result, new Vector3(PushReactionFromX, 1.15f, (float)puck.Z), SaveReaction.Glove, double.PositiveInfinity, Settings.LateMarginLimitSeconds);
+                Goalie.SetProgress(PushReactionSet);
+            }
+
             static Vector3 ToVector(RinkPoint p) => new Vector3((float)p.X, (float)p.Y, (float)p.Z);
         }
 
@@ -348,6 +405,11 @@ namespace HockeyGame.Editor
                         rig.Goalie.ShowGaps(easyMode ? gaps : NetFaceGaps.None);
                         set.Views.Add(Measure(rig, target, texture, ViewName(point, easyMode), gaps, folder));
                     }
+                }
+                foreach (PushPicture push in PushViews)
+                {
+                    rig.PosePush(push); // picture only, like middle-clean: not in the measures or the comparison
+                    WritePng(texture, Capture(rig.Camera, target, texture, ~0, true), Path.Combine(folder, push.Name + ".png"));
                 }
                 File.WriteAllText(Path.Combine(folder, MeasuresFile), JsonUtility.ToJson(set, true));
                 return set;
