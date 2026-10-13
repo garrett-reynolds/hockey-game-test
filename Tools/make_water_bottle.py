@@ -1,8 +1,8 @@
 # Writes the water bottle model as OBJ+MTL and its body picture as PNG, in metres, Y up (#163).
 #   py -3 Tools/make_water_bottle.py Assets/Resources/Models
 # A Gatorade-style squeeze bottle (Garrett's reference picture, personal project: the logo is fine): a green body 7.5 cm wide with a
-# grip waist, a silver-grey swoosh band and the white "G" with the orange bolt on the front, an orange cap with ridged rings, a
-# flat top and a low push-pull valve. 25 cm tall in all, base at y = 0, standing on its axis (the game lays it on its side). Each part is a lathe (a
+# grip waist, a silver-grey swoosh band and the white "G" with the orange bolt on the front, a short orange cap as wide as
+# the body with a flat top and a nearly flush valve. 20.7 cm tall in all, base at y = 0, standing on its axis (the game lays it on its side). Each part is a lathe (a
 # profile turned round the Y axis). The body's UVs run round (u) and up (v) its picture, bottle-body.png (the game puts that picture
 # on the body's material); the cap and nozzle are one plain orange.
 # Needs Pillow and Windows' Arial Black or Arial Bold (as make_ads.py).
@@ -14,10 +14,10 @@ BODY_TOP = 0.186
 # (radius, height) points from the bottom up. The body is closed at the bottom by a point on the axis.
 BODY = [(0.0, 0.0), (0.030, 0.0), (0.0365, 0.006), (0.0375, 0.016), (0.0375, 0.050), (0.0352, 0.072), (0.0345, 0.092),
         (0.0352, 0.112), (0.0375, 0.134), (0.0372, 0.146), (0.0355, 0.158), (0.0285, 0.172), (0.0190, 0.181), (0.0170, BODY_TOP)]
-# A tall ridged cap with a flat top and a low, flat push-pull valve (no tall spout: Garrett, 2026-10-13).
-CAP = [(0.0170, BODY_TOP), (0.0235, 0.188), (0.0235, 0.196), (0.0212, 0.198), (0.0212, 0.202), (0.0235, 0.204), (0.0235, 0.214),
-       (0.0212, 0.216), (0.0212, 0.220), (0.0235, 0.222), (0.0235, 0.236), (0.0215, 0.242), (0.0185, 0.244), (0.0130, 0.244)]
-NOZZLE = [(0.0130, 0.244), (0.0125, 0.249), (0.0115, 0.250), (0.0, 0.250)]
+# A short, wide cap as wide as the green body (7.5 cm) and about 2.1 cm tall, with a flat top and a nearly flush valve
+# (Garrett, 2026-10-13: no spout; cap the body's width and a third of the old cap's height).
+CAP = [(0.0170, BODY_TOP), (0.0375, BODY_TOP), (0.0375, 0.204), (0.0360, 0.2055), (0.0130, 0.2055)]
+NOZZLE = [(0.0130, 0.2055), (0.0120, 0.2073), (0.0, 0.2073)]
 
 # (part, material, profile, has body picture)
 PARTS = [("Body", "Bottle Body", BODY), ("Cap", "Cap Orange", CAP), ("Nozzle", "Cap Orange", NOZZLE)]

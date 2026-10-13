@@ -55,7 +55,7 @@ namespace HockeyGame.Core.Tests
         {
             Bounds b = Look(WaterBottle.Build(_rink.transform));
 
-            Assert.AreEqual(0.25f, b.size.x, 0.01f, "length (it lies across the net)");
+            Assert.AreEqual(WaterBottle.Height, b.size.x, 0.01f, "length (it lies across the net)");
             Assert.That(b.size.y, Is.InRange(0.07f, 0.08f), "thickness");
             Assert.That(b.size.z, Is.InRange(0.07f, 0.08f), "depth");
         }

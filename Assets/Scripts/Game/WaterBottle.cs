@@ -4,7 +4,7 @@ using UnityEngine;
 namespace HockeyGame
 {
     /// <summary>
-    /// The water bottle on top of the net (#163): a green Gatorade-style squeeze bottle, real size (25 cm long, 7.5 cm wide), lying on its
+    /// The water bottle on top of the net (#163): a green Gatorade-style squeeze bottle, real size (20.7 cm long with its short cap, 7.5 cm wide), lying on its
     /// side across the net's top, near the back and toward the middle, like a real goalie's. The model is Assets/Resources/Models/bottle.obj (Tools/make_water_bottle.py),
     /// or a green cylinder when there is none. It has a Rigidbody and one box collider, and it lies on the catch roof (ShotColliders),
     /// the net's top for physics. While it sits it is kinematic, so it never drifts; the knock-off (#164) lets it go.
@@ -19,7 +19,7 @@ namespace HockeyGame
         /// <summary>The bottle's physics layer, and the puck's (PhysicsPuck.Layer): the layer rule ignores collisions between them. Unnamed layers.</summary>
         public const int Layer = 28;
 
-        public const float Height = 0.25f, Width = 0.075f;
+        public const float Height = 0.207f, Width = 0.075f;
         /// <summary>A full bottle (kg).</summary>
         public const float Mass = 0.8f;
         /// <summary>
