@@ -121,7 +121,7 @@ The thin LED strip that runs around the stands. It shows ads, and words such as 
 _Avoid_: LED ribbon, ticker
 
 **LED cell**:
-One dot of a board's picture; a Video Board or Ribbon Board draws a grid of them with thin dark gaps, and its picture is one flat colour per cell (the cell size is a rink size in metres).
+One dot of a board's picture; a Video Board or Ribbon Board draws a grid of them with thin dark gaps, and its picture is one flat colour per cell (the cell size is a rink size in metres, one per board kind: the Video Board and Centre Board share one, the Ribbon Board has its own).
 _Avoid_: pixel, LED dot
 
 **LED font**:

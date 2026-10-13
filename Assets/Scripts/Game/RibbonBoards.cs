@@ -7,7 +7,9 @@ namespace HockeyGame
 {
     /// <summary>
     /// The Ribbon Boards: LED panels all round the stands, on the arena model's ribbon ring between the tiers (it hides the
-    /// model's own plain "Ribbon" part). They only follow the Arena Show (Show): brand ads that cycle, the result words
+    /// model's own plain "Ribbon" part). Each panel is a grid of square LED cells (RinkLayout.RibbonBoardLedCell, with a dark gap)
+    /// starting at its lower-left corner; its words are the LED font (LedFont) written into a small texture with one texel per
+    /// whole cell, shown through the LED shader. They only follow the Arena Show (Show): brand ads that cycle, the result words
     /// (GOAL!, SAVE, OFF THE POST!, OFF THE BAR!), and in the Calm Area behind the near net one dim still colour from goalie
     /// set to the Shot. A panel is in the Calm Area when it stands behind the near end boards. A Team Skin may give the
     /// panels edges in a team colour: a thin strip along the top and bottom of each panel, never in the Calm Area (the
@@ -33,59 +35,74 @@ namespace HockeyGame
         public const float AdSeconds = 5f;
 
         const float Inset = 0.05f;       // the panels stand just inside the model's ribbon
-        const float TextLift = 0.02f;    // the words stand just in front of their panel
-        const float BigText = 0.8f, SmallText = 0.45f, AdText = 0.6f; // word heights (metres)
-        const float TextWidth = 0.9f;    // share of a panel the words may fill
+        const float TextLift = 0.02f;    // the edge strips stand just in front of their panel
+        // The largest scale (cells per font dot) each kind of words may take: the panel is 24 cells tall, so 3 is 21 rows of capitals.
+        const int BigScale = 3, SmallScale = 2, AdScale = 2;
         /// <summary>The height of a team-coloured edge strip (metres), on the panel's top and bottom.</summary>
         public const float EdgeHeight = 0.08f;
         /// <summary>The name of the team-coloured edge strips.</summary>
         public const string EdgePart = "Ribbon Edge";
-        const int FontSize = 64;
-        const float AdGlow = 0.85f;      // an ad's background glows this much of its colour
-        static readonly int EmissionColour = Shader.PropertyToID("_EmissionColor");
+        const float AdGlow = 1f;         // an ad's background shows this much of its colour (1: the same as the Video Board shows the brand; ruling F1)
         static readonly Color WordsBack = new Color32(14, 16, 22, 255);
+        static readonly float Cell = (float)RinkLayout.RibbonBoardLedCell;
+        static readonly int CellsUp = Mathf.RoundToInt(Height / Cell);
+        static readonly int BackdropId = Shader.PropertyToID("_Backdrop");
 
         sealed class Panel
         {
             public Vector3 Centre;
             public float Length;
             public ArenaZone Zone;
-            public Material Back;
-            public TextMesh Words;
+            public Material Back;          // the LED material: the words texture in picture mode, the words colour and the backdrop
+            public Texture2D Texture;      // one R8 texel per whole LED cell along the panel and up it
+            public byte[] Texels;
+            public int CellsX;
+            public LedWords.Fitted Fit;
             // What it shows now, so Show changes only what changed (it runs every frame).
             public string Text;
-            public Color Fore, Glow;
-            public float TextHeight = -1f;
+            public int MaxScale;
+            public Color Fore, Backdrop;
         }
 
         readonly List<Panel> _panels = new List<Panel>();
-        Font _font;
-        Material _words;
+        bool[] _cells = new bool[0];
+        int _wordsUploads;
         Material _edge; // the skin's edge colour; null: no edges
 
         public int PanelCount => _panels.Count;
-        /// <summary>The one material every words object uses (depth-tested, front faces only).</summary>
-        public Material WordsMaterial => _words;
+        /// <summary>How many times a panel's words texture was uploaded (only when a panel's words change).</summary>
+        public int WordsUploads => _wordsUploads;
         /// <summary>The ring's panels left out because the Video Board hides them wholly (their two ends), for tests.</summary>
         public readonly List<(Vector2 From, Vector2 To)> LeftOut = new List<(Vector2 From, Vector2 To)>();
         public Vector3 CentreOf(int panel) => _panels[panel].Centre;
         public float LengthOf(int panel) => _panels[panel].Length;
         public ArenaZone ZoneOf(int panel) => _panels[panel].Zone;
-        public string TextOn(int panel) => _panels[panel].Words.text;
-        public Color TextColourOn(int panel) => _panels[panel].Words.color;
-        /// <summary>The panel's own light: its colour as seen (the panel is black and matte, so it shows only its glow).</summary>
-        public Color BackOn(int panel) => _panels[panel].Back.GetColor(EmissionColour);
-        public float TextScaleOn(int panel) => _panels[panel].Words.transform.localScale.x;
+        /// <summary>The words the Arena Show asked the panel for (a long ad may show fewer letters: FitOn).</summary>
+        public string TextOn(int panel) => _panels[panel].Text ?? "";
+        /// <summary>The colour of the panel's lit cells.</summary>
+        public Color TextColourOn(int panel) => _panels[panel].Back.color;
+        /// <summary>The colour of the panel's cells with no words (what it shows as its background).</summary>
+        public Color BackOn(int panel) => _panels[panel].Back.GetColor(BackdropId);
+        /// <summary>Cells per font dot of the panel's words (0: none).</summary>
+        public float TextScaleOn(int panel) => _panels[panel].Fit.Scale;
+        /// <summary>Whole LED cells along the panel (the texture's width); the partial cell at the right-hand end shows the backdrop colour.</summary>
+        public int CellsAcross(int panel) => _panels[panel].CellsX;
+        /// <summary>The panel's words texture (R8, one texel per cell, row 0 at the bottom).</summary>
+        public Texture2D WordsTextureOn(int panel) => _panels[panel].Texture;
+        /// <summary>Where the panel's words sit: the letters kept, their scale, left column and baseline row.</summary>
+        public LedWords.Fitted FitOn(int panel) => _panels[panel].Fit;
 
         public static Color ColourOf(ArenaColour c) => new Color32(c.R, c.G, c.B, 255);
 
-        /// <summary>Frees the materials the boards made: each panel's glow and the edge strips' and the words' material (not the font's).</summary>
+        /// <summary>Frees what the boards made: each panel's LED material and words texture, and the edge strips' material.</summary>
         void OnDestroy()
         {
             foreach (Panel p in _panels)
+            {
                 if (p.Back != null) SceneObjects.DestroySafely(p.Back);
+                if (p.Texture != null) SceneObjects.DestroySafely(p.Texture);
+            }
             if (_edge != null) SceneObjects.DestroySafely(_edge);
-            if (_words != null) SceneObjects.DestroySafely(_words);
         }
 
         /// <summary>Adds the Ribbon Boards under rink, with the skin's edges (null: the League Skin's), and hides the arena
@@ -99,8 +116,6 @@ namespace HockeyGame
             var root = new GameObject("Ribbon Boards");
             root.transform.SetParent(rink, false);
             var ribbons = root.AddComponent<RibbonBoards>();
-            ribbons._font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            ribbons._words = BoardWordsMaterial.Make(ribbons._font, 0.0); // #122 sets the Ribbon Board cell size (0: no LED look until then)
             if (skin.RibbonEdgesOn)
             {
                 ribbons._edge = ArenaLighting.Glow(Color.black, skin.RibbonEdge);
@@ -130,47 +145,47 @@ namespace HockeyGame
                 {
                     case RibbonMessage.Ads:
                         Brands.Brand b = Brands.All[(adStep + i) % Brands.All.Length];
-                        Apply(p, b.AdWords, ColourOf(b.AdFore), ColourOf(b.AdBack), AdGlow, AdText);
+                        Apply(p, b.AdWords, ColourOf(b.AdFore), ColourOf(b.AdBack), AdGlow, AdScale);
                         break;
                     case RibbonMessage.CalmStill:
                         Color still = ColourOf(board.Colour);
-                        Apply(p, "", still, still, 1f, AdText);
+                        Apply(p, "", still, still, 1f, AdScale);
                         break;
                     default:
-                        Apply(p, board.Text, ColourOf(board.Colour), WordsBack, 1f, board.Small ? SmallText : BigText);
+                        Apply(p, board.Text, ColourOf(board.Colour), WordsBack, 1f, board.Small ? SmallScale : BigScale);
                         break;
                 }
             }
         }
 
-        void Apply(Panel p, string text, Color fore, Color back, float glow, float height)
+        // The colours are material values (no upload); the words are written into the panel's texels, and uploaded, only when they change.
+        void Apply(Panel p, string text, Color fore, Color back, float glow, int maxScale)
         {
-            Color light = back * glow;
-            if (p.Text == text && p.Fore == fore && p.Glow == light && p.TextHeight == height) return;
+            var backdrop = new Color(back.r * glow, back.g * glow, back.b * glow, 1f);
+            if (p.Fore != fore || p.Backdrop != backdrop)
+            {
+                p.Fore = fore;
+                p.Backdrop = backdrop;
+                LedBoardMaterial.SetWordsColours(p.Back, fore, backdrop);
+            }
+            if (p.Text == text && p.MaxScale == maxScale) return;
             p.Text = text;
-            p.Fore = fore;
-            p.Glow = light;
-            p.TextHeight = height;
-            p.Back.SetColor(EmissionColour, light);
-            p.Words.text = text;
-            p.Words.color = fore;
-            float scale = TextScale(text, height, p.Length * TextWidth);
-            p.Words.transform.localScale = new Vector3(scale, scale, 1f);
+            p.MaxScale = maxScale;
+            WriteWords(p);
         }
 
-        /// <summary>The words' scale: height metres tall (one font size in TextMesh units is 0.1), narrowed to fit maxWidth.</summary>
-        float TextScale(string text, float height, float maxWidth)
+        // Lays the words out in whole cells (LedWords.PlaceWhole: descenders counted, whole letters only) and uploads the texture once.
+        void WriteWords(Panel p)
         {
-            float scale = height / (FontSize * 0.1f);
-            if (text.Length == 0) return scale;
-            _font.RequestCharactersInTexture(text, FontSize, FontStyle.Bold);
-            BoardWordsMaterial.Follow(_words, _font);
-            float advance = 0f;
-            foreach (char c in text)
-                if (_font.GetCharacterInfo(c, out CharacterInfo info, FontSize, FontStyle.Bold))
-                    advance += info.advance;
-            float width = advance * 0.1f * scale;
-            return width > maxWidth ? scale * maxWidth / width : scale;
+            int count = p.CellsX * CellsUp;
+            if (_cells.Length < count) _cells = new bool[count];
+            System.Array.Clear(_cells, 0, count);
+            p.Fit = LedWords.PlaceWhole(p.Text, p.CellsX, CellsUp, p.MaxScale);
+            LedWords.Plot(_cells, p.CellsX, CellsUp, p.Fit);
+            for (int i = 0; i < count; i++) p.Texels[i] = _cells[i] ? (byte)255 : (byte)0;
+            p.Texture.SetPixelData(p.Texels, 0);
+            p.Texture.Apply(false);
+            _wordsUploads++;
         }
 
         void AddPanel(int index, Vector2 from, Vector2 to)
@@ -197,30 +212,28 @@ namespace HockeyGame
             var renderer = quad.GetComponent<Renderer>();
             renderer.shadowCastingMode = ShadowCastingMode.Off;
             renderer.receiveShadows = false;
-            // Black and matte: no arena light or shine on it, so it shows only the colour it glows (the Calm Area's stays dim).
-            Material back = ArenaLighting.Glow(Color.black, Color.black);
-            back.SetFloat("_Smoothness", 0f);
+            // An LED panel: a grid of square cells with a dark gap, the grid starting at the panel's lower-left corner as the viewer
+            // sees it (the right-hand end cell is partial). The words are a texture with one texel per whole cell, shown in picture mode;
+            // the texture is a little narrower than the quad, so its uv is stretched to put every texel on its cell (the partial end
+            // reads the last texel, which is blank). The shader needs no light: the panel shows only its cells.
+            int cellsX = Mathf.Max(1, Mathf.FloorToInt(length / Cell));
+            var texture = new Texture2D(cellsX, CellsUp, TextureFormat.R8, false, true)
+            {
+                name = "Ribbon Panel words " + index,
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp
+            };
+            Material back = LedBoardMaterial.WordsOnScreen("Ribbon Panel " + index, Cell, texture, Color.white, Color.black);
+            back.mainTextureScale = new Vector2(length / (cellsX * Cell), 1f);
             renderer.sharedMaterial = back;
-
-            var words = new GameObject("Ribbon Words " + index);
-            words.transform.SetParent(transform, false);
-            words.transform.SetPositionAndRotation(centre - outward * TextLift, facing);
-            var text = words.AddComponent<TextMesh>();
-            text.font = _font;
-            text.fontSize = FontSize;
-            text.characterSize = 1f;
-            text.fontStyle = FontStyle.Bold;
-            text.anchor = TextAnchor.MiddleCenter;
-            text.alignment = TextAlignment.Center;
-            var wordsRenderer = words.GetComponent<MeshRenderer>();
-            wordsRenderer.sharedMaterial = _words;
-            wordsRenderer.shadowCastingMode = ShadowCastingMode.Off;
-            wordsRenderer.receiveShadows = false;
+            Vector3 corner = centre - quad.transform.right * (length / 2f) - Vector3.up * (Height / 2f);
+            LedBoardMaterial.Anchor(renderer, corner);
 
             ArenaZone zone = centre.z > RinkBoards.EndZ ? ArenaZone.CalmArea
                 : centre.z > (RinkBoards.EndZ + RinkBoards.FarZ) / 2f ? ArenaZone.Near
                 : ArenaZone.Far;
-            _panels.Add(new Panel { Centre = centre, Length = length, Zone = zone, Back = back, Words = text });
+            _panels.Add(new Panel { Centre = centre, Length = length, Zone = zone, Back = back, Texture = texture,
+                                 Texels = new byte[cellsX * CellsUp], CellsX = cellsX });
             if (_edge != null && zone != ArenaZone.CalmArea) // the Calm Area's panels stay one dim still colour
                 foreach (float side in new[] { 1f, -1f })
                     AddEdge(centre + Vector3.up * side * (Height - EdgeHeight) / 2f - outward * TextLift / 2f, facing, length);

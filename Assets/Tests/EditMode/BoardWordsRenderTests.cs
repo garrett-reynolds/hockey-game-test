@@ -39,9 +39,17 @@ namespace HockeyGame.Core.Tests
         static bool IsGreen(Color32 c) => c.g > 204 && c.r < 90 && c.b < 90;
         static bool IsYellow(Color32 c) => c.r > 204 && c.g > 204 && c.b < 90;
 
-        static void Paint(Component root, Color colour)
+        // The Ribbon Boards' words are LED cells of their panels (#122, no text objects): paint every lit and unlit cell of every panel.
+        static string PaintPanels(Component root, Color colour)
         {
-            foreach (TextMesh t in root.GetComponentsInChildren<TextMesh>()) t.color = colour;
+            string shader = "";
+            foreach (Renderer r in root.GetComponentsInChildren<Renderer>())
+            {
+                if (!r.name.StartsWith("Ribbon Panel")) continue;
+                LedBoardMaterial.SetWordsColours(r.sharedMaterial, colour, colour);
+                shader = r.sharedMaterial.shader.name;
+            }
+            return shader;
         }
 
         // The Video Board's and Centre Board's words are LED cells of their screens (no text objects), so their colour is the screen's
@@ -140,8 +148,7 @@ namespace HockeyGame.Core.Tests
             boards.Show(Words(), 0.0);
             ribbons.Show(Words(), 0.0);
             PaintScreens(boards, 0, 0, new Color(0.1f, 1f, 0.1f));
-            Paint(ribbons, new Color(1f, 1f, 0.1f));
-            string shader = ribbons.GetComponentInChildren<TextMesh>().GetComponent<Renderer>().sharedMaterial.shader.name;
+            string shader = PaintPanels(ribbons, new Color(1f, 1f, 0.1f));
 
             int through = 0, own = 0;            foreach (AttackSide side in new[] { AttackSide.Left, AttackSide.Middle, AttackSide.Right })
             foreach (double u in new[] { 0.0, 0.5, 1.0 })
@@ -206,9 +213,9 @@ namespace HockeyGame.Core.Tests
     {
         /// <summary>Unity has no runtime API for a pass's ZTest or Cull, so this reads the shader file the build ships;
         /// the render tests are the proof by pixels.</summary>
-        public static void AssertSolid(Material m, string what)
+        public static void AssertSolid(Material m, string what, int queue)
         {
-            Assert.AreEqual((int)RenderQueue.AlphaTest, m.renderQueue, what + " draws in the AlphaTest queue, after the solid screens");
+            Assert.AreEqual(queue, m.renderQueue, what + " draws in the " + (RenderQueue)queue + " queue");
             string text = File.ReadAllText(Path.Combine(Application.dataPath, "Resources/Lighting/LedBoard.shader"));
             StringAssert.Contains("ZTest LEqual", text, what);
             StringAssert.Contains("ZWrite On", text, what);

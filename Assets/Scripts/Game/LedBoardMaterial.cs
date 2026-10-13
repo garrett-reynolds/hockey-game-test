@@ -4,7 +4,7 @@ using UnityEngine.Rendering;
 namespace HockeyGame
 {
     /// <summary>
-    /// Materials for the LED boards (shader Hockey Game/LED Board): the Video Board and Centre Board now, the Ribbon Boards in #122.
+    /// Materials for the LED boards (shader Hockey Game/LED Board): the Video Board, Centre Board and Ribbon Boards.
     /// A screen's picture and its words (one texel per cell in the LED font, shown as a picture) share one grid of square cells with a
     /// dark gap, anchored at the screen's corner so the edge cells are whole. The builder that makes a material frees it.
     /// </summary>
@@ -22,13 +22,10 @@ namespace HockeyGame
         static readonly int GapShareId = Shader.PropertyToID("_GapShare");
         static readonly int GapColourId = Shader.PropertyToID("_GapColour");
         static readonly int GridOrigin = Shader.PropertyToID("_GridOrigin");
-        static readonly int SrcBlend = Shader.PropertyToID("_SrcBlend");
-        static readonly int DstBlend = Shader.PropertyToID("_DstBlend");
         static readonly int LitAbove = Shader.PropertyToID("_LitAbove");
         static readonly int Backdrop = Shader.PropertyToID("_Backdrop");
-        static readonly int FontAtlas = Shader.PropertyToID("_FontAtlas");
 
-        /// <summary>A screen's material: shows its colour (times a picture, if one is set as mainTexture). A cell of 0 m means no LED look.</summary>
+        /// <summary>A screen's material: shows its colour (times a picture, if one is set as mainTexture).</summary>
         public static Material Screen(string name, double cellMetres, Color colour)
         {
             var screen = Make(name, cellMetres);
@@ -57,21 +54,6 @@ namespace HockeyGame
             m.SetColor(Backdrop, backdrop);
         }
 
-        /// <summary>
-        /// The material that draws smooth text from the font's atlas (mainTexture): depth-tested, front faces only, drawn after the
-        /// screens. The text is always smooth (the Ribbon Boards' plain look until #122); cellMetres is only recorded on the material.
-        /// </summary>
-        public static Material PlainText(string name, double cellMetres)
-        {
-            var text = Make(name, cellMetres);
-            text.SetFloat(FontAtlas, 1f);
-            // Smooth text needs blending; the LED look is opaque.
-            text.SetFloat(SrcBlend, (float)BlendMode.SrcAlpha);
-            text.SetFloat(DstBlend, (float)BlendMode.OneMinusSrcAlpha);
-            text.renderQueue = (int)RenderQueue.AlphaTest;
-            return text;
-        }
-
         /// <summary>Starts the renderer's cell grid at worldOrigin (the screen's lower-left corner).</summary>
         public static void Anchor(Renderer renderer, Vector3 worldOrigin)
         {
@@ -81,7 +63,7 @@ namespace HockeyGame
             renderer.SetPropertyBlock(block);
         }
 
-        /// <summary>The cell size the material was made with, in metres (0: no LED look).</summary>
+        /// <summary>The cell size the material was made with, in metres.</summary>
         public static float CellOf(Material m) => m.GetFloat(CellSize);
 
         static Material Make(string name, double cellMetres)

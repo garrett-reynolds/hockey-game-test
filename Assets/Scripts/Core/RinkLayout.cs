@@ -119,6 +119,9 @@ namespace HockeyGame.Core
         public const double RibbonOffset = StandsFront + LowerRows * RowDepth;
         public const double RibbonBottom = StandsFrontHeight + LowerRows * LowerRise;
         public const double RibbonHeight = 1.2;
+        /// <summary>The side of one LED cell on the Ribbon Boards (metres): a panel is a whole number of cells tall (RibbonHeight / cell = 24);
+        /// its length is not, so its right-hand end cell is partial and shows the backdrop colour (a blank margin texel). The place to tune how coarse the Ribbon look is.</summary>
+        public const double RibbonBoardLedCell = 0.05;
         /// <summary>The upper tier above the Ribbon Board ring: rows of seats, each RowDepth deep and UpperRise higher than the one in front.</summary>
         public const double UpperRise = 0.55;
         public const int UpperRows = 13;
