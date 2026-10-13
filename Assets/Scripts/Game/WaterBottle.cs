@@ -61,15 +61,7 @@ namespace HockeyGame
             root.transform.SetParent(rink, false);
             root.transform.localPosition = new Vector3(CentreX + Height / 2f, BaseY + Width / 2f, Z);
             root.transform.localRotation = Lying;
-            GameObject model = ModelFiles.Place(root.transform, ModelFiles.WaterBottle, PlaceholderBottle, findFile, null);
-            // The body's picture (the swoosh and the G with the bolt, Tools/make_water_bottle.py), on a copy of the body's material.
-            Texture picture = Resources.Load<Texture2D>(ModelFiles.Folder + "/" + BodyPicture);
-            foreach (Renderer part in model.GetComponentsInChildren<Renderer>())
-            {
-                if (part.name != "Body" || picture == null) continue;
-                var material = new Material(part.sharedMaterial) { mainTexture = picture, color = Color.white };
-                part.sharedMaterial = material;
-            }
+            PlaceLook(root.transform, findFile);
 
             var box = root.AddComponent<BoxCollider>();
             box.center = new Vector3(0f, Height / 2f, 0f);
@@ -83,6 +75,34 @@ namespace HockeyGame
             var made = new WaterBottle { Root = root, Body = body, RestPosition = root.transform.position, RestRotation = root.transform.rotation };
             root.AddComponent<Link>().Bottle = made;
             return made;
+        }
+
+        /// <summary>The bottle's picture under root: the model (or the placeholder), with the body's picture on a copy of its material.</summary>
+        static void PlaceLook(Transform root, Func<string, GameObject> findFile)
+        {
+            GameObject model = ModelFiles.Place(root, ModelFiles.WaterBottle, PlaceholderBottle, findFile, null);
+            // The body's picture (the swoosh and the G with the bolt, Tools/make_water_bottle.py), on a copy of the body's material.
+            Texture picture = Resources.Load<Texture2D>(ModelFiles.Folder + "/" + BodyPicture);
+            foreach (Renderer part in model.GetComponentsInChildren<Renderer>())
+            {
+                if (part.name != "Body" || picture == null) continue;
+                var material = new Material(part.sharedMaterial) { mainTexture = picture, color = Color.white };
+                part.sharedMaterial = material;
+            }
+        }
+
+        /// <summary>
+        /// A bottle only to look at, under parent (the Replay's stand-in, ReplayView.ReplayBottle): drawn as the bottle is, with no
+        /// Rigidbody and no hit shapes, so nothing in physics meets it.
+        /// </summary>
+        public static GameObject MakeLook(Transform parent, Func<string, GameObject> findFile = null)
+        {
+            var look = new GameObject("Replay Water Bottle");
+            look.transform.SetParent(parent, false);
+            PlaceLook(look.transform, findFile);
+            foreach (Collider hit in look.GetComponentsInChildren<Collider>())
+                UnityEngine.Object.DestroyImmediate(hit); // the placeholder cylinder comes with one
+            return look;
         }
 
         /// <summary>Lets the Round driver find the bottle the rink built.</summary>

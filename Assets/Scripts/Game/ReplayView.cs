@@ -36,6 +36,8 @@ namespace HockeyGame
         Transform[] _parts;
         Func<Rigidbody> _livePuck;      // the current Shot's physics puck (null before the first); see ReplayPhysicsPuck
         GameObject _replayPuck;          // its stand-in: shown only on Replay frames
+        WaterBottle _liveBottle;         // the water bottle on the net (null without ReplayBottle); see ReplayBottle
+        GameObject _replayBottle;        // its stand-in: shown only on Replay frames
         readonly List<Renderer> _hiddenLive = new List<Renderer>(); // the live puck's renderers the Replay turned off
         readonly ReplayTrack _track = new ReplayTrack();
         ArenaState _show;
@@ -91,6 +93,21 @@ namespace HockeyGame
 
         /// <summary>The stand-in the Replay shows for the physics puck (null without ReplayPhysicsPuck).</summary>
         public GameObject ReplayPuck => _replayPuck;
+
+        /// <summary>
+        /// Replays the water bottle too (#164): it has a Rigidbody (a knocked bottle is free physics), so as with the puck its
+        /// pose goes onto a stand-in with no Rigidbody (WaterBottle.MakeLook), which the track records and the Replay shows while
+        /// the live bottle's renderers are off. The live bottle is never touched, so after the Replay it is just as the game has it.
+        /// </summary>
+        public void ReplayBottle(WaterBottle bottle, Func<string, GameObject> findFile = null)
+        {
+            _liveBottle = bottle;
+            _replayBottle = WaterBottle.MakeLook(transform, findFile);
+            _replayBottle.SetActive(false);
+        }
+
+        /// <summary>The stand-in the Replay shows for the water bottle (null without ReplayBottle).</summary>
+        public GameObject ReplayBottleLook => _replayBottle;
 
         /// <summary>The Arena Show's answer this frame: the Replay plays while its camera mode is Replay.</summary>
         public void Show(ArenaState show) => _show = show;
@@ -152,19 +169,29 @@ namespace HockeyGame
             }
             double seconds = _round.PhaseSecondsElapsed;
             PoseReplayPuck();
+            PoseReplayBottle();
             _track.Record(seconds);
             if (_replayPuck != null) _replayPuck.SetActive(false); // seen only on Replay frames
+            if (_replayBottle != null) _replayBottle.SetActive(false);
             if (_round.ResultShowing && seconds > ReplayTiming.ClipEnd(_round.ResultDelaySeconds) + RecordMargin) _recording = false;
         }
 
         /// <summary>What the track records: the parts given to Init, then the physics puck's stand-in.</summary>
         Transform[] Parts()
         {
-            if (_replayPuck == null) return _parts;
-            var parts = new Transform[_parts.Length + 1];
-            _parts.CopyTo(parts, 0);
-            parts[_parts.Length] = _replayPuck.transform;
-            return parts;
+            var parts = new List<Transform>(_parts);
+            if (_replayPuck != null) parts.Add(_replayPuck.transform);
+            if (_replayBottle != null) parts.Add(_replayBottle.transform);
+            return parts.ToArray();
+        }
+
+        /// <summary>The bottle's stand-in takes the live bottle's pose (read only), shown as the live bottle is.</summary>
+        void PoseReplayBottle()
+        {
+            if (_replayBottle == null) return;
+            bool shown = _liveBottle != null && _liveBottle.Root != null && _liveBottle.Root.activeInHierarchy;
+            if (shown) _replayBottle.transform.SetPositionAndRotation(_liveBottle.Root.transform.position, _liveBottle.Root.transform.rotation);
+            _replayBottle.SetActive(shown);
         }
 
         /// <summary>The stand-in takes the live puck's Rigidbody pose, shown as the live puck is (read only: physics keeps the puck).</summary>
@@ -182,7 +209,12 @@ namespace HockeyGame
         {
             if (_hiddenLive.Count > 0) return;
             Rigidbody live = _livePuck?.Invoke();
-            if (live == null) return;
+            if (live != null) HideRenderers(live.gameObject);
+            if (_replayBottle != null && _liveBottle != null && _liveBottle.Root != null) HideRenderers(_liveBottle.Root);
+        }
+
+        void HideRenderers(GameObject live)
+        {
             foreach (Renderer r in live.GetComponentsInChildren<Renderer>())
             {
                 if (!r.enabled) continue;

@@ -2,6 +2,7 @@ using HockeyGame;
 using HockeyGame.Core;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools.Utils;
 
 namespace HockeyGame.Core.Tests
 {
@@ -49,6 +50,31 @@ namespace HockeyGame.Core.Tests
             ReplayTrack track = Recorded();
             Assert.AreEqual(3, track.PartCount, "goalie, glove, puck");
             Assert.AreEqual(2, track.SampleCount);
+        }
+
+        [Test]
+        public void The_water_bottle_stand_in_has_no_physics_and_replays_the_bottle_falling_at_a_middle_moment()
+        {
+            var rink = new GameObject("Rink (replay bottle test)");
+            try
+            {
+                GameObject look = WaterBottle.MakeLook(rink.transform);
+                Assert.IsNull(look.GetComponentInChildren<Rigidbody>(), "no Rigidbody");
+                Assert.IsNull(look.GetComponentInChildren<Collider>(), "no hit shapes");
+                var track = new ReplayTrack();
+                track.Begin(look.transform); // refuses a part with a Rigidbody, so this also proves it
+                look.transform.SetPositionAndRotation(new Vector3(0f, 1.3f, 0.28f), Quaternion.identity);
+                track.Record(0);
+                look.transform.SetPositionAndRotation(new Vector3(0f, 0.1f, 2.0f), Quaternion.Euler(0f, 0f, 90f));
+                track.Record(1);
+                Vector3 live = look.transform.position;
+                track.Apply(0.5);
+                Assert.That(look.transform.position, Is.EqualTo(new Vector3(0f, 0.7f, 1.14f)).Using(Vector3EqualityComparer.Instance));
+                Assert.That(Quaternion.Angle(look.transform.rotation, Quaternion.Euler(0f, 0f, 45f)), Is.LessThan(0.1f));
+                track.Restore();
+                Assert.That(look.transform.position, Is.EqualTo(live).Using(Vector3EqualityComparer.Instance), "back to the live pose");
+            }
+            finally { Object.DestroyImmediate(rink); }
         }
 
         [Test]
