@@ -31,7 +31,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void The_Dev_part_lists_the_six_values_after_the_seven_already_there()
+        public void The_Dev_part_lists_the_Round_values_and_the_Gap_reach_before_the_Test_Mode_button()
         {
             var menu = DevMenu(new SaveData());
             Assert.AreEqual(15, menu.RowCount, "the six values and the Gap reach (#160) sit before the Test Mode button (#156), which stays last");
