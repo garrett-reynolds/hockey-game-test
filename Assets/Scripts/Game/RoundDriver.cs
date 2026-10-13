@@ -43,6 +43,7 @@ namespace HockeyGame
         int _testShotSpeedKmh = TestShotSpeed.DefaultKmh;
         GUIStyle _big, _mid, _small, _scoreBox;
         Texture2D _scoreBoxBack; // made with the styles; freed in OnDestroy
+        Texture2D _logo; // the Shootout logo, made with the styles; freed in OnDestroy
         ArenaState _show; // this frame's Arena Show, worked out once in Update and read by everything that frame, OnGUI too
         const float ScoreBoxWidth = 330f;
         TeamSkin _skin; // picked by the save file's teamSkin setting before the rink is built
@@ -209,7 +210,7 @@ namespace HockeyGame
             string testShots = _testShotsOn
                 ? "Test Shots: ON  (" + _testShotSpeedKmh + " km/h, wheel to change, F1 off)"
                 : "Test Shots: OFF  (F1 on)";
-            GUI.Label(new Rect(10, h - 34, w, 30), testShots, _small);
+            GUI.Label(StartScreenLayout.TestShots(w, h), testShots, _small);
 
             if (_flow.SettingsOpen)
             {
@@ -240,11 +241,12 @@ namespace HockeyGame
             switch (_flow.Screen)
             {
                 case FlowScreen.Start:
-                    GUI.Label(new Rect(0, h * 0.2f, w, 60), ArenaShow.GameName, _big);
-                    GUI.Label(new Rect(0, h * 0.2f + 70, w, 40), "Best score: " + _save.BestScore + " / " + Round.ShotsPerRound, _mid);
-                    GUI.Label(new Rect(0, h * 0.2f + 120, w, 40), "Shoot or press any key", _mid);
-                    GUI.Label(new Rect(0, h * 0.2f + 170, w, 40), _usb.StatusText, _mid);
-                    GUI.Label(new Rect(10, h - 64, w, 30), "F2: settings", _small);
+                    if (StartLogo.Shown(_flow)) // the Shootout logo takes the headline's place (#140)
+                        GUI.DrawTexture(StartScreenLayout.Logo(w, h), _logo, ScaleMode.StretchToFill, true);
+                    GUI.Label(StartScreenLayout.BestScore(w, h), "Best score: " + _save.BestScore + " / " + Round.ShotsPerRound, _mid);
+                    GUI.Label(StartScreenLayout.Prompt(w, h), "Shoot or press any key", _mid);
+                    GUI.Label(StartScreenLayout.UsbStatus(w, h), _usb.StatusText, _mid);
+                    GUI.Label(StartScreenLayout.SettingsHint(w, h), "F2: settings", _small);
                     break;
                 case FlowScreen.End:
                     GUI.Label(new Rect(0, h * 0.2f, w, 60), _round.Goals + " / " + Round.ShotsPerRound + " goals", _big);
@@ -309,6 +311,7 @@ namespace HockeyGame
             _scoreBox = new GUIStyle(GUI.skin.label) { fontSize = 22, alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
             _scoreBox.normal.background = back;
             _scoreBox.normal.textColor = boxText;
+            _logo = StartLogoArt.Make(); // about 0.35 s once, with the styles, not in the middle of play
         }
 
         void OnDestroy()
@@ -316,6 +319,7 @@ namespace HockeyGame
             _effects?.Dispose();
             _goalie?.Dispose();
             if (_scoreBoxBack != null) SceneObjects.DestroySafely(_scoreBoxBack);
+            if (_logo != null) SceneObjects.DestroySafely(_logo);
         }
 
         /// <summary>Where the Score Box is drawn on a screen this wide: the top-right corner.</summary>
