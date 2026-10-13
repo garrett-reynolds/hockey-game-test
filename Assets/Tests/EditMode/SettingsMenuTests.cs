@@ -62,6 +62,15 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual("Show the block goalie", menu.Label(0));
             Assert.AreEqual("OFF", menu.Value(0));
             Assert.AreEqual(SettingsRowKind.Toggle, menu.Kind(0));
+            Assert.AreEqual("(next launch)", menu.Hint(0), "the goalie is built when the game starts");
+        }
+
+        [Test]
+        public void Rows_that_act_at_once_have_no_hint()
+        {
+            var menu = NewMenu(new SaveData());
+            for (int i = 0; i < menu.RowCount; i++)
+                Assert.IsNull(menu.Hint(i), menu.Label(i));
         }
 
         [Test]

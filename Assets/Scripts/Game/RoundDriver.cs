@@ -131,7 +131,8 @@ namespace HockeyGame
             bool openedNow = false; // the page opened this frame: the click or key that opened it goes no further
             if (keyboard != null)
             {
-                if (keyboard.f2Key.wasPressedThisFrame || keyboard.escapeKey.wasPressedThisFrame)
+                // Esc is a Settings key on the start screen only; on the end screen it is "any key" again. F2 never starts anything.
+                if (keyboard.f2Key.wasPressedThisFrame || (keyboard.escapeKey.wasPressedThisFrame && _flow.EscapeIsSettingsKey))
                 {
                     _flow.ToggleSettings(); // does nothing during a Round or on the end screen
                     openedNow = _flow.SettingsOpen;
@@ -253,7 +254,6 @@ namespace HockeyGame
                     GUI.Label(new Rect(0, h * 0.2f + 70, w, 40), "Best score: " + _save.BestScore + " / " + Round.ShotsPerRound, _mid);
                     GUI.Label(new Rect(0, h * 0.2f + 120, w, 40), "Shoot or press any key", _mid);
                     GUI.Label(new Rect(0, h * 0.2f + 170, w, 40), _usb.StatusText, _mid);
-                    GUI.Label(new Rect(10, h - 64, w, 30), "Esc or F2: settings", _small);
                     break;
                 case FlowScreen.End:
                     GUI.Label(new Rect(0, h * 0.2f, w, 60), _round.Goals + " / " + Round.ShotsPerRound + " goals", _big);

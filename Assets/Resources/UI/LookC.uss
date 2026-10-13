@@ -19,7 +19,8 @@
 }
 
 .lc-topbar {
-    position: absolute; left: 0; top: 0; right: 0; height: 120px;
+    /* Fully opaque, and 150 px tall (down to the cards): the arena's Video Board text no longer shows through under the header. */
+    position: absolute; left: 0; top: 0; right: 0; height: 150px;
     background-color: rgb(10, 16, 34);
 }
 
@@ -38,24 +39,32 @@
     background-color: rgb(232, 190, 40);
 }
 
-.lc-tab {
-    position: absolute; top: 22px; width: 370px; height: 76px;
-    background-color: rgb(20, 60, 150);
+/* Header stripes: SlantShape draws them turned -18 degrees (USS cannot rotate a box); `color` is the stripe's colour. */
+.lc-stripes { position: absolute; left: 0; top: 0; width: 1920px; height: 120px; overflow: hidden; }
+.lc-stripes > * { left: 0; top: 0; right: 0; bottom: 0; }
+.lc-stripe-red { color: rgb(200, 30, 45); }
+.lc-stripe-white { color: rgb(255, 255, 255); }
+.lc-stripe-gold { color: rgb(232, 190, 40); }
+
+/* Tabs: slanted shapes (SlantShape, colour from `color`) with upright text on top. */
+.lc-tab { position: absolute; top: 22px; width: 370px; height: 76px; }
+.lc-tab-player { left: 1130px; }
+.lc-tab-dev { left: 1520px; }
+
+.lc-tab-fill { left: 0; top: 0; right: 0; bottom: 0; color: rgb(20, 60, 150); }
+.lc-tab-on .lc-tab-fill { color: rgb(232, 190, 40); }
+
+.lc-tab-border { left: -6px; top: -6px; right: -6px; bottom: -6px; color: rgba(255, 255, 255, 0); }
+.lc-tab-on .lc-tab-border { color: rgb(255, 255, 255); }
+
+.lc-tab-text {
+    position: absolute; left: 0; top: 0; right: 0; bottom: 0;
     color: rgb(255, 255, 255);
     font-size: 46px;
     -unity-font-style: bold-and-italic;
     -unity-text-align: middle-center;
 }
-
-.lc-tab-player { left: 1130px; }
-.lc-tab-dev { left: 1520px; }
-
-.lc-tab-on {
-    background-color: rgb(232, 190, 40);
-    color: rgb(10, 16, 34);
-    border-width: 6px;
-    border-color: rgb(255, 255, 255);
-}
+.lc-tab-on .lc-tab-text { color: rgb(10, 16, 34); }
 
 .lc-column { position: absolute; top: 150px; width: 880px; }
 .lc-left { left: 60px; }
@@ -140,6 +149,14 @@
 
 .lc-cell-on { background-color: rgb(0, 170, 70); }
 .lc-cell-off { background-color: rgb(200, 30, 45); }
+
+.lc-hint {
+    margin-right: 16px;
+    white-space: nowrap;
+    color: rgb(232, 190, 40);
+    font-size: 22px;
+    -unity-font-style: italic;
+}
 
 .lc-wide-cell {
     min-width: 220px; height: 40px;

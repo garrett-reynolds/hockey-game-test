@@ -66,6 +66,12 @@ namespace HockeyGame.Core
                 SettingsOpen = !SettingsOpen;
         }
 
+        /// <summary>
+        /// True when Esc opens or closes the Settings page: on the start screen only. Elsewhere Esc is an ordinary key
+        /// (on the end screen it counts as "any key", as it did before the page). F2 stays a Settings key everywhere.
+        /// </summary>
+        public bool EscapeIsSettingsKey => Screen == FlowScreen.Start;
+
         /// <summary>The Settings button on the start screen: opens the page (and leaves it open when it already is). Does nothing during a Round or on the end screen.</summary>
         public void OpenSettings()
         {

@@ -216,6 +216,21 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void Esc_is_the_Settings_key_on_the_start_screen_only_and_counts_as_any_key_on_the_end_screen()
+        {
+            var flow = NewFlow();
+            Assert.IsTrue(flow.EscapeIsSettingsKey, "start screen");
+            flow.Press();
+            Assert.IsFalse(flow.EscapeIsSettingsKey, "during a Round");
+            PlayRound(flow, 1);
+            Assert.AreEqual(FlowScreen.End, flow.Screen);
+            Assert.IsFalse(flow.EscapeIsSettingsKey, "end screen: Esc is an ordinary key again");
+            flow.Tick(3); // past the input-ignore time
+            flow.Press(); // what RoundDriver does with the Esc key there
+            Assert.AreEqual(FlowScreen.Start, flow.Screen);
+        }
+
+        [Test]
         public void The_Settings_button_opens_the_page_on_the_start_screen_and_a_second_click_leaves_it_open()
         {
             var flow = NewFlow();

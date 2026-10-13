@@ -37,7 +37,10 @@ namespace HockeyGame
         readonly GameObject _object;
         readonly VisualElement _root;
         readonly VisualElement _page, _content, _startButton;
-        readonly Label _tabPlayer, _tabDev, _reset, _hints;
+        const float StripeDegrees = -18f, TabSlant = 24f; // the header stripes' turn and the tabs' lean (tan 18 degrees x 76 px)
+        readonly VisualElement _tabPlayer, _tabDev;
+        readonly Label _reset, _hints;
+        readonly List<SlantShape> _tabShapes = new List<SlantShape>();
         readonly List<RowView> _rows = new List<RowView>();
         readonly List<Hit> _hits = new List<Hit>();
         SettingsMenu _menu;
@@ -70,10 +73,19 @@ namespace HockeyGame
             _page.AddToClassList("lc-page");
             _page.pickingMode = PickingMode.Ignore;
             var top = Add(_page, "lc-topbar");
+            // The header stripes turn -18 degrees about (900, 60) in the 1920 x 120 header, as in the #137 prototype.
+            var stripes = new VisualElement();
+            stripes.AddToClassList("lc-stripes");
+            stripes.pickingMode = PickingMode.Ignore;
+            var pivot = new Vector2(900f, 60f);
+            stripes.Add(SlantShape.Stripe("lc-stripe-red", 8f, 14f, StripeDegrees, pivot));
+            stripes.Add(SlantShape.Stripe("lc-stripe-white", 26f, 4f, StripeDegrees, pivot));
+            stripes.Add(SlantShape.Stripe("lc-stripe-gold", 100f, 10f, StripeDegrees, pivot));
+            top.Add(stripes);
             Add(top, "lc-title", "SETTINGS");
             Add(top, "lc-title-stripe");
-            _tabPlayer = Add(top, "lc-tab lc-tab-player", "PLAYER");
-            _tabDev = Add(top, "lc-tab lc-tab-dev", "DEV");
+            _tabPlayer = MakeTab(top, "lc-tab-player", "PLAYER");
+            _tabDev = MakeTab(top, "lc-tab-dev", "DEV");
             _content = Add(_page, "lc-content");
             _content.style.position = Position.Absolute;
             var bottom = Add(_page, "lc-bottombar");
@@ -88,6 +100,24 @@ namespace HockeyGame
             Add(_startButton, "lc-start-key", "ESC");
             _startButton.AddToClassList("lc-hidden");
             _root.Add(_startButton);
+        }
+
+        // A tab: a slanted white outline (shown when the tab is on), a slanted fill, and upright text on top.
+        VisualElement MakeTab(VisualElement parent, string side, string text)
+        {
+            var tab = new VisualElement();
+            tab.AddToClassList("lc-tab");
+            tab.AddToClassList(side);
+            tab.pickingMode = PickingMode.Ignore;
+            var border = SlantShape.Parallelogram("lc-tab-border", TabSlant + 6f);
+            var fill = SlantShape.Parallelogram("lc-tab-fill", TabSlant);
+            tab.Add(border);
+            tab.Add(fill);
+            Add(tab, "lc-tab-text", text);
+            _tabShapes.Add(border);
+            _tabShapes.Add(fill);
+            parent.Add(tab);
+            return tab;
         }
 
         static Label Add(VisualElement parent, string classes, string text = null)
@@ -242,6 +272,7 @@ namespace HockeyGame
             _hits.Clear();
             _tabPlayer.EnableInClassList("lc-tab-on", _menu.Part == SettingsPart.Player);
             _tabDev.EnableInClassList("lc-tab-on", _menu.Part == SettingsPart.Dev);
+            foreach (var shape in _tabShapes) shape.MarkDirtyRepaint(); // the fill colour follows the tab's class
             _reset.text = _menu.ResetLabel;
 
             // Consecutive rows with one heading make one card. The last card goes in the right-hand column, the rest in the left.
@@ -302,6 +333,7 @@ namespace HockeyGame
                     _hits.Add(new Hit { El = view.Value, Kind = HitKind.Row, Row = i }); // the number box: selects the row only
                     break;
                 case SettingsRowKind.Toggle:
+                    if (_menu.Hint(i) != null) Add(control, "lc-hint", _menu.Hint(i));
                     view.OnCell = Add(control, "lc-cell", "ON");
                     view.OffCell = Add(control, "lc-cell", "OFF");
                     _hits.Add(new Hit { El = view.OnCell, Kind = HitKind.ToggleOn, Row = i });

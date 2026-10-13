@@ -51,6 +51,7 @@ namespace HockeyGame.Core
             public string Group;
             public SettingsRowKind Kind;
             public string Label;
+            public string Hint;                      // null, or a note such as "(next launch)"
             public Func<string> Value;
             public Func<int, bool> Change;           // Left/Right; null = does nothing
             public Func<bool> Activate;              // Enter; null = does nothing
@@ -86,6 +87,7 @@ namespace HockeyGame.Core
             AddRow(player, "OPERATOR", SettingsRowKind.Button, "Reset best score", () => "best " + _save.BestScore.ToString(CultureInfo.InvariantCulture), null, ResetBestScore);
 
             AddToggle(SettingsPart.Dev, "SHOW", "Show the block goalie", () => _save.ForceGoalieBlocks, v => _save.ForceGoalieBlocks = v);
+            _all[_all.Count - 1].Hint = "(next launch)"; // RoundDriver builds the goalie when the game starts
 
             FillRows();
         }
@@ -108,6 +110,9 @@ namespace HockeyGame.Core
 
         /// <summary>The heading the row sits under (consecutive rows with one heading make one card).</summary>
         public string Group(int row) => _rows[row].Group;
+
+        /// <summary>A short note after the row's label (for example "(next launch)"), or null.</summary>
+        public string Hint(int row) => _rows[row].Hint;
 
         public SettingsRowKind Kind(int row) => _rows[row].Kind;
 
