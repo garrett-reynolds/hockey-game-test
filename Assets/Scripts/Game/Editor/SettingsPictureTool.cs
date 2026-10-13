@@ -36,12 +36,41 @@ namespace HockeyGame.Editor
         [MenuItem("Hockey Game/Picture Test/Settings Page Pictures")]
         public static void Take()
         {
+            for (int i = 0; i < UnityEngine.SceneManagement.SceneManager.sceneCount; i++)
+            {
+                if (!UnityEngine.SceneManagement.SceneManager.GetSceneAt(i).isDirty) continue;
+                Debug.LogError("Settings pictures: an open scene has unsaved changes. Save it first; the tool would throw them away. Nothing was changed.");
+                return;
+            }
             SessionState.SetBool(Flag, true);
             SessionState.SetBool(MuteKey, EditorUtility.audioMasterMute);
             SessionState.SetString(ScenePath, EditorSceneManager.GetActiveScene().path);
             EditorUtility.audioMasterMute = true; // rule 6
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             EditorApplication.EnterPlaymode();
+            _giveUpAt = EditorApplication.timeSinceStartup + 20;
+            EditorApplication.update += GiveUpIfPlayNeverStarts;
+        }
+
+        static double _giveUpAt;
+
+        // If Play never starts (compile error, cancelled), clear the flag and put the mute and scene back, so the next Play is not hijacked.
+        static void GiveUpIfPlayNeverStarts()
+        {
+            if (EditorApplication.isPlaying || EditorApplication.isPlayingOrWillChangePlaymode && EditorApplication.timeSinceStartup < _giveUpAt) return;
+            EditorApplication.update -= GiveUpIfPlayNeverStarts;
+            if (!SessionState.GetBool(Flag, false)) return;
+            Debug.LogError("Settings pictures: Play mode did not start; flag cleared.");
+            RestoreEditor();
+        }
+
+        static void RestoreEditor()
+        {
+            SessionState.SetBool(Flag, false);
+            EditorUtility.audioMasterMute = SessionState.GetBool(MuteKey, false);
+            string scene = SessionState.GetString(ScenePath, "");
+            if (!string.IsNullOrEmpty(scene)) EditorSceneManager.OpenScene(scene, OpenSceneMode.Single);
+            else EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single); // an untitled start: a fresh default scene
         }
 
         static void OnPlayMode(PlayModeStateChange change)
@@ -55,10 +84,7 @@ namespace HockeyGame.Editor
             }
             else if (change == PlayModeStateChange.EnteredEditMode && SessionState.GetBool(Flag, false))
             {
-                SessionState.SetBool(Flag, false);
-                EditorUtility.audioMasterMute = SessionState.GetBool(MuteKey, false);
-                string scene = SessionState.GetString(ScenePath, "");
-                if (!string.IsNullOrEmpty(scene)) EditorSceneManager.OpenScene(scene, OpenSceneMode.Single);
+                RestoreEditor();
             }
         }
 
@@ -87,6 +113,7 @@ namespace HockeyGame.Editor
                     {
                         Shoot(Path.Combine(folder, "t159-settings-player.png"), "Player");
                         _screen.Menu.ShowPart(SettingsPart.Dev);
+                        // Rebuild is private (the page rebuilds itself on a key or click, which this tool must not simulate); a rename fails here and is logged.
                         typeof(SettingsScreen).GetMethod("Rebuild", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(_screen, null);
                         _stage = 2;
                         _frames = 0;

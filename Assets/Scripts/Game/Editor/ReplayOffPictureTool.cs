@@ -19,6 +19,12 @@ namespace HockeyGame.Editor
         [MenuItem("Hockey Game/Picture Test/Replay Off Result Word Pictures")]
         public static void Take()
         {
+            for (int i = 0; i < UnityEngine.SceneManagement.SceneManager.sceneCount; i++)
+            {
+                if (!UnityEngine.SceneManagement.SceneManager.GetSceneAt(i).isDirty) continue;
+                Debug.LogError("Replay off pictures: an open scene has unsaved changes. Save it first; the tool would throw them away. Nothing was changed.");
+                return;
+            }
             string folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", "_notes"));
             SceneSetup[] scenes = EditorSceneManager.GetSceneManagerSetup();
             bool muted = EditorUtility.audioMasterMute;
