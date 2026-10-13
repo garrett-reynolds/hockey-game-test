@@ -98,7 +98,7 @@ namespace HockeyGame.Editor
             new PushPicture("push-reaction", 0, 0, true),
         };
 
-        const float PushCameraMetres = 2.5f, PushCameraHeight = 0.55f, PushLookHeight = 0.9f, PushFieldOfView = 40f, PushReactionSet = 0.25f;
+        const float PushCameraMetres = 2.5f, PushCameraHeight = 0.55f, PushLookHeight = 0.5f, PushFieldOfView = 50f, PushReactionSet = 0.25f;
         // Far to the glove side (+X): the Shot comes from 3 m out to that side at the net's corner, so the arm alone cannot reach and he
         // slides (0.15 m at set 0.25, 0.6 m at full). From the middle the same aim needs no slide.
         const float PushReactionFromX = 3f;
