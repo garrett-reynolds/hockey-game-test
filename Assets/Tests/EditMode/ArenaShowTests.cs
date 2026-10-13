@@ -601,15 +601,16 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void The_bottle_stays_off_for_the_rest_of_the_Round_and_a_second_hard_Goal_changes_nothing()
+        public void The_bottle_is_back_on_the_net_before_each_Shot()
         {
             var bottle = new BottleKnock();
             Assert.IsFalse(bottle.Follow(Between(RoundPhase.ShootingWindow, 1)));
             Assert.IsTrue(bottle.Follow(Whistled(ArenaResult.Goal, 120, shot: 1)));
-            Assert.IsTrue(bottle.Follow(Between(RoundPhase.SkateIn, 2)));
-            Assert.IsTrue(bottle.Follow(Whistled(ArenaResult.Save, 80, shot: 2)));
+            Assert.IsTrue(bottle.Follow(Whistled(ArenaResult.Goal, 120, shot: 1)), "it stays off through the result hold");
+            Assert.IsFalse(bottle.Follow(Between(RoundPhase.SkateIn, 2)), "back on the net for Shot 2");
+            Assert.IsFalse(bottle.Follow(Whistled(ArenaResult.Save, 80, shot: 2)));
             Assert.IsTrue(bottle.Follow(Whistled(ArenaResult.Goal, 140, shot: 3)));
-            Assert.IsTrue(bottle.Follow(Between(RoundPhase.RoundOver, 6)));
+            Assert.IsFalse(bottle.Follow(Between(RoundPhase.RoundOver, 6)));
         }
 
         [Test]
@@ -640,7 +641,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void From_the_screen_flow_a_hard_Goal_knocks_it_until_the_Round_is_over_and_the_start_screen_puts_it_back()
+        public void From_the_screen_flow_a_hard_Goal_knocks_it_and_the_next_Shot_puts_it_back()
         {
             var save = new SaveData();
             var flow = new ScreenFlow(ScriptedRandom.Halves(), save, FakeReach.NeverReaches());
@@ -653,7 +654,7 @@ namespace HockeyGame.Core.Tests
             Assert.IsTrue(bottle.Follow(flow), "the Whistle");
             flow.Tick(ReplayTiming.HoldSeconds + ShotFade.LeadSeconds + 0.01);
             Assert.AreEqual(RoundPhase.SkateIn, flow.Round.Phase);
-            Assert.IsTrue(bottle.Follow(flow), "shot 2");
+            Assert.IsFalse(bottle.Follow(flow), "back on the net for shot 2");
             for (int shot = 2; shot <= Round.ShotsPerRound; shot++)
                 flow.Tick(3.7 + 3.0 + 2.5 + 0.01);
             flow.Tick(save.AutoReturnSeconds);

@@ -484,9 +484,9 @@ namespace HockeyGame.Core
 
     /// <summary>
     /// "Bottle knocked" (#164), the Arena Show's state beside the Goal Show: true from the Whistle of a Goal whose Shot speed is
-    /// strictly above KnockSpeedKmh, and it stays true for the rest of the Round (a second hard Goal changes nothing). It goes back
-    /// to false at the start of the next Round (the start screen, or Shot 1's skate-in) and, in Test Mode, before the next Test Shot
-    /// (any phase but the result hold). A Save, a Miss, a Frame Hit and a Shot with no puck never knock it.
+    /// strictly above KnockSpeedKmh, and it stays true for that Shot's result hold (a second Knock changes nothing). It goes back
+    /// to false before the next Shot (Garrett, 2026-10-13: "It needs to get reset between each shot"): any phase but the result
+    /// hold, in a Round and in Test Mode. A Save, a Miss, a Frame Hit and a Shot with no puck never knock it.
     /// The Game side calls Follow once a frame with the same input as the Arena Show and reads Knocked: push the bottle on the change
     /// to true, put it back and stop it on the change to false. Plain logic, no Unity.
     /// </summary>
@@ -503,9 +503,7 @@ namespace HockeyGame.Core
         /// <summary>Follows one frame of the Round and returns Knocked.</summary>
         public bool Follow(ArenaShowInput input)
         {
-            bool roundStart = input.Phase == RoundPhase.Idle || (input.Phase == RoundPhase.SkateIn && input.ShotNumber <= 1);
-            bool nextTestShot = input.TestMode && input.Phase != RoundPhase.ResultHold;
-            if (roundStart || nextTestShot)
+            if (input.Phase != RoundPhase.ResultHold)
                 Knocked = false;
             else if (!Knocked && input.Phase == RoundPhase.ResultHold && !input.ResultHidden && input.Result == ArenaResult.Goal
                      && input.LastShotSpeedKmh.HasValue && input.LastShotSpeedKmh.Value > KnockSpeedKmh)
