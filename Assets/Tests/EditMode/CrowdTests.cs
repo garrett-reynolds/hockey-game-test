@@ -33,16 +33,46 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void Every_row_of_both_tiers_has_fans_all_round_the_rink()
         {
-            Assert.That(Seats.Select(s => s.Row).Distinct().Count(), Is.EqualTo(RinkLayout.LowerRows + RinkLayout.UpperRows));
-            FanSeat[] everyone = CrowdSeats.AllIncludingHidden(); // the Video Board hides the fans straight behind it, in the rows level with it
+            // The lower tier's top rows have no fans (#165), so their rows are not in the list.
+            Assert.That(Seats.Select(s => s.Row).Distinct().Count(), Is.EqualTo(RinkLayout.LowerRows - CrowdSeats.LowerRowsLeftEmpty + RinkLayout.UpperRows));
             foreach (IGrouping<int, FanSeat> row in Seats.GroupBy(s => s.Row))
             {
-                Assert.That(everyone.Any(s => s.Row == row.Key && s.Z > RinkLayout.NearEndBoardsZ && Math.Abs(s.X) < 1), "behind the near net, row " + row.Key);
+                // The upper tier has no fans straight behind the Video Board and banners (UpperCutOutHalfWidth), so it is checked beside the cut-out.
+                bool upper = row.Key >= RinkLayout.LowerRows;
+                Assert.That(row.Any(s => s.Z > RinkLayout.NearEndBoardsZ && (upper ? Math.Abs(s.X) > RinkLayout.UpperCutOutHalfWidth : Math.Abs(s.X) < 1)),
+                    "behind the near net (beside the cut-out in the upper tier), row " + row.Key);
                 Assert.That(row.Any(s => s.Z < RinkLayout.FarEndBoardsZ && Math.Abs(s.X) < 1), "behind the far net, row " + row.Key);
                 Assert.That(row.Any(s => s.X > RinkLayout.HalfWidth), "the +x side, row " + row.Key);
                 Assert.That(row.Any(s => s.X < -RinkLayout.HalfWidth), "the -x side, row " + row.Key);
             }
             Assert.That(Seats.Length, Is.GreaterThan(13000), "a sold-out bowl");
+        }
+
+        [Test]
+        public void The_lower_tiers_top_rows_under_the_Ribbon_Board_have_no_fans_and_no_head_reaches_the_ribbon()
+        {
+            Assert.AreEqual(3, CrowdSeats.LowerRowsLeftEmpty);
+            Assert.That(Seats.Where(s => s.Row < RinkLayout.LowerRows).Max(s => s.Row), Is.EqualTo(RinkLayout.LowerRows - CrowdSeats.LowerRowsLeftEmpty - 1),
+                "the top 3 lower rows are empty steps");
+            foreach (FanSeat s in Seats.Where(s => s.Row < RinkLayout.LowerRows))
+                Assert.That(s.Y + VideoBoardCover.FanHeight, Is.LessThan(RinkLayout.RibbonBottom), "a head under the ribbon: " + s);
+            // One row more would reach the ribbon: that is why 3 are left empty.
+            double firstEmptyRowSeat = RinkLayout.StandsFrontHeight + (RinkLayout.LowerRows - CrowdSeats.LowerRowsLeftEmpty) * RinkLayout.LowerRise;
+            Assert.That(firstEmptyRowSeat + VideoBoardCover.FanHeight, Is.GreaterThan(RinkLayout.RibbonBottom));
+        }
+
+        [Test]
+        public void The_upper_tier_has_no_fans_behind_the_Video_Board_and_banners_and_fans_just_outside_that()
+        {
+            FanSeat[] near = Seats.Where(s => s.Row >= RinkLayout.LowerRows && s.Z > RinkLayout.NearEndBoardsZ).ToArray();
+            Assert.That(near.Any(s => Math.Abs(s.X) < RinkLayout.UpperCutOutHalfWidth), Is.False, "no upper fan inside the cut-out");
+            foreach (int side in new[] { -1, 1 })
+                Assert.That(near.Count(s => Math.Sign(s.X) == side && Math.Abs(s.X) >= RinkLayout.UpperCutOutHalfWidth && Math.Abs(s.X) < RinkLayout.UpperCutOutHalfWidth + 1.5),
+                    Is.GreaterThan(RinkLayout.UpperRows), "upper fans just outside the cut-out, side " + side);
+            // The cut-out is as wide as the board's frame and the 6 banners (3 each side, round the ring) with a little to spare.
+            double banners = 3 * RoofBanners.Width + 2 * RoofBanners.Gap;
+            double needed = RinkLayout.VideoBoardWidth / 2 + RinkLayout.VideoBoardFrameMargin + RoofBanners.BoardGap + banners;
+            Assert.That(RinkLayout.UpperCutOutHalfWidth, Is.GreaterThanOrEqualTo(needed * 0.97).And.LessThan(needed + 1.0));
         }
 
         [Test]

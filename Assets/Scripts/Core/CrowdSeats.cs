@@ -36,6 +36,9 @@ namespace HockeyGame.Core
         public const double OpeningStep = 0.25;
         /// <summary>Fans this close across the floor (metres), in the same or the next row, are neighbours.</summary>
         public const double NeighbourReach = 0.98;
+        /// <summary>How many of the lower tier's top rows have no fans (#165; the seats stay as empty steps): a 1.3 m fan in a row 3 or fewer
+        /// rows under the top reaches the Ribbon Board's bottom edge.</summary>
+        public const int LowerRowsLeftEmpty = 3;
 
         /// <summary>The Arena Show zone a fan at z sits in: behind the near end boards is the Calm Area (as for the Ribbon
         /// Boards), then the rest of the near half, then the far half.</summary>
@@ -63,7 +66,10 @@ namespace HockeyGame.Core
                 double offset = (upper ? RinkLayout.RibbonOffset : RinkLayout.StandsFront) + (r + 1) * RinkLayout.RowDepth - HipsFromRiser;
                 double y = upper ? RinkLayout.RibbonBottom + RinkLayout.RibbonHeight + r * RinkLayout.UpperRise
                                  : RinkLayout.StandsFrontHeight + r * RinkLayout.LowerRise;
+                if (!upper && r >= RinkLayout.LowerRows - LowerRowsLeftEmpty) continue; // empty steps under the Ribbon, no fans
                 Row(seats, row, offset, y);
+                // No fans in the upper tier right behind the Video Board and its banners (the seats stay, dark and empty).
+                if (upper) seats.RemoveAll(s => s.Row == row && s.Z > RinkLayout.NearEndBoardsZ && Math.Abs(s.X) < RinkLayout.UpperCutOutHalfWidth);
             }
             return seats.ToArray();
         }

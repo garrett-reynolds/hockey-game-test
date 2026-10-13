@@ -267,7 +267,7 @@ namespace HockeyGame
         }
 
         /// <summary>Metres above the Video Board's centre the Replay's look-up aims (#128: was 6.75 m). Small: the board's whole width must still fit the narrow view (a view narrower than about 33 degrees cuts its ends off), so this lifts the view's bottom edge clear of the goalie instead.</summary>
-        public const float ReplayLookLift = 1.0f;
+        public const float ReplayLookLift = 1.95f; // #165: the board is higher now, so the view must rise: 1.0 left the goalie's head inside its bottom edge (Left, window 3 s); above 2.0 the board's centre leaves the middle 0.4 to 0.6 of the view. A narrow window (ReplayViewTests pins both ends)
 
         /// <summary>
         /// Where the camera looks for the Replay (#128): ReplayLookLift above the Video Board's centre. The look-up tilts only about

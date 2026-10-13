@@ -144,9 +144,18 @@ namespace HockeyGame.Core.Tests
                 Renderer[] panels = rink.Find("Ribbon Boards").GetComponentsInChildren<Renderer>()
                     .Where(r => r.name.StartsWith("Ribbon Panel")).ToArray();
                 Assert.IsNotEmpty(panels, "the Ribbon Board has panels");
+                // By the quads' own outlines, not their bounding boxes: the banners stand right on the ribbon (#165), where the boxes of the
+                // slanted banner and the slanted panels overlap on the screen though the quads do not.
                 foreach (Renderer banner in rink.Find(RoofBanners.Part).GetComponentsInChildren<Renderer>())
-                    foreach (string covered in CoveredPanels(camera, banner.bounds, panels))
-                        Assert.Fail(banner.name + " covers " + covered + " in the shooter's view");
+                {
+                    Vector2[] bannerShape = ScreenOutline(camera, banner, out bool bannerFront);
+                    if (!bannerFront) continue;
+                    foreach (Renderer panel in panels)
+                    {
+                        Vector2[] other = ScreenOutline(camera, panel, out bool front);
+                        if (front && OutlinesOverlap(bannerShape, other)) Assert.Fail(banner.name + " covers " + panel.name + " in the shooter's view");
+                    }
+                }
             }
             finally
             {
@@ -186,6 +195,50 @@ namespace HockeyGame.Core.Tests
                 Rect other = ScreenRect(camera, panel.bounds, out bool front);
                 if (front && banner.Overlaps(other)) yield return panel.name;
             }
+        }
+
+        /// <summary>The renderer's mesh corners on the screen (viewport, x scaled by the aspect so angles hold), as a convex outline.</summary>
+        static Vector2[] ScreenOutline(Camera camera, Renderer renderer, out bool inFront)
+        {
+            var points = new System.Collections.Generic.List<Vector2>();
+            inFront = true;
+            foreach (Vector3 corner in renderer.GetComponent<MeshFilter>().sharedMesh.vertices)
+            {
+                Vector3 v = camera.WorldToViewportPoint(renderer.transform.TransformPoint(corner));
+                if (v.z <= 0f) inFront = false;
+                points.Add(new Vector2(v.x * camera.aspect, v.y));
+            }
+            points = points.Distinct().OrderBy(p => p.x).ThenBy(p => p.y).ToList();
+            var hull = new System.Collections.Generic.List<Vector2>();
+            for (int pass = 0; pass < 2; pass++) // monotone chain: lower hull, then upper
+            {
+                int start = hull.Count;
+                foreach (Vector2 p in points)
+                {
+                    while (hull.Count >= start + 2 && Cross(hull[hull.Count - 2], hull[hull.Count - 1], p) <= 0f) hull.RemoveAt(hull.Count - 1);
+                    hull.Add(p);
+                }
+                hull.RemoveAt(hull.Count - 1);
+                points.Reverse();
+            }
+            return hull.ToArray();
+        }
+
+        static float Cross(Vector2 o, Vector2 a, Vector2 b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+
+        /// <summary>Whether two convex outlines share area (separating axis test).</summary>
+        static bool OutlinesOverlap(Vector2[] a, Vector2[] b)
+        {
+            foreach (Vector2[] shape in new[] { a, b })
+                for (int i = 0; i < shape.Length; i++)
+                {
+                    Vector2 edge = shape[(i + 1) % shape.Length] - shape[i], axis = new Vector2(-edge.y, edge.x);
+                    float aMin = float.MaxValue, aMax = float.MinValue, bMin = float.MaxValue, bMax = float.MinValue;
+                    foreach (Vector2 p in a) { float d = Vector2.Dot(p, axis); aMin = Mathf.Min(aMin, d); aMax = Mathf.Max(aMax, d); }
+                    foreach (Vector2 p in b) { float d = Vector2.Dot(p, axis); bMin = Mathf.Min(bMin, d); bMax = Mathf.Max(bMax, d); }
+                    if (aMax <= bMin || bMax <= aMin) return false;
+                }
+            return true;
         }
 
         static Rect ScreenRect(Camera camera, Bounds b, out bool inFront)

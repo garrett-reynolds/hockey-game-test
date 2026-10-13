@@ -124,6 +124,10 @@ namespace HockeyGame.Core
         public const double RibbonBoardLedCell = 0.05;
         /// <summary>The upper tier above the Ribbon Board ring: rows of seats, each RowDepth deep and UpperRise higher than the one in front.</summary>
         public const double UpperRise = 0.55;
+        /// <summary>The upper tier has no fans behind the Video Board and its 6 banners (#165): from the middle out this far (metres). It is the
+        /// board's half width and frame (7.35), a gap (0.4) and 3 banners with their gaps (RoofBanners: 3 x 1.3 + 2 x 0.3 = 4.5) round the ring's
+        /// curve, about 12.3, with a little margin. The seats stay.</summary>
+        public const double UpperCutOutHalfWidth = 12.8;
         public const int UpperRows = 13;
 
         // ---------- the board outline ----------
@@ -266,16 +270,18 @@ namespace HockeyGame.Core
 
         // ---------- Video Board, Centre Board and roof ----------
         /// <summary>
-        /// The Video Board hangs in the middle of the near end's Ribbon Board, in front of the crowd (Garrett's pick 2026-10-12:
-        /// in the middle of the ribbon, in front of the crowd, so the camera barely pans up): 14.3 x 7.8 m, its middle at the
-        /// ribbon's middle height, tilted toward the player. Its distance puts its frame a clear gap (about 0.8 m: the rows come in steps) in front of the nearest
-        /// seat of the lower tier behind it (the stands rise toward the ribbon, so its lower edge is what the crowd's lower rows
-        /// come near), so no fan or panel pokes through it or stands in front of it; the fans and panels it hides are left out
-        /// (VideoBoardCover). From goalie set to the Shot it shows one dim still colour (the Calm Area rules); it is on screen
-        /// at the start of the skate-in. Its top is under the light banks (20 m).
+        /// The Video Board hangs just above the near end's Ribbon Board, back in the stands (Garrett's pick 2026-10-13, #165): 14.3 x 7.8 m,
+        /// its bottom edge VideoBoardAboveRibbon above the ribbon's top, tilted toward the player. It is VideoBoardInFront of the ribbon's
+        /// face, so the tilted board's bottom edge and its frame clear the stands behind it. The upper tier has no fans behind it
+        /// (UpperCutOutHalfWidth), so it covers none. From goalie set to the Shot it shows one dim still colour (the Calm Area rules);
+        /// it is on screen at the start of the skate-in (at the shot place its top is cut by the view). Its top is under the light banks (28 m).
         /// </summary>
-        public const double VideoBoardZ = 10.9;
-        public static readonly RinkPoint VideoBoard = new RinkPoint(0, RibbonBottom + RibbonHeight / 2, VideoBoardZ);
+        public const double VideoBoardInFront = 2.4;
+        public const double VideoBoardZ = NearEndBoardsZ + RibbonOffset - VideoBoardInFront;
+        /// <summary>The board's bottom edge is this far above the Ribbon Board's top.</summary>
+        public const double VideoBoardAboveRibbon = 0.1;
+        public static readonly RinkPoint VideoBoard = new RinkPoint(0,
+            RibbonBottom + RibbonHeight + VideoBoardAboveRibbon + VideoBoardHeight / 2, VideoBoardZ);
         public const double VideoBoardWidth = 14.3, VideoBoardHeight = 7.8;
         /// <summary>The side of one LED cell on the Video Board and the Centre Board (metres): the board is a whole number of cells each way.
         /// The one place to tune how coarse the LED look is.</summary>

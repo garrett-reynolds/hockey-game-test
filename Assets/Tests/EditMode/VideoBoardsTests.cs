@@ -157,13 +157,14 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void No_fan_and_no_Ribbon_Board_panel_sits_wholly_behind_the_Video_Board_and_the_ones_that_did_are_gone()
+        public void No_fan_and_no_Ribbon_Board_panel_sits_wholly_behind_the_Video_Board_and_the_board_leaves_none_to_hide_since_the_cut_out()
         {
             VideoBoards boards = VideoBoards.Build(_rink.transform);
             RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
             Vector3[] frame = FrontOutline(boards);
             FanSeat[] shown = CrowdSeats.All();
-            Assert.That(CrowdSeats.AllIncludingHidden().Length - shown.Length, Is.GreaterThan(100), "the fans behind the board are left out");
+            // #165: the board hangs above the Ribbon Board and the upper tier has no fans behind it (UpperCutOutHalfWidth), so the board hides none.
+            Assert.AreEqual(0, CrowdSeats.AllIncludingHidden().Length - shown.Length, "no fan is left to hide behind the board");
             // Seen from every eye, with a Unity camera: a fan or panel whose box lies inside the board's outline is hidden.
             var eyes = VideoBoardCover.Eyes;
             foreach (FanSeat s in shown)
@@ -223,11 +224,11 @@ namespace HockeyGame.Core.Tests
             FanSeat[] visible = CrowdSeats.All();
             var left = new System.Collections.Generic.HashSet<FanSeat>(CrowdSeats.AllIncludingHidden());
             left.ExceptWith(visible);
-            Assert.That(left.Count, Is.GreaterThan(100), "fans are left out");
+            Assert.AreEqual(0, left.Count, "#165: the cut-out leaves the board no fan to hide"); // the loop below stays as the safeguard if the board or stands move
             foreach (FanSeat s in left)
                 Assert.IsTrue(HiddenFromEveryEye(all, frame, BoxOf(s.X - 0.25, s.Y, s.Z - 0.25, s.X + 0.25, s.Y + VideoBoardCover.FanHeight, s.Z + 0.25)),
                               s + " is left out but the real camera can see it");
-            Assert.That(ribbons.LeftOut.Count, Is.GreaterThan(0), "panels are left out");
+            Assert.AreEqual(0, ribbons.LeftOut.Count, "the board hangs above the ribbon: no panel is left out");
             foreach ((Vector2 from, Vector2 to) in ribbons.LeftOut)
                 Assert.IsTrue(HiddenFromEveryEye(all, frame, BoxOf(Mathf.Min(from.x, to.x), RinkLayout.RibbonBottom, Mathf.Min(from.y, to.y) - 0.05f,
                                                                      Mathf.Max(from.x, to.x), RinkLayout.RibbonBottom + RinkLayout.RibbonHeight, Mathf.Max(from.y, to.y) + 0.05f)),
