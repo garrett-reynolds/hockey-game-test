@@ -119,7 +119,16 @@ namespace HockeyGame
             Release();
             foreach (Renderer r in _hidden) if (r != null) r.enabled = true;
             _hidden.Clear();
-            if (Cloth != null) UnityEngine.Object.DestroyImmediate(Cloth.gameObject);
+            if (Cloth == null) return;
+            // The mesh, material and "Net holes" texture were made with the cloth (#158): free them with it.
+            var skin = Cloth.GetComponent<SkinnedMeshRenderer>();
+            Mesh mesh = skin != null ? skin.sharedMesh : null;
+            Material material = skin != null ? skin.sharedMaterial : null;
+            Texture holes = material != null ? material.mainTexture : null;
+            UnityEngine.Object.DestroyImmediate(Cloth.gameObject);
+            if (mesh != null) UnityEngine.Object.DestroyImmediate(mesh);
+            if (material != null) UnityEngine.Object.DestroyImmediate(material);
+            if (holes != null) UnityEngine.Object.DestroyImmediate(holes);
         }
 
         /// <summary>One welded grid: the left side, back and right side as one strip around the base, and the roof sharing its top row.</summary>

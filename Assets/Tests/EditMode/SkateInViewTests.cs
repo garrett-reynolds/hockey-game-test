@@ -33,7 +33,7 @@ namespace HockeyGame.Core.Tests
         [TearDown]
         public void Remove()
         {
-            Object.DestroyImmediate(_rink);
+            RinkTeardown.Destroy(_rink);
             Object.DestroyImmediate(_camera.gameObject);
         }
 

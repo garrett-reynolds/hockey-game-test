@@ -50,7 +50,7 @@ namespace HockeyGame.Core.Tests
         {
             foreach (PhysicsShot shot in _shots) shot.Dispose();
             _shots.Clear();
-            Object.DestroyImmediate(_root);
+            RinkTeardown.Destroy(_root);
             if (_scene.IsValid()) UnityEditor.SceneManagement.EditorSceneManager.ClosePreviewScene(_scene);
             _scene = default;
             Physics.simulationMode = _oldMode;

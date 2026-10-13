@@ -11,6 +11,8 @@ namespace HockeyGame.Editor
     /// Takes the roof banner pictures (#149): the shooter's view at 1920 x 1080 with the crowd off and the Editor muted.
     /// Writes PictureTest/Latest/Banners/shooter.png (PictureTest/Latest is git-ignored: tool output stays out of the repo, #152).
     /// The rink is built in Rink.unity and the Editor's scenes are put back after, so they are not left dirty (#152).
+    /// The CLI menu call (unity command menu --path ...) reports success even when the tool throws: check the Editor console, or that
+    /// the picture file is new, after every run (#158).
     /// </summary>
     public static class BannerPictureTool
     {

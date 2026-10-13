@@ -35,7 +35,7 @@ namespace HockeyGame.Core.Tests
         [TearDown]
         public void RemoveRink()
         {
-            Object.DestroyImmediate(_rink);
+            RinkTeardown.Destroy(_rink);
             Object.DestroyImmediate(_eye);
             if (_target != null) Object.DestroyImmediate(_target);
             if (_replay != null) Object.DestroyImmediate(_replay);

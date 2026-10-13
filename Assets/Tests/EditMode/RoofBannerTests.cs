@@ -250,15 +250,66 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void Tearing_the_rink_down_frees_every_material_it_made()
+        public void Tearing_the_rink_down_frees_every_material_and_texture_it_made()
         {
-            int before = Resources.FindObjectsOfTypeAll<Material>().Length;
+            // Only objects the build made count: project assets the build loads (Glass, Ice...) stay in memory by design.
+            int before = Made<Material>();
+            int texturesBefore = MadeTextures();
+            int meshesBefore = MadeMeshes();
             RinkBuilder.Build(out Camera camera);
-            int built = Resources.FindObjectsOfTypeAll<Material>().Length;
+            int built = Made<Material>();
+            int texturesBuilt = MadeTextures();
+            int meshesBuilt = MadeMeshes();
             RinkTeardown.Destroy(GameObject.Find("Rink"));
             Object.DestroyImmediate(camera.gameObject);
             Assert.Greater(built, before, "the rink makes materials");
-            Assert.AreEqual(before, Resources.FindObjectsOfTypeAll<Material>().Length, "none are left after the teardown");
+            Assert.Greater(meshesBuilt, meshesBefore, "the rink makes meshes");
+            Assert.AreEqual(meshesBefore, MadeMeshes(), "no mesh is left after the teardown");
+            Assert.Greater(texturesBuilt, texturesBefore, "the rink makes textures");
+            Assert.AreEqual(before, Made<Material>(), "no material is left after the teardown");
+            Assert.AreEqual(texturesBefore, MadeTextures(), "no texture is left after the teardown");
+        }
+
+        /// <summary>How many live objects of type T are not project assets (made at runtime).</summary>
+        static int Made<T>() where T : Object => Resources.FindObjectsOfTypeAll<T>().Count(o => !UnityEditor.AssetDatabase.Contains(o));
+
+        /// <summary>Textures made at runtime, not counting RenderTextures: the render pipeline makes those (shadow maps) while it draws, not the rink build.</summary>
+        static int MadeTextures() => Resources.FindObjectsOfTypeAll<Texture>().Count(t => !(t is RenderTexture) && !UnityEditor.AssetDatabase.Contains(t));
+
+        /// <summary>Meshes made at runtime (not project assets or built-ins).</summary>
+        static int MadeMeshes() => Resources.FindObjectsOfTypeAll<Mesh>().Count(m => !UnityEditor.EditorUtility.IsPersistent(m));
+
+        [Test]
+        public void Tearing_the_rink_down_frees_the_texture_a_Net_cloth_made()
+        {
+            int meshesBefore = MadeMeshes();
+            int texturesBefore = MadeTextures();
+            int materialsBefore = Made<Material>();
+            var rink = new GameObject("Rink");
+            new NetCloth(rink.transform); // builds "Net holes" and a material under the rink, and is never Disposed here
+            Assert.Greater(MadeTextures(), texturesBefore, "the net makes a texture");
+            RinkTeardown.Destroy(rink);
+            Assert.AreEqual(texturesBefore, MadeTextures(), "its texture is freed with the rink");
+            Assert.AreEqual(materialsBefore, Made<Material>(), "and its material");
+            Assert.AreEqual(meshesBefore, MadeMeshes(), "and its mesh");
+        }
+
+        [Test]
+        public void Tearing_the_rink_down_leaves_a_project_asset_texture_alone()
+        {
+            Texture2D asset = Resources.Load<Texture2D>("Ads/banner-award-goalie");
+            Assert.IsNotNull(asset, "a project texture to share");
+            var rink = new GameObject("Rink");
+            var part = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            part.transform.SetParent(rink.transform);
+            part.GetComponent<Renderer>().sharedMaterial = new Material(Shader.Find("Sprites/Default")) { mainTexture = asset };
+            Texture builtIn = Texture2D.whiteTexture; // built-in, not made by the build
+            part.GetComponent<Renderer>().sharedMaterials = new[] { part.GetComponent<Renderer>().sharedMaterial, new Material(Shader.Find("Sprites/Default")) { mainTexture = builtIn } };
+            Mesh builtInMesh = part.GetComponent<MeshFilter>().sharedMesh;
+            RinkTeardown.Destroy(rink);
+            Assert.IsTrue(asset != null, "the shared texture survives the teardown");
+            Assert.IsTrue(builtIn != null, "a built-in texture on a made material survives the teardown");
+            Assert.IsTrue(builtInMesh != null, "a built-in mesh survives the teardown");
         }
 
         [Test]

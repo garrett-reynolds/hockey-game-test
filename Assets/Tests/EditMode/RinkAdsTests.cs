@@ -14,7 +14,7 @@ namespace HockeyGame.Core.Tests
         public void MakeRink() => _rink = new GameObject("Rink");
 
         [TearDown]
-        public void RemoveRink() => Object.DestroyImmediate(_rink);
+        public void RemoveRink() => RinkTeardown.Destroy(_rink);
 
         static Renderer[] Panels(GameObject ads) => ads.transform.Find(RinkAds.BoardAdsPart).GetComponentsInChildren<Renderer>();
         static Renderer[] IceLogos(GameObject ads) => ads.transform.Find(RinkAds.IceLogosPart).GetComponentsInChildren<Renderer>();
