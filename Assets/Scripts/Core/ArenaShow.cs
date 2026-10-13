@@ -205,7 +205,7 @@ namespace HockeyGame.Core
         public bool NoReplay;
         /// <summary>True in Test Mode (#156): no Replay (as NoReplay), whatever NoReplay says; the camera stays on the net.</summary>
         public bool TestMode;
-        /// <summary>Shots shot this Test Mode visit (Round.ShotsSubmitted); the Score Box counts them in Test Mode. Not read otherwise.</summary>
+        /// <summary>Shots whistled this Test Mode visit (Round.ShotsWhistled, with Goals); the Score Box counts them in Test Mode. Not read otherwise.</summary>
         public int ShotsSubmitted;
     }
 
@@ -332,7 +332,7 @@ namespace HockeyGame.Core
                 LastShotSpeedKmh = round.LastShotSpeedKmh,
                 NoReplay = !round.ReplayOn,
                 TestMode = round.TestMode,
-                ShotsSubmitted = round.ShotsSubmitted
+                ShotsSubmitted = round.ShotsWhistled
             });
         }
 
@@ -352,6 +352,8 @@ namespace HockeyGame.Core
             double landed = input.PhaseSeconds - input.ResultDelaySeconds;
             CameraMode camera = replayHold ? ReplayTiming.CameraAt(landed) : CameraMode.OnNet;
             VideoBoardContent board = camera == CameraMode.Replay ? VideoBoardContent.Replay : VideoBoardFor(input.Phase, result, input.IsNewBest, noReplay);
+            if (input.TestMode && (board == VideoBoardContent.StartCard || board == VideoBoardContent.Final || board == VideoBoardContent.NewBest))
+                board = VideoBoardContent.Score; // Test Mode (#157) has no start card or Round end: the count only, never "OF 6" or "SHOOT TO PLAY"
             // Built once: the Score Box and the Video Board share it. Test Mode (#157) counts the visit's Goals and Shots (no Round of 6).
             string score = input.TestMode ? TestModeHud.CountText(goalsShown, input.ShotsSubmitted) : ScoreText(goalsShown, input.ShotNumber, ShotsOf(input));
 

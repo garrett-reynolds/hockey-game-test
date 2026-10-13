@@ -73,10 +73,12 @@ namespace HockeyGame.Editor
                     }
                     if (round.Phase != RoundPhase.ShootingWindow) throw new InvalidOperationException("Test Mode is not in the window: " + round.Phase);
                     Pose(round, camera, goalie, look, 2, settings);
-                    string text = ArenaShow.From(flow).ScoreBox.Text;
+                    ArenaState arena = ArenaShow.From(flow);
+                    rink.GetComponentInChildren<VideoBoards>().Show(arena, 2); // the boards follow the Arena Show, as in RoundDriver (no start card in Test Mode)
+                    string text = arena.ScoreBox.Text;
                     if (!TestModeHud.LabelShown(flow)) throw new InvalidOperationException("The label is not shown in Test Mode.");
                     byte[] png = RenderWithHud(camera, target, texture, TestModeHud.LabelText, text);
-                    string shown = Path.Combine(folder, "t157-after.png");
+                    string shown = Path.Combine(folder, "t157-after2.png");
                     if (Directory.Exists(folder)) File.WriteAllBytes(shown, png);
                     Debug.Log("Test Mode screen picture: " + shown + " (\"" + text + "\")");
                     return;

@@ -126,13 +126,46 @@ namespace HockeyGame.Core.Tests
             foreach (RoundPhase phase in new[] { RoundPhase.Idle, RoundPhase.ShootingWindow, RoundPhase.ResultHold, RoundPhase.RoundOver })
                 Assert.IsFalse(ArenaShow.At(new ArenaShowInput { Phase = phase, TestMode = true }).Chant, phase.ToString());
             Assert.IsTrue(ArenaShow.At(new ArenaShowInput { Phase = RoundPhase.RoundOver }).Chant, "a Round still has it");
+        }
 
+        [Test]
+        public void The_count_moves_at_the_Whistle_both_numbers_together_not_while_the_puck_flies()
+        {
             ScreenFlow flow = NewTestModeFlow();
-            for (int i = 0; i < 4; i++)
-            {
-                Assert.IsFalse(ArenaShow.From(flow).Chant);
-                Shoot(flow, true);
-            }
+            flow.SubmitShot(50, 90, 100, false);
+            Assert.IsTrue(flow.Round.AwaitingWhistle);
+            Assert.AreEqual("GOALS 0 · SHOTS 0", ArenaShow.From(flow).ScoreBox.Text, "puck in flight");
+            flow.Tick(0.5);
+            Assert.AreEqual("GOALS 0 · SHOTS 0", ArenaShow.From(flow).ScoreBox.Text, "still in flight");
+            flow.Round.WhistleNow();
+            Assert.AreEqual("GOALS 1 · SHOTS 1", ArenaShow.From(flow).ScoreBox.Text, "at the Whistle");
+            flow.Tick(flow.Round.ResultHoldLength);
+            flow.SubmitShot(-10, 50, 100, true);
+            Assert.AreEqual("GOALS 1 · SHOTS 1", ArenaShow.From(flow).ScoreBox.Text, "second puck in flight");
+            flow.Round.WhistleNow();
+            Assert.AreEqual("GOALS 1 · SHOTS 2", ArenaShow.From(flow).ScoreBox.Text);
+        }
+
+        [Test]
+        public void The_boards_show_no_Round_words_in_any_phase_of_Test_Mode()
+        {
+            foreach (RoundPhase phase in System.Enum.GetValues(typeof(RoundPhase)))
+                foreach (ArenaResult result in System.Enum.GetValues(typeof(ArenaResult)))
+                    foreach (bool newBest in new[] { false, true })
+                    {
+                        ArenaState state = ArenaShow.At(new ArenaShowInput
+                        {
+                            Phase = phase, PhaseSeconds = 0.5, Result = result, ResultDelaySeconds = 0.4, TestMode = true, IsNewBest = newBest,
+                            ShotNumber = 3, BestScore = 4, ShotsPerRound = 6, ShotsSubmitted = 2, Goals = 1
+                        });
+                        string words = state.VideoBoardWords.Headline + "|" + state.VideoBoardWords.Details;
+                        string at = phase + " / " + result + " / " + state.VideoBoard + ": " + words;
+                        foreach (string round in new[] { "OF 6", "SHOOT TO PLAY", "BEST", "FINAL", "SHOT 3" })
+                            StringAssert.DoesNotContain(round, words, at);
+                        Assert.AreNotEqual(VideoBoardContent.StartCard, state.VideoBoard, at);
+                        Assert.AreNotEqual(VideoBoardContent.Final, state.VideoBoard, at);
+                        Assert.AreNotEqual(VideoBoardContent.NewBest, state.VideoBoard, at);
+                    }
         }
 
         [Test]

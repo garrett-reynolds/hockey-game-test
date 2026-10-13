@@ -162,6 +162,9 @@ namespace HockeyGame.Core
         /// <summary>How many Shots this Round has had submitted (Too Late is none).</summary>
         public int ShotsSubmitted { get; private set; }
 
+        /// <summary>Shots whose Whistle has come: ShotsSubmitted without the Shot whose puck is still flying. Moves with Goals (#157).</summary>
+        public int ShotsWhistled => ShotsSubmitted - (AwaitingWhistle ? 1 : 0);
+
         /// <summary>
         /// Starts a Round of `shots` Shots (clamped to 3 to 10) against the given best score for that number. The game starts every
         /// Round this way (ScreenFlow), from the save's Shots per Round and the best score kept for it.
