@@ -283,6 +283,76 @@ namespace HockeyGame.Core.Tests
             Assert.IsEmpty(failures, string.Join("\n", failures));
         }
 
+        // The picture from the game's own Shooter Camera (RinkBuilder's camera and settings) at the end of the skate-in, to judge the
+        // words from where the player stands. Only the file is checked; the look is judged by eye.
+        [Test]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
+        public void Picture_from_the_real_Shooter_Camera()
+        {
+            Transform arena = RinkBuilder.Build(out Camera shooter);
+            RenderTexture target = null;
+            try
+            {
+                arena.GetComponentInChildren<VideoBoards>().Show(Show(RoundPhase.SkateIn), 0.0);
+                Breakaway.SkatePoint(AttackSide.Middle, 1.0, out double x, out double distance);
+                BreakawayView.PlaceShooterCamera(shooter.transform, (float)x, (float)distance, 0f, 0f);
+                target = new RenderTexture(1920, 1080, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
+                shooter.targetTexture = target;
+                shooter.aspect = 1920f / 1080f;
+                shooter.Render();
+                RenderTexture previous = RenderTexture.active;
+                RenderTexture.active = target;
+                var texture = new Texture2D(1920, 1080, TextureFormat.RGB24, false);
+                texture.ReadPixels(new Rect(0, 0, 1920, 1080), 0, 0);
+                texture.Apply();
+                RenderTexture.active = previous;
+                SavePng(texture, "shooter");
+                Object.DestroyImmediate(texture);
+            }
+            finally
+            {
+                shooter.targetTexture = null;
+                if (target != null) Object.DestroyImmediate(target);
+                Object.DestroyImmediate(shooter.gameObject);
+                Object.DestroyImmediate(arena.gameObject);
+            }
+            Assert.IsTrue(!Directory.Exists(Notes) || File.Exists(PngPath("shooter")), "the picture file was written");
+        }
+
+        [Test]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
+        public void Centre_Board_words_light_no_cells_from_neighbouring_glyphs()
+        {
+            VideoBoards boards = VideoBoards.Build(_rink.transform);
+            boards.Show(Show(RoundPhase.SkateIn), 0.0); // "GOALS 2 . SHOT 4 OF 6": capitals and digits, no descenders
+            Vector3 spot = boards.CentreOf(1) + boards.FacingOf(1) * 6f;
+            _eye.transform.position = spot;
+            _eye.transform.LookAt(boards.CentreOf(1));
+            _camera.fieldOfView = 60f;
+            const int width = 1920, height = 1080;
+            Color32[] pixels = Render(width, height, null);
+            Vector2[] polygon = ScreenPolygon(_camera, boards, 1, width, height);
+
+            // Bright pixels per row inside the board. The words are one line of equal-height letters, so the letters' rows are the
+            // rows with a good share of the busiest row's count; a lit cell outside them came from another glyph.
+            var perRow = new int[height];
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                Color32 c = pixels[i];
+                if ((c.r > 128 || c.g > 128 || c.b > 128) && Inside(polygon, i % width, i / width)) perRow[i / width]++;
+            }
+            int busiest = 0;
+            for (int y = 0; y < height; y++) busiest = Mathf.Max(busiest, perRow[y]);
+            Assert.Greater(busiest, 0, "the Centre Board shows words");
+            int bottom = -1, top = height;
+            for (int y = 0; y < height; y++)
+                if (perRow[y] >= busiest * 0.3f) { bottom = Mathf.Max(bottom, y); top = Mathf.Min(top, y); }
+            int stray = 0;
+            for (int y = 0; y < height; y++)
+                if (y < top - 2 || y > bottom + 2) stray += perRow[y];
+            Assert.AreEqual(0, stray, "bright pixels outside the letters' rows " + top + " to " + bottom + " (cells from a neighbouring glyph)");
+        }
+
         [Test]
         public void A_far_Video_Board_keeps_the_colour_of_its_cells()
         {
