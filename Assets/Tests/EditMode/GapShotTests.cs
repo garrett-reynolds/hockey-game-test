@@ -17,7 +17,7 @@ namespace HockeyGame.Core.Tests
     public class GapShotTests
     {
         const float Frame = 1f / 60f;
-        const int Seeds = 90;
+        const int Seeds = 130; // (#150: 90 played only 56 Shots into a Gap once the Gaps got roomier; the guard stays at 60)
 
         /// <summary>The bar (#134): a Shot into the centre of a shown Gap is a Goal at least this often. Measured 83 % after the fix, 59 % before (#134); 93 % with the thin-shape casts (#150).</summary>
         public const double GapGoalBar = 0.75;
