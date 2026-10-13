@@ -590,7 +590,7 @@ namespace HockeyGame.Core.Tests
             finally
             {
                 view?.Dispose();
-                Object.DestroyImmediate(rink);
+                RinkTeardown.Destroy(rink);
                 Object.DestroyImmediate(camera.gameObject);
             }
         }

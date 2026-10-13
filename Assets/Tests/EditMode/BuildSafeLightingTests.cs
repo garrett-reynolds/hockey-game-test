@@ -46,7 +46,7 @@ namespace HockeyGame.Core.Tests
             {
                 effects?.Dispose();
                 goalie?.Dispose();
-                Object.DestroyImmediate(GameObject.Find("Rink"));
+                RinkTeardown.Destroy(GameObject.Find("Rink"));
                 if (camera != null) Object.DestroyImmediate(camera.gameObject);
             }
         }

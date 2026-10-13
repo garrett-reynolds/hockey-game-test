@@ -225,7 +225,7 @@ namespace HockeyGame.Core.Tests
             }
             finally
             {
-                Object.DestroyImmediate(GameObject.Find("Rink"));
+                RinkTeardown.Destroy(GameObject.Find("Rink"));
                 Object.DestroyImmediate(camera.gameObject);
             }
         }

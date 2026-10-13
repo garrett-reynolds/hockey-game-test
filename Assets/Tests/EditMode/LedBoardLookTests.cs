@@ -119,7 +119,7 @@ namespace HockeyGame.Core.Tests
             {
                 Object.DestroyImmediate(replayObject);
                 Object.DestroyImmediate(shooterCamera.gameObject);
-                Object.DestroyImmediate(arena.gameObject);
+                RinkTeardown.Destroy(arena.gameObject);
             }
         }
 
@@ -322,7 +322,7 @@ namespace HockeyGame.Core.Tests
                 shooter.targetTexture = null;
                 if (target != null) Object.DestroyImmediate(target);
                 Object.DestroyImmediate(shooter.gameObject);
-                Object.DestroyImmediate(arena.gameObject);
+                RinkTeardown.Destroy(arena.gameObject);
             }
             Assert.IsTrue(!Directory.Exists(Notes) || File.Exists(PngPath("shooter")), "the picture file was written");
         }

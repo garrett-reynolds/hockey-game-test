@@ -9,13 +9,39 @@ namespace HockeyGame.Editor
 {
     /// <summary>
     /// Takes the roof banner pictures (#149): the shooter's view at 1920 x 1080 with the crowd off and the Editor muted.
-    /// Writes PictureTest/Banners/shooter.png.
+    /// Writes PictureTest/Latest/Banners/shooter.png (PictureTest/Latest is git-ignored: tool output stays out of the repo, #152).
+    /// The rink is built in Rink.unity and the Editor's scenes are put back after, so they are not left dirty (#152).
     /// </summary>
     public static class BannerPictureTool
     {
         public const int Width = 1920, Height = 1080;
-        public const string Folder = "PictureTest/Banners";
+        public const string Folder = "PictureTest/Latest/Banners";
         const string RinkScene = "Assets/Scenes/Rink.unity";
+
+        /// <summary>
+        /// Opens Rink.unity on its own (the rink is lit by the scene's own settings, so the pictures match the game's) and puts the
+        /// Editor's scenes back on Dispose, loaded fresh from disk: the rink the tool built, and the dirty mark it left, go. It
+        /// refuses to start when an open scene has unsaved changes, because putting the scenes back would throw them away.
+        /// </summary>
+        sealed class ScratchScene : IDisposable
+        {
+            readonly SceneSetup[] _setup;
+
+            public ScratchScene()
+            {
+                for (int i = 0; i < UnityEngine.SceneManagement.SceneManager.sceneCount; i++)
+                    if (UnityEngine.SceneManagement.SceneManager.GetSceneAt(i).isDirty)
+                        throw new InvalidOperationException("An open scene has unsaved changes: save it first, the tool would throw them away.");
+                _setup = EditorSceneManager.GetSceneManagerSetup();
+                EditorSceneManager.OpenScene(RinkScene, OpenSceneMode.Single);
+            }
+
+            public void Dispose()
+            {
+                if (_setup.Length > 0) EditorSceneManager.RestoreSceneManagerSetup(_setup);
+                else EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            }
+        }
 
         [MenuItem("Hockey Game/Picture Test/Roof banner pictures")]
         public static void Take()
@@ -25,14 +51,14 @@ namespace HockeyGame.Editor
             RenderTexture target = null;
             Camera camera = null;
             Crowd crowd = null;
+            ScratchScene scratch = null;
             try
             {
                 EditorUtility.audioMasterMute = true;
                 ShaderUtil.allowAsyncCompilation = false;
-                EditorSceneManager.OpenScene(RinkScene, OpenSceneMode.Single);
+                scratch = new ScratchScene();
                 target = new RenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
-                RinkBuilder.Build(out camera);
-                crowd = GameObject.Find("Rink").GetComponentInChildren<Crowd>();
+                crowd = RinkBuilder.Build(out camera).GetComponentInChildren<Crowd>();
                 if (crowd != null) crowd.Drawn = false;
                 camera.targetTexture = target;
                 Directory.CreateDirectory(Folder);
@@ -52,6 +78,7 @@ namespace HockeyGame.Editor
                     target.Release();
                     UnityEngine.Object.DestroyImmediate(target);
                 }
+                scratch?.Dispose();
                 EditorUtility.UnloadUnusedAssetsImmediate();
             }
         }
@@ -59,7 +86,7 @@ namespace HockeyGame.Editor
         /// <summary>
         /// A cheap frame-time A/B for the banners (FrameBudgetTool needs Goals the build cannot make, #134): the shooter's view at
         /// 1920 x 1080 with the crowd ON, the banner row switched on and off in turn, median ms per frame over 7 rounds of 60 frames,
-        /// each frame waited for on the GPU. Writes PictureTest/Banners/frametime.txt.
+        /// each frame waited for on the GPU (the banners' wires switch with them). Writes PictureTest/Latest/Banners/frametime.txt.
         /// </summary>
         [MenuItem("Hockey Game/Picture Test/Roof banner frame time")]
         public static void FrameTime()
@@ -68,14 +95,15 @@ namespace HockeyGame.Editor
             bool asyncShaders = ShaderUtil.allowAsyncCompilation;
             RenderTexture target = null;
             Camera camera = null;
+            ScratchScene scratch = null;
             try
             {
                 EditorUtility.audioMasterMute = true;
                 ShaderUtil.allowAsyncCompilation = false;
-                EditorSceneManager.OpenScene(RinkScene, OpenSceneMode.Single);
+                scratch = new ScratchScene();
                 target = new RenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
-                RinkBuilder.Build(out camera);
-                Transform row = GameObject.Find("Rink").transform.Find(RoofBanners.Part);
+                Transform rink = RinkBuilder.Build(out camera);
+                Transform row = rink.Find(RoofBanners.Part), wires = rink.Find(RoofBanners.WiresPart);
                 if (row == null) throw new System.InvalidOperationException("No roof banners to time.");
                 camera.targetTexture = target;
                 Breakaway.SkatePoint(AttackSide.Middle, 1.0, out double x, out double distance);
@@ -83,11 +111,11 @@ namespace HockeyGame.Editor
 
                 var on = new System.Collections.Generic.List<double>();
                 var off = new System.Collections.Generic.List<double>();
-                Time(camera, target, row, true, 30); // warm up
+                Time(camera, target, row, wires, true, 30); // warm up
                 for (int round = 0; round < 7; round++)
                 {
-                    on.Add(Time(camera, target, row, true, 60));
-                    off.Add(Time(camera, target, row, false, 60));
+                    on.Add(Time(camera, target, row, wires, true, 60));
+                    off.Add(Time(camera, target, row, wires, false, 60));
                 }
                 on.Sort();
                 off.Sort();
@@ -110,13 +138,15 @@ namespace HockeyGame.Editor
                     target.Release();
                     UnityEngine.Object.DestroyImmediate(target);
                 }
+                scratch?.Dispose();
                 EditorUtility.UnloadUnusedAssetsImmediate();
             }
         }
 
-        static double Time(Camera camera, RenderTexture target, Transform row, bool bannersOn, int frames)
+        static double Time(Camera camera, RenderTexture target, Transform row, Transform wires, bool bannersOn, int frames)
         {
             row.gameObject.SetActive(bannersOn);
+            if (wires != null) wires.gameObject.SetActive(bannersOn);
             var clock = System.Diagnostics.Stopwatch.StartNew();
             for (int i = 0; i < frames; i++)
             {

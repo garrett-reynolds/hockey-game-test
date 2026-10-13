@@ -92,7 +92,7 @@ namespace HockeyGame.Core.Tests
                 if (target != null) Object.DestroyImmediate(target);
                 effects?.Dispose();
                 goalie?.Dispose();
-                Object.DestroyImmediate(rink);
+                RinkTeardown.Destroy(rink);
                 Object.DestroyImmediate(camera.gameObject);
                 Physics.simulationMode = oldMode;
             }

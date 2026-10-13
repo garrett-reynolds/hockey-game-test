@@ -155,7 +155,7 @@ namespace HockeyGame.Core.Tests
                         rt.Release();
                         Object.DestroyImmediate(rt);
                     }
-                Object.DestroyImmediate(GameObject.Find("Rink"));
+                RinkTeardown.Destroy(GameObject.Find("Rink"));
                 if (camera != null) Object.DestroyImmediate(camera.gameObject);
             }
         }
