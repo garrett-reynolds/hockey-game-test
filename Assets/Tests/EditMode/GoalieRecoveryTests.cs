@@ -319,7 +319,9 @@ namespace HockeyGame.Core.Tests
                 Assert.AreEqual(RoundPhase.RoundOver, round.Phase);
                 Assert.AreEqual(6, boundaries.Count, "five skate-ins and the end screen");
                 Assert.Less(worstBoundary, 0.03f, "no snap as a hold ends (only the start of the turn to the new shooter): " + worstWhere);
-                Assert.Less(worstLate, 0.05f, "smooth from the end of the hold into the next skate-in: " + lateWhere);
+                // 0.08, not 0.05 (#125): the skate-push model speeds up at PushAccel 40 m/s2 (3.2 m/s, 5.3 cm a frame, 0.08 s in; the
+                // Catcher also swings as he turns), not the old 3 m/s cap. Still a smooth start with no snap (the next test is the turn).
+                Assert.Less(worstLate, 0.08f, "smooth from the end of the hold into the next skate-in: " + lateWhere);
                 Assert.Less(worstTurn, 2f, "turns to the next shooter at most 2 degrees a frame (no snap)");
             }
             finally
