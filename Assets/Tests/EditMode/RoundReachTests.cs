@@ -40,7 +40,7 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(6.0, settings.LegMetresPerSecond, Tol);
             Assert.AreEqual(4.0, settings.PushMetresPerSecond, Tol);
             Assert.AreEqual(0.6, settings.MaxPushMetres, Tol);
-            Assert.AreEqual(0.6, settings.NormalDepthMetres, Tol);
+            Assert.AreEqual(0.2, settings.NormalDepthMetres, Tol);
         }
 
         [Test]
@@ -161,7 +161,7 @@ namespace HockeyGame.Core.Tests
 
             RinkPoint start = Breakaway.ShotStart(AttackSide.Middle, 0.5, settings);
             RinkPoint passing = RinkPoint.AtDepth(start, RinkPoint.OnNetFace(80, 30), -settings.NormalDepthMetres);
-            Assert.AreEqual(-0.6, passing.Z, 1e-9);
+            Assert.AreEqual(-0.2, passing.Z, 1e-9);
             Assert.AreEqual(ShotFlight.Seconds(RinkPoint.Distance(start, passing), 90), round.LastRace.Value.FlightSeconds, 1e-9);
             Assert.Less(round.LastRace.Value.FlightSeconds, ShotFlight.Seconds(RinkPoint.Distance(start, RinkPoint.OnNetFace(80, 30)), 90));
         }

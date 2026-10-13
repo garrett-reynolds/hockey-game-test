@@ -16,7 +16,7 @@ namespace HockeyGame.Core.Tests
         /// <summary>Own numbers, unlike the defaults, so the test shows the sizes come from RoundSettings.</summary>
         static RoundSettings Sized() => new RoundSettings
         {
-            NormalDepthMetres = 0.7, CheatMetres = 0.25, DepthMetres = 0.45, LateSettleMetres = 0.5, LateSettleSeconds = 0.8
+            NormalDepthMetres = 0.7, CheatMetres = 0.25,LateSettleMetres = 0.5, LateSettleSeconds = 0.8
         };
 
         static readonly RinkPoint Start = new RinkPoint(1.4, 1.1, -7.0);
@@ -38,15 +38,16 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void A_Depth_sets_on_the_angle_but_deeper_toward_the_goal_line_the_whole_window()
+        public void A_Depth_sets_on_the_goal_line_the_whole_window()
         {
             var settings = Sized();
             foreach (double t in new[] { 0.0, 2.9 })
             {
                 RinkPoint depth = SetUps.Spot(SetUp.Depth, AttackSide.Right, t, Start, settings);
-                Assert.AreEqual(-(0.7 - 0.45), depth.Z, Tol, "0.45 m deeper than 0.7 m out");
-                Assert.AreEqual(Start.X * depth.Z / Start.Z, depth.X, Tol, "still on the line from the puck to the net centre");
+                Assert.AreEqual(0.0, depth.Z, Tol, "on the goal line, whatever the normal depth is");
             }
+            settings.NormalDepthMetres = 0.3;
+            Assert.AreEqual(0.0, SetUps.Spot(SetUp.Depth, AttackSide.Right, 0, Start, settings).Z, Tol, "tuning the normal depth keeps it on the line");
         }
 
         [TestCase(0.0, 0.5)]

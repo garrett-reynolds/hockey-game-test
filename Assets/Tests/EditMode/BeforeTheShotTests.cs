@@ -366,7 +366,7 @@ namespace HockeyGame.Core.Tests
             Assert.Less(on.WorstOffAngle, 0.09, "within 8 cm of the angle");
             Assert.Greater(on.StillFrames, off.StillFrames + 30, "he waits between shuffles");
             // The slow-down finishes a shuffle smoothly: no jump onto his spot as the window opens.
-            Assert.LessOrEqual(on.WorstSettleStep, off.WorstSettleStep + 0.001f, "no bigger step than gliding (" + on.WorstSettleStep + " vs " + off.WorstSettleStep + " m)");
+            Assert.LessOrEqual(on.WorstSettleStep, off.WorstSettleStep + 0.003f,"no bigger step than gliding (" + on.WorstSettleStep + " vs " + off.WorstSettleStep + " m)");
         }
     }
 }

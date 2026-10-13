@@ -32,13 +32,12 @@ namespace HockeyGame.Core
         public double MaxPushMetres = 0.6;
 
         /// <summary>How far out from the Net Face (goal line) the goalie sets in a Clean Set-up (metres).</summary>
-        public double NormalDepthMetres = 0.6;
+        public double NormalDepthMetres = 0.2;
 
-        // Set-up Mistakes (see SetUps.Spot): a Cheat sets CheatMetres across toward a post; a Depth sets DepthMetres deeper (back
-        // toward the goal line); a Late Settle is LateSettleMetres across, short of his spot, when the window opens and closes
+        // Set-up Mistakes (see SetUps.Spot): a Cheat sets CheatMetres across toward a post; a Depth sets him on the goal line
+        // (depth 0); a Late Settle is LateSettleMetres across, short of his spot, when the window opens and closes
         // onto it over LateSettleSeconds.
         public double CheatMetres = 0.3;
-        public double DepthMetres = 0.5;
         public double LateSettleMetres = 0.4;
         public double LateSettleSeconds = 1.0;
 

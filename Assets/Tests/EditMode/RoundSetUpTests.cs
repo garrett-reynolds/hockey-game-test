@@ -111,14 +111,14 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void A_Depth_s_Flight_Time_runs_to_where_the_puck_passes_him_deeper_in()
+        public void A_Depth_s_Flight_Time_runs_to_where_the_puck_passes_him_on_the_goal_line()
         {
             var settings = Fixed();
             var clean = InWindow(FakeReach.NeverReaches(), settings, AttackSide.Middle, SetUp.Clean, 1.0);
             var depth = InWindow(FakeReach.NeverReaches(), settings, AttackSide.Middle, SetUp.Depth, 1.0);
             clean.SubmitShotAndWhistle(50, 50, 100, false);
             depth.SubmitShotAndWhistle(50, 50, 100, false);
-            Assert.AreEqual(-0.1, depth.LastRace.Value.Spot.Z, 1e-9);
+            Assert.AreEqual(0.0, depth.LastRace.Value.Spot.Z, 1e-9);
             Assert.Greater(depth.LastRace.Value.FlightSeconds, clean.LastRace.Value.FlightSeconds);
         }
     }

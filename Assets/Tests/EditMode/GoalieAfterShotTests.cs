@@ -233,7 +233,7 @@ namespace HockeyGame.Core.Tests
                 }
             });
             Assert.Less(yawBefore, 25f, "no look back while the puck flies");
-            Assert.Greater(mostYaw, 45f, "looked back into the net"); // the physics puck rests nearer the front of the net than the scripted one did (58 deg measured)
+            Assert.Greater(mostYaw, 40f, "looked back into the net"); // the physics puck rests nearer the front of the net than the scripted one did; 0.2 m out (#124) turns him less (44.6 deg measured)
             Assert.Less(lowestHead, reachHead - 0.05f, "the gesture drops his head");
             Assert.Less(lastStick, 0.03f, "the stick back on the ice");
             Assert.IsEmpty(touches, string.Join("; ", touches));

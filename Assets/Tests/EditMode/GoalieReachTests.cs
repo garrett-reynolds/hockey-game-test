@@ -21,17 +21,17 @@ namespace HockeyGame.Core.Tests
         // ---- The Set-up spot (Core) ----
 
         [Test]
-        public void A_Clean_Set_up_stands_on_the_line_from_the_puck_to_the_net_centre_0_6_m_out()
+        public void A_Clean_Set_up_stands_on_the_line_from_the_puck_to_the_net_centre_0_2_m_out()
         {
             var start = new RinkPoint(2.0, 1.1, -6.0);
             RinkPoint spot = SetUps.Spot(SetUp.Clean, AttackSide.Right, 0.5, start, Defaults);
-            Assert.AreEqual(-0.6, spot.Z, Tol);
-            Assert.AreEqual(0.2, spot.X, Tol, "on the line: 0.6 / 6 of the way across");
+            Assert.AreEqual(-0.2, spot.Z, Tol);
+            Assert.AreEqual(2.0 * 0.2 / 6, spot.X, Tol, "on the line: 0.2 / 6 of the way across, to the puck's 2.0 m");
             Assert.AreEqual(0.0, spot.Y, Tol);
 
             RinkPoint middle = SetUps.Spot(SetUp.Clean, AttackSide.Middle, 0, new RinkPoint(0, 1.1, -5), Defaults);
             Assert.AreEqual(0.0, middle.X, Tol);
-            Assert.AreEqual(-0.6, middle.Z, Tol);
+            Assert.AreEqual(-0.2, middle.Z, Tol);
 
             var deeper = new RoundSettings { NormalDepthMetres = 0.4 };
             Assert.AreEqual(-0.4, SetUps.Spot(SetUp.Clean, AttackSide.Right, 0, start, deeper).Z, Tol);
@@ -101,7 +101,7 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void A_high_glove_side_corner_is_won_by_the_glove()
         {
-            // At 0.6 m out a Clean Set-up covers nearly all the Net Face: only the corner is left to reach (from the window's
+            // At 0.2 m out a Clean Set-up covers nearly all the Net Face: only the corner is left to reach (from the window's
             // opening, farthest out: nearer in, he covers it too). The Shot starts on the ice, so the puck's line rises to the
             // corner and the very top of it (y 92 and up) is already behind his glove: the open part is a little lower.
             GoalieCharacterReach port = Port(out _);

@@ -14,7 +14,7 @@ namespace HockeyGame.Core.Tests
         const double Tol = 1e-9;
         static readonly AttackSide[] Sides = { AttackSide.Left, AttackSide.Middle, AttackSide.Right };
 
-        static RoundSettings Settings() => new RoundSettings { NormalDepthMetres = 0.6, SkateInSeconds = 2.5, SlowDownSeconds = 1.0 };
+        static RoundSettings Settings() => new RoundSettings { NormalDepthMetres = 0.2, SkateInSeconds = 2.5, SlowDownSeconds = 1.0 };
 
         /// <summary>How far `spot` is off the line (on the ice) from the puck to the net centre (metres).</summary>
         static double OffTheLine(RinkPoint spot, RinkPoint puck) =>
@@ -39,7 +39,7 @@ namespace HockeyGame.Core.Tests
                 RinkPoint spot = SetUps.Approach(SetUp.Clean, side, RoundPhase.SkateIn, seconds, settings);
                 string where = side + " at skate progress " + u;
                 Assert.AreEqual(0.0, OffTheLine(spot, puck), 1e-9, where + ": on the angle line");
-                Assert.AreEqual(-0.6, spot.Z, Tol, where + ": at his normal depth");
+                Assert.AreEqual(-0.2, spot.Z, Tol, where + ": at his normal depth");
                 Assert.AreEqual(0.0, spot.Y, Tol, where + ": on the ice");
                 Assert.IsTrue(Math.Sign(spot.X) == Math.Sign(Math.Round(puck.X, 9)), where + ": on the puck's side of the net");
             }
