@@ -43,12 +43,19 @@ namespace HockeyGame.Core.Tests
             foreach (TextMesh t in words)
             {
                 Material m = t.GetComponent<Renderer>().sharedMaterial;
-                Assert.AreEqual(BoardWordsMaterial.ShaderName, m.shader.name, t.name);
+                Assert.AreEqual(LedBoardMaterial.ShaderName, m.shader.name, t.name);
                 Assert.IsTrue(m.shader.isSupported, t.name + " shader works");
                 BoardWordsAssert.AssertSolid(m, t.name);
                 Assert.AreNotSame(font.material, m, t.name + " is not the font's own material");
             }
             Assert.AreEqual(font.material.mainTexture, ribbons.WordsMaterial.mainTexture, "the font's atlas");
+        }
+
+        [Test]
+        public void Ribbon_Board_words_have_no_LED_cell_until_122()
+        {
+            RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
+            Assert.AreEqual(0f, LedBoardMaterial.CellOf(ribbons.WordsMaterial), "cell size 0 means the plain look");
         }
 
         [Test]

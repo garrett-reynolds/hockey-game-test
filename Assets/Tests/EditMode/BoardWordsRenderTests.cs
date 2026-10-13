@@ -44,6 +44,13 @@ namespace HockeyGame.Core.Tests
             foreach (TextMesh t in root.GetComponentsInChildren<TextMesh>()) t.color = colour;
         }
 
+        // The Video Board's and Centre Board's words are LED cells of their screens (no text objects), so their colour is the screen's
+        // material colour.
+        static void PaintScreens(VideoBoards boards, int first, int last, Color colour)
+        {
+            for (int i = first; i <= last; i++) boards.PaintWords(i, colour);
+        }
+
         static ArenaState Words(ArenaResult result = ArenaResult.Goal) =>
             ArenaShow.At(new ArenaShowInput
             {
@@ -132,7 +139,7 @@ namespace HockeyGame.Core.Tests
             RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
             boards.Show(Words(), 0.0);
             ribbons.Show(Words(), 0.0);
-            Paint(boards.VideoBoard, new Color(0.1f, 1f, 0.1f));
+            PaintScreens(boards, 0, 0, new Color(0.1f, 1f, 0.1f));
             Paint(ribbons, new Color(1f, 1f, 0.1f));
             string shader = ribbons.GetComponentInChildren<TextMesh>().GetComponent<Renderer>().sharedMaterial.shader.name;
 
@@ -161,9 +168,8 @@ namespace HockeyGame.Core.Tests
         {
             VideoBoards boards = VideoBoards.Build(_rink.transform);
             boards.Show(Words(), 0.0);
-            foreach (TextMesh t in boards.VideoBoard.GetComponentsInChildren<TextMesh>())
-                t.GetComponent<Renderer>().enabled = false; // only the Centre Board's words can be seen
-            string shader = boards.CentreBoard.GetComponentInChildren<TextMesh>().GetComponent<Renderer>().sharedMaterial.shader.name;
+            PaintScreens(boards, 0, 0, Color.gray); // only the Centre Board's words are green or yellow (the Video Board's are grey)
+            string shader = boards.PictureOn(1).shader.name;
 
             double start = StartShots.All[0].Seconds + StartShots.All[1].Seconds;
             StartShotPose pose = StartShots.At(start + StartShots.All[2].Seconds / 2);
@@ -175,12 +181,11 @@ namespace HockeyGame.Core.Tests
 
             // Centre Board screens are 1..4 (0 is the Video Board). Facing-away screens get yellow words, facing screens green.
             int away = 0;
-            foreach (TextMesh t in boards.CentreBoard.GetComponentsInChildren<TextMesh>())
+            for (int index = 1; index < boards.ScreenCount; index++)
             {
-                int index = int.Parse(t.name.Substring(t.name.LastIndexOf(' ') + 1));
                 bool facingAway = Vector3.Dot(_eye.transform.position - boards.CentreOf(index), boards.FacingOf(index)) < 0f;
-                t.color = facingAway ? new Color(1f, 1f, 0.1f) : new Color(0.1f, 1f, 0.1f);
-                if (facingAway && t.name.Contains("Headline")) away++;
+                boards.PaintWords(index, facingAway ? new Color(1f, 1f, 0.1f) : new Color(0.1f, 1f, 0.1f));
+                if (facingAway) away++;
             }
             Assert.Greater(away, 0, "at least one Centre Board screen faces away from the eye");
 
@@ -203,9 +208,10 @@ namespace HockeyGame.Core.Tests
         /// the render tests are the proof by pixels.</summary>
         public static void AssertSolid(Material m, string what)
         {
-            Assert.AreEqual((int)RenderQueue.Transparent, m.renderQueue, what + " draws in the Transparent queue");
-            string text = File.ReadAllText(Path.Combine(Application.dataPath, "Resources/Lighting/BoardWords.shader"));
+            Assert.AreEqual((int)RenderQueue.AlphaTest, m.renderQueue, what + " draws in the AlphaTest queue, after the solid screens");
+            string text = File.ReadAllText(Path.Combine(Application.dataPath, "Resources/Lighting/LedBoard.shader"));
             StringAssert.Contains("ZTest LEqual", text, what);
+            StringAssert.Contains("ZWrite On", text, what);
             StringAssert.Contains("Cull Back", text, what);
             StringAssert.DoesNotContain("ZTest Always", text, what);
             StringAssert.DoesNotContain("Cull Off", text, what);

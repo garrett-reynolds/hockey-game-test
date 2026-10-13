@@ -110,6 +110,14 @@ _Avoid_: Jumbotron, scoreboard, centre-hung
 The thin LED strip that runs around the stands. It shows ads, and words such as GOAL! after a Shot.
 _Avoid_: LED ribbon, ticker
 
+**LED cell**:
+One dot of a board's picture; a Video Board or Ribbon Board draws a grid of them with thin dark gaps, and its picture is one flat colour per cell (the cell size is a rink size in metres).
+_Avoid_: pixel, LED dot
+
+**LED font**:
+The board's dot-matrix letters, drawn cell by cell (5 x 7 capitals), not a smoothed typeface.
+_Avoid_: pixel font
+
 **Score Box**:
 The small score in a corner of the screen, like on TV. It stays on screen all Round.
 _Avoid_: HUD, score bug

@@ -274,6 +274,9 @@ namespace HockeyGame.Core
         public const double VideoBoardZ = 10.9;
         public static readonly RinkPoint VideoBoard = new RinkPoint(0, RibbonBottom + RibbonHeight / 2, VideoBoardZ);
         public const double VideoBoardWidth = 14.3, VideoBoardHeight = 7.8;
+        /// <summary>The side of one LED cell on the Video Board and the Centre Board (metres): the board is a whole number of cells each way.
+        /// The one place to tune how coarse the LED look is.</summary>
+        public const double VideoBoardLedCell = 0.1;
         /// <summary>The dark frame round the Video Board's screen (metres each side) and its depth behind the screen.</summary>
         public const double VideoBoardFrameMargin = 0.2, VideoBoardDepth = 0.4;
         /// <summary>How far the Video Board leans forward: it faces the shooter's eye at the start of the skate-in.</summary>

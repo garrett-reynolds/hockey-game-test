@@ -2,16 +2,16 @@ using UnityEngine;
 
 namespace HockeyGame
 {
-    /// <summary>The material for board words (Video Board, Centre Board, Ribbon Board). Unity's built-in font material ignores
-    /// depth and draws both faces, so words showed through boards and mirrored from behind. This one is depth-tested and front-face
-    /// only (shader Hockey Game/Board Words) and reads the font's atlas. The builder that makes it frees it.</summary>
+    /// <summary>The material that draws the Ribbon Boards' text from the font's atlas. Unity's built-in font material ignores depth and
+    /// draws both faces, so words showed through boards and mirrored from behind. This one is depth-tested and front-face only (shader
+    /// Hockey Game/LED Board, font-atlas path) until #122 gives the Ribbon Boards the LED look. The Video Board and Centre Board do not
+    /// use it: they draw the LED font (LedFont). The builder that makes one frees it.</summary>
     public static class BoardWordsMaterial
     {
-        public const string ShaderPath = "Lighting/BoardWords", ShaderName = "Hockey Game/Board Words";
-
-        public static Material Make(Font font)
+        /// <summary>Smooth text in the text's own colour (the Ribbon Boards; cellMetres 0 until #122).</summary>
+        public static Material Make(Font font, double cellMetres)
         {
-            var words = new Material(Resources.Load<Shader>(ShaderPath)) { name = "Board Words" };
+            var words = LedBoardMaterial.PlainText("Board Words", cellMetres);
             Follow(words, font);
             return words;
         }
