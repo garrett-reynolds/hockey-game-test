@@ -52,11 +52,11 @@ namespace HockeyGame.Core.Tests
         public void The_League_Skin_builds_its_banners_where_the_shooter_sees_them()
         {
             Camera camera = null;
-            Transform rink = null;
+            Transform rink = null, row = null;
             try
             {
                 rink = RinkBuilder.Build(out camera);
-                Transform row = rink.Find(RoofBanners.Part);
+                row = rink.Find(RoofBanners.Part);
                 Assert.IsNotNull(row, "the League Skin builds a banner row");
                 Assert.AreEqual(TeamSkin.League.RoofBanners.Length, row.childCount, "one banner for each art");
 
@@ -80,16 +80,53 @@ namespace HockeyGame.Core.Tests
                         System.Math.Pow(b.center.z - RinkLayout.NearCornerZ, 2)) - RinkLayout.CornerRadius;
                     double stands = RinkLayout.StandsFrontHeight + RinkLayout.LowerRise * (offset - RinkLayout.StandsFront) / RinkLayout.RowDepth;
                     Assert.GreaterOrEqual(b.min.y, stands + 0.5, banner.name + " hangs clear of the seats (stands " + stands.ToString("0.0") + " m high there)");
-                    Vector3 v = camera.WorldToViewportPoint(b.center);
-                    if (v.z > 0f && v.x > 0f && v.x < 1f && v.y > 0f && v.y < 1f) seen++;
+                    Assert.IsTrue(WhollyInView(camera, b), banner.name + " is wholly in the shooter's view, not cut off by the frame");
+                    seen++;
                 }
                 Assert.GreaterOrEqual(seen, 6, "at least 6 banners are in the shooter's view");
             }
             finally
             {
+                if (row != null) DestroyMaterials(row);
                 if (rink != null) Object.DestroyImmediate(rink.gameObject);
                 if (camera != null) Object.DestroyImmediate(camera.gameObject);
             }
+        }
+
+        [Test]
+        public void A_banner_cut_off_by_the_frame_is_not_wholly_in_view()
+        {
+            var camera = new GameObject("Test camera").AddComponent<Camera>();
+            try
+            {
+                camera.aspect = 16f / 9f;
+                camera.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity); // looks along +z
+                Assert.IsTrue(WhollyInView(camera, new Bounds(new Vector3(0f, 0f, 20f), Vector3.one)), "a small box in the middle is in view");
+                Assert.IsFalse(WhollyInView(camera, new Bounds(new Vector3(0f, 10f, 20f), new Vector3(2f, 6f, 0.1f))), "its middle is in the frame but its top is above it");
+                Assert.IsFalse(WhollyInView(camera, new Bounds(new Vector3(19f, 0f, 20f), new Vector3(4f, 2f, 0.1f))), "its middle is in the frame but its side is past it");
+                Assert.IsFalse(WhollyInView(camera, new Bounds(new Vector3(0f, 0f, -20f), Vector3.one)), "behind the camera");
+            }
+            finally { Object.DestroyImmediate(camera.gameObject); }
+        }
+
+        /// <summary>True when all 8 corners of b are in front of the camera and inside its frame.</summary>
+        static bool WhollyInView(Camera camera, Bounds b)
+        {
+            Vector3 c = b.center, e = b.extents;
+            for (int i = 0; i < 8; i++)
+            {
+                Vector3 corner = c + new Vector3((i & 1) == 0 ? -e.x : e.x, (i & 2) == 0 ? -e.y : e.y, (i & 4) == 0 ? -e.z : e.z);
+                Vector3 v = camera.WorldToViewportPoint(corner);
+                if (v.z <= 0f || v.x < 0f || v.x > 1f || v.y < 0f || v.y > 1f) return false;
+            }
+            return true;
+        }
+
+        /// <summary>The banner materials are made per banner, so they are not freed with the rink.</summary>
+        static void DestroyMaterials(Transform row)
+        {
+            foreach (Renderer r in row.GetComponentsInChildren<Renderer>())
+                if (r.sharedMaterial != null) Object.DestroyImmediate(r.sharedMaterial);
         }
     }
 }

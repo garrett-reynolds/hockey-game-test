@@ -8,8 +8,8 @@ using UnityEngine;
 namespace HockeyGame.Editor
 {
     /// <summary>
-    /// Takes the roof banner pictures (#149): the shooter's view at 1920 x 1080 with the crowd off and the Editor muted, and a
-    /// wide picture from the shooter's spot looking up at the roof. Writes PictureTest/Banners/shooter.png and wide.png.
+    /// Takes the roof banner pictures (#149): the shooter's view at 1920 x 1080 with the crowd off and the Editor muted.
+    /// Writes PictureTest/Banners/shooter.png.
     /// </summary>
     public static class BannerPictureTool
     {
@@ -40,12 +40,6 @@ namespace HockeyGame.Editor
                 Breakaway.SkatePoint(AttackSide.Middle, 1.0, out double x, out double distance);
                 BreakawayView.PlaceShooterCamera(camera.transform, (float)x, (float)distance, 0f, 0f);
                 Save(camera, target, "shooter");
-
-                // Behind and above the shooter's spot, looking up the ice at the far end's roof (the old row's side).
-                Vector3 eye = camera.transform.position;
-                camera.transform.rotation = Quaternion.Euler(-20f, 180f, 0f);
-                camera.transform.position = new Vector3(0f, eye.y, 1f);
-                Save(camera, target, "up-ice");
             }
             finally
             {
