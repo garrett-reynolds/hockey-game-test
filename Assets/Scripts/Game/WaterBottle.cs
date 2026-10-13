@@ -8,8 +8,9 @@ namespace HockeyGame
     /// side across the net's top, near the back and toward the middle, like a real goalie's. The model is Assets/Resources/Models/bottle.obj (Tools/make_water_bottle.py),
     /// or a green cylinder when there is none. It has a Rigidbody and one box collider, and it lies on the catch roof (ShotColliders),
     /// the net's top for physics. While it sits it is kinematic, so it never drifts; the knock-off (#164) lets it go.
-    /// It never meets the puck (ADR 0004: Unity physics decides the Shot): the bottle and the physics puck are on layers that do not
-    /// collide (IgnorePuck), so the bottle cannot change a Shot's result.
+    /// While it sits it never meets the puck (ADR 0004: Unity physics decides the Shot): the bottle and the physics puck are on layers that do not
+    /// collide (IgnorePuck), so the bottle cannot change a Shot's result. Once knocked it is on KnockedLayer and meets everything, the puck too:
+    /// the Goal is decided before the knock.
     /// </summary>
     public sealed class WaterBottle
     {
@@ -115,21 +116,38 @@ namespace HockeyGame
             return link != null ? link.Bottle : null;
         }
 
-        /// <summary>The one fixed push (#164): the speed it is given, up and back away from the net (+z, behind the goal line). Always the same.</summary>
-        public static readonly Vector3 KnockPush =new Vector3(0f, 2.5f, 3f);
+        /// <summary>
+        /// The push ranges (#164, m/s): up, forward (toward the shooter, -z, out over the crossbar) and sideways (left or right, picked
+        /// each knock). Up 2.2 to 3.0 lifts it 0.25 to 0.46 m and keeps it in the air about 0.8 s from the net's top (1.4 m), so forward
+        /// 2.0 to 3.5 clears the crossbar (z 0, 0.28 m ahead of it) and lands it 1.6 to 3 m in front of the goal line, on the ice.
+        /// </summary>
+        public const float PushUpMin = 2.2f, PushUpMax = 3.0f, PushForwardMin = 2.0f, PushForwardMax = 3.5f, PushSideMin = 0.8f, PushSideMax = 2.0f;
+        /// <summary>The most spin a knock gives about each axis (rad/s).</summary>
+        public const float SpinMax = 6f;
+
+        /// <summary>The layer a knocked bottle is on: Default, which meets everything, the puck too (the Goal is decided before the knock).</summary>
+        public const int KnockedLayer = 0;
+
         /// <summary>True once Knock has let it go, until PutBack.</summary>
         public bool Knocked => Body != null && !Body.isKinematic;
 
         /// <summary>
-        /// The bottle gets its push (#164): it becomes a normal rigid body and is given KnockPush, so it leaves the net, then bounces
-        /// and rolls on the ice. A second Knock while it is already knocked does nothing.
+        /// The bottle gets its push (#164): it becomes a normal rigid body, forward, up and to a random side with a random size and a
+        /// little spin, so it leaves the net, then bounces and rolls on the ice. It moves to a layer that meets the puck and everything
+        /// else (PutBack puts it on its own layer again). A second Knock while it is already knocked does nothing.
         /// </summary>
-        public void Knock()
+        public void Knock() => Knock(new System.Random());
+
+        /// <summary>Knock with a given random source (tests pass a seeded one).</summary>
+        public void Knock(System.Random random)
         {
             if (Knocked) return;
+            float Between(float low, float high) => low + (float)random.NextDouble() * (high - low);
+            float side = Between(PushSideMin, PushSideMax) * (random.Next(2) == 0 ? -1f : 1f);
+            SetLayer(Root.transform, KnockedLayer);
             Body.isKinematic = false;
-            Body.linearVelocity = KnockPush;
-            Body.angularVelocity = Vector3.zero;
+            Body.linearVelocity = new Vector3(side, Between(PushUpMin, PushUpMax), -Between(PushForwardMin, PushForwardMax));
+            Body.angularVelocity = new Vector3(Between(-SpinMax, SpinMax), Between(-SpinMax, SpinMax), Between(-SpinMax, SpinMax));
         }
 
         /// <summary>Once a frame with BottleKnock.Knocked (the Arena Show's state): knocked off while it is true, back on the net when it turns false.</summary>
@@ -148,6 +166,7 @@ namespace HockeyGame
                 Body.angularVelocity = Vector3.zero;
                 Body.isKinematic = true;
             }
+            SetLayer(Root.transform, Layer);
             Body.position = RestPosition;
             Body.rotation = RestRotation;
             Root.transform.SetPositionAndRotation(RestPosition, RestRotation);

@@ -176,7 +176,7 @@ namespace HockeyGame.Core.Tests
             Run(5f);
 
             Vector3 p = bottle.Root.transform.position - Origin;
-            Assert.That(p.z, Is.GreaterThan(0.7f), "past the back of the net (0.6 m)");
+            Assert.That(p.z, Is.LessThan(0f), "forward of the goal line, toward the shooter");
             Assert.That(p.y, Is.InRange(0.02f, 0.3f), "on the ice: above its surface, not through it");
             Assert.That(Mathf.Abs(p.x), Is.LessThan(RinkIce.Size / 2f), "inside the rink (side to side)");
             Assert.That(Mathf.Abs(p.z - RinkIce.CentreZ), Is.LessThan(RinkIce.Size / 2f), "inside the rink (end to end)");
@@ -187,6 +187,45 @@ namespace HockeyGame.Core.Tests
             Assert.That(Vector3.Distance(bottle.RestPosition, bottle.Root.transform.position), Is.LessThan(0.001f), "back in place");
             Assert.That(bottle.Body.isKinematic, "still, held again");
             Assert.That(bottle.Body.linearVelocity.magnitude, Is.LessThan(0.001f));
+        }
+
+        [Test]
+        public void Knocks_with_different_seeds_go_different_ways_and_the_same_seed_the_same_way()
+        {
+            Vector3 Push(int seed)
+            {
+                WaterBottle bottle = WaterBottle.Build(_rink.transform);
+                bottle.Knock(new System.Random(seed));
+                Assert.AreEqual(WaterBottle.KnockedLayer, bottle.Root.layer, "knocked: on the layer that meets the puck");
+                Vector3 v = bottle.Body.linearVelocity;
+                bottle.PutBack();
+                Assert.AreEqual(WaterBottle.Layer, bottle.Root.layer, "put back: on its own layer, ignored by the puck");
+                Object.DestroyImmediate(bottle.Root);
+                return v;
+            }
+            bool left = false, right = false;
+            for (int seed = 1; seed <= 20; seed++)
+            {
+                Vector3 v = Push(seed);
+                Assert.That(v.z, Is.InRange(-WaterBottle.PushForwardMax, -WaterBottle.PushForwardMin), "forward, seed " + seed);
+                Assert.That(v.y, Is.InRange(WaterBottle.PushUpMin, WaterBottle.PushUpMax), "up, seed " + seed);
+                Assert.That(Mathf.Abs(v.x), Is.InRange(WaterBottle.PushSideMin, WaterBottle.PushSideMax), "sideways, seed " + seed);
+                if (v.x < 0) left = true; else right = true;
+            }
+            Assert.That(left && right, "both sides are used");
+            Assert.AreNotEqual(Push(1), Push(2), "different seeds, different pushes");
+            Assert.AreEqual(Push(3), Push(3), "the same seed, the same push");
+        }
+
+        [Test]
+        public void A_knocked_bottle_meets_the_puck()
+        {
+            ShotColliders.Build(_rink.transform);
+            WaterBottle bottle = WaterBottle.Build(_rink.transform);
+            bottle.Knock(new System.Random(5));
+            Assert.That(!Physics.GetIgnoreLayerCollision(bottle.Root.layer, PhysicsPuck.Layer), "a knocked bottle meets the puck");
+            bottle.PutBack();
+            Assert.That(Physics.GetIgnoreLayerCollision(bottle.Root.layer, PhysicsPuck.Layer), "back on the net, the puck ignores it");
         }
 
         [Test]

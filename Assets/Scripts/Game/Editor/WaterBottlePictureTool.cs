@@ -81,14 +81,14 @@ namespace HockeyGame.Editor
                 ShotColliders.Build(rink); // the ice and net colliders, which the rink makes only for a Shot
                 WaterBottle bottle = WaterBottle.In(rink);
                 Physics.SyncTransforms();
-                bottle.Knock();
+                bottle.Knock(new System.Random(7)); // a fixed seed, so the strip is the same each time
                 float elapsed = 0f;
                 for (int i = 0; i < times.Length; i++)
                 {
                     while (elapsed + PhysicsShot.StepSeconds / 2f < times[i]) { Physics.Simulate(PhysicsShot.StepSeconds); elapsed += PhysicsShot.StepSeconds; }
                     Vector3 p = bottle.Root.transform.position;
                     Debug.Log($"Knock strip: {elapsed:F3} s, bottle at {p.x:F2}, {p.y:F2}, {p.z:F2}");
-                    Place(camera, new Vector3(7f, 1.0f, 1.5f), new Vector3(0f, 1.0f, 1.5f), 25f);
+                    Place(camera, new Vector3(9f, 1.0f, -1.0f), new Vector3(0f, 1.0f, -1.0f), 30f); // wide enough to see the net's top and the landing in front
                     camera.targetTexture = target;
                     camera.Render();
                     RenderTexture.active = target;
