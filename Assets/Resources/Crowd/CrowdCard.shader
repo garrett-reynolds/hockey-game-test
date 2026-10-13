@@ -1,6 +1,6 @@
 // The far fans' flat cards (Crowd.cs, when Crowd.FarCards is on: the crowd's first cut if it goes over 2 ms GPU). Each far
 // fan is one quad standing on its seat and turned round the vertical to face the camera, showing the far body's card
-// picture (_Cards: R8, 0 empty, else region + 1; seated on the left half, standing on the right) painted in the fan's own
+// picture (_Cards: R8, 0 empty, else palette index + 1; seated on the left half, standing on the right) painted in the fan's own
 // colours. A zone playing stand-cheer shows the standing picture, bouncing a little; every other clip the seated one.
 // Same per-fan buffer, zones and colours as the bodies (CrowdFanData.hlsl). Casts no shadow.
 Shader "Hockey Game/Crowd Card"
@@ -23,7 +23,7 @@ Shader "Hockey Game/Crowd Card"
         TEXTURE2D(_Cards);
         float4 _CardSize;      // x, y: the card in metres; z, w: one picture in pixels
         float _CardSeatedTop;  // how much of the card's height the seated picture fills: a seated card is cut to it
-        float4 _ClipInfo[5];   // per CrowdClip: first row, frames, frames per second, loops (the stand-cheer's length)
+        float4 _ClipInfo[8];   // per CrowdClip: first row, frames, frames per second, loops (the stand-cheer's length)
 
         struct Attributes
         {
@@ -36,7 +36,8 @@ Shader "Hockey Game/Crowd Card"
         {
             float4 positionCS;
             float3 normalWS;
-            float3 colourSkin, colourShirt, colourScalp, colourPants, colourShoes; // the fan's colours
+            float3 colourSkin, colourShirt, colourHair; // the fan's colours (shirt: the team top)
+            float teamTop;                                // 1 when it wears one
             float dim;                                    // like the stands and by the zone's light
             float contrast;                               // the zone's
             float2 pixel;                                 // in _Cards
@@ -67,9 +68,8 @@ Shader "Hockey Game/Crowd Card"
             o.normalWS = toCamera;
             o.colourSkin = f.skin.rgb;
             o.colourShirt = f.shirt.rgb;
-            o.colourPants = f.pants.rgb;
-            o.colourShoes = f.shoes.rgb;
-            o.colourScalp = (uint)(f.look.y + 0.5) == HAIR_BALD ? f.skin.rgb : f.hair.rgb;
+            o.colourHair = f.hair.rgb;
+            o.teamTop = f.look.w;
             o.dim = _Light * _ZoneLight[zone];
             o.contrast = _ZoneContrast[zone];
             o.pixel = float2((v.uv.x + frame) * _CardSize.z, up * _CardSize.w);
@@ -77,13 +77,11 @@ Shader "Hockey Game/Crowd Card"
         }
 
         // The card's colour at pixel (alpha 0 where it is empty).
-        float4 Paint(float2 pixel, float3 skin, float3 shirt, float3 scalp, float3 pants, float3 shoes)
+        float4 Paint(float2 pixel, float3 skin, float3 shirt, float teamTop, float3 hair)
         {
             uint code = (uint)(LOAD_TEXTURE2D_LOD(_Cards, uint2(min(pixel, float2(_CardSize.z * 2, _CardSize.w) - 0.5)), 0).r * 255 + 0.5);
             if (code == 0) return 0;
-            uint region = code - 1;
-            float3 c = region == 0 ? skin : region == 1 ? shirt : region == 2 ? pants : region == 3 ? shoes : scalp;
-            return float4(c, 1);
+            return float4(PaintColour(skin, shirt, teamTop, hair, code - 1), 1); // code - 1 = the palette index
         }
         ENDHLSL
 
@@ -106,13 +104,12 @@ Shader "Hockey Game/Crowd Card"
                 float3 normalWS : TEXCOORD0;
                 float3 skin : TEXCOORD1;
                 float3 shirt : TEXCOORD2;
-                float3 scalp : TEXCOORD3;
+                float3 hair : TEXCOORD3;
                 float2 pixel : TEXCOORD4;
                 float fog : TEXCOORD5;
                 float dim : TEXCOORD6;
                 float contrast : TEXCOORD7;
-                float3 pants : TEXCOORD8;
-                float3 shoes : TEXCOORD9;
+                nointerpolation float teamTop : TEXCOORD8;
             };
 
             Varyings Vert(Attributes v)
@@ -121,7 +118,7 @@ Shader "Hockey Game/Crowd Card"
                 Varyings o;
                 o.positionCS = c.positionCS;
                 o.normalWS = c.normalWS;
-                o.skin = c.colourSkin; o.shirt = c.colourShirt; o.scalp = c.colourScalp; o.pants = c.colourPants; o.shoes = c.colourShoes;
+                o.skin = c.colourSkin; o.shirt = c.colourShirt; o.hair = c.colourHair; o.teamTop = c.teamTop;
                 o.pixel = c.pixel;
                 o.fog = ComputeFogFactor(c.positionCS.z);
                 o.dim = c.dim;
@@ -131,7 +128,7 @@ Shader "Hockey Game/Crowd Card"
 
             half4 Frag(Varyings i) : SV_Target
             {
-                float4 c = Paint(i.pixel, i.skin, i.shirt, i.scalp, i.pants, i.shoes);
+                float4 c = Paint(i.pixel, i.skin, i.shirt, i.teamTop, i.hair);
                 clip(c.a - 0.5);
                 Light main = GetMainLight();
                 float3 lit = SampleSH(i.normalWS) + main.color * saturate(dot(i.normalWS, main.direction)) * 0.6;
@@ -167,7 +164,7 @@ Shader "Hockey Game/Crowd Card"
 
             half Frag(Varyings i) : SV_Target
             {
-                clip(Paint(i.pixel, 0, 0, 0, 0, 0).a - 0.5);
+                clip(Paint(i.pixel, 0, 0, 0, 0).a - 0.5);
                 return 0;
             }
             ENDHLSL
@@ -199,7 +196,7 @@ Shader "Hockey Game/Crowd Card"
 
             half4 Frag(Varyings i) : SV_Target
             {
-                clip(Paint(i.pixel, 0, 0, 0, 0, 0).a - 0.5);
+                clip(Paint(i.pixel, 0, 0, 0, 0).a - 0.5);
                 return DepthNormalsOutput(i.normalWS);
             }
             ENDHLSL

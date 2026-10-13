@@ -8,8 +8,8 @@ using UnityEngine.Rendering;
 namespace HockeyGame
 {
     /// <summary>
-    /// The 3D crowd: a fan in every seat of both tiers all round the bowl (CrowdSeats), each one of six body types made
-    /// from the two Quaternius bodies, with its own hair style and colours (CrowdLooks). Near fans (the lower tier in the
+    /// The 3D crowd: a fan in every seat of both tiers all round the bowl (CrowdSeats), each one of 17 body types wearing
+    /// one of the 12 Quaternius Modular outfits, with its own skin, hair and team top (CrowdLooks). Near fans (the lower tier in the
     /// near half) use the full body (about 1.5k triangles), far fans (the upper tier and the far half) the light one (about
     /// 400), or flat camera-facing cards when FarCards is on. Every fan is an instance of a static body mesh; the fans are
     /// kept in one per-fan buffer, sorted into slices by body, level and part of the bowl, and each slice the camera can
@@ -24,10 +24,21 @@ namespace HockeyGame
         /// <summary>Folder under Assets/Resources with the crowd's body files and shaders.</summary>
         public const string Folder = "Crowd";
         public const string ShaderFile = "CrowdFan", CardShaderFile = "CrowdCard";
-        /// <summary>The body files (Tools/make_crowd.py): [base (0 man, 1 woman), level (0 near, 1 far)].</summary>
-        public static readonly string[,] BodyFiles = { { "fan-male-near", "fan-male-far" }, { "fan-female-near", "fan-female-far" } };
+        /// <summary>The body files (Tools/make_crowd.py): [outfit (BodyType.Base, 0..11), level (0 near, 1 far)].</summary>
+        public static readonly string[,] BodyFiles =
+        {
+            { "fan-m-casual-hoodie-near", "fan-m-casual-hoodie-far" }, { "fan-m-casual-2-near", "fan-m-casual-2-far" },
+            { "fan-m-suit-near", "fan-m-suit-far" }, { "fan-m-worker-near", "fan-m-worker-far" },
+            { "fan-m-punk-near", "fan-m-punk-far" }, { "fan-m-farmer-near", "fan-m-farmer-far" },
+            { "fan-w-casual-near", "fan-w-casual-far" }, { "fan-w-suit-near", "fan-w-suit-far" },
+            { "fan-w-formal-near", "fan-w-formal-far" }, { "fan-w-worker-near", "fan-w-worker-far" },
+            { "fan-w-punk-near", "fan-w-punk-far" }, { "fan-w-adventurer-near", "fan-w-adventurer-far" }
+        };
         /// <summary>The clips every body file holds, in CrowdClip order.</summary>
-        public static readonly string[] ClipNames = { "sit-idle", "wave", "stand-cheer", "oh", "clap" };
+        public static readonly string[] ClipNames =
+            { "sit-idle", "wave", "stand-cheer", "oh", "clap", "miss", "stand-cheer-right", "oh-back" };
+        /// <summary>The palette's size (CrowdFanData.hlsl _Palette).</summary>
+        const int PaletteSize = 16;
         /// <summary>The longest step a zone's clips take in one Show (a pause or a hitch does not jump the fans).</summary>
         const double MaxStep = 0.25;
         /// <summary>Each fan turns a little off straight ahead (radians, either way).</summary>
@@ -41,12 +52,11 @@ namespace HockeyGame
         struct FanData
         {
             public Vector4 Place; // x, y, z (crowd space), yaw
-            public Vector4 Shirt; // rgb (linear), phase 0..1
+            public Vector4 Shirt; // the team top: rgb (linear), phase 0..1
             public Vector4 Skin;  // rgb (linear), zone
-            public Vector4 Hair;  // rgb (linear; or the cap), height
-            public Vector4 Look;  // body shape, hair style, waves (1) or not (0), 0
-            public Vector4 Pants; // rgb (linear), 0
-            public Vector4 Shoes; // rgb (linear), 0
+            public Vector4 Hair;  // rgb (linear), height
+            public Vector4 Look;  // body shape, 0, waves (1) or not (0), team top (1) or not (0)
+            public Vector4 Acts;  // the fan's own picks for a Goal and an Oh (filled by a later task; zero)
         }
 
         /// <summary>A slice of the fan buffer drawn in one call: one body at one level, one part of the bowl.</summary>
@@ -64,13 +74,13 @@ namespace HockeyGame
             FlatToneId = Shader.PropertyToID("_FlatTone"), CrowdToWorldId = Shader.PropertyToID("_CrowdToWorld"),
             FanStartId = Shader.PropertyToID("_FanStart"), OhSpreadId = Shader.PropertyToID("_OhSpread"),
             CardsId = Shader.PropertyToID("_Cards"), CardSizeId = Shader.PropertyToID("_CardSize"),
-            CardSeatedTopId = Shader.PropertyToID("_CardSeatedTop");
+            CardSeatedTopId = Shader.PropertyToID("_CardSeatedTop"), PaletteId = Shader.PropertyToID("_Palette");
 
         static readonly ArenaZone[] Zones = { ArenaZone.CalmArea, ArenaZone.Near, ArenaZone.Far };
 
-        // Groups: base * 2 + level.
-        readonly CrowdBody[] _bodies = new CrowdBody[4];
-        readonly Material[] _materials = new Material[4], _cardMaterials = new Material[4];
+        // Groups: outfit * 2 + level (the row-major order of BodyFiles).
+        readonly CrowdBody[] _bodies = new CrowdBody[BodyFiles.Length];
+        readonly Material[] _materials = new Material[BodyFiles.Length], _cardMaterials = new Material[BodyFiles.Length];
         Mesh _card;
         readonly List<Slice> _slices = new List<Slice>();
         FanData[] _data;
@@ -88,8 +98,8 @@ namespace HockeyGame
         /// <summary>Fan i's seat and look (in the crowd's own order).</summary>
         public FanSeat SeatOf(int fan) => _seats[fan];
         public FanLook LookOf(int fan) => _looks[fan];
-        /// <summary>The body of one base (0 man, 1 woman) at one level (0 near, 1 far).</summary>
-        public CrowdBody BodyOf(int @base, int level) => _bodies[@base * 2 + level];
+        /// <summary>The body of one outfit (0..11) at one level (0 near, 1 far).</summary>
+        public CrowdBody BodyOf(int outfit, int level) => _bodies[outfit * 2 + level];
         /// <summary>The fans' bounds in the crowd's (the rink's) space.</summary>
         public Bounds Bounds => _bounds;
         /// <summary>The clip the zone's fans play (the fans who do not wave sit-idle instead of waving).</summary>
@@ -114,9 +124,9 @@ namespace HockeyGame
         {
             var shader = Resources.Load<Shader>(Folder + "/" + ShaderFile);
             var cardShader = Resources.Load<Shader>(Folder + "/" + CardShaderFile);
-            var bodies = new CrowdBody[4];
+            var bodies = new CrowdBody[BodyFiles.Length];
             bool ok = shader != null && cardShader != null;
-            for (int g = 0; g < 4 && ok; g++)
+            for (int g = 0; g < bodies.Length && ok; g++)
             {
                 bodies[g] = CrowdBody.Load(BodyFiles[g / 2, g % 2]);
                 ok = bodies[g] != null && HasClips(bodies[g]) && (g % 2 == 0 || bodies[g].Cards != null);
@@ -150,9 +160,10 @@ namespace HockeyGame
             for (int z = 0; z < 3; z++) _motion[z] = new CrowdMotion(seconds);
             _card = CardMesh();
 
-            for (int g = 0; g < 4; g++)
+            for (int g = 0; g < bodies.Length; g++)
             {
                 CrowdBody body = _bodies[g] = bodies[g];
+                Vector4[] palette = PaletteOf(body);
                 var clipInfo = new Vector4[ClipNames.Length];
                 for (int i = 0; i < clipInfo.Length; i++)
                 {
@@ -162,9 +173,11 @@ namespace HockeyGame
                 _materials[g] = Configure(new Material(shader) { name = "Crowd " + BodyFiles[g / 2, g % 2] }, clipInfo);
                 _materials[g].SetTexture(VatId, body.Vat);
                 _materials[g].SetFloat(RowsPerShapeId, body.RowsPerShape);
+                _materials[g].SetVectorArray(PaletteId, palette);
                 if (body.Cards != null)
                 {
                     _cardMaterials[g] = Configure(new Material(cardShader) { name = "Crowd cards " + BodyFiles[g / 2, g % 2] }, clipInfo);
+                    _cardMaterials[g].SetVectorArray(PaletteId, palette);
                     _cardMaterials[g].SetTexture(CardsId, body.Cards);
                     _cardMaterials[g].SetVector(CardSizeId, new Vector4(body.CardSize.x, body.CardSize.y, body.Cards.width / 2f, body.Cards.height));
                     _cardMaterials[g].SetFloat(CardSeatedTopId, body.CardSeatedTop);
@@ -176,7 +189,7 @@ namespace HockeyGame
             var yaw = new float[seats.Length];
             for (int i = 0; i < yaw.Length; i++) yaw[i] = (float)seats[i].Yaw + YawSpread * (2f * (float)random.NextDouble() - 1f);
 
-            // Sort the fans into slices: group (body base and level), then part of the bowl.
+            // Sort the fans into slices: group (outfit and level), then part of the bowl.
             var order = new int[seats.Length];
             var keys = new long[seats.Length];
             for (int i = 0; i < seats.Length; i++)
@@ -206,9 +219,8 @@ namespace HockeyGame
                     Shirt = Linear(l.Shirt, (float)l.Phase),
                     Skin = Linear(l.Skin, (int)s.Zone),
                     Hair = Linear(l.Hair, (float)l.Height),
-                    Look = new Vector4(type.Shape, l.HairStyle, l.Waves ? 1 : 0, 0),
-                    Pants = Linear(l.Pants, 0),
-                    Shoes = Linear(l.Shoes, 0)
+                    Look = new Vector4(type.Shape, 0, l.Waves ? 1 : 0, l.TeamTop ? 1 : 0),
+                    Acts = Vector4.zero
                 };
                 int key = SliceKey(s, l);
                 if (key != lastKey)
@@ -238,6 +250,22 @@ namespace HockeyGame
             int sector = Math.Min(Sectors - 1, (int)(angle / (2 * Math.PI) * Sectors));
             int tier = s.Row < RinkLayout.LowerRows ? 0 : 1;
             return (Group(s, l) * 2 + tier) * Sectors + sector;
+        }
+
+        /// <summary>The body's palette for the shaders: per entry the linear rgb (Own and TeamTop colours moved off any
+        /// reserved colour; Skin and Hair take the fan's own, so zero here) and the kind in w; 16 entries.</summary>
+        static Vector4[] PaletteOf(CrowdBody body)
+        {
+            var palette = new Vector4[PaletteSize];
+            for (int i = 0; i < body.Palette.Length; i++)
+            {
+                CrowdBody.PaletteEntry p = body.Palette[i];
+                bool coloured = p.Kind == CrowdBody.PaintKind.Own || p.Kind == CrowdBody.PaintKind.TeamTop;
+                palette[i] = coloured
+                    ? Linear(CrowdLooks.SafeOutfitColour(new ArenaColour(p.Colour.r, p.Colour.g, p.Colour.b)), (float)p.Kind)
+                    : new Vector4(0, 0, 0, (float)p.Kind);
+            }
+            return palette;
         }
 
         static Material Configure(Material m, Vector4[] clipInfo)

@@ -81,7 +81,7 @@ CLIPS = [("sit-idle", 24, 12.0, True), ("wave", 24, 12.0, True), ("stand-cheer",
 CARD_W, CARD_H = 24, 64
 UPPER = ("Abdomen", "Torso", "Chest", "Neck", "Head", "Shoulder.", "UpperArm.", "LowerArm.", "Wrist.")
 HEAD_YAW_LIMIT = 5.0     # degrees from seated
-LOOP_GAP_LIMIT = 0.06    # metres: loop clips' last frame to first
+LOOP_GAP_LIMIT = 0.06    # metres: the smallest loop-seam jump allowed (last frame to first); the guard is max(this, 1.25 x the clip's biggest step)
 ONCE_GAP_LIMIT = 0.01    # metres: once clips' first and last frame to the seated pose
 
 # ---------------------------------------------------------------- the outfit
@@ -469,7 +469,8 @@ def main():
     raw = triangle_count(body)
     palette = build_paint(body, key)
     decimate(body, args.triangles)
-    paint = [max(0, min(len(palette) - 1, d.value)) for d in body.data.attributes["paint"].data]
+    paint = [d.value for d in body.data.attributes["paint"].data]
+    assert all(0 <= p < len(palette) for p in paint), f"{key}: a vertex paints outside its palette"
     print(f"outfit {key}: {raw} -> {triangle_count(body)} triangles, {len(body.data.vertices)} vertices")
     tris = [tuple(p.vertices) for p in body.data.polygons]
     assert all(len(t) == 3 for t in tris)

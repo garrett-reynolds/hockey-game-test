@@ -2,14 +2,17 @@ using System;
 
 namespace HockeyGame.Core
 {
-    /// <summary>The crowd's clips (Tools/make_crowd.py CLIPS, same order). All loop except Oh, which plays once.</summary>
+    /// <summary>The crowd's clips (Tools/make_crowd.py CLIPS, same order). All loop except Oh, Miss and OhBack, which play once.</summary>
     public enum CrowdClip
     {
         SitIdle,    // sit and make small moves (no head turns)
         Wave,       // sit, one hand up and waving (only the fans who wave; the rest sit-idle)
         StandCheer, // stand, arms up, cheering
         Oh,         // a short seated "oh!" (hands to the head), ending seated
-        Clap        // sit and clap
+        Clap,       // sit and clap
+        Miss,            // a short seated "miss" (a swing of the arms), ending seated (no state plays it yet)
+        StandCheerRight, // stand-cheer with the other fist (a fan's pick swaps it in)
+        OhBack           // oh, leaning back instead (a fan's pick swaps it in)
     }
 
     /// <summary>
@@ -56,7 +59,7 @@ namespace HockeyGame.Core
             }
         }
 
-        public static bool Loops(CrowdClip clip) => clip != CrowdClip.Oh;
+        public static bool Loops(CrowdClip clip) => clip != CrowdClip.Oh && clip != CrowdClip.Miss && clip != CrowdClip.OhBack;
 
         /// <summary>The clip a state plays (Oh: before it is done).</summary>
         public static CrowdClip ClipFor(CrowdState state)

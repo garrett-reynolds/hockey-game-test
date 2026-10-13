@@ -17,7 +17,7 @@ namespace HockeyGame
     /// <para>
     /// Fixed parts are not here, so no skin can change them: the ice lines, the brands, the rink size and shape, the
     /// goalie, the Goal Show timing and the Calm Area colours. A skin colour that shows in the Calm Area view (rail, kick
-    /// plate, seats, the near fans' jerseys and caps, the Video Board's back, words and frame) and is too near a reserved
+    /// plate, seats, the near fans' team tops, the Video Board's back, words and frame) and is too near a reserved
     /// colour (ReservedColours) is replaced by the League Skin's when the skin loads (Guard).
     /// </para>
     /// </summary>
@@ -42,7 +42,7 @@ namespace HockeyGame
         public string[] RoofBanners = new string[0];
 
         [Header("Crowd")]
-        /// <summary>The home jersey (and home caps) the fans wear (CrowdLooks.HomeShare of them).</summary>
+        /// <summary>The home jersey the team-top fans wear (CrowdLooks.HomeShare of them).</summary>
         public Color32 HomeJersey;
 
         [Header("Video Board and Score Box")]
