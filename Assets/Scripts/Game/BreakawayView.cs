@@ -150,6 +150,8 @@ namespace HockeyGame
             Breakaway.SkatePoint(side, u, out double x, out double distance);
             PlaceCamera((float)x, (float)distance);
             LookUpTo(_camera.transform, ReplayLookTarget, _lookUp); // the Replay: up at the Video Board and back
+            // Zoom in as it rises, back out as it eases out (#128). The game's own view is the Round's: RoundDriver set it from this camera.
+            _camera.fieldOfView = LookUpFieldOfView((float)_round.Settings.ViewFieldOfViewDegrees, _lookUp);
 
             // The goalie plays the angle (SetUps.Approach): he shuffles across on the line from the puck to the net centre through
             // the skate-in, settles into his Set-up through the slow-down, and stands on his Set-up spot through the window. He
@@ -260,15 +262,26 @@ namespace HockeyGame
             camera.Rotate(0f, 0f, rollDegrees, Space.Self);
         }
 
-        /// <summary>Metres above the Video Board's centre the Replay's look-up aims (7 m was right for the old board; the tight window is 6.5 to 7 m for this one: lower and the net and goalie show in the view, higher and the board's lower edge leaves it).</summary>
-        public const float ReplayLookLift = 6.75f;
+        /// <summary>Metres above the Video Board's centre the Replay's look-up aims (#128: was 6.75 m). Small: the board's whole width must still fit the narrow view (a view narrower than about 33 degrees cuts its ends off), so this lifts the view's bottom edge clear of the goalie instead.</summary>
+        public const float ReplayLookLift = 1.0f;
 
         /// <summary>
-        /// Where the camera looks for the Replay: ReplayLookLift above the Video Board's centre, so the whole board shows with the
-        /// net and the goalie (who plays the Replay back) kept below the view from every Attack Side.
+        /// Where the camera looks for the Replay (#128): ReplayLookLift above the Video Board's centre. The look-up tilts only about
+        /// 28 to 38 degrees (not the 38 to 49 of the old aim 6.75 m up) and the view narrows (ReplayLookFieldOfView) so the board
+        /// fills it and the net and the goalie (who plays the Replay back) stay below it from every Attack Side.
         /// </summary>
         public static readonly Vector3 ReplayLookTarget =
             new Vector3((float)RinkLayout.VideoBoard.X, (float)RinkLayout.VideoBoard.Y + ReplayLookLift, (float)RinkLayout.VideoBoard.Z);
+
+        /// <summary>The camera's vertical field of view (degrees) at full look-up: narrow, so the Video Board fills the view.</summary>
+        public const float ReplayLookFieldOfView = 35f;
+
+        /// <summary>
+        /// The camera's field of view for look-up amount (0..1): baseFieldOfView at 0, ReplayLookFieldOfView at 1, in step with
+        /// LookUpTo's turn (the same amount), so the view zooms back out as the look-up eases out, with no jump.
+        /// </summary>
+        public static float LookUpFieldOfView(float baseFieldOfView, float amount) =>
+            Mathf.Lerp(baseFieldOfView, ReplayLookFieldOfView, Mathf.Clamp01(amount));
 
         /// <summary>Turns the camera from where it looks (the net) toward target (the Replay look-up's aim point: ReplayLookTarget) by amount (0..1).</summary>
         public static void LookUpTo(Transform camera, Vector3 target, float amount)
