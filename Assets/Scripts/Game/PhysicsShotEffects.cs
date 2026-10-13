@@ -112,10 +112,20 @@ namespace HockeyGame
         /// </summary>
         public void Update(Round round, float realSeconds)
         {
-            HitSound = _pendingHit;
-            _pendingHit = null;
             bool newShot = _newResult.TakeNewShot(round);
             _newResult.TakeNew(round); // results come from the Whistle; Too Late has no puck and leaves the last one be
+            // The puck lives only for its Shot and the result hold that shows it (the Replay and the goalie watch it): once the hold
+            // ends the turn is over and the puck goes (Garrett, 2026-10-13: "The pucks aren't removed each turn"), and on the start or
+            // end screen there is none to bounce off the boards and sound again and again. Test Mode keeps its last puck in the window
+            // (no skate-in) until the next Shot's window opens, below.
+            bool turnOver = round.Phase != RoundPhase.ResultHold && (!round.TestMode || round.Phase != RoundPhase.ShootingWindow);
+            if (turnOver && !newShot)
+            {
+                Replace();
+                _pendingHit = null; // a contact of the steps just before is not heard from a puck that is gone
+            }
+            HitSound = _pendingHit;
+            _pendingHit = null;
             // Test Mode (#156): no cut to a new skate-in hides the last puck, so it goes when the next Shot's window opens.
             if (!round.TestMode) _clearedForShot = 0;
             else if (round.Phase == RoundPhase.ShootingWindow && round.ShotNumber != _clearedForShot && !newShot)
