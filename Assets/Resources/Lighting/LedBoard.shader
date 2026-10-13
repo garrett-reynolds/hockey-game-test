@@ -89,6 +89,20 @@ Shader "Hockey Game/LED Board"
                 return output;
             }
 
+            // Running total of lit length along one axis, in cells: each whole cell adds 1 - gap; inside a cell the lit part starts at gap/2.
+            float LitLengthTo(float x, float gap)
+            {
+                float whole = floor(x);
+                return whole * (1.0 - gap) + clamp(x - whole - gap * 0.5, 0.0, 1.0 - gap);
+            }
+
+            // Share of the pixel's footprint (x +- width/2, in cells) that is lit along one axis: 1 inside a dot, 0 in a gap, between on an edge.
+            float DotMask(float x, float width, float gap)
+            {
+                float w = max(width, 1e-4);
+                return (LitLengthTo(x + 0.5 * w, gap) - LitLengthTo(x - 0.5 * w, gap)) / w;
+            }
+
             half4 Frag(Varyings input) : SV_Target
             {
                 // Derivatives first, outside any branch.
@@ -117,11 +131,12 @@ Shader "Hockey Game/LED Board"
                     steps = float2(toCentre.x * dpdy.y - toCentre.y * dpdy.x, dpdx.x * toCentre.y - dpdx.y * toCentre.x) / det;
                 float2 uvCentre = input.uv + duvdx * steps.x + duvdy * steps.y;
 
-                // Square dot: lit inside the cell with half the gap trimmed from each side.
-                float2 inside = step(_GapShare * 0.5, cellUV) * step(cellUV, 1.0 - _GapShare * 0.5);
-                float lit = inside.x * inside.y;
-                // A cell under about 2 to 4 pixels would crawl: fade the gap away to the full cell colour, so a far board keeps its colours.
-                float tooSmall = smoothstep(0.25, 0.5, max(pixelsInCells.x, pixelsInCells.y));
+                // Square dot: lit inside the cell with half the gap trimmed from each side. The dot's edge is filtered over the pixel's
+                // footprint (a box filter, width fwidth(q) cells), so a gap that falls between pixel centres still darkens the pixels it
+                // covers: the frame's average brightness stays steady at every cell size and camera position (a hard step made it jump).
+                float lit = DotMask(q.x, pixelsInCells.x, _GapShare) * DotMask(q.y, pixelsInCells.y, _GapShare);
+                // A cell under about 2 to 3 pixels is only an average: fade to the full cell colour, so a far board keeps its colours.
+                float tooSmall = smoothstep(0.3, 0.5, max(pixelsInCells.x, pixelsInCells.y));
                 lit = lerp(lit, 1.0, tooSmall);
 
                 half4 sampled = SAMPLE_TEXTURE2D_LOD(_BaseMap, sampler_LedPointClamp, saturate(uvCentre), 0);

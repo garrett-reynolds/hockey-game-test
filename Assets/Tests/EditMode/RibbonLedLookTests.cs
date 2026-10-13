@@ -427,14 +427,21 @@ namespace HockeyGame.Core.Tests
             Assert.LessOrEqual(farSpread, 6f, "far: the band's pixels differ from each other by at most 6/255 (flat, no stripes)");
             Assert.LessOrEqual(farRange, 4f, "far: the 8 frame means differ by at most 4/255 (means " + string.Join(", ", farMeans) + ")");
 
-            // Near: one cell is about 4 pixels; the grid lines move but the average must not. (Not exactly 4.0: with a whole number of
-            // pixels per cell every cell has the same phase, so a gap hits all pixel centres or none and the mean jumps from frame to
-            // frame; a real camera never sees a whole number all along a band.)
-            Steady(ribbons, panel, 4.3f, out float[] nearMeans, out float _);
-            float nearAverage = 0f;
-            foreach (float m in nearMeans) nearAverage += m / nearMeans.Length;
-            float nearRange = Mathf.Max(nearMeans) - Mathf.Min(nearMeans);
-            Assert.LessOrEqual(nearRange, nearAverage * 0.06f,
-                "near: the 8 frame means differ by at most 6 % of their average " + nearAverage + " (means " + string.Join(", ", nearMeans) + ")");        }
+            // Near: the grid lines move but the average must not, at every size from 3 to 4.5 pixels per cell. 3.0, 4.0 and 4.5 are
+            // the sizes where every cell has the same sub-pixel phase (a gap hits all pixel centres or none), the worst case for a
+            // gap that is not filtered over the pixel's footprint; 4.3 is a size between them.
+            var failures = new List<string>();
+            foreach (float cellPixels in new[] { 3.0f, 4.0f, 4.3f, 4.5f })
+            {
+                Steady(ribbons, panel, cellPixels, out float[] nearMeans, out float _);
+                float nearAverage = 0f;
+                foreach (float m in nearMeans) nearAverage += m / nearMeans.Length;
+                float nearRange = Mathf.Max(nearMeans) - Mathf.Min(nearMeans);
+                if (nearRange > nearAverage * 0.06f)
+                    failures.Add(cellPixels + " px per cell: the 8 frame means differ by " + (100f * nearRange / nearAverage).ToString("F1") + " % of their average "
+                        + nearAverage + " (means " + string.Join(", ", nearMeans) + ")");
+            }
+            Assert.IsEmpty(failures, "near: the 8 frame means differ by at most 6 % of their average:\n" + string.Join("\n", failures));
+        }
     }
 }
