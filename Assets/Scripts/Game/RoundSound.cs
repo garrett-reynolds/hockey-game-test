@@ -35,7 +35,8 @@ namespace HockeyGame
 
         /// <summary>The goal horn, Clap Chant and goal song clips (from the Team Skin's files); GoalSongClip is null with no song.</summary>
         public AudioClip GoalHornClip { get; }
-        /// <summary>The slider level the one-shot source of a group sits at now (Crowd: cheers and groans; Game: horn, buzzer, puck, tick; Music: the goal song).</summary>
+        /// <summary>The slider level the one-shot source of a group sits at now (Crowd: cheers and groans; Game: horn, buzzer, puck, tick; Music: the goal song).
+        /// Read by the tests only.</summary>
         public float OneShotVolume(SoundGroup group)
         {
             switch (group)
@@ -46,7 +47,8 @@ namespace HockeyGame
             }
         }
 
-        public float GoalSongPlayVolume => _goalSong != null ? _goalSong.volume : 0f;
+        /// <summary>The goal song source's volume now (0 with no song). Read by the tests only.</summary>
+        public float GoalSongPlayVolume =>_goalSong != null ? _goalSong.volume : 0f;
         public AudioClip ChantClip => _chant.clip;
         public AudioClip GoalSongClip => _goalSong != null ? _goalSong.clip : null;
         readonly AudioLowPassFilter _crowdFilter, _heartbeatFilter, _worldFilter, _crowdWorldFilter;
@@ -57,7 +59,7 @@ namespace HockeyGame
         float _hockeyStopTarget;
         float _chantTarget;
         float _crowdLevel; // the crowd loop's fade level (0..1); the Crowd slider scales it, so a drag is heard at once
-        float _crowdGain, _gameGain; // the Crowd and Game sliders this frame (the song reads Music itself) (0..1; master and mute are on the AudioListener)
+        float _crowdGain, _gameGain; // the Crowd and Game sliders this frame, 0..1 (the song reads Music itself; master and mute are on the AudioListener)
 
         /// <summary>
         /// Tick on/off, master volume and mute are read from save every frame; the settings screen just changes them.

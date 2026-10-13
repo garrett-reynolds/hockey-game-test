@@ -38,9 +38,10 @@ namespace HockeyGame.Core.Tests
         static AudioClip Clip(string name) => AudioClip.Create(name, 10, 1, 44100, false);
 
         // Builds a RoundSound with a goal song, runs one frame, moves the sliders, runs another frame, and checks each group's
-        // one-shot source (cheer and horn already playing sit on these sources) now sits at its new slider.
+        // one-shot source now sits at its new slider. It plays no sound: a cheer or horn already playing sits on these
+        // sources, so it follows its slider because its source does.
         [Test]
-        public void A_one_shot_already_playing_follows_its_slider_each_frame()
+        public void Each_groups_one_shot_source_follows_its_slider_each_frame()
         {
             var listener = new GameObject("Listener");
             var skin = ScriptableObject.CreateInstance<TeamSkin>();
