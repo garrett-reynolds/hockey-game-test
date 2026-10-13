@@ -112,12 +112,12 @@ float3 FanLit(float3 lit, float3 even, uint zone)
 half4 DepthNormalsOutput(float3 normalWS)
 {
 #if defined(_GBUFFER_NORMALS_OCT)
-    float3 n = normalize(normalWS);
+    float3 n = SafeNormalize(normalWS); // a zero normal stays 0, not NaN
     float2 octNormalWS = PackNormalOctQuadEncode(n);
     float2 remapped = saturate(octNormalWS * 0.5 + 0.5);
     return half4(PackFloat2To888(remapped), 0.0);
 #else
-    return half4(NormalizeNormalPerPixel(normalWS), 0.0);
+    return half4(SafeNormalize(normalWS), 0.0); // not NormalizeNormalPerPixel: it may normalize a zero normal to NaN
 #endif
 }
 #endif
