@@ -63,7 +63,7 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(SettingsPart.Player, menu.Part);
             menu.ShowPart(SettingsPart.Dev);
             Assert.AreEqual(SettingsPart.Dev, menu.Part);
-            Assert.AreEqual(8, menu.RowCount, "Show the block goalie, the six goalie values (#147), then the Test Mode button (#156)");
+            Assert.AreEqual(14, menu.RowCount, "Show the block goalie, the six goalie values (#147), the six Round timing and Set-up Mistake values (#148), then the Test Mode button (#156)");
             Assert.AreEqual("Show the block goalie", menu.Label(0));
             Assert.AreEqual("OFF", menu.Value(0));
             Assert.AreEqual(SettingsRowKind.Toggle, menu.Kind(0));

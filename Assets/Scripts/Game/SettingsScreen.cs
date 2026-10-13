@@ -278,7 +278,9 @@ namespace HockeyGame
             foreach (var shape in _tabShapes) shape.MarkDirtyRepaint(); // the fill colour follows the tab's class
             _reset.text = _menu.ResetLabel;
 
-            // Consecutive rows with one heading make one card. The last card goes in the right-hand column, the rest in the left.
+            // Consecutive rows with one heading make one card. The last card goes in the right-hand column, the rest in the left;
+            // the Dev part has 14 rows (#148, #156), so its last three cards (Round timing, Set-up Mistakes, Test) go right: 7 rows a side.
+            int rightCards = _menu.Part == SettingsPart.Dev ? 3 : 1;
             var groups = new List<(string name, int first, int count)>();
             for (int i = 0; i < _menu.RowCount; i++)
             {
@@ -307,7 +309,7 @@ namespace HockeyGame
                 Add(card, "lc-card-head", head);
                 for (int r = 0; r < groups[g].count; r++)
                     card.Add(BuildRow(groups[g].first + r));
-                (g == groups.Count - 1 ? right : left).Add(card);
+                (g >= groups.Count - rightCards ? right : left).Add(card);
             }
             Refresh();
         }
@@ -316,7 +318,11 @@ namespace HockeyGame
         {
             var view = new RowView { Row = new VisualElement() };
             view.Row.AddToClassList("lc-row");
-            Add(view.Row, "lc-row-label", _menu.Label(i));
+            // A slider's usual hint "(next Round)" is in its card's title; a different one (Result hold: "(no Replay)") goes after the label.
+            string label = _menu.Label(i);
+            if (_menu.Kind(i) == SettingsRowKind.Slider && _menu.Hint(i) != null && _menu.Hint(i) != "(next Round)")
+                label += "  " + _menu.Hint(i);
+            Add(view.Row, "lc-row-label", label);
             var control = new VisualElement();
             control.AddToClassList("lc-control");
             control.pickingMode = PickingMode.Ignore;

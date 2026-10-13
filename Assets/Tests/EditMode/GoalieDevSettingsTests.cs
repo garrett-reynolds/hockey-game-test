@@ -268,11 +268,12 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void A_Round_leaves_the_other_RoundSettings_as_the_code_made_them()
         {
-            var settings = new RoundSettings { SkateInSeconds = 4, ShootingWindowSeconds = 5 };
+            // (#148 moved the Round timing and Set-up Mistake values into the Dev part too, so this uses values still set only by code.)
+            var settings = new RoundSettings { WhistleCapSeconds = 4, LateMarginLimitSeconds = 0.2 };
             var flow = new ScreenFlow(ScriptedRandom.Halves(), Tuned(), FakeReach.NeverReaches(), settings);
             flow.Press();
-            Assert.AreEqual(4, settings.SkateInSeconds);
-            Assert.AreEqual(5, settings.ShootingWindowSeconds);
+            Assert.AreEqual(4, settings.WhistleCapSeconds);
+            Assert.AreEqual(0.2, settings.LateMarginLimitSeconds);
             Assert.AreEqual(new RoundSettings().PushAccelMetresPerSecondSquared, settings.PushAccelMetresPerSecondSquared);
         }
 

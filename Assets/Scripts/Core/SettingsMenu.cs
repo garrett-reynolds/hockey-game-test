@@ -103,8 +103,18 @@ namespace HockeyGame.Core
             AddGoalie("Reaction wobble", () => _save.ReactionWobbleSeconds, v => _save.ReactionWobbleSeconds = v, SaveData.WobbleRange, Seconds2, () => _save.WobbleAllowed);
             AddGoalie("Hand speed", () => _save.HandMetresPerSecond, v => _save.HandMetresPerSecond = v, SaveData.HandRange, Speed, () => _save.HandAllowed);
             AddGoalie("Leg speed", () => _save.LegMetresPerSecond, v => _save.LegMetresPerSecond = v, SaveData.LegRange, Speed, () => _save.LegAllowed);
-            AddGoalie("Max push", () => _save.MaxPushMetres, v => _save.MaxPushMetres = v, SaveData.MaxPushRange, Metres, () => _save.MaxPushAllowed);
+            // Lowering Max push also brings the Late Settle size down with it (the size never goes above the push).
+            AddGoalie("Max push", () => _save.MaxPushMetres, v => { _save.MaxPushMetres = v; _save.HoldLateSettleToMaxPush(); }, SaveData.MaxPushRange, Metres, () => _save.MaxPushAllowed);
             AddGoalie("Shuffle max", () => _save.ShuffleMaxMetres, v => _save.ShuffleMaxMetres = v, SaveData.ShuffleMaxRange, Metres, () => _save.ShuffleMaxAllowed);
+
+            // Round timing and Set-up Mistakes (#148): they also act from the next Round.
+            AddDevRound("ROUND TIMING", "Skate-in time", () => _save.SkateInSeconds, v => _save.SkateInSeconds = v, SaveData.SkateInRange, Seconds, null);
+            AddDevRound("ROUND TIMING", "Shooting window", () => _save.ShootingWindowSeconds, v => _save.ShootingWindowSeconds = v, SaveData.ShootingWindowRange, Seconds, () => _save.ShootingWindowAllowed);
+            AddDevRound("ROUND TIMING", "Result hold", () => _save.ResultHoldSeconds, v => _save.ResultHoldSeconds = v, SaveData.ResultHoldRange, Seconds, null);
+            _all[_all.Count - 1].Hint = "(no Replay)"; // a Goal, Save or Frame Hit holds the fixed Replay time; only results with no Replay use this
+            AddDevRound("SET-UP MISTAKES", "Cheat size", () => _save.CheatMetres, v => _save.CheatMetres = v, SaveData.CheatRange, Metres, null);
+            AddDevRound("SET-UP MISTAKES", "Late Settle size", () => _save.LateSettleMetres, v => _save.LateSettleMetres = v, SaveData.LateSettleMetresRange, Metres, () => _save.LateSettleMetresAllowed);
+            AddDevRound("SET-UP MISTAKES", "Late Settle time", () => _save.LateSettleSeconds, v => _save.LateSettleSeconds = v, SaveData.LateSettleSecondsRange, Seconds, () => _save.LateSettleSecondsAllowed);
 
             // Test Mode (#156), kept the last Dev row: endless Shots from the shooter's spot. A button that opens it; it changes no setting, so Activate says false (nothing to save).
             AddRow(SettingsPart.Dev, "TEST", SettingsRowKind.Button, "Test Mode", () => "open", null, () => { _openTestMode?.Invoke(); return false; });
@@ -215,6 +225,12 @@ namespace HockeyGame.Core
                 _save.LegMetresPerSecond = defaults.LegMetresPerSecond;
                 _save.MaxPushMetres = defaults.MaxPushMetres;
                 _save.ShuffleMaxMetres = defaults.ShuffleMaxMetres;
+                _save.SkateInSeconds = defaults.SkateInSeconds;
+                _save.ShootingWindowSeconds = defaults.ShootingWindowSeconds;
+                _save.ResultHoldSeconds = defaults.ResultHoldSeconds;
+                _save.CheatMetres = defaults.CheatMetres;
+                _save.LateSettleMetres = defaults.LateSettleMetres;
+                _save.LateSettleSeconds = defaults.LateSettleSeconds;
             }
             return true;
         }
@@ -277,7 +293,13 @@ namespace HockeyGame.Core
         private void AddGoalie(string label, Func<double> get, Action<double> set, SaveData.NumberRange range,
             Func<double, string> format, Func<SaveData.NumberRange> allowed)
         {
-            AddNumber(SettingsPart.Dev, "GOALIE", label, get, set, range, format, allowed);
+            AddDevRound("GOALIE", label, get, set, range, format, allowed);
+        }
+
+        private void AddDevRound(string group, string label, Func<double> get, Action<double> set, SaveData.NumberRange range,
+            Func<double, string> format, Func<SaveData.NumberRange> allowed)
+        {
+            AddNumber(SettingsPart.Dev, group, label, get, set, range, format, allowed);
             _all[_all.Count - 1].Hint = "(next Round)";
         }
 
