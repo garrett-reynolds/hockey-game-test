@@ -1208,7 +1208,7 @@ namespace HockeyGame
             // The body lowers and leans (#130), so the blade is kept off the ice as in SitLower; a Save Reaction's push (bodyShare 0) is legs only.
             Vector3 before = _model.position;
             GoalieSkatePush.Apply(this, _model, shown, moment, bodyShare);
-            if (_model.position != before) { Prepare(); KeepBladeUp(); }
+            if (_model.position != before) { Prepare(); KeepBladeUp(true); } // keep the elbow bend: a fixed pole swung the arm, and SitLower in the same frame kept that swing
         }
 
         /// <summary>How far the last React slid the body across (metres, + toward the goalie's left in model space): the move the push shows. 0 before any React or without a model.</summary>
