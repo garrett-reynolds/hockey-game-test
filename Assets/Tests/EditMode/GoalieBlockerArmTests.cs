@@ -51,6 +51,29 @@ namespace HockeyGame.Core.Tests
             Assert.Less(Quaternion.Angle(hand, character.Bone(HumanBodyBones.RightHand).rotation), 2f, "the hand keeps its turn, so the stick keeps its angle (degrees)");
         }
 
+        static readonly Vector3 Eye = new Vector3(0f, 1.5f, -9f);
+
+        [Test]
+        public void A_goal_bend_forward_keeps_the_blocker_arm_hanging_with_the_blade_lifted_back()
+        {
+            var character = new GoalieCharacter(_parent.transform);
+            character.Show(true);
+            character.ShowReaction(0f, 0f);
+            float readyHandY = character.Bone(HumanBodyBones.RightHand).position.y;
+            NetFaceMapping.ToMetres(95, 95, out double right, out double up);
+            character.React(SaveReaction.Glove, Eye, new Vector3((float)right, (float)up, 0f), 0f, false);
+            foreach (double t in new[] { 0.6, 1.0, 1.5, 2.5 })
+            {
+                character.ShowReaction(1f, 0f, AfterShotGesture.Slump, AfterShot.At(AfterShotGesture.Slump, t, -1), Eye);
+                Vector3 shoulder = character.Bone(HumanBodyBones.RightUpperArm).position, elbow = character.Bone(HumanBodyBones.RightLowerArm).position;
+                Vector3 hand = character.Bone(HumanBodyBones.RightHand).position;
+                string at = " at " + t + " s";
+                Assert.Less(elbow.y, shoulder.y, "elbow below the shoulder" + at);
+                Assert.Less(hand.y, elbow.y, "hand below the elbow: the forearm hangs" + at);
+                Assert.GreaterOrEqual(hand.y, readyHandY - 0.1f, "the stick hand does not sink below the stance (blade kept off the ice)" + at);
+            }
+        }
+
         [Test]
         public void Sitting_lower_still_lifts_the_blade_back_to_its_stance_height()
         {

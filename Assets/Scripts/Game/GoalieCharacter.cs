@@ -1201,7 +1201,7 @@ namespace HockeyGame
             if (!Present || metres <= 0f) return;
             Prepare();
             GoalieStanceLife.SitLower(this, _model, metres);
-            KeepBladeUp();
+            KeepBladeUp(true); // a small lift: keep the elbow bend. The bigger GOAL! and push lifts keep the fixed pole (only SitLower is measured)
         }
 
         /// <summary>Turns the head toward the puck at `point`, `weight` of the way (at most WatchDegrees), the shoulders taking shoulderShare of the turn.</summary>
@@ -1239,11 +1239,11 @@ namespace HockeyGame
         /// A GOAL!'s bend forward (or sitting lower, SitLower) would push the stick blade into the ice: the stick hand lifts it back to its stance height,
         /// keeping its turn (only up, so a lifted stick is left alone).
         /// </summary>
-        void KeepBladeUp()
+        void KeepBladeUp(bool keepBend = false)
         {
             if (!_gearShapes.ContainsKey(GearPiece.Stick)) return;
             float low = _bladeY - Lowest(GearPiece.Stick);
-            if (low > 0.002f) ReachStickHand(GearPoint(GearPiece.Stick) + Vector3.up * low, 0f, false, true); // the hand keeps its turn: the stick only rises
+            if (low > 0.002f) ReachStickHand(GearPoint(GearPiece.Stick) + Vector3.up * low, 0f, false, keepBend); // the hand keeps its turn: the stick only rises
         }
 
         /// <summary>The reaction with its beaten hand carried on toward the puck's line, too late (the arm alone: no push).</summary>
