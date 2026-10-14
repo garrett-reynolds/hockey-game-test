@@ -25,7 +25,8 @@ namespace HockeyGame.Core
         HockeyStopEnd, // the skate-in ends: stop the hockey stop
         StrideLeft,   // a push of the camera's stride while it leans left: one stride sound, panned left
         StrideRight,  // a push of the camera's stride while it leans right: one stride sound, panned right
-        GlassImpact   // puck bangs on the glass (a physics contact)
+        GlassImpact,  // puck bangs hard on the glass (a physics contact, a fast Shot)
+        GlassImpactSoft // puck bumps the glass (a physics contact, a slow Shot)
     }
 
     /// <summary>The volume slider a sound sits under (each also sits under the master volume).</summary>
@@ -57,6 +58,21 @@ namespace HockeyGame.Core
     /// </summary>
     public sealed class RoundSoundCues
     {
+        /// <summary>A Shot slower than this (km/h) at the glass sounds the soft bang; this fast or faster, the hard one. Its own line, not the Water Bottle's.</summary>
+        public const double GlassHardKmh = 80.0;
+
+        /// <summary>The glass cue for a Shot of this speed (km/h): soft below GlassHardKmh, hard from it up.</summary>
+        public static SoundCue GlassCue(double speedKmh) => speedKmh < GlassHardKmh ? SoundCue.GlassImpactSoft : SoundCue.GlassImpact;
+
+        /// <summary>Which of count variations to play: never the one played last (last, -1 for none); -1 when there are none. next(n) gives a random 0..n-1.</summary>
+        public static int PickVariation(int count, int last, Func<int, int> next)
+        {
+            if (count <= 0) return -1;
+            if (count == 1 || last < 0 || last >= count) return next(count);
+            int pick = next(count - 1);
+            return pick >= last ? pick + 1 : pick; // skip the last one
+        }
+
         /// <summary>Low-pass cutoff when nothing is muffled (Hz).</summary>
         public const double OpenLowPassHz = 22000;
         /// <summary>Low-pass cutoff at full slow-down (Hz).</summary>

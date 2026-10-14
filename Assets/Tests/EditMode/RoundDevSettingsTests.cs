@@ -408,7 +408,7 @@ namespace HockeyGame.Core.Tests
                 Assert.AreEqual("WATER BOTTLE", menu.Group(row), label);
                 Assert.AreEqual("(next Shot)", menu.Hint(row), label);
             }
-            Assert.AreEqual("100 km/h", menu.Value(RowOf(menu, "Bottle knock speed")));
+            Assert.AreEqual("80 km/h", menu.Value(RowOf(menu, "Bottle knock speed")));
             Assert.AreEqual("100%", menu.Value(RowOf(menu, "Bottle jump")));
             Step(menu, "Bottle knock speed", +1, 100);
             Assert.AreEqual(160, save.BottleKnockSpeedKmh, 1e-9);
@@ -423,7 +423,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void The_bottle_values_save_load_clamp_and_Reset_brings_back_100_and_100()
+        public void The_bottle_values_save_load_clamp_and_Reset_brings_back_80_and_100()
         {
             string path = Path.Combine(Path.GetTempPath(), "hockey-t164-" + System.Guid.NewGuid().ToString("N") + ".txt");
             try
@@ -438,7 +438,7 @@ namespace HockeyGame.Core.Tests
             string old = TempFile("shotsPerRound=6\n");
             try
             {
-                Assert.AreEqual(100, SaveData.Load(old).BottleKnockSpeedKmh, 1e-9, "an old file loads the defaults");
+                Assert.AreEqual(80, SaveData.Load(old).BottleKnockSpeedKmh, 1e-9, "an old file loads the defaults");
                 Assert.AreEqual(100, SaveData.Load(old).BottleJumpPercent, 1e-9);
             }
             finally { File.Delete(old); }
@@ -453,7 +453,7 @@ namespace HockeyGame.Core.Tests
 
             var save = new SaveData { BottleKnockSpeedKmh = 140, BottleJumpPercent = 60 };
             DevMenu(save).Press(SettingsKey.Reset);
-            Assert.AreEqual(100, save.BottleKnockSpeedKmh, 1e-9);
+            Assert.AreEqual(80, save.BottleKnockSpeedKmh, 1e-9);
             Assert.AreEqual(100, save.BottleJumpPercent, 1e-9);
         }
 

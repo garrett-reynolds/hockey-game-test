@@ -486,9 +486,45 @@ namespace HockeyGame.Core.Tests
         [TestCase(SoundCue.StrideLeft, SoundGroup.Game)]
         [TestCase(SoundCue.StrideRight, SoundGroup.Game)]
         [TestCase(SoundCue.GlassImpact, SoundGroup.Game)]
+        [TestCase(SoundCue.GlassImpactSoft, SoundGroup.Game)]
         public void Each_cue_belongs_to_its_group(SoundCue cue, SoundGroup expected)
         {
             Assert.AreEqual(expected, RoundSoundCues.GroupOf(cue));
+        }
+
+        [TestCase(10.0, SoundCue.GlassImpactSoft)]
+        [TestCase(79.0, SoundCue.GlassImpactSoft)]
+        [TestCase(80.0, SoundCue.GlassImpact)]
+        [TestCase(150.0, SoundCue.GlassImpact)]
+        public void The_glass_bang_is_soft_below_80_kmh_and_hard_from_80(double kmh, SoundCue expected)
+        {
+            Assert.AreEqual(expected, RoundSoundCues.GlassCue(kmh));
+        }
+
+        [Test]
+        public void A_variation_pick_is_never_the_one_played_last()
+        {
+            var random = new System.Random(7);
+            int last = -1;
+            for (int i = 0; i < 500; i++)
+            {
+                int pick = RoundSoundCues.PickVariation(3, last, random.Next);
+                Assert.That(pick, Is.InRange(0, 2));
+                Assert.AreNotEqual(last, pick, "same twice at " + i);
+                last = pick;
+            }
+        }
+
+        [Test]
+        public void A_variation_pick_reaches_every_variation_and_a_single_one_repeats()
+        {
+            var random = new System.Random(3);
+            var seen = new HashSet<int>();
+            int last = -1;
+            for (int i = 0; i < 200; i++) { last = RoundSoundCues.PickVariation(3, last, random.Next); seen.Add(last); }
+            Assert.AreEqual(3, seen.Count);
+            Assert.AreEqual(0, RoundSoundCues.PickVariation(1, 0, random.Next));
+            Assert.AreEqual(-1, RoundSoundCues.PickVariation(0, -1, random.Next));
         }
 
         [Test]
@@ -499,7 +535,8 @@ namespace HockeyGame.Core.Tests
                 SoundCue.Cheer, SoundCue.NewBestCheer, SoundCue.Groan, SoundCue.SmallGroan, SoundCue.Ooh,
                 SoundCue.Tick, SoundCue.FastTick, SoundCue.Buzzer, SoundCue.GoalImpact, SoundCue.SaveImpact,
                 SoundCue.MissImpact, SoundCue.PostPing, SoundCue.GloveCatch, SoundCue.NetRustle, SoundCue.BlockerHit,
-                SoundCue.HockeyStop, SoundCue.HockeyStopEnd, SoundCue.StrideLeft, SoundCue.StrideRight, SoundCue.GlassImpact
+                SoundCue.HockeyStop, SoundCue.HockeyStopEnd, SoundCue.StrideLeft, SoundCue.StrideRight, SoundCue.GlassImpact,
+                SoundCue.GlassImpactSoft
             };
             foreach (SoundCue cue in System.Enum.GetValues(typeof(SoundCue)))
                 Assert.IsTrue(named.Contains(cue), cue + " has no group in the table: add it to Each_cue_belongs_to_its_group");

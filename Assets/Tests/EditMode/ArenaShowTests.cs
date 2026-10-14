@@ -560,21 +560,23 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void A_Goal_above_the_knock_speed_knocks_the_bottle()
         {
-            Assert.AreEqual(100.0, BottleKnock.KnockSpeedKmh);
-            Assert.IsTrue(new BottleKnock().Follow(Whistled(ArenaResult.Goal, 101)));
+            Assert.AreEqual(80.0, BottleKnock.KnockSpeedKmh);
+            Assert.IsTrue(new BottleKnock().Follow(Whistled(ArenaResult.Goal, 81)));
         }
 
         [Test]
-        public void A_Goal_at_exactly_the_knock_speed_does_not()
+        public void A_Goal_at_exactly_the_knock_speed_knocks_and_one_km_h_slower_does_not()
         {
-            Assert.IsFalse(new BottleKnock().Follow(Whistled(ArenaResult.Goal, 100)));
+            Assert.IsTrue(new BottleKnock().Follow(Whistled(ArenaResult.Goal, 80)));
+            Assert.IsFalse(new BottleKnock().Follow(Whistled(ArenaResult.Goal, 79)));
         }
 
         [Test]
         public void The_knock_speed_setting_moves_the_threshold()
         {
-            Assert.IsFalse(new BottleKnock { SpeedKmh = 120 }.Follow(Whistled(ArenaResult.Goal, 110)), "110 does not beat 120");
-            Assert.IsFalse(new BottleKnock { SpeedKmh = 120 }.Follow(Whistled(ArenaResult.Goal, 120)), "strictly faster");
+            Assert.IsFalse(new BottleKnock { SpeedKmh = 120 }.Follow(Whistled(ArenaResult.Goal, 110)), "110 is under 120");
+            Assert.IsFalse(new BottleKnock { SpeedKmh = 120 }.Follow(Whistled(ArenaResult.Goal, 119)));
+            Assert.IsTrue(new BottleKnock { SpeedKmh = 120 }.Follow(Whistled(ArenaResult.Goal, 120)), "at the line knocks");
             Assert.IsTrue(new BottleKnock { SpeedKmh = 120 }.Follow(Whistled(ArenaResult.Goal, 121)));
             Assert.IsTrue(new BottleKnock { SpeedKmh = 60 }.Follow(Whistled(ArenaResult.Goal, 70)), "a lower setting knocks a slower Goal");
             Assert.AreEqual(BottleKnock.KnockSpeedKmh, new BottleKnock().SpeedKmh, "the default is the old fixed speed");

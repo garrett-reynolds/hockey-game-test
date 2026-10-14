@@ -6,10 +6,10 @@ namespace HockeyGame
     /// <summary>
     /// Finds each sound's clip. To use a real sound, drop an audio file (.wav, .ogg or .mp3) into
     /// Assets/Resources/Sounds/ named after the sound below, for example Assets/Resources/Sounds/goal-horn.wav.
-    /// A sound with no file plays its code-made placeholder from PlaceholderSounds, except glass-bang, net-rustle and ooh:
+    /// A sound with no file plays its code-made placeholder from PlaceholderSounds, except glass-bang, glass-bang-soft, net-rustle and ooh-1 .. ooh-3:
     /// with no file they play nothing. No code change is needed.
     /// File names: crowd-loop, heartbeat-loop, tick, fast-tick, buzzer, net-hit, goal-horn, pad-thud,
-    /// boards-clang, glass-bang, net-rustle, cheer, groan, ooh, small-groan, new-best-cheer, post-ping, glove-catch, blocker-hit,
+    /// boards-clang, glass-bang, glass-bang-soft, net-rustle, cheer, groan, ooh-1 .. ooh-3, small-groan, new-best-cheer, post-ping, glove-catch, blocker-hit,
     /// hockey-stop, stride-1 .. stride-4. The goal horn and goal song file names come from the Team Skin (the League
     /// Skin's is goal-horn).
     /// </summary>
@@ -28,11 +28,13 @@ namespace HockeyGame
         public const string BoardsClang = "boards-clang";
         /// <summary>The puck banging on the glass; with no file, nothing plays.</summary>
         public const string GlassBang = "glass-bang";
+        /// <summary>The puck bumping the glass slowly (a Shot under RoundSoundCues.GlassHardKmh); with no file, nothing plays.</summary>
+        public const string GlassBangSoft = "glass-bang-soft";
         public const string Cheer = "cheer";
         /// <summary>The home crowd's groan on a Save.</summary>
         public const string Groan = "groan";
-        /// <summary>The crowd's "ooh" on a Frame Hit; with no file, nothing plays.</summary>
-        public const string Ooh = "ooh";
+        /// <summary>The crowd's "ooh" on a Frame Hit: one of these at random, never the same twice running; a missing file is skipped, none at all is silent.</summary>
+        public static readonly string[] Oohs = { "ooh-1", "ooh-2", "ooh-3" };
         /// <summary>The small groan on a Wide Miss or no Shot in time; with no file, the groan plays softer.</summary>
         public const string SmallGroan = "small-groan";
         public const string NewBestCheer = "new-best-cheer";

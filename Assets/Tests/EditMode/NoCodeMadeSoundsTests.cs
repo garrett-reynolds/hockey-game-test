@@ -50,9 +50,11 @@ namespace HockeyGame.Core.Tests
                 var flow = new ScreenFlow(ScriptedRandom.Halves(), save, FakeReach.NeverReaches());
                 var sound = new RoundSound(listener, save, new RoundSettings());
                 for (int i = 0; i < 20; i++) sound.Update(flow, 0.5f); // the start screen
-                Assert.AreEqual(0, sound.ClipCount(SoundCue.GlassImpact), "glass");
                 Assert.AreEqual(0, sound.ClipCount(SoundCue.NetRustle), "netting");
-                Assert.AreEqual(0, sound.ClipCount(SoundCue.Ooh), "ooh");
+                // Garrett's picked real files are in Resources/Sounds: hard and soft glass, and three oohs.
+                Assert.AreEqual(1, sound.ClipCount(SoundCue.GlassImpact), "glass hard");
+                Assert.AreEqual(1, sound.ClipCount(SoundCue.GlassImpactSoft), "glass soft");
+                Assert.AreEqual(3, sound.ClipCount(SoundCue.Ooh), "ooh variations");
                 Assert.Greater(sound.ClipCount(SoundCue.Cheer), 0, "a sound with a file still plays");
                 foreach (UnityEngine.AudioSource source in listener.GetComponentsInChildren<UnityEngine.AudioSource>())
                     StringAssert.DoesNotContain("Chant", source.gameObject.name);

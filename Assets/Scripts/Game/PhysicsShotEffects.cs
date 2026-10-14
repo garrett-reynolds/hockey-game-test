@@ -101,6 +101,7 @@ namespace HockeyGame
         /// </summary>
         public double CameraLookUp { get; set; }
 
+        double _shotKmh; // the speed of the Shot in flight (km/h)
         int _clearedForShot; // Test Mode: the ShotNumber whose window has already cleared the last puck (0 outside Test Mode)
 
         /// <summary>The sound of a hit the puck made in the physics steps before this frame (a post or the crossbar: PostPing; the boards: MissImpact; the glass: GlassImpact); null for none.</summary>
@@ -164,6 +165,7 @@ namespace HockeyGame
             Shot.Whistled += OnWhistled;
             Shot.Hit += OnHit;
             Shot.GearTouch += OnGearTouch;
+            _shotKmh = shot.SpeedKmh;
             Shot.Launch(shot.X, shot.Y, shot.SpeedKmh); // also off the Net Face: judged by the same rule
             _netCloth.Track(Shot.Puck);
             FlightSeconds = (float)ShotFlight.Seconds(Vector3.Distance(Shot.Start, Shot.Target), shot.SpeedKmh);
@@ -218,7 +220,7 @@ namespace HockeyGame
             {
                 if (impulse.magnitude < WallImpact || Shot.SecondsSinceShot - _lastWall < WallGapSeconds) return;
                 _lastWall = Shot.SecondsSinceShot;
-                _pendingHit = boards ? SoundCue.MissImpact : SoundCue.GlassImpact;
+                _pendingHit = boards ? SoundCue.MissImpact : RoundSoundCues.GlassCue(_shotKmh); // the glass: soft or hard by the Shot's speed
                 return;
             }
             if (other.sharedMaterial != ShotColliders.Frame || impulse.magnitude < PingImpulse) return;

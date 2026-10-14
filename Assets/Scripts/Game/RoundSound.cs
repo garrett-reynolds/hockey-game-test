@@ -54,6 +54,9 @@ namespace HockeyGame
         readonly AudioClip[] _strides;
         readonly System.Random _random = new System.Random();
         int _lastStride = -1;
+        int _lastOoh = -1;
+        /// <summary>The clip each cue played last, for the play check and the tests.</summary>
+        public readonly Dictionary<SoundCue, AudioClip> LastPlayed = new Dictionary<SoundCue, AudioClip>();
         float _hockeyStopTarget;
         float _crowdLevel; // the crowd loop's fade level (0..1); the Crowd slider scales it, so a drag is heard at once
         float _crowdGain, _gameGain; // the Crowd and Game sliders this frame, 0..1 (the song reads Music itself; master and mute are on the AudioListener)
@@ -108,13 +111,16 @@ namespace HockeyGame
             _clips[SoundCue.BlockerHit] = new[] { SoundFiles.Load(SoundFiles.BlockerHit, PlaceholderSounds.BlockerHit) };
             _clips[SoundCue.MissImpact] = new[] { SoundFiles.Load(SoundFiles.BoardsClang, PlaceholderSounds.BoardsClang) };
             _clips[SoundCue.GlassImpact] = FileOnly(SoundFiles.GlassBang); // no file: silent (no code-made placeholder)
+            _clips[SoundCue.GlassImpactSoft] = FileOnly(SoundFiles.GlassBangSoft); // each works alone: a missing one is silent
             _clips[SoundCue.NetRustle] = FileOnly(SoundFiles.NetRustle);
             _clips[SoundCue.PostPing] = new[] { SoundFiles.Load(SoundFiles.PostPing, PlaceholderSounds.PostPing) };
             _clips[SoundCue.Cheer] = new[] { SoundFiles.Load(SoundFiles.Cheer, PlaceholderSounds.Cheer) };
             AudioClip groan = SoundFiles.Load(SoundFiles.Groan, PlaceholderSounds.Groan);
             _clips[SoundCue.Groan] = new[] { groan };
             _clips[SoundCue.SmallGroan] = new[] { SoundFiles.Load(SoundFiles.SmallGroan, () => groan) };
-            _clips[SoundCue.Ooh] = FileOnly(SoundFiles.Ooh);
+            var oohs = new System.Collections.Generic.List<AudioClip>();
+            foreach (string file in SoundFiles.Oohs) oohs.AddRange(FileOnly(file)); // a missing file is skipped; none at all is silent
+            _clips[SoundCue.Ooh] = oohs.ToArray();
             _clips[SoundCue.NewBestCheer] = new[] { SoundFiles.Load(SoundFiles.NewBestCheer, PlaceholderSounds.NewBestCheer) };
 
             AudioClip song = string.IsNullOrEmpty(skin.GoalSong) ? null : SoundFiles.Load(skin.GoalSong, () => null, findSkinSound);
@@ -166,8 +172,24 @@ namespace HockeyGame
                 }
                 AudioSource source = cue == SoundCue.Tick || cue == SoundCue.FastTick ? _tick
                     : RoundSoundCues.GroupOf(cue) == SoundGroup.Crowd ? _crowdWorld : _world;
+                if (cue == SoundCue.Ooh)
+                {
+                    // One of the oohs, never the one played last.
+                    AudioClip[] oohs = _clips[cue];
+                    int pick = RoundSoundCues.PickVariation(oohs.Length, _lastOoh, _random.Next);
+                    if (pick >= 0)
+                    {
+                        _lastOoh = pick;
+                        LastPlayed[cue] = oohs[pick];
+                        source.PlayOneShot(oohs[pick], (float)RoundSoundCues.Volume(cue));
+                    }
+                    continue;
+                }
                 foreach (AudioClip clip in _clips[cue])
+                {
+                    LastPlayed[cue] = clip;
                     source.PlayOneShot(clip, (float)RoundSoundCues.Volume(cue)); // the source's volume is the slider
+                }
             }
 
             // Every source follows its slider while a sound plays (a drag is heard at once), one-shots included.

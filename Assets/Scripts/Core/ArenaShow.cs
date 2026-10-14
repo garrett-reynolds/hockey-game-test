@@ -480,7 +480,7 @@ namespace HockeyGame.Core
 
     /// <summary>
     /// "Bottle knocked" (#164), the Arena Show's state beside the Goal Show: true from the Whistle of a Goal whose Shot speed is
-    /// strictly above KnockSpeedKmh, and it stays true for that Shot's result hold (a second Knock changes nothing). It goes back
+    /// at least KnockSpeedKmh, and it stays true for that Shot's result hold (a second Knock changes nothing). It goes back
     /// to false before the next Shot (Garrett, 2026-10-13: "It needs to get reset between each shot"): any phase but the result
     /// hold, in a Round and in Test Mode. A Save, a Miss, a Frame Hit and a Shot with no puck never knock it.
     /// The Game side calls Follow once a frame with the same input as the Arena Show and reads Knocked: push the bottle on the change
@@ -488,10 +488,10 @@ namespace HockeyGame.Core
     /// </summary>
     public sealed class BottleKnock
     {
-        /// <summary>A Goal strictly faster than this (km/h) knocks the bottle off the net.</summary>
-        public const double KnockSpeedKmh = 100.0;
+        /// <summary>A Goal this fast (km/h) or faster knocks the bottle off the net (Garrett, 2026-10-13: 80, was 100). Its own line, apart from the glass line.</summary>
+        public const double KnockSpeedKmh = 80.0;
 
-        /// <summary>The speed a Goal must beat now (km/h): KnockSpeedKmh until the game sets it from the Dev setting, each frame, so a change acts on the next Shot (#164).</summary>
+        /// <summary>The speed a Goal must reach now (km/h): KnockSpeedKmh until the game sets it from the Dev setting, each frame, so a change acts on the next Shot (#164).</summary>
         public double SpeedKmh { get; set; } = KnockSpeedKmh;
 
         public bool Knocked { get; private set; }
@@ -505,7 +505,7 @@ namespace HockeyGame.Core
             if (input.Phase != RoundPhase.ResultHold)
                 Knocked = false;
             else if (!Knocked && input.Phase == RoundPhase.ResultHold && !input.ResultHidden && input.Result == ArenaResult.Goal
-                     && input.LastShotSpeedKmh.HasValue && input.LastShotSpeedKmh.Value > SpeedKmh)
+                     && input.LastShotSpeedKmh.HasValue && input.LastShotSpeedKmh.Value >= SpeedKmh)
                 Knocked = true;
             return Knocked;
         }

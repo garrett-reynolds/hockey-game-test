@@ -238,7 +238,7 @@ namespace HockeyGame.Core.Tests
             {
                 Frame(round, effects);
                 // Past the frame it may sound the boards or glass (#110); it must not ring the frame or rustle the netting.
-                Assert.IsTrue(effects.HitSound == null || effects.HitSound == SoundCue.MissImpact || effects.HitSound == SoundCue.GlassImpact,
+                Assert.IsTrue(effects.HitSound == null || effects.HitSound == SoundCue.MissImpact || effects.HitSound == SoundCue.GlassImpact || effects.HitSound == SoundCue.GlassImpactSoft,
                     "rang " + effects.HitSound + " at " + effects.Shot.SecondsSinceShot + " s, off " + effects.Shot.FirstTouched?.name);
             }
             Assert.IsTrue(!effects.Shot.Touched || effects.Shot.FirstTouched.sharedMaterial == ShotColliders.Boards || effects.Shot.FirstTouched.sharedMaterial == ShotColliders.Glass);

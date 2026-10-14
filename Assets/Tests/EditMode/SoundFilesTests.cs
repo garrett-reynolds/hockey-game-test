@@ -33,12 +33,23 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void Ooh_loads_its_file_when_there_is_one()
+        public void Ooh_loads_each_variation_file_when_there_is_one()
         {
+            Assert.AreEqual(3, SoundFiles.Oohs.Length);
             var real = AudioClip.Create("real ooh", 10, 1, 44100, false);
-            var clip = SoundFiles.Load(SoundFiles.Ooh, () => null, name => name == "ooh" ? real : null);
+            var clip = SoundFiles.Load(SoundFiles.Oohs[1], () => null, name => name == "ooh-2" ? real : null);
             Assert.AreSame(real, clip);
             Object.DestroyImmediate(real);
+        }
+
+        [Test]
+        public void The_picked_glass_boards_and_ooh_files_are_in_Resources_Sounds()
+        {
+            var names = new System.Collections.Generic.List<string> { SoundFiles.GlassBang, SoundFiles.GlassBangSoft, SoundFiles.BoardsClang };
+            names.AddRange(SoundFiles.Oohs);
+            foreach (string name in names)
+                Assert.IsNotNull(Resources.Load<AudioClip>(SoundFiles.Folder + "/" + name), name);
+            Assert.IsNull(Resources.Load<AudioClip>(SoundFiles.Folder + "/ooh"), "no plain ooh file");
         }
 
         [Test]
