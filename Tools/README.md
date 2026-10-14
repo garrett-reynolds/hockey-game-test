@@ -3,6 +3,10 @@
 Scripts that make the game's models, textures and sounds. Each script's first lines give its exact command.
 Run them from the repo root. `CREDITS.md` says which script made which file.
 
+## Agent tools
+
+`Tools/agent/` holds the slot tool (`slot.py`: status, test, close, open, play-check) that agents use on the slot Editors, with its tests. Its live copy sits in the notes folder; after a change run `python Tools/agent/install.py` (and `--check` to find drift). See `Tools/agent/README.md`.
+
 ## Plain Python 3
 
 Install the packages once: `py -3 -m pip install -r Tools/requirements.txt` (Pillow and numpy).
