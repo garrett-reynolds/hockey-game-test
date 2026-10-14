@@ -98,6 +98,28 @@ namespace HockeyGame.Core.Tests
             return stick.min.y;
         }
 
+        // The wiring (PhysicsShotEffects -> GoalieView.Watch's sinceContact -> YawTo / AfterShot.WithHeadFollow): before the Whistle
+        // the head follows a touched puck in front of him, and stays square when the puck has not touched anything.
+        [Test]
+        public void Before_the_whistle_the_head_follows_a_puck_that_has_touched_something_in_front_of_him()
+        {
+            foreach (double side in new[] { -1.0, 1.0 })
+            {
+                GoalieView touched = Make(out GoalieCharacter touchedCharacter);
+                GoalieView untouched = Make(out GoalieCharacter untouchedCharacter);
+                var puck = new Vector3((float)side * 2f, 0.3f, -1.5f); // to one side, in front of him
+                foreach (GoalieView view in new[] { touched, untouched })
+                    view.React(Result(ShotResultKind.Save, 50, 50), From, null, double.PositiveInfinity, LateMarginLimit);
+                touched.Watch(puck, -1f, -1f, 0.5f);
+                touched.SetProgress(1f);
+                untouched.Watch(puck, -1f, -1f, -1f);
+                untouched.SetProgress(1f);
+                Assert.Greater(Mathf.Abs(Yaw(touchedCharacter)), 25f, side + ": the head has turned toward the touched puck");
+                Assert.AreEqual(Mathf.Sign((float)side), Mathf.Sign(Yaw(touchedCharacter)), side + ": toward its side");
+                Assert.Less(Mathf.Abs(Yaw(untouchedCharacter)), 10f, side + ": no touch yet, the head stays square");
+            }
+        }
+
         void At(GoalieView view, Vector3 puck, float sinceArrival, float sinceNetting = -1f)
         {
             view.Watch(puck, sinceArrival, sinceNetting);

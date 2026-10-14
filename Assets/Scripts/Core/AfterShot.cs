@@ -78,7 +78,7 @@ namespace HockeyGame.Core
 
         /// <summary>
         /// How far (0..1) the head follows the live puck before the Whistle: sinceContact = seconds since the puck first touched
-        /// something (negative: not yet), yawDegrees = the angle from his face to the puck. 0 for a puck behind him (a GOAL! keeps its look back).
+        /// something (negative: not yet), yawDegrees = the angle from the way his body faces (not his head) to the puck. 0 for a puck behind him (a GOAL! keeps its look back).
         /// </summary>
         public static double HeadFollow(double sinceContact, double yawDegrees) =>
             Ramp(sinceContact, HeadFollowDelay, HeadFollowDelay + HeadTurnSeconds)
