@@ -235,7 +235,8 @@ namespace HockeyGame.Core.Tests
         [TestCase(-1.0, 50.0, false)]    // Frame Hit
         public void Each_Shot_takes_a_post_side_and_a_wobble_roll_at_its_start_and_none_for_its_result(double x, double y, bool saved)
         {
-            var settings = new RoundSettings { ReactionSeconds = 0.12, ReactionWobbleSeconds = 0.04 };
+            // The old deck (Late Settle on): ScriptedRandom.DeckValues scripts it, so the second Shot is a Cheat with a post side.
+            var settings = new RoundSettings { ReactionSeconds = 0.12, ReactionWobbleSeconds = 0.04, LateSettles = true };
             var values = new System.Collections.Generic.List<double>(ScriptedRandom.DeckValues(SetUpKind.Clean, SetUpKind.Cheat));
             values.AddRange(ScriptedRandom.SideValues(AttackSide.Left, AttackSide.Middle));
             values.AddRange(new[] { ScriptedRandom.PostValue(Post.Left), 0.0, ScriptedRandom.PostValue(Post.Right), 0.75 });
@@ -247,8 +248,7 @@ namespace HockeyGame.Core.Tests
             round.Tick(round.ResultHoldLength);
             Assert.AreEqual(2, round.ShotNumber);
             Assert.AreEqual(AttackSide.Middle, round.AttackSide);
-            // Late Settle is off by default, so these scripted rolls (written for the old deck) deal a Depth second.
-            Assert.AreEqual(SetUp.Depth, round.SetUp);
+            Assert.AreEqual(SetUp.Cheat(Post.Right), round.SetUp);
             Assert.AreEqual(0.14, round.ReactionSeconds, Tol);
         }
 
