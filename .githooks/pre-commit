@@ -1,0 +1,45 @@
+#!/bin/sh
+# Commit guard (#175): refuse a commit that stages files that must never be committed.
+# Blocked: ProjectSettings/*, "Assets/UI Toolkit*" (folders + .meta), Assets/Temp(.meta)/*,
+# and picture-test banner images (any *banner* png/jpg outside the real Assets/Resources/Ads/).
+# Deleted files are not checked, so a blocked file can still be removed from the repo.
+
+blocked=""
+list="$(git -c core.quotepath=off diff --cached --name-only --diff-filter=ACMRTU)"
+oldifs="$IFS"
+IFS='
+'
+for f in $list; do
+  hit=0
+  case "$f" in
+    ProjectSettings/*) hit=1 ;;
+    "Assets/UI Toolkit"*) hit=1 ;;
+    Assets/Temp|Assets/Temp/*|Assets/Temp.meta) hit=1 ;;
+    Assets/Resources/Ads/*) ;;
+    *[Bb]anner*.png|*[Bb]anner*.jpg|*[Bb]anner*.jpeg) hit=1 ;;
+  esac
+  if [ "$hit" = 1 ]; then
+    blocked="$blocked
+$f"
+  fi
+done
+IFS="$oldifs"
+
+if [ -n "$blocked" ]; then
+  {
+    echo "COMMIT BLOCKED by the commit guard (#175). These staged files must never be committed:"
+    cmd="git restore --staged --"
+    # shellcheck disable=SC2086
+    oldifs="$IFS"; IFS='
+'
+    for f in $blocked; do
+      echo "  $f"
+      cmd="$cmd \"$f\""
+    done
+    IFS="$oldifs"
+    echo "Unstage them with:"
+    echo "  $cmd"
+  } >&2
+  exit 1
+fi
+exit 0
