@@ -83,6 +83,7 @@ namespace HockeyGame
         const float BlendNoteSeconds = 2f;
         string _blendNote;
         float _blendNoteUntil;
+        GUIStyle _blendNoteStyle;
 
         /// <summary>What the B key calls (PROTOTYPE): the next clip blend time (0.5, 0.8, 1.2 s), shown briefly on screen and logged.</summary>
         public void CycleClipBlend(GoalieClipReactions clips)
@@ -96,7 +97,10 @@ namespace HockeyGame
         void DrawBlendNote()
         {
             if (_blendNote == null || Time.unscaledTime > _blendNoteUntil || Event.current.type != EventType.Repaint) return;
-            GUI.Label(new Rect(16, Screen.height - 40, 300, 30), _blendNote);
+            // Above the Test Shots line at the very bottom-left, large enough to read.
+            if (_blendNoteStyle == null)
+                _blendNoteStyle = new GUIStyle(GUI.skin.label) { fontSize = 26, fontStyle = FontStyle.Bold, normal = { textColor = Color.white } };
+            GUI.Label(new Rect(16, Screen.height - 110, 400, 40), _blendNote, _blendNoteStyle);
         }
 
         /// <summary>What the K key calls: flips UseAiClips (and with it the longer hold) and logs one line.</summary>
