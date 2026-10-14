@@ -63,6 +63,7 @@ namespace HockeyGame
             model.transform.SetParent(Root.transform, false);
             _body = model.GetComponentsInChildren<SkinnedMeshRenderer>(true);
             HideBareParts(model);
+            MakeClothMatte(_body);
             _gear = Array.FindAll(model.GetComponentsInChildren<MeshRenderer>(true), r => GearPiece.PieceOf(r.name) != null);
             _skates = Array.FindAll(model.GetComponentsInChildren<Renderer>(true), r => r.name == GearPiece.ObjectName(GearPiece.LeftSkate) || r.name == GearPiece.ObjectName(GearPiece.RightSkate));
 
@@ -78,6 +79,27 @@ namespace HockeyGame
             Put(_ready);
             Transform head = Bone(HumanBodyBones.Head);
             if (head != null) _faceLocal = head.InverseTransformDirection(Root.transform.rotation * Vector3.back);
+        }
+
+        /// <summary>
+        /// The jersey, pants and socks are cloth (#170): the model imports every material at smoothness 0.4, which shines like
+        /// plastic under the arena lights. Cloth gets no smoothness and no specular highlight. The hard gear keeps its look; it
+        /// shares no material with the cloth (the model names them apart: "Jersey ...", "Pants ...", "Sock ...").
+        /// </summary>
+        static void MakeClothMatte(SkinnedMeshRenderer[] body)
+        {
+            foreach (SkinnedMeshRenderer r in body)
+            {
+                if (r.name != "Jersey" && r.name != "Pants" && r.name != "Socks") continue;
+                foreach (Material m in r.sharedMaterials)
+                {
+                    if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", 0f);
+                    if (m.HasProperty("_SpecularHighlights")) m.SetFloat("_SpecularHighlights", 0f);
+                    if (m.HasProperty("_EnvironmentReflections")) m.SetFloat("_EnvironmentReflections", 0f);
+                    m.EnableKeyword("_SPECULARHIGHLIGHTS_OFF");
+                    m.EnableKeyword("_ENVIRONMENTREFLECTIONS_OFF");
+                }
+            }
         }
 
         /// <summary>
