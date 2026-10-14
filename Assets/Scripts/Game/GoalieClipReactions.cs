@@ -45,6 +45,15 @@ namespace HockeyGame
         readonly Quaternion[] _snapRot, _codeRot, _animRot;
         readonly Vector3[] _snapPos, _codePos, _animPos;
         readonly bool _hasBones;
+        readonly Transform _hips, _leftLeg, _rightLeg;
+        readonly Transform[] _feet;        // feet and toes: the lowest one stands on the ice
+
+        // The AI clips keep the facing and height they were made with (Root "Based upon Original"): half of them faced away
+        // and all put the skates under the ice. Each clip is turned and lifted once, at its first frame, onto the code pose.
+        Vector3 _snapHipsWorld, _animHips0;
+        float _snapYaw, _snapFootY, _dy;
+        Quaternion _yawFix = Quaternion.identity;
+        bool _aligned;
 
         AnimatorOverrideController _override;
         AnimationClip _slot;
@@ -80,6 +89,12 @@ namespace HockeyGame
         public float LastRestoreErrorDegrees { get; private set; } = -1f;
         /// <summary>How far releasing the Animator moved the bones from the code pose (degrees), before the code pose was put back.</summary>
         public float LastReleaseShiftDegrees { get; private set; } = -1f;
+        /// <summary>The turn and lift put on the last clip at its first frame.</summary>
+        public float LastYawFixDegrees { get; private set; }
+        public float LastLiftMetres { get; private set; }
+        /// <summary>Over the last clip: the most the body faced away from the code pose (degrees) and the lowest foot against the code pose's lowest foot (metres, below 0 = under).</summary>
+        public float LastMaxFacingOffDegrees { get; private set; }
+        public float LastMinFootGapMetres { get; private set; }
 
         /// <summary>True while the clip owns the bones (blending in and playing): the procedural writers must not run.</summary>
         public bool Owns => _mode == Mode.In || _mode == Mode.Play;
@@ -102,6 +117,19 @@ namespace HockeyGame
             _bones = list.ToArray();
             _isHips = hips.ToArray();
             _hasBones = _bones.Length > 0;
+            var feet = new List<Transform>();
+            if (_hasBones)
+            {
+                _hips = animator.GetBoneTransform(HumanBodyBones.Hips);
+                _leftLeg = animator.GetBoneTransform(HumanBodyBones.LeftUpperLeg);
+                _rightLeg = animator.GetBoneTransform(HumanBodyBones.RightUpperLeg);
+                foreach (var b in new[] { HumanBodyBones.LeftFoot, HumanBodyBones.RightFoot, HumanBodyBones.LeftToes, HumanBodyBones.RightToes })
+                {
+                    Transform t = animator.GetBoneTransform(b);
+                    if (t != null) feet.Add(t);
+                }
+            }
+            _feet = feet.ToArray();
             _snapRot = new Quaternion[_bones.Length]; _codeRot = new Quaternion[_bones.Length]; _animRot = new Quaternion[_bones.Length];
             _snapPos = new Vector3[_bones.Length]; _codePos = new Vector3[_bones.Length]; _animPos = new Vector3[_bones.Length];
         }
@@ -202,6 +230,15 @@ namespace HockeyGame
         {
             // Keep the code pose as it stands (the code ran this frame, before Post).
             Take(_snapRot, _snapPos);
+            if (_hips != null)
+            {
+                _snapHipsWorld = _hips.position;
+                _snapYaw = BodyYaw();
+                _snapFootY = LowestFootY();
+            }
+            _aligned = false;
+            LastMaxFacingOffDegrees = 0f;
+            LastMinFootGapMetres = float.MaxValue;
             _savedRootMotion = _animator.applyRootMotion;
             _savedEnabled = _animator.enabled;
             _savedCulling = _animator.cullingMode;
@@ -258,12 +295,14 @@ namespace HockeyGame
             AnimatorControllerSeen = _animator.runtimeAnimatorController != null ? _animator.runtimeAnimatorController.name : "";
             var infos = _animator.GetCurrentAnimatorClipInfo(0);
             AnimatorClipSeen = infos.Length > 0 ? infos[0].clip.name : "";
+            Align();
             Take(_animRot, _animPos);
             switch (_mode)
             {
                 case Mode.In:
                     _w = Mathf.Min(1f, _w + dt / BlendSeconds);
                     Blend(_snapRot, _snapPos, _animRot, _animPos, Smooth(_w));
+                    KeepOnIce();
                     if (_w >= 1f) _mode = Mode.Play;
                     break;
                 case Mode.Play:
@@ -272,9 +311,61 @@ namespace HockeyGame
                 case Mode.Out:
                     _w = Mathf.Max(0f, _w - dt / BlendSeconds);
                     Blend(_codeRot, _codePos, _animRot, _animPos, Smooth(_w));
+                    KeepOnIce();
                     if (_w <= 0f) Finish();
                     break;
             }
+        }
+
+        /// <summary>The bones hold the clip pose (just evaluated): turn it to the code pose's facing, put its hips over the
+        /// code pose's hips and lift its lowest foot to the code pose's lowest foot. The lift is found at the first frame and
+        /// kept for the whole clip, so the clip's own crouches still show.</summary>
+        void Align()
+        {
+            if (_hips == null) return;
+            if (!_aligned)
+            {
+                _yawFix = Quaternion.AngleAxis(Mathf.DeltaAngle(BodyYaw(), _snapYaw), Vector3.up);
+                _animHips0 = _hips.position;
+                _dy = _snapFootY - LowestFootY();
+                _aligned = true;
+                LastYawFixDegrees = Mathf.DeltaAngle(BodyYaw(), _snapYaw);
+                LastLiftMetres = _dy;
+            }
+            Vector3 p = _hips.position;
+            Vector3 off = _yawFix * (p - _animHips0);
+            // The facing is locked every frame (the AI idle turned the hips up to 102 deg): the goalie stays square to the
+            // shooter; the spine, head and arms still turn as the clip has them.
+            Quaternion square = Quaternion.AngleAxis(Mathf.DeltaAngle(BodyYaw(), _snapYaw), Vector3.up);
+            _hips.SetPositionAndRotation(new Vector3(_snapHipsWorld.x + off.x, p.y + _dy, _snapHipsWorld.z + off.z), square * _hips.rotation);
+            float under = _snapFootY - LowestFootY(); // a weight shift (stick slap) put a skate 2 cm into the ice: lift it out
+            if (under > 0f) _hips.position += Vector3.up * under;
+            LastMaxFacingOffDegrees = Mathf.Max(LastMaxFacingOffDegrees, Mathf.Abs(Mathf.DeltaAngle(BodyYaw(), _snapYaw)));
+            LastMinFootGapMetres = Mathf.Min(LastMinFootGapMetres, LowestFootY() - _snapFootY);
+        }
+
+        /// <summary>A blend of two poses that each stand on the ice can still dip a skate into it (up to 7 cm, measured in the 0.2 s
+        /// blend in, #183): lift the hips so the lowest foot is no lower than the code pose's.</summary>
+        void KeepOnIce()
+        {
+            if (_hips == null) return;
+            float under = _snapFootY - LowestFootY();
+            if (under > 0f) _hips.position += Vector3.up * under;
+        }
+
+        /// <summary>The way the body faces, in degrees about up: square to the line between the upper legs (any rig's bone axes).</summary>
+        float BodyYaw()
+        {
+            Vector3 right = _rightLeg != null && _leftLeg != null ? _rightLeg.position - _leftLeg.position : _hips.right;
+            Vector3 fwd = Vector3.Cross(right, Vector3.up);
+            return Mathf.Atan2(fwd.x, fwd.z) * Mathf.Rad2Deg;
+        }
+
+        float LowestFootY()
+        {
+            float y = float.MaxValue;
+            foreach (Transform f in _feet) y = Mathf.Min(y, f.position.y);
+            return _feet.Length > 0 ? y : _hips.position.y;
         }
 
         static float Smooth(float w) => w * w * (3f - 2f * w);
