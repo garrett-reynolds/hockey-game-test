@@ -33,28 +33,12 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void Chant_loads_the_chant_file_when_there_is_one()
+        public void Ooh_loads_its_file_when_there_is_one()
         {
-            var real = AudioClip.Create("real chant", 10, 1, 44100, false);
-            var clip = SoundFiles.Load("chant", PlaceholderSounds.Chant, name => name == "chant" ? real : null);
+            var real = AudioClip.Create("real ooh", 10, 1, 44100, false);
+            var clip = SoundFiles.Load(SoundFiles.Ooh, () => null, name => name == "ooh" ? real : null);
             Assert.AreSame(real, clip);
             Object.DestroyImmediate(real);
-        }
-
-        [Test]
-        public void Chant_falls_back_to_its_placeholder_when_the_file_is_missing()
-        {
-            var clip = SoundFiles.Load("chant", PlaceholderSounds.Chant, name => null);
-            Assert.AreEqual("Chant", clip.name);
-            Object.DestroyImmediate(clip);
-        }
-
-        [Test]
-        public void Ooh_falls_back_to_its_placeholder_when_the_file_is_missing()
-        {
-            var clip = SoundFiles.Load(SoundFiles.Ooh, PlaceholderSounds.Ooh, name => null);
-            Assert.AreEqual("Ooh", clip.name);
-            Object.DestroyImmediate(clip);
         }
 
         [Test]

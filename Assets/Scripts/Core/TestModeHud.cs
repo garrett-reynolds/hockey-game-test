@@ -2,7 +2,7 @@ namespace HockeyGame.Core
 {
     /// <summary>
     /// What the screen shows around Test Mode (#157): the TEST MODE label, and the rules of the clean view (no Shot dots; the lower
-    /// third and the Clap Chant are gated in LowerThird and ArenaShow). Pure, so the screen only follows it.
+    /// third is gated in LowerThird). Pure, so the screen only follows it.
     /// </summary>
     public static class TestModeHud
     {

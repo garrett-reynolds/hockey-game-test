@@ -3,7 +3,7 @@ using NUnit.Framework;
 
 namespace HockeyGame.Core.Tests
 {
-    /// <summary>The Test Mode screen (#157): the TEST MODE label, the Goals and Shots count, and the clean view (no lower third, no Clap Chant, no Shot dots).</summary>
+    /// <summary>The Test Mode screen (#157): the TEST MODE label, the Goals and Shots count, and the clean view (no lower third, no Shot dots).</summary>
     public class TestModeScreenTests
     {
         private static ScreenFlow NewFlow() =>
@@ -140,13 +140,6 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(1, LowerThird.Of(round).Amount, 1e-9, "a Round at the same moment");
         }
 
-        [Test]
-        public void There_is_no_Clap_Chant_in_Test_Mode()
-        {
-            foreach (RoundPhase phase in new[] { RoundPhase.Idle, RoundPhase.ShootingWindow, RoundPhase.ResultHold, RoundPhase.RoundOver })
-                Assert.IsFalse(ArenaShow.At(new ArenaShowInput { Phase = phase, TestMode = true }).Chant, phase.ToString());
-            Assert.IsTrue(ArenaShow.At(new ArenaShowInput { Phase = RoundPhase.RoundOver }).Chant, "a Round still has it");
-        }
 
         [Test]
         public void The_count_moves_at_the_Whistle_both_numbers_together_not_while_the_puck_flies()

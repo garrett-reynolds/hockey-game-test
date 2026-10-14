@@ -54,7 +54,7 @@ namespace HockeyGame.Core
         Still, // sit still and dim (the Calm Area rules)
         Cheer, // stand and cheer
         Oh,    // a short "oh!"
-        Clap,  // clap with the chant
+        Clap,  // clap (the start screen and Round over)
         Miss   // a frustrated seated swipe, once, then sit (a wide Miss or no Shot in time)
     }
 
@@ -221,7 +221,6 @@ namespace HockeyGame.Core
         public double CameraLookUp { get; }
         /// <summary>Seconds into the Replay (0..ReplayTiming.ShowSeconds) while Camera is Replay; 0 otherwise.</summary>
         public double ReplaySeconds { get; }
-        public bool Chant { get; }
         /// <summary>The Calm Area rules (still, soft and dim behind the near net): on from goalie set to the Shot.</summary>
         public bool CalmAreaRules { get; }
         public ScoreBox ScoreBox { get; }
@@ -231,7 +230,7 @@ namespace HockeyGame.Core
 
         public ArenaState(VideoBoardContent videoBoard, VideoBoardWords videoBoardWords, RibbonBoard ribbon, RibbonBoard calmRibbon, CrowdState calmCrowd,
                           CrowdState nearCrowd, CrowdState farCrowd, GoalShowLights goalShow, CameraMode camera, double cameraLookUp,
-                          double replaySeconds, bool chant, bool calmAreaRules, ScoreBox scoreBox)
+                          double replaySeconds, bool calmAreaRules, ScoreBox scoreBox)
         {
             VideoBoard = videoBoard;
             VideoBoardWords = videoBoardWords;
@@ -244,7 +243,6 @@ namespace HockeyGame.Core
             Camera = camera;
             CameraLookUp = cameraLookUp;
             ReplaySeconds = replaySeconds;
-            Chant = chant;
             CalmAreaRules = calmAreaRules;
             ScoreBox = scoreBox;
         }
@@ -258,7 +256,7 @@ namespace HockeyGame.Core
     /// <summary>
     /// The Arena Show: a pure function of the Round state (phase, time in it, the last Shot result, new best, score) that
     /// answers what each arena part does: the Video Board, the Ribbon Boards, the crowd in each zone, the Goal Show lights,
-    /// the camera, the chant, the Calm Area rules and the Score Box. Like RoundSoundCues it holds no rules of the Round.
+    /// the camera, the Calm Area rules and the Score Box. Like RoundSoundCues it holds no rules of the Round.
     /// The goalie is set when the shooting window opens (EasyGlow): the Calm Area rules hold for the whole window, so a Late
     /// Settle keeps them a little early. After a Goal, a Save or a Frame Hit the camera stays on the net, looks up at the
     /// Video Board, which plays the Replay, and looks back down (ReplayTiming); after a Wide Miss or Too late it stays on the net.
@@ -347,7 +345,6 @@ namespace HockeyGame.Core
 
             RibbonBoard ribbon = RibbonFor(result);
             CrowdState near = CrowdFor(input.Phase, result);
-            bool chant = !input.TestMode && (input.Phase == RoundPhase.Idle || input.Phase == RoundPhase.RoundOver); // no Clap Chant in Test Mode (#157)
             int goalsShown = input.Goals; // the Round counts a Goal from its Whistle (the line crossing), when it shows
             // The Replay's part of the hold counts from the Whistle (the puck lands), like the Goal Show.
             bool noReplay = input.NoReplay || input.TestMode; // Test Mode (#156) reuses the Replay-off path; From already folds it into NoReplay, this keeps the pure show safe on its own (tested)
@@ -372,7 +369,6 @@ namespace HockeyGame.Core
                 camera,
                 replayHold ? ReplayTiming.LookUpAt(landed) : 0,
                 camera == CameraMode.Replay ? ReplayTiming.ShowSecondsAt(landed) : 0,
-                chant,
                 calm,
                 new ScoreBox(input.Phase != RoundPhase.Idle, score));
         }

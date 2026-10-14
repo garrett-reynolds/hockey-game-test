@@ -8,7 +8,7 @@ namespace HockeyGame
     /// <summary>
     /// A Team Skin: one asset that holds a team's look and sound. Team colours (rail, kick plate, seats, Ribbon Board
     /// edges), the centre-ice logo and roof banners, the crowd's home jersey, the Video Board frame and graphics, the Score
-    /// Box colours, and the goal horn, goal song and Clap Chant. The skins live in Assets/Resources/Skins; the League Skin
+    /// Box colours, and the goal horn and goal song. The skins live in Assets/Resources/Skins; the League Skin
     /// (league.asset) is the generic look and the first skin. The save file's teamSkin setting picks one before play.
     /// <para>
     /// Art and sounds are named, as the game finds them: art in Assets/Resources/Ads, sounds in Assets/Resources/Sounds
@@ -59,8 +59,6 @@ namespace HockeyGame
         public string GoalHorn;
         /// <summary>Plays with the horn on a Goal; blank: none (the League Skin).</summary>
         public string GoalSong;
-        /// <summary>The Clap Chant.</summary>
-        public string Chant;
 
         /// <summary>The home jersey as the crowd's colours are kept.</summary>
         public ArenaColour HomeJerseyColour => new ArenaColour(HomeJersey.r, HomeJersey.g, HomeJersey.b);

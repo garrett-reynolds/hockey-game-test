@@ -35,5 +35,4 @@ MonoBehaviour:
   ScoreBoxBack: {r: 0.05, g: 0.08, b: 0.18, a: 0.85}
   ScoreBoxText: {r: 1, g: 1, b: 1, a: 1}
   GoalHorn: goal-horn
-  GoalSong: 
-  Chant: chant
+  GoalSong:

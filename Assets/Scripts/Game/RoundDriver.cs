@@ -77,7 +77,7 @@ namespace HockeyGame
             _flow = new ScreenFlow(new SystemRandomSource(), _save, new GoalieCharacterReach(character, settings), settings);
             _flow.BestScoreChanged += SaveStore.Save;
             _round = _flow.Round;
-            _sound = new RoundSound(_camera.gameObject, _save, _round.Settings, new SystemRandomSource(), _skin); // the chant rolls on its own source
+            _sound = new RoundSound(_camera.gameObject, _save, _round.Settings, _skin);
             _breakaway = gameObject.AddComponent<BreakawayView>();
             _breakaway.Init(_round, _camera, _goalie, () => _effects.FlightSeconds); // the Shot's Flight Time, before and after the Whistle
             _startShots = new StartShotsView(_camera, (float)settings.ViewFieldOfViewDegrees);
@@ -124,7 +124,7 @@ namespace HockeyGame
             _effects.Update(_round, Time.unscaledDeltaTime);
             _show = ArenaShow.From(_flow); // the arena follows the Arena Show: once a frame, for every part
             ArenaState show = _show;
-            _sound.Update(_flow, show, Time.unscaledDeltaTime, _effects.HitSound);
+            _sound.Update(_flow, Time.unscaledDeltaTime, _effects.HitSound);
             _ribbons.Show(show, Time.unscaledTimeAsDouble);
             _boards.Show(show, Time.unscaledTimeAsDouble);
             _effects.GoalLight.SetOn(show.GoalShow.GoalLight); // the goal light's one driver: the Goal Show, from a GOAL!'s Whistle

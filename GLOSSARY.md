@@ -145,7 +145,7 @@ What the arena does on a Goal: the goal horn, the red goal light, GOAL! on the R
 _Avoid_: Goal celebration, light show
 
 **Arena Show**:
-What the whole arena does at each moment of a Round, worked out from the Round alone: its phase and the time in it, the last Shot's result, a new best and the score. It decides the Video Board, the Ribbon Board, the crowd, the Goal Show lights, the camera, the Clap Chant and when the Calm Area holds still; every arena part only follows it.
+What the whole arena does at each moment of a Round, worked out from the Round alone: its phase and the time in it, the last Shot's result, a new best and the score. It decides the Video Board, the Ribbon Board, the crowd, the Goal Show lights, the camera and when the Calm Area holds still; every arena part only follows it.
 _Avoid_: Arena state machine, show controller, effects
 
 **Rink Layout**:
@@ -161,16 +161,12 @@ The four-screen box hung high over centre ice. Every screen shows the same pictu
 _Avoid_: Jumbotron, scoreboard, centre-hung
 
 **Team Skin**:
-One package that holds a team's look and sound: the team colours, the centre-ice logo and roof banners, the crowd's jersey colours, the Video Board and Score Box look, and the goal horn, goal song and Clap Chant. A setting picks the skin before play. A skin never changes the ice lines, the brands, the rink shape, the goalie, the Goal Show timing or the Calm Area.
+One package that holds a team's look and sound: the team colours, the centre-ice logo and roof banners, the crowd's jersey colours, the Video Board and Score Box look, and the goal horn and goal song. A setting picks the skin before play. A skin never changes the ice lines, the brands, the rink shape, the goalie, the Goal Show timing or the Calm Area.
 _Avoid_: Theme, team pack
 
 **League Skin**:
 The generic look, and the first Team Skin: no real team, with the "All-Star Hockey" placeholder mark and its own roof banners (3 awards, 3 retired jerseys, made-up names), hung round the near end where the shooter's camera sees them. A later Team Skin swaps in its own set.
 _Avoid_: Default skin, generic theme
-
-**Clap Chant**:
-The crowd's "Let's go!" chant with its clap-clap, clap-clap-clap. It repeats with a quiet gap on the start screen and plays once at Round over, after the cheer or horn; never in the skate-in. A Team Skin can swap it, for example for "Let's go Bears!".
-_Avoid_: Cheer (the crowd cheers on a Goal), chant loop
 
 **Settings page**:
 The broadcast-style page, in the TV graphic look, where the settings are changed. A Settings button on the start screen, Esc and F2 open and close it, and it opens on the start screen only, so every change reaches the next Round. The mouse and the keys both work, and every value is saved between runs. It has two parts.

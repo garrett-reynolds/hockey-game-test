@@ -471,8 +471,6 @@ namespace HockeyGame.Core.Tests
         [TestCase(SoundCue.Groan, SoundGroup.Crowd)]
         [TestCase(SoundCue.SmallGroan, SoundGroup.Crowd)]
         [TestCase(SoundCue.Ooh, SoundGroup.Crowd)]
-        [TestCase(SoundCue.Chant, SoundGroup.Crowd)]
-        [TestCase(SoundCue.ChantEnd, SoundGroup.Crowd)]
         [TestCase(SoundCue.Tick, SoundGroup.Game)]
         [TestCase(SoundCue.FastTick, SoundGroup.Game)]
         [TestCase(SoundCue.Buzzer, SoundGroup.Game)]
@@ -498,8 +496,8 @@ namespace HockeyGame.Core.Tests
         {
             var named = new HashSet<SoundCue>
             {
-                SoundCue.Cheer, SoundCue.NewBestCheer, SoundCue.Groan, SoundCue.SmallGroan, SoundCue.Ooh, SoundCue.Chant,
-                SoundCue.ChantEnd, SoundCue.Tick, SoundCue.FastTick, SoundCue.Buzzer, SoundCue.GoalImpact, SoundCue.SaveImpact,
+                SoundCue.Cheer, SoundCue.NewBestCheer, SoundCue.Groan, SoundCue.SmallGroan, SoundCue.Ooh,
+                SoundCue.Tick, SoundCue.FastTick, SoundCue.Buzzer, SoundCue.GoalImpact, SoundCue.SaveImpact,
                 SoundCue.MissImpact, SoundCue.PostPing, SoundCue.GloveCatch, SoundCue.NetRustle, SoundCue.BlockerHit,
                 SoundCue.HockeyStop, SoundCue.HockeyStopEnd, SoundCue.StrideLeft, SoundCue.StrideRight, SoundCue.GlassImpact
             };

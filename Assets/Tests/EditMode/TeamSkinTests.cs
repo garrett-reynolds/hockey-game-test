@@ -47,7 +47,6 @@ namespace HockeyGame.Core.Tests
             skin.ScoreBoxText = Color.yellow;
             skin.GoalHorn = "goal-horn-test";
             skin.GoalSong = "goal-song-test";
-            skin.Chant = "chant-test";
             return skin;
         }
 
@@ -70,9 +69,8 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(C(255, 215, 80), league.VideoBoardFrameLit);
             Assert.AreEqual(new Color(0.05f, 0.08f, 0.18f, 0.85f), league.ScoreBoxBack);
             Assert.AreEqual(Color.white, league.ScoreBoxText);
-            // Today's sounds: the horn file and the chant (its placeholder until a file is dropped in); no goal song yet.
+            // Today's sounds: the horn file; no goal song yet.
             Assert.AreEqual("goal-horn", league.GoalHorn);
-            Assert.AreEqual("chant", league.Chant);
             Assert.IsEmpty(league.GoalSong);
         }
 
@@ -206,7 +204,7 @@ namespace HockeyGame.Core.Tests
             }
         }
 
-        /// <summary>The Round's sounds play the skin's horn, goal song and chant files.</summary>
+        /// <summary>The Round's sounds play the skin's horn and goal song files.</summary>
         static void AssertSounds(TeamSkin skin)
         {
             var listener = new GameObject("Listener");
@@ -219,14 +217,12 @@ namespace HockeyGame.Core.Tests
             }
             try
             {
-                var league = new RoundSound(listener, new SaveData(), new RoundSettings(), new SeededRandom(1), null, File);
+                var league = new RoundSound(listener, new SaveData(), new RoundSettings(), null, File);
                 Assert.AreEqual(TeamSkin.League.GoalHorn, league.GoalHornClip.name);
-                Assert.AreEqual(TeamSkin.League.Chant, league.ChantClip.name);
                 Assert.IsNull(league.GoalSongClip, "the League Skin has no goal song");
 
-                var team = new RoundSound(listener, new SaveData(), new RoundSettings(), new SeededRandom(1), skin, File);
+                var team = new RoundSound(listener, new SaveData(), new RoundSettings(), skin, File);
                 Assert.AreEqual(skin.GoalHorn, team.GoalHornClip.name);
-                Assert.AreEqual(skin.Chant, team.ChantClip.name);
                 Assert.AreEqual(skin.GoalSong, team.GoalSongClip.name);
             }
             finally
@@ -286,7 +282,7 @@ namespace HockeyGame.Core.Tests
             {
                 "Rail", "KickPlate", "Seats", "RibbonEdgesOn", "RibbonEdge", "CentreIceLogo", "RoofBanners", "HomeJersey",
                 "VideoBoardBack", "VideoBoardWords", "VideoBoardFrame", "VideoBoardFrameLit", "ScoreBoxBack", "ScoreBoxText",
-                "GoalHorn", "GoalSong", "Chant"
+                "GoalHorn", "GoalSong"
             };
             string[] fields = typeof(TeamSkin).GetFields(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
                 .Select(f => f.Name).ToArray();

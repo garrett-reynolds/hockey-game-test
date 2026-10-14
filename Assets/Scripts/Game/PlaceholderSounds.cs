@@ -21,10 +21,8 @@ namespace HockeyGame
         public static AudioClip Horn() => Make("Goal Horn", Horn(1.6f));
         public static AudioClip PadThud() => Make("Pad Thud", Thud(0.35f));
         public static AudioClip BoardsClang() => Make("Boards Clang", Clang(0.9f));
-        public static AudioClip GlassBang() => Make("Glass Bang", Bang(0.5f));
         public static AudioClip PostPing() => Make("Post Ping", Ping(0.8f));
         public static AudioClip GloveCatch() => Make("Glove Catch", NoiseBurst(0.18f, 0.6f, 0.75f, 35f, 13));
-        public static AudioClip NetRustle() => Make("Net Rustle", NoiseBurst(0.45f, 0.4f, 0.3f, 7f, 23));
         public static AudioClip BlockerHit() => Make("Blocker Hit", NoiseBurst(0.2f, 0.6f, 0.45f, 30f, 17));
         public static AudioClip Cheer() => Make("Cheer", Swell(Crowd(3f, 0.9f, 0.2f), 0.4f, 1.8f));
         public static AudioClip Groan() => Make("Groan", Swell(Crowd(1.8f, 0.7f, 0.65f), 0.25f, 1.0f));
@@ -34,10 +32,6 @@ namespace HockeyGame
         public static AudioClip Stride(int variation) =>
             Make("Stride " + (variation + 1), Scrape(0.28f + 0.03f * (variation % 4), 0.3f, 23 + variation));
         public static AudioClip NewBestCheer() => Make("New Best Cheer", Swell(Crowd(3.5f, 1f, 0.15f), 0.5f, 2.2f));
-        /// <summary>The Clap Chant: a crowd shouting "Let's go!", then clap-clap, clap-clap-clap. Silent at both ends.</summary>
-        public static AudioClip Chant() => Make("Chant", ClapChant());
-        /// <summary>The crowd's "ooh" on a Frame Hit: many voices rising and falling over a murmur.</summary>
-        public static AudioClip Ooh() => Make("Ooh", Swell(CrowdVowel(1.4f), 0.25f, 0.6f));
 
         static AudioClip Make(string name, float[] samples)
         {
@@ -156,72 +150,6 @@ namespace HockeyGame
             return s;
         }
 
-        static float[] ClapChant()
-        {
-            var s = Buffer(2.9f);
-            AddShout(s, 0.05f, 0.3f, 210f, 41);   // "Let's"
-            AddShout(s, 0.42f, 0.45f, 170f, 43);  // "go!"
-            float[] claps = { 1.1f, 1.4f, 1.85f, 2.15f, 2.45f }; // clap-clap, clap-clap-clap
-            for (int k = 0; k < claps.Length; k++) AddClap(s, claps[k], 50 + k);
-            Normalise(s, 0.6f);
-            FadeEdges(s, 0.02f);
-            return s;
-        }
-
-        /// <summary>A crowd shout: a few detuned buzzy voices, dulled to a vowel, with breath noise and soft edges.</summary>
-        static void AddShout(float[] s, float at, float seconds, float hz, int seed)
-        {
-            var random = new System.Random(seed);
-            float[] detune = { 0.96f, 1f, 1.03f, 1.07f };
-            int start = (int)(at * Rate), n = (int)(seconds * Rate);
-            float y = 0f;
-            for (int i = 0; i < n && start + i < s.Length; i++)
-            {
-                float t = (float)i / Rate;
-                float env = Mathf.Min(1f, t / 0.04f) * Mathf.Clamp01((seconds - t) / 0.12f);
-                float v = 0f;
-                foreach (float d in detune) v += 2f * ((t * hz * d) % 1f) - 1f;
-                y += 0.08f * (v / detune.Length - y);
-                float breath = (float)(random.NextDouble() * 2 - 1) * 0.1f;
-                s[start + i] += (y * 3f + breath) * env;
-            }
-        }
-
-        /// <summary>One hand clap of many hands: a short bright noise burst with a quick (click-free) attack.</summary>
-        static void AddClap(float[] s, float at, int seed)
-        {
-            var random = new System.Random(seed);
-            int start = (int)(at * Rate), n = (int)(0.12f * Rate);
-            for (int i = 0; i < n && start + i < s.Length; i++)
-            {
-                float t = (float)i / Rate;
-                float env = Mathf.Min(1f, t / 0.002f) * Mathf.Exp(-t * 40f);
-                s[start + i] += (float)(random.NextDouble() * 2 - 1) * env * 0.8f;
-            }
-        }
-
-        /// <summary>Many voices on an "ooh" that rises then falls, over a dark murmur.</summary>
-        static float[] CrowdVowel(float seconds)
-        {
-            var s = Crowd(seconds, 0.3f, 0.8f, false);
-            float[] detune = { 0.95f, 1f, 1.04f, 1.09f, 1.13f };
-            var phase = new float[detune.Length];
-            for (int i = 0; i < s.Length; i++)
-            {
-                float t = (float)i / Rate;
-                float hz = 180f + 70f * Mathf.Sin(Mathf.PI * t / seconds);
-                float v = 0f;
-                for (int k = 0; k < detune.Length; k++)
-                {
-                    phase[k] += hz * detune[k] / Rate;
-                    v += Mathf.Sin(2f * Mathf.PI * phase[k]);
-                }
-                s[i] += v / detune.Length * 0.5f;
-            }
-            Normalise(s, 0.6f);
-            return s;
-        }
-
         static float[] NoiseBurst(float seconds, float gain, float darkness, float decay, int seed)
         {
             var s = Buffer(seconds);
@@ -260,22 +188,6 @@ namespace HockeyGame
             var hit = NoiseBurst(0.05f, 1f, 0f, 80f, 11);
             for (int i = 0; i < hit.Length; i++) s[i] += 0.5f * hit[i];
             Normalise(s, 0.55f);
-            return s;
-        }
-
-        /// <summary>A bang on glass: a dull, short thump over a low rattle (lower and shorter than the boards' clang).</summary>
-        static float[] Bang(float seconds)
-        {
-            var s = NoiseBurst(seconds, 0.6f, 0.7f, 22f, 19);
-            AddThump(s, 0f, 140f, 0.8f);
-            float[] partials = { 310f, 740f }; // a pane's low modes
-            for (int i = 0; i < s.Length; i++)
-            {
-                float t = (float)i / Rate;
-                for (int p = 0; p < partials.Length; p++)
-                    s[i] += 0.25f * Mathf.Sin(2 * Mathf.PI * partials[p] * t) * Mathf.Exp(-t * (14f + 8f * p));
-            }
-            Normalise(s, 0.6f);
             return s;
         }
 

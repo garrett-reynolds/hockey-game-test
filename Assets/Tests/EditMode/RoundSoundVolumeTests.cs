@@ -47,22 +47,21 @@ namespace HockeyGame.Core.Tests
             var skin = ScriptableObject.CreateInstance<TeamSkin>();
             skin.GoalHorn = "horn-test";
             skin.GoalSong = "song-test";
-            skin.Chant = "chant-test";
             var made = new System.Collections.Generic.List<AudioClip>();
             AudioClip Find(string name) { AudioClip c = Clip(name); made.Add(c); return c; }
             try
             {
                 var save = new SaveData { CrowdVolume = 1, GameVolume = 1, MusicVolume = 1 };
                 var flow = new ScreenFlow(ScriptedRandom.Halves(), save, FakeReach.NeverReaches());
-                var sound = new RoundSound(listener, save, new RoundSettings(), new SeededRandom(1), skin, Find);
-                sound.Update(flow, ArenaShow.From(flow), 0.016f);
+                var sound = new RoundSound(listener, save, new RoundSettings(), skin, Find);
+                sound.Update(flow, 0.016f);
                 Assert.AreEqual(1f, sound.OneShotVolume(SoundGroup.Crowd), 1e-6);
                 Assert.AreEqual(1f, sound.OneShotVolume(SoundGroup.Game), 1e-6);
 
                 save.CrowdVolume = 0.3;
                 save.GameVolume = 0.6;
                 save.MusicVolume = 0.1;
-                sound.Update(flow, ArenaShow.From(flow), 0.016f);
+                sound.Update(flow, 0.016f);
 
                 Assert.AreEqual(0.3f, sound.OneShotVolume(SoundGroup.Crowd), 1e-6, "cheers and groans follow the Crowd slider");
                 Assert.AreEqual(0.6f, sound.OneShotVolume(SoundGroup.Game), 1e-6, "horn, buzzer and puck follow the Game slider");

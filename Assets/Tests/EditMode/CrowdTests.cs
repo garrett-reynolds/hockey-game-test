@@ -411,8 +411,8 @@ namespace HockeyGame.Core.Tests
             {
                 Assert.That(Settled(In(RoundPhase.SkateIn).CrowdIn(z)), Is.EqualTo(CrowdClip.Wave), "skate-in: sit with some hand waves");
                 Assert.That(Settled(In(RoundPhase.ResultHold, ArenaResult.Goal).CrowdIn(z)), Is.EqualTo(CrowdClip.StandCheer), "Goal: all stand and cheer");
-                Assert.That(Settled(In(RoundPhase.Idle).CrowdIn(z)), Is.EqualTo(CrowdClip.Clap), "start screen: clap with the chant");
-                Assert.That(Settled(In(RoundPhase.RoundOver).CrowdIn(z)), Is.EqualTo(CrowdClip.Clap), "Round over: clap with the chant");
+                Assert.That(Settled(In(RoundPhase.Idle).CrowdIn(z)), Is.EqualTo(CrowdClip.Clap), "start screen: clap");
+                Assert.That(Settled(In(RoundPhase.RoundOver).CrowdIn(z)), Is.EqualTo(CrowdClip.Clap), "Round over: clap");
                 Assert.That(Settled(In(RoundPhase.SlowDown).CrowdIn(z)), Is.EqualTo(CrowdClip.SitIdle));
                 var miss = new CrowdMotion(ClipSeconds);
                 miss.Step(In(RoundPhase.ResultHold, ArenaResult.WideMiss).CrowdIn(z), 0.1);

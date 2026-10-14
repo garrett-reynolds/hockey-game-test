@@ -160,7 +160,7 @@ namespace HockeyGame.Core
         public bool ReplayOn = true;
         public double MasterVolume = 1.0;
         public bool Mute = false;
-        /// <summary>Crowd sounds (crowd loop, cheers, groans, Clap Chant), 0..1, under the master volume.</summary>
+        /// <summary>Crowd sounds (crowd loop, cheers, groans), 0..1, under the master volume.</summary>
         public double CrowdVolume = 1.0;
         /// <summary>Game sounds (horn, buzzer, tick, puck, posts, goalie, strides), 0..1, under the master volume.</summary>
         public double GameVolume = 1.0;

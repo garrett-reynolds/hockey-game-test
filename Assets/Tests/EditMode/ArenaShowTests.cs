@@ -441,13 +441,6 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void The_chant_is_on_only_on_the_start_screen_and_at_Round_over()
-        {
-            foreach (RoundPhase phase in Phases)
-                Assert.AreEqual(phase == RoundPhase.Idle || phase == RoundPhase.RoundOver, At(phase).Chant, phase.ToString());
-        }
-
-        [Test]
         public void The_camera_is_on_the_net_outside_the_result_hold()
         {
             foreach (RoundPhase phase in Phases)
@@ -512,7 +505,6 @@ namespace HockeyGame.Core.Tests
                 flow.Tick(3.7 + 3.0 + 2.5 + 0.01); // no Shot in time, then the hold
             Assert.AreEqual(FlowScreen.End, flow.Screen);
             Assert.AreEqual(VideoBoardContent.Final, ArenaShow.From(flow).VideoBoard);
-            Assert.IsTrue(ArenaShow.From(flow).Chant);
 
             flow.Tick(save.AutoReturnSeconds);
             Assert.AreEqual(FlowScreen.Start, flow.Screen);
