@@ -26,13 +26,31 @@ namespace HockeyGame
         const string ClipFolder = "Assets/AIClips";
         static readonly int StateHash = Animator.StringToHash("Clip");
 
-        /// <summary>Seconds to blend in from the code pose and back out.</summary>
-        public const float BlendSeconds = 0.2f;
+        /// <summary>The blend times to choose from (seconds, in and out alike); a key in Play cycles them (BreakawayView).
+        /// 0.2 s looked snapped-in, not human (Garrett, 2026-10-14).</summary>
+        public static readonly float[] BlendChoices = { 0.5f, 0.8f, 1.2f };
+        public const float DefaultBlendSeconds = 0.8f;
+        /// <summary>Seconds to blend in from the code pose and back out, eased at both ends (Ease).</summary>
+        public float BlendSeconds { get; private set; } = DefaultBlendSeconds;
+
+        /// <summary>The next of BlendChoices (after the last, the first); a clip already running keeps blending at its new pace.</summary>
+        public float CycleBlend()
+        {
+            int i = Array.IndexOf(BlendChoices, BlendSeconds);
+            BlendSeconds = BlendChoices[(i + 1) % BlendChoices.Length];
+            return BlendSeconds;
+        }
+
+        /// <summary>Ease in and out (smoothstep): slow away from one pose, slow into the other.</summary>
+        public static float Ease(float w) { w = Mathf.Clamp01(w); return w * w * (3f - 2f * w); }
+
+        /// <summary>The short note shown on screen when the blend changes.</summary>
+        public static string BlendNote(float seconds) => "Clip blend " + seconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " s";
         /// <summary>The fastest a long clip is played to fit what is left of the hold.</summary>
         public const float MaxSpeed = 2.5f;
         /// <summary>A hold with less than this left (seconds) gets no clip.</summary>
         public const float MinWindowSeconds = 0.35f;
-        /// <summary>Seconds after the Whistle a Goal or Save clip starts when no Replay plays.</summary>
+        /// <summary>Seconds after the Whistle a Goal or Save clip starts (with or without a Replay).</summary>
         public const double AfterWhistleSeconds = 0.3;
         /// <summary>Idle clip: first plays this long into Idle / RoundOver, then every IdleRepeatSeconds after it ends.</summary>
         public const double IdleFirstSeconds = 1.0, IdleRepeatSeconds = 6.0;
@@ -96,6 +114,28 @@ namespace HockeyGame
         public float LastMaxFacingOffDegrees { get; private set; }
         public float LastMinFootGapMetres { get; private set; }
 
+        /// <summary>The clips are on (the K toggle; set by every Post). Off until the first Post, so code that never runs the
+        /// clips (the pose tests) keeps the code reactions even where Assets/AIClips is present.</summary>
+        public bool Use { get; set; }
+        /// <summary>Tests: take the clips as found (true) or missing (false) without Assets/AIClips; null asks the AssetDatabase.</summary>
+        public bool? ClipsFoundOverride;
+
+        /// <summary>
+        /// True when a clip plays for this result in place of the code-made after-Shot reaction (GoalieView then shows none of
+        /// its look back, gestures, head shake, head turn or follow-through): the clips are on, it is a Goal (an Annoyed
+        /// Gesture) or a Save (None), and the clips are there. A Miss (Relief) has no clip and keeps its code reaction.
+        /// </summary>
+        public bool ReplacesReaction(AfterShotGesture gesture)
+        {
+            if (!Use || !(AfterShot.IsGoal(gesture) || gesture == AfterShotGesture.None)) return false;
+            if (ClipsFoundOverride.HasValue) return ClipsFoundOverride.Value;
+            if (!EnsureOverride()) return false;
+            string[] names = gesture == AfterShotGesture.None ? new[] { GloveClip, CheerClip } : GoalClips;
+            foreach (string name in names)
+                if (Load(name) == null) return false;
+            return true;
+        }
+
         /// <summary>True while the clip owns the bones (blending in and playing): the procedural writers must not run.</summary>
         public bool Owns => _mode == Mode.In || _mode == Mode.Play;
         /// <summary>True from the clip's start to the end of its blend out.</summary>
@@ -143,6 +183,7 @@ namespace HockeyGame
         /// <summary>After the code posed the goalie this frame (BreakawayView.Step): starts, plays and ends the clip window.</summary>
         public void Post(Round round, bool use, float realDt)
         {
+            Use = use;
             if (!_hasBones) return;
             RoundPhase phase = round.Phase;
             realDt = Mathf.Min(realDt, 0.1f); // the first frame of a Play reports the whole start-up as its delta; a stall must not skip the clip
@@ -186,10 +227,7 @@ namespace HockeyGame
                 ShotResult result = round.LastResult.Value;
                 if (result.Kind == ShotResultKind.Miss) return; // the procedural Relief stays
                 double landed = round.PhaseSecondsElapsed - round.ResultDelaySeconds;
-                double earliest = round.ReplayFollows
-                    ? ReplayTiming.OnNetSeconds + ReplayTiming.LookUpSeconds + ReplayTiming.ShowSeconds // after the Replay
-                    : AfterWhistleSeconds;
-                if (landed < earliest) return;
+                if (landed < AfterWhistleSeconds) return; // at the Goal or Save, Replay or not (the Replay records and shows the clip's start)
                 if (result.Kind == ShotResultKind.Goal)
                 {
                     name = GoalClips[_goalCycle % GoalClips.Length];
@@ -301,7 +339,7 @@ namespace HockeyGame
             {
                 case Mode.In:
                     _w = Mathf.Min(1f, _w + dt / BlendSeconds);
-                    Blend(_snapRot, _snapPos, _animRot, _animPos, Smooth(_w));
+                    Blend(_snapRot, _snapPos, _animRot, _animPos, Ease(_w));
                     KeepOnIce();
                     if (_w >= 1f) _mode = Mode.Play;
                     break;
@@ -310,7 +348,7 @@ namespace HockeyGame
                     break;
                 case Mode.Out:
                     _w = Mathf.Max(0f, _w - dt / BlendSeconds);
-                    Blend(_codeRot, _codePos, _animRot, _animPos, Smooth(_w));
+                    Blend(_codeRot, _codePos, _animRot, _animPos, Ease(_w));
                     KeepOnIce();
                     if (_w <= 0f) Finish();
                     break;
@@ -367,8 +405,6 @@ namespace HockeyGame
             foreach (Transform f in _feet) y = Mathf.Min(y, f.position.y);
             return _feet.Length > 0 ? y : _hips.position.y;
         }
-
-        static float Smooth(float w) => w * w * (3f - 2f * w);
 
         void Finish()
         {

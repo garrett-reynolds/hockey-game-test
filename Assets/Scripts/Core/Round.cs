@@ -152,13 +152,13 @@ namespace HockeyGame.Core
             + (ReplayTiming.Follows(LastResult) && ShotNumber < ShotCount ? ShotFade.LeadSeconds : 0)
             + ClipHoldExtra;
 
-        /// <summary>RoundSettings.ClipHoldSeconds on a Goal or a Save (not a Frame Hit, Miss or Too Late); added after the Replay's own hold and the fade lead.</summary>
+        /// <summary>RoundSettings.ClipHoldSeconds on a Goal or a Save with no Replay (not a Frame Hit, Miss or Too Late): the clip starts at the Whistle, and a Replay's own hold already fits it.</summary>
         double ClipHoldExtra
         {
             get
             {
                 ArenaResult r = ArenaShow.ResultOf(LastResult);
-                return r == ArenaResult.Goal || r == ArenaResult.Save ? _settings.ClipHoldSeconds : 0;
+                return (r == ArenaResult.Goal || r == ArenaResult.Save) && !ReplayFollows ? _settings.ClipHoldSeconds : 0;
             }
         }
 

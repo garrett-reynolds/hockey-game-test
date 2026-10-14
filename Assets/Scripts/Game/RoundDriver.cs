@@ -83,7 +83,6 @@ namespace HockeyGame
             _startShots = new StartShotsView(_camera, (float)settings.ViewFieldOfViewDegrees);
             _replay = gameObject.AddComponent<ReplayView>();
             _replay.Init(_round, _boards, _camera, _goalie.Body);
-            _replay.GoalieClipOwns = () => _goalie.Clips != null && _goalie.Clips.Active; // PROTOTYPE: a clip window is not recorded or replayed over
             _replay.ReplayPhysicsPuck(() => _effects.Shot?.Puck); // a new Rigidbody each Shot: replayed on a stand-in, not in the track
             if (_bottle != null) _replay.ReplayBottle(_bottle); // the bottle falling off is in the Replay too (#164), on a stand-in
             _usb = gameObject.AddComponent<UsbShotSource>();
@@ -300,11 +299,7 @@ namespace HockeyGame
                     GUI.Label(StartScreenLayout.Prompt(w, h), "Shoot or press any key", _mid);
                     GUI.Label(StartScreenLayout.UsbStatus(w, h), _usb.StatusText, _mid);
                     break;
-                case FlowScreen.End:
-                    GUI.Label(new Rect(0, h * 0.2f, w, 60), _round.Goals + " / " + _round.ShotCount + " goals", _big);
-                    string best = "Best score: " + _save.BestScore + " / " + _round.ShotCount;
-                    if (_round.IsNewBest) best = "New best! " + best;
-                    GUI.Label(new Rect(0, h * 0.2f + 70, w, 40), best, _mid);
+                case FlowScreen.End: // the score and best score are on the Video Board
                     if (_flow.EndAcceptsInput)
                         GUI.Label(new Rect(0, h * 0.2f + 120, w, 40), "Shoot or press any key", _mid);
                     break;

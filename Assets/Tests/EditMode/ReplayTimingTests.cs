@@ -89,10 +89,12 @@ namespace HockeyGame.Core.Tests
             }
         }
 
-        // ---- the clip hold (PROTOTYPE): ClipHoldSeconds more after a Goal or a Save ----
+        // ---- the clip hold (PROTOTYPE): ClipHoldSeconds more after a Goal or a Save with no Replay ----
+        // The clip starts 0.3 s after the Whistle (not after the Replay). With a Replay the hold (4.5 s, 4.85 s before
+        // Shots 2 to 6) already fits a 2.9 s clip and a 1.2 s blend out; the 2.5 s hold with no Replay does not, so only it grows.
 
         [Test]
-        public void ClipHoldSeconds_adds_to_the_hold_of_a_Goal_and_a_Save_only_and_0_keeps_today_s_timing()
+        public void ClipHoldSeconds_adds_to_the_hold_of_a_Goal_and_a_Save_with_no_Replay_only_and_0_keeps_today_s_timing()
         {
             foreach (bool replayOn in new[] { true, false })
             {
@@ -100,8 +102,8 @@ namespace HockeyGame.Core.Tests
                 {
                     Round round = After(shot, replayOn);
                     double today = round.ResultHoldLength;
-                    round.Settings.ClipHoldSeconds = 2.5;
-                    double extra = shot == "goal" || shot == "save" ? 2.5 : 0;
+                    round.Settings.ClipHoldSeconds = 1.5;
+                    double extra = !replayOn && (shot == "goal" || shot == "save") ? 1.5 : 0;
                     Assert.AreEqual(today + extra, round.ResultHoldLength, Tol, shot + " replay " + replayOn);
                     round.Settings.ClipHoldSeconds = 0;
                     Assert.AreEqual(today, round.ResultHoldLength, Tol, shot + " 0 = today");
@@ -110,19 +112,30 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void With_ClipHoldSeconds_a_Goal_holds_2_5_s_longer_before_the_next_Shot_and_the_fade_follows_the_new_end()
+        public void With_ClipHoldSeconds_a_Goal_with_the_Replay_keeps_the_Replay_s_own_hold()
         {
             Round round = After("goal");
-            round.Settings.ClipHoldSeconds = 2.5;
-            double hold = ReplayTiming.HoldSeconds + ShotFade.LeadSeconds + 2.5;
+            round.Settings.ClipHoldSeconds = BreakawayView.ClipHoldSecondsOn;
+            double hold = ReplayTiming.HoldSeconds + ShotFade.LeadSeconds;
             Assert.AreEqual(hold, round.ResultHoldLength, Tol);
             round.Tick(hold - 0.01);
             Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
-            Assert.AreEqual(0.01, round.ResultHoldSecondsLeft, 1e-6);
             round.Tick(0.02);
             Assert.AreEqual(RoundPhase.SkateIn, round.Phase);
-            // The Replay's camera is unchanged: past 4.5 s after landing it is looking back, and stays so.
-            Assert.AreEqual(CameraMode.LookBack, ReplayTiming.CameraAt(ReplayTiming.HoldSeconds + 1.0));
+        }
+
+        [Test]
+        public void With_ClipHoldSeconds_a_Goal_with_no_Replay_holds_long_enough_for_a_2_9_s_clip_and_the_default_blend()
+        {
+            Round round = After("goal", false);
+            round.Settings.ClipHoldSeconds = BreakawayView.ClipHoldSecondsOn;
+            Assert.AreEqual(1.5, BreakawayView.ClipHoldSecondsOn, Tol);
+            double window = round.ResultHoldLength - GoalieClipReactions.AfterWhistleSeconds;
+            Assert.GreaterOrEqual(window - GoalieClipReactions.DefaultBlendSeconds, 2.9 - Tol, "the clip plays at its own speed");
+            round.Tick(round.ResultHoldLength - 0.01);
+            Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
+            round.Tick(0.02);
+            Assert.AreEqual(RoundPhase.SkateIn, round.Phase);
         }
 
         [Test]
