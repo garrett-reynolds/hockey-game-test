@@ -1207,6 +1207,16 @@ namespace HockeyGame
             if (Present && weight > 0f) GoalieGestures.Watch(this, _faceLocal, point, weight, WatchDegrees, shoulderShare);
         }
 
+        /// <summary>The angle (degrees about the vertical, + to his left) from the way his body faces to a point; 180 when he has no head to measure from.</summary>
+        public float YawTo(Vector3 point)
+        {
+            Transform head = Present ? Bone(HumanBodyBones.Head) : null;
+            if (head == null) return 180f;
+            Vector3 flat = Vector3.ProjectOnPlane(point - head.position, Vector3.up);
+            if (flat.sqrMagnitude < 1e-8f) return 0f;
+            return Vector3.SignedAngle(Root.transform.rotation * Vector3.back, flat, Vector3.up);
+        }
+
         float _bladeY; // the stick's lowest point in the Ready Stance (Prepare)
 
         /// <summary>The lowest corner of a piece's measured box as it stands now (world y).</summary>

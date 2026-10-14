@@ -55,6 +55,7 @@ namespace HockeyGame
         int _shotNumber;       // that Round's ShotsSubmitted when the current Shot was launched
         float _clock;          // real seconds since the current Shot
         float _whistledAt = -1f, _nettedAt = -1f; // _clock at the Whistle and when the puck first met the catch (-1: not yet)
+        float _touchedAt = -1f;                   // _clock when the puck first pushed off anything but the ice (-1: not yet)
         double _lastPing = double.NegativeInfinity; // the Shot's physics seconds at its last ping
         double _lastWall = double.NegativeInfinity; // ... and at its last board or glass sound
         SoundCue? _pendingHit; // a hit sound from the physics steps since the last frame
@@ -137,7 +138,8 @@ namespace HockeyGame
             if (!Shot.HasWhistled && _clock >= round.Settings.WhistleCapSeconds + NoWhistleGraceSeconds) Shot.WhistleNow();
 
             if (round.Phase != RoundPhase.ResultHold) return;
-            _goalie?.Watch(Shot.Puck.transform.position, _whistledAt < 0f ? -1f : _clock - _whistledAt, SecondsSinceNetting);
+            _goalie?.Watch(Shot.Puck.transform.position, _whistledAt < 0f ? -1f : _clock - _whistledAt, SecondsSinceNetting,
+                _touchedAt < 0f ? -1f : _clock - _touchedAt);
         }
 
         /// <summary>
@@ -158,7 +160,7 @@ namespace HockeyGame
             _round = round;
             _shotNumber = round.ShotsSubmitted;
             _clock = 0f;
-            _whistledAt = _nettedAt = -1f;
+            _whistledAt = _nettedAt = _touchedAt = -1f;
             _lastPing = _lastWall = double.NegativeInfinity;
 
             Shot = new PhysicsShot(_rink, _camera, round.Settings, _random, _findFile);
@@ -208,6 +210,7 @@ namespace HockeyGame
 
         void OnHit(Collider other, Vector3 impulse)
         {
+            if (_touchedAt < 0f) _touchedAt = _clock; // the puck's first push off anything but the ice: the goalie's head follows it from just after
             if (other.sharedMaterial == ShotColliders.Catch)
             {
                 if (_nettedAt >= 0f) return;

@@ -70,6 +70,29 @@ namespace HockeyGame.Core
         public const double GoalRecoverFrom = AnnoyedTo + EndPoseHold, GoalRecoverTo = 1.9;
         /// <summary>Miss or Save: the head turns to the puck over this long after it gets there.</summary>
         public const double FollowSeconds = 0.15;
+        /// <summary>
+        /// Once the puck has touched something (a Save, a post, the boards) the head follows it live: after a short human delay, over a
+        /// smooth turn, while the puck is in front of him (full within FrontFullDegrees of his face, none from FrontNoneDegrees).
+        /// </summary>
+        public const double HeadFollowDelay = 0.15, HeadTurnSeconds = 0.15, FrontFullDegrees = 90, FrontNoneDegrees = 100;
+
+        /// <summary>
+        /// How far (0..1) the head follows the live puck before the Whistle: sinceContact = seconds since the puck first touched
+        /// something (negative: not yet), yawDegrees = the angle from his face to the puck. 0 for a puck behind him (a GOAL! keeps its look back).
+        /// </summary>
+        public static double HeadFollow(double sinceContact, double yawDegrees) =>
+            Ramp(sinceContact, HeadFollowDelay, HeadFollowDelay + HeadTurnSeconds)
+            * (1 - Ramp(System.Math.Abs(yawDegrees), FrontFullDegrees, FrontNoneDegrees));
+
+        /// <summary>
+        /// The moment with the head also following the live puck: a Save or a Miss turns the head by the larger of its own Watch and
+        /// `follow` (HeadFollow). A GOAL! is left as it is (its look back keeps its own timing).
+        /// </summary>
+        public static AfterShotMoment WithHeadFollow(AfterShotMoment moment, AfterShotGesture gesture, double follow) =>
+            IsGoal(gesture) || follow <= moment.Watch ? moment
+                : new AfterShotMoment(moment.LateReach, moment.Relax, follow, moment.Glance, moment.Gesture,
+                    moment.FollowThrough, moment.Return, moment.Recover);
+
         /// <summary>A Miss: the relief beat (0.8..1.7 s after the puck gets there); the eyes go to the post over 0.8..1.2 s.</summary>
         public const double ReliefFrom = 0.8, ReliefTo = 1.7, GlanceTo = 1.2;
         /// <summary>A Miss: glides back to his spot once a Frame Hit's deflection is clear of him (0.9..1.7 s), then recovers (1.7..2.35 s).</summary>

@@ -202,5 +202,51 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(0, AfterShot.At(AfterShotGesture.None, 2.4, -1).Relax);
             Assert.AreEqual(0, AfterShot.At(AfterShotGesture.Slump, 0.6, 0.3).FollowThrough, "only a save follows through");
         }
+
+        // The head follows the live puck from a short delay after it first touches something, not only once it stops.
+        [Test]
+        public void The_head_waits_the_human_delay_after_the_first_touch_then_turns_smoothly()
+        {
+            Assert.AreEqual(0, AfterShot.HeadFollow(-1, 0), "not touched yet");
+            Assert.AreEqual(0, AfterShot.HeadFollow(0.0, 0), "no delay at all would be superhuman");
+            Assert.AreEqual(0, AfterShot.HeadFollow(AfterShot.HeadFollowDelay, 0), 1e-9, "the turn starts after the delay");
+            double half = AfterShot.HeadFollow(AfterShot.HeadFollowDelay + AfterShot.HeadTurnSeconds / 2, 0);
+            Assert.That(half, Is.GreaterThan(0.0).And.LessThan(1.0), "mid-turn");
+            Assert.AreEqual(1, AfterShot.HeadFollow(AfterShot.HeadFollowDelay + AfterShot.HeadTurnSeconds, 0), 1e-9, "turned in 0.3 s");
+            Assert.AreEqual(1, AfterShot.HeadFollow(5, 0), 1e-9, "and keeps following while the puck moves on");
+        }
+
+        [TestCase(0.0, 1.0)]
+        [TestCase(-60.0, 1.0)]
+        [TestCase(90.0, 1.0)]
+        [TestCase(-90.0, 1.0)]
+        [TestCase(100.0, 0.0)]
+        [TestCase(-100.0, 0.0)]
+        [TestCase(150.0, 0.0)]
+        [TestCase(180.0, 0.0)]
+        public void The_head_follows_only_a_puck_in_front_of_him(double yaw, double expected)
+        {
+            Assert.AreEqual(expected, AfterShot.HeadFollow(2, yaw), 1e-9);
+        }
+
+        [Test]
+        public void Between_the_edges_of_his_view_the_follow_fades_out()
+        {
+            double mid = AfterShot.HeadFollow(2, 95);
+            Assert.That(mid, Is.GreaterThan(0.0).And.LessThan(1.0));
+            Assert.AreEqual(mid, AfterShot.HeadFollow(2, -95), 1e-9, "the same on both sides");
+        }
+
+        [Test]
+        public void A_save_or_miss_follows_before_the_whistle_and_a_goal_keeps_its_look_back()
+        {
+            AfterShotMoment before = AfterShot.At(AfterShotGesture.None, -0.3, -1);
+            Assert.AreEqual(0, before.Watch, "the Whistle has not gone");
+            Assert.AreEqual(0.7, AfterShot.WithHeadFollow(before, AfterShotGesture.None, 0.7).Watch, 1e-9, "a Save follows the rebound at once");
+            Assert.AreEqual(0.7, AfterShot.WithHeadFollow(before, AfterShotGesture.Relief, 0.7).Watch, 1e-9, "a Miss too");
+            Assert.AreEqual(0, AfterShot.WithHeadFollow(before, AfterShotGesture.Slump, 0.7).Watch, "a GOAL! keeps its own timing");
+            AfterShotMoment after = AfterShot.At(AfterShotGesture.None, 0.5, -1);
+            Assert.AreEqual(1, AfterShot.WithHeadFollow(after, AfterShotGesture.None, 0.2).Watch, 1e-9, "never less than the Watch it has");
+        }
     }
 }

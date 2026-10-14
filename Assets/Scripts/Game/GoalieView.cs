@@ -44,7 +44,7 @@ namespace HockeyGame
         bool _reacted;
         AfterShotGesture _gesture;               // what the goalie does once the puck has got there (AfterShot)
         double _lateMargin = double.PositiveInfinity, _lateMarginLimit; // from React: they pick the Annoyed Gesture at Judge
-        float _sinceArrival = -1f, _sinceNetting = -1f;
+        float _sinceArrival = -1f, _sinceNetting = -1f, _sinceContact = -1f;
         Vector3 _puck, _post;                    // where the puck is now; the post a Miss glances back at
         RoundSettings _before;                   // Before the Shot (#70, BeforeTheShot): its switches and sizes; null: none of it
         Vector3 _puckOnStick;
@@ -168,6 +168,8 @@ namespace HockeyGame
             else
             {
                 AfterShotMoment moment = AfterShot.At(_gesture, _sinceArrival, _sinceNetting);
+                // The head follows the live puck from just after it first touches something, not only once it stops (the Whistle).
+                moment = AfterShot.WithHeadFollow(moment, _gesture, AfterShot.HeadFollow(_sinceContact, _character.YawTo(_puck)));
                 _character.ShowReaction(_set, facing, _gesture, moment, Vector3.Lerp(_puck, _post, (float)moment.Glance));
                 recovered = (float)moment.Recover;
             }
@@ -334,7 +336,7 @@ namespace HockeyGame
             _gesture = AfterShot.GestureFor(result.Kind, lateMarginSeconds, lateMarginLimitSeconds);
             _lateMargin = lateMarginSeconds;
             _lateMarginLimit = lateMarginLimitSeconds;
-            _sinceArrival = _sinceNetting = -1f;
+            _sinceArrival = _sinceNetting = _sinceContact = -1f;
             _puck = netPoint;
             _post = new Vector3((netPoint.x >= 0f ? 1f : -1f) * (float)NetFaceMapping.WidthMetres / 2f, PostGlanceHeight, 0f);
             PoseCharacter();
@@ -361,9 +363,10 @@ namespace HockeyGame
         /// yet). From these the goalie carries on after its reach (AfterShot, #43): its head follows the puck, then a GOAL!
         /// looks back into the net and shows an Annoyed Gesture, and a Miss shows Relief. Shown by the next SetProgress.
         /// </summary>
-        public void Watch(Vector3 puck, float sinceArrival, float sinceNetting)
+        public void Watch(Vector3 puck, float sinceArrival, float sinceNetting, float sinceContact = -1f)
         {
             _puck = puck;
+            _sinceContact = sinceContact;
             _sinceArrival = sinceArrival;
             _sinceNetting = sinceNetting;
         }
