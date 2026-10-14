@@ -178,6 +178,7 @@ namespace HockeyGame.Core.Tests
         {
             // He comes back toward the angle: from the Left post's side (-X of the angle) he moves +X, pushing from Skate.Left.
             var settings = PushSettings();
+            settings.LateSettles = true; // the Late Settle card is off by default
             double signed = post == Post.Left ? settings.LateSettleMetres : -settings.LateSettleMetres;
             var reference = new SkatePush(signed, settings);
             var failures = new List<string>();

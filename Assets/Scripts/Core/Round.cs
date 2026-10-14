@@ -18,6 +18,7 @@ namespace HockeyGame.Core
     ///    Depth, Late Settle by (int)(Next() * 3)), then n - 1 shuffle rolls over the deck (n / 3 Clean Set-ups, the rest
     ///    Mistakes in turn Cheat, Depth, Late Settle, the 4th, Cheat ...): for card i = 0 to n - 2, one Next(), and card i
     ///    swaps with card i + (int)(Next() * (n - i)). For 6: 5 rolls on Cheat, Depth, Late Settle, the 4th, Clean, Clean.
+    ///    (Settings.LateSettles false, the default: Mistakes in turn Cheat, Depth, Cheat ...; the 4th-type roll is still taken.)
     ///    Shot k gets card k - 1.
     /// 2. Then the Attack Sides (RoundDecks.AttackSides): the same n - 1 shuffle rolls over Left, Middle and Right in equal
     ///    runs (index i holds side i * 3 / n). For 6: Left, Left, Middle, Middle, Right, Right. Shot k gets side k - 1.
@@ -233,7 +234,7 @@ namespace HockeyGame.Core
 
         private void DealDecks()
         {
-            _setUps = RoundDecks.SetUps(_random, ShotCount);
+            _setUps = RoundDecks.SetUps(_random, ShotCount, Settings.LateSettles);
             _sides = RoundDecks.AttackSides(_random, ShotCount);
         }
 

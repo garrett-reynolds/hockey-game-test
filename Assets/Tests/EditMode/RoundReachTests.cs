@@ -247,7 +247,8 @@ namespace HockeyGame.Core.Tests
             round.Tick(round.ResultHoldLength);
             Assert.AreEqual(2, round.ShotNumber);
             Assert.AreEqual(AttackSide.Middle, round.AttackSide);
-            Assert.AreEqual(SetUp.Cheat(Post.Right), round.SetUp);
+            // Late Settle is off by default, so these scripted rolls (written for the old deck) deal a Depth second.
+            Assert.AreEqual(SetUp.Depth, round.SetUp);
             Assert.AreEqual(0.14, round.ReactionSeconds, Tol);
         }
 

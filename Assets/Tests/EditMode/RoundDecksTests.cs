@@ -19,6 +19,51 @@ namespace HockeyGame.Core.Tests
             public double Next() { Rolls++; return _values.Count > 0 ? _values.Dequeue() : 0; }
         }
 
+        [Test]
+        public void LateSettlesOff_DeckHasNoLateSettleAndKeepsCounts()
+        {
+            for (int shots = 3; shots <= 10; shots++)
+                for (int seed = 1; seed <= 30; seed++)
+                {
+                    SetUpKind[] off = RoundDecks.SetUps(new SeededRandom(seed), shots, false);
+                    SetUpKind[] old = RoundDecks.SetUps(new SeededRandom(seed), shots);
+                    string because = "shots " + shots + " seed " + seed;
+                    Assert.AreEqual(shots, off.Length, because);
+                    Assert.That(off, Has.None.EqualTo(SetUpKind.LateSettle), because);
+                    Assert.AreEqual(shots / 3, off.Count(k => k == SetUpKind.Clean), because + ": Clean count");
+                    Assert.AreEqual(old.Count(k => k != SetUpKind.Clean), off.Count(k => k != SetUpKind.Clean), because + ": mistake count");
+                }
+        }
+
+        [Test]
+        public void LateSettlesOff_MistakesCycleCheatThenDepth()
+        {
+            // 9 Shots, 3 Clean: 6 mistakes. With rolls of 0 the shuffle swaps nothing: card i swaps with itself.
+            SetUpKind[] deck = RoundDecks.SetUps(new CountingRandom(), 9, false);
+            var mistakes = deck.Where(k => k != SetUpKind.Clean).ToArray();
+            CollectionAssert.AreEqual(
+                new[] { SetUpKind.Cheat, SetUpKind.Depth, SetUpKind.Cheat, SetUpKind.Depth, SetUpKind.Cheat, SetUpKind.Depth }, mistakes);
+        }
+
+        [Test]
+        public void LateSettlesOff_RollsAsManyTimesAsTheOldDeck()
+        {
+            for (int shots = 3; shots <= 10; shots++)
+            {
+                var off = new CountingRandom();
+                var old = new CountingRandom();
+                RoundDecks.SetUps(off, shots, false);
+                RoundDecks.SetUps(old, shots);
+                Assert.AreEqual(old.Rolls, off.Rolls, "shots " + shots);
+            }
+        }
+
+        [Test]
+        public void DefaultRoundSettings_LateSettlesIsOff()
+        {
+            Assert.IsFalse(new RoundSettings().LateSettles);
+        }
+
         static void AssertLegalDeck(SetUpKind[] deck, string because)
         {
             Assert.AreEqual(Round.ShotsPerRound, deck.Length, because);

@@ -65,6 +65,8 @@ namespace HockeyGame.Core
         public double CheatMetres = 0.3;
         public double LateSettleMetres = 0.4;
         public double LateSettleSeconds = 1.0;
+        // Off = no Late Settle card in the deck (Garrett 2026-10-14: the slide looked like jumping); on = the old deck.
+        public bool LateSettles = false;
 
         /// <summary>
         /// How near thin gear must be to block a Gap (metres, #160): the width of each cast that measures a Gap's room. The total

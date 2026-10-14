@@ -19,12 +19,22 @@ namespace HockeyGame.Core
         /// <summary>
         /// The Set-up deck for a Round of `shots` Shots (#146): shots / 3 Clean Set-ups (2 of 6; 1 of 3; 3 of 10) and the rest Set-up
         /// Mistakes, taken in turn from Cheat, Depth, Late Settle, the 4th type, Cheat ... (so 3 Shots hold Cheat and Depth only).
-        /// Rolls exactly as the 6-Shot deck does: one Next() for the 4th type, then the shuffle.
+        /// Rolls exactly as the 6-Shot deck does: one Next() for the 4th type, then the shuffle. This is the old deck, Late Settle
+        /// on; SetUps(random, shots, false) is the deck without it.
         /// </summary>
-        public static SetUpKind[] SetUps(IRandomSource random, int shots)
+        public static SetUpKind[] SetUps(IRandomSource random, int shots) => SetUps(random, shots, true);
+
+        /// <summary>
+        /// The same deck with Late Settle switched by `lateSettles` (RoundSettings.LateSettles). Off: the Mistakes are taken in
+        /// turn from Cheat, Depth, Cheat, Depth ... (no Late Settle); the one Next() for the 4th type is still rolled, first, and
+        /// not used, so the roll count and order are the same as the on deck. The Clean count and the shuffle do not change.
+        /// </summary>
+        public static SetUpKind[] SetUps(IRandomSource random, int shots, bool lateSettles)
         {
             var fourth = (SetUpKind)(1 + Pick(random, 3));
-            var types = new[] { SetUpKind.Cheat, SetUpKind.Depth, SetUpKind.LateSettle, fourth };
+            var types = lateSettles
+                ? new[] { SetUpKind.Cheat, SetUpKind.Depth, SetUpKind.LateSettle, fourth }
+                : new[] { SetUpKind.Cheat, SetUpKind.Depth };
             int clean = shots / 3;
             var deck = new SetUpKind[shots];
             for (int i = 0; i < shots; i++)

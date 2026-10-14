@@ -12,6 +12,9 @@ namespace HockeyGame.Core.Tests
 
         static RoundSettings Fixed() => new RoundSettings { ReactionSeconds = 0.12, ReactionWobbleSeconds = 0 };
 
+        /// <summary>Fixed() with the Late Settle card back in the deck (it is off by default).</summary>
+        static RoundSettings FixedWithLateSettles() => new RoundSettings { ReactionSeconds = 0.12, ReactionWobbleSeconds = 0, LateSettles = true };
+
         /// <summary>Plays a whole Round (no Shots), giving each Shot's Set-up and Attack Side.</summary>
         static List<(SetUp setUp, AttackSide side)> PlayRound(Round round)
         {
@@ -31,7 +34,7 @@ namespace HockeyGame.Core.Tests
         {
             for (int seed = 1; seed <= 60; seed++)
             {
-                var round = new Round(new SeededRandom(seed), Fixed(), FakeReach.NeverReaches(), 0);
+                var round = new Round(new SeededRandom(seed), FixedWithLateSettles(), FakeReach.NeverReaches(), 0);
                 for (int roundNumber = 1; roundNumber <= 2; roundNumber++) // StartRound again deals a new deck and side pick
                 {
                     round.StartRound();
@@ -49,7 +52,7 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void The_Round_rolls_the_deck_then_the_Attack_Sides_then_per_Shot_the_post_side_then_the_wobble()
         {
-            var settings = new RoundSettings { ReactionSeconds = 0.12, ReactionWobbleSeconds = 0.04 };
+            var settings = new RoundSettings { ReactionSeconds = 0.12, ReactionWobbleSeconds = 0.04, LateSettles = true };
             var random = new ScriptedRandom(new[] { 0.5 },
                 0.9, 0.9, 0, 0, 0, 0,   // deck: a 4th Late Settle; Cheat swaps to the end: Clean, Depth, Late Settle, Late Settle, Clean, Cheat
                 0.9, 0, 0, 0, 0,        // sides: Right, Left, Middle, Middle, Right, Left
@@ -96,7 +99,7 @@ namespace HockeyGame.Core.Tests
         [TestCase(1.5)]
         public void A_Late_Settle_is_measured_where_he_is_at_the_Shot_moment(double windowSeconds)
         {
-            var settings = Fixed();
+            var settings = FixedWithLateSettles();
             // 0.4 m short in 1.0 s (the defaults), closing in a push then a glide (#125).
             double shortBy = 0.4 * (1 - SkatePush.Fraction(windowSeconds / 1.0, settings));
             var reach = FakeReach.NeverReaches();

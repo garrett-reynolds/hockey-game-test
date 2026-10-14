@@ -80,7 +80,8 @@ namespace HockeyGame.Core.Tests
         /// <summary>A Round in its shooting window, windowSeconds in, on this Attack Side and Set-up.</summary>
         static Round InWindow(IGoalieReach reach, AttackSide side, SetUp setUp, double windowSeconds)
         {
-            var round = new Round(ScriptedRandom.Forcing(side, setUp), Defaults, reach, 0);
+            // ScriptedRandom deals the old deck (Late Settle in it), so the Round is told to deal it.
+            var round = new Round(ScriptedRandom.Forcing(side, setUp), new RoundSettings { LateSettles = true }, reach, 0);
             round.StartRound();
             round.Tick(Defaults.SkateInSeconds + Defaults.SlowDownSeconds + windowSeconds);
             Assert.AreEqual(RoundPhase.ShootingWindow, round.Phase);
