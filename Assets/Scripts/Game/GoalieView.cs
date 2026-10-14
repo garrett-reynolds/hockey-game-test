@@ -58,6 +58,7 @@ namespace HockeyGame
         {
             _character = character != null && character.Present ? character : null;
             _glow = GlowMaterial();
+            if (_character != null) Clips = new GoalieClipReactions(_character.Animator); // PROTOTYPE: AI clips (BreakawayView drives it)
             _block = RinkBuilder.Cube(parent, BlockName, new Vector3(0f, BlockHeight / 2f, BlockZ),
                 new Vector3(BlockWidth, BlockHeight, BlockDepth), GoalieColour);
             _gapGlow = new GameObject("Gap glow");
@@ -161,6 +162,9 @@ namespace HockeyGame
         void PoseCharacter()
         {
             if (_character == null || !_visible) return;
+            // PROTOTYPE: while an AI clip owns the bones, no procedural writer runs (ShowReaction, ShowPush, SitLower, Live and
+            // WatchPuck, and through them ReadyStance, Stance Life, gestures, skate push, butterfly and shape).
+            if (Clips != null && Clips.Owns) return;
             float facing = Mathf.Lerp(_ready, PosedFacing(), _set);
             ShownFacing = facing;
             float recovered = 0f;
@@ -246,6 +250,9 @@ namespace HockeyGame
             _settled = settled;
             _before = settings;
         }
+
+        /// <summary>PROTOTYPE: the AI clips on this goalie; null for the block goalie.</summary>
+        public GoalieClipReactions Clips { get; }
 
         /// <summary>The facing (degrees, see Face) the goalie character was last shown at.</summary>
         public float ShownFacing { get; private set; }

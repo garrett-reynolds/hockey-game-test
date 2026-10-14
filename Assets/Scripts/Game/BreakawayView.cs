@@ -61,8 +61,21 @@ namespace HockeyGame
         {
             if (_round == null) return;
             _frameSeconds = Time.unscaledTime;
+            // PROTOTYPE: AI clips on the goalie. K flips them for comparing; Step is left as it was (tests call it directly).
+            var keyboard = UnityEngine.InputSystem.Keyboard.current;
+            if (keyboard != null && keyboard.kKey.wasPressedThisFrame)
+            {
+                UseAiClips = !UseAiClips;
+                Debug.Log("[AiClips] UseAiClips = " + UseAiClips);
+            }
+            GoalieClipReactions clips = _goalie?.Clips;
+            clips?.Pre();
             Step(Time.deltaTime, Time.unscaledDeltaTime);
+            clips?.Post(_round, UseAiClips, Time.unscaledDeltaTime);
         }
+
+        /// <summary>PROTOTYPE: the goalie plays AI clips after a Goal, after a Save and when idle. K flips it in Play.</summary>
+        public bool UseAiClips = true;
 
         /// <summary>
         /// Each physics step (#111, before Unity simulates it): poses the goalie for the end of the step, then moves the hit

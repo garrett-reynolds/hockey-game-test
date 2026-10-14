@@ -48,6 +48,8 @@ namespace HockeyGame
         /// <summary>The Replay picture both boards show.</summary>
         public RenderTexture Picture { get; private set; }
         public bool Showing => _showing;
+        /// <summary>PROTOTYPE: true while an AI clip owns the goalie's bones (GoalieClipReactions.Active); the Replay then neither records nor plays.</summary>
+        public Func<bool> GoalieClipOwns;
         /// <summary>Moments recorded of the last Shot that gets a Replay (0 after a Wide Miss or Too late).</summary>
         public int RecordedMoments => _track.SampleCount;
 
@@ -127,8 +129,10 @@ namespace HockeyGame
         /// <summary>One frame, after the views have posed the scene: records the Shot, and plays the Replay while the Arena Show says so.</summary>
         public void Step()
         {
-            Record();
-            bool play = _show.Camera == CameraMode.Replay && _track.SampleCount > 0;
+            // PROTOTYPE: an AI clip owns the goalie's bones (it starts after the Replay ends): neither record nor replay them over it.
+            bool clipOwns = GoalieClipOwns != null && GoalieClipOwns();
+            if (!clipOwns) Record();
+            bool play = !clipOwns && _show.Camera == CameraMode.Replay && _track.SampleCount > 0;
             if (play)
             {
                 _track.Apply(ReplayTiming.ShotSecondsAt(_show.ReplaySeconds, _round.ResultDelaySeconds, BottleKnocked));
