@@ -33,6 +33,20 @@ def test_hung_run_is_reported_as_hang_with_a_distinct_exit_code_within_two_sampl
     assert not (h.locks / "w2.lock").exists()
 
 
+def test_hang_stops_the_run_tests_cli_before_the_lock_is_released(h):
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from slotlib import common
+    h.ready("w2")
+    h.set("w2", "run_tests", {"out": json.dumps(SUMMARY_OK), "rc": 0, "sleep": 20})
+    cpu(h, "w2", [100.0])
+    rc, out = h.run("test", "w2")
+    assert rc == 3, out
+    pid = int((h.dir / "pid-run_tests.txt").read_text())
+    assert not common.pid_alive(pid)  # the CLI child is gone by the time the tool returns
+    assert not (h.locks / "w2.lock").exists()
+
+
 def test_long_busy_run_is_not_a_hang(h):
     h.ready("w2")
     h.set("w2", "run_tests", {"out": json.dumps(SUMMARY_OK), "rc": 0, "sleep": 2})

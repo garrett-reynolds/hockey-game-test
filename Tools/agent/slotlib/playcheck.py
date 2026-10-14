@@ -14,7 +14,7 @@ import shutil
 import subprocess
 import time
 
-from . import common as c
+from . import common
 
 # Limits. Fixed on purpose: a check that can be loosened per run stops meaning anything.
 FACING_LIMIT_DEG = 45.0
@@ -22,10 +22,10 @@ SKATE_LIMIT_M = -0.03  # the plain idle pose already sits 1.6 cm in the ice (mea
 JUMP_LIMIT_M = 0.3
 MIN_SAMPLES = 20
 CALL_TIMEOUT_S = 60
-PLAY_WAIT_S = 60
-SHOT_WAIT_S = 30
+PLAY_WAIT_S = common.env_float("SLOT_PLAY_WAIT_S", 60)
+SHOT_WAIT_S = common.env_float("SLOT_SHOT_WAIT_S", 30)
 
-BF = "System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Public"
+BINDING_FLAGS = "System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Public"
 
 # ---- Editor-side code (C# for the Unity CLI eval; statements, ends in return) --------------------
 
@@ -115,8 +115,8 @@ return "ok";
 """
 
 
-def code(template, **kw):
-    text = template.replace("@BF@", BF)
+def build_code(template, **kw):
+    text = template.replace("@BF@", BINDING_FLAGS)
     for k, v in kw.items():
         text = text.replace(f"@{k}@", str(v))
     return " ".join(line.strip() for line in text.strip().splitlines())
@@ -137,27 +137,27 @@ def add_parser(sub):
 def call(slot, *args, timeout=CALL_TIMEOUT_S):
     """Run one Unity CLI command. Returns the parsed JSON (dict) or raises SlotError with the reason."""
     try:
-        p = subprocess.run(c.unity_command(slot, *args, timeout=timeout), capture_output=True, text=True,
+        p = subprocess.run(common.unity_command(slot, *args, timeout=timeout), capture_output=True, text=True,
                            timeout=timeout + 20, encoding="utf-8", errors="replace")
     except (subprocess.TimeoutExpired, OSError) as e:
-        raise c.SlotError(f"{args[0]} did not finish: {e}")
+        raise common.SlotError(f"{args[0]} did not finish: {e}")
     if p.returncode != 0:
-        raise c.SlotError(f"{args[0]} failed (exit {p.returncode}): {(p.stdout + p.stderr).strip()[:300]}")
+        raise common.SlotError(f"{args[0]} failed (exit {p.returncode}): {(p.stdout + p.stderr).strip()[:300]}")
     try:
         data = json.loads(p.stdout)
     except ValueError:
         data = {"raw": p.stdout}
     if isinstance(data, dict) and data.get("success") is False:
-        raise c.SlotError(f"{args[0]} failed: {json.dumps(data.get('errors', data))[:300]}")
+        raise common.SlotError(f"{args[0]} failed: {json.dumps(data.get('errors', data))[:300]}")
     return data if isinstance(data, dict) else {"raw": data}
 
 
-def ev(slot, text):
+def run_eval(slot, text):
     """Run an eval; returns its string result."""
     res = call(slot, "eval", "--code", text).get("result")
     res = "" if res is None else str(res)
     if res.startswith("error:"):
-        raise c.SlotError(res)
+        raise common.SlotError(res)
     return res
 
 
@@ -167,7 +167,7 @@ def parse_action(action):
     m = re.fullmatch(r"clip:([A-Za-z0-9_.\- ]+)", action)
     if m:
         return "clip", m.group(1)
-    raise c.SlotError(f"Unknown action '{action}'. Use idle, shot or clip:<name>.")
+    raise common.SlotError(f"Unknown action '{action}'. Use idle, shot or clip:<name>.")
 
 
 def counts(slot):
@@ -177,21 +177,22 @@ def counts(slot):
 
 
 def wait_playing(slot):
-    deadline = time.time() + PLAY_WAIT_S
-    while time.time() < deadline:
+    def playing():
         try:
-            if call(slot, "editor_status").get("playMode", "stopped") != "stopped":
-                return
-        except c.SlotError:
-            pass
-        time.sleep(c.poll_s())
-    raise c.SlotError("Play did not start within 60 s")
+            return call(slot, "editor_status").get("playMode", "stopped") != "stopped", None
+        except common.SlotError:
+            return False, None
+    done, _ = common.poll_until(playing, PLAY_WAIT_S)
+    if not done:
+        raise common.SlotError(f"Play did not start within {PLAY_WAIT_S:g} s")
 
 
 def take_picture(slot, label):
-    """The CLI only writes inside Assets (it maps any path to Assets/<path>). Save to a scratch folder
+    """Returns (path, None) when the picture was saved, else (None, short reason).
+
+    The CLI only writes inside Assets (it maps any path to Assets/<path>). Save to a scratch folder
     there, move the file to <project>/Logs, then delete the scratch folder and its .meta."""
-    proj = c.slot_path(slot)
+    proj = common.slot_path(slot)
     folder = f"{proj}/Logs"
     path = f"{folder}/playcheck-{slot}-{time.strftime('%Y%m%d-%H%M%S')}.png"
     scratch = f"{proj}/Assets/PlayCheckTmp"
@@ -210,9 +211,11 @@ def take_picture(slot, label):
             if b64:
                 with open(path, "wb") as f:
                     f.write(base64.b64decode(b64))
-        return path if os.path.exists(path) else None
-    except (c.SlotError, OSError):
-        return None
+        if os.path.exists(path):
+            return path, None
+        return None, "capture_game_view returned no picture file"
+    except (common.SlotError, OSError) as e:
+        return None, str(e)[:150]
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
         try:
@@ -260,8 +263,8 @@ def measure(rows, before, after):
     }
 
 
-def block(slot, scene, action, m, picture, results_path):
-    ok = all(v["pass"] for v in m.values())
+def block(slot, scene, action, m, picture, picture_error, results_path):
+    ok = all(v["pass"] for v in m.values()) and picture_error is None
 
     def word(p):
         return "PASS" if p else "FAIL"
@@ -276,7 +279,7 @@ def block(slot, scene, action, m, picture, results_path):
         fmt("skate", m["skate"], "m", f"limit >= {SKATE_LIMIT_M:g}", 3),
         fmt("jump", m["jump"], "m", f"limit {JUMP_LIMIT_M:g}", 3),
         f"{'console':<8} {word(con['pass'])}  {con['errors']} errors, {con['warnings']} warnings  (limit {con['limit']} errors)",
-        f"{'picture':<8} {picture or 'NOT SAVED'}",
+        f"{'picture':<8} " + (f"ERROR {picture_error}" if picture_error else picture or "NOT TAKEN"),
         f"{'detail':<8} {results_path}",
     ]
     return ok, lines
@@ -286,26 +289,25 @@ def block(slot, scene, action, m, picture, results_path):
 
 def run(args):
     slot = args.slot
-    c.check_slot(slot)
+    common.check_slot(slot)
     kind, name = parse_action(args.action)
-    lock = c.read_lock(slot)
+    lock = common.read_lock(slot)
     if lock and lock["live"]:
-        raise c.SlotError(f"{c.label(slot)}: a run is already running (pid {lock.get('pid')}, "
+        raise common.SlotError(f"{common.label(slot)}: a run is already running (pid {lock.get('pid')}, "
                           f"{lock.get('kind', '?')}). Refusing the Play check.")
-    state = c.editor_state(slot)
+    state = common.editor_state(slot)
     if state != "ready":
-        why = {"no_answer": "the Editor is not answering", "compiling": "the Editor is busy compiling",
-               "play": "the Editor is already in Play", "test_run": "a test run is live in the Editor"}[state]
-        raise c.SlotError(f"{c.label(slot)}: {why}. Refusing the Play check.")
+        why = "the Editor is " + common.STATE_TEXT[state]
+        raise common.SlotError(f"{common.label(slot)}: {why}. Refusing the Play check.")
     if lock:
-        c.release_lock(slot)  # stale: the Editor answers and its owner is gone
-    c.acquire_lock(slot, "play-check")
-    c.results_dir().mkdir(parents=True, exist_ok=True)
+        common.release_lock(slot)  # stale: the Editor answers and its owner is gone
+    common.acquire_lock(slot, "play-check")
+    common.results_dir().mkdir(parents=True, exist_ok=True)
     stamp = time.strftime("%Y%m%d-%H%M%S")
-    results_path = c.results_dir() / f"{slot}-playcheck-{stamp}.json"
+    results_path = common.results_dir() / f"{slot}-playcheck-{stamp}.json"
     detail = {"slot": slot, "scene": args.scene, "action": args.action, "seconds": args.seconds,
               "crowd": bool(args.crowd), "error": None}
-    rows, picture, before, after, played = [], None, {"error": 0, "warn": 0}, {"error": 0, "warn": 0}, False
+    rows, picture, picture_error, before, after, played = [], None, None, {"error": 0, "warn": 0}, {"error": 0, "warn": 0}, False
     try:
         try:
             call(slot, "open_scene", "--path", args.scene)
@@ -313,41 +315,40 @@ def run(args):
             played = True
             call(slot, "editor_play")
             wait_playing(slot)
-            detail["prepare"] = ev(slot, code(PREPARE, CROWD=1 if args.crowd else 0))
+            detail["prepare"] = run_eval(slot, build_code(PREPARE, CROWD=1 if args.crowd else 0))
             if kind == "clip":
-                ev(slot, code(CLIP, NAME=name))
+                run_eval(slot, build_code(CLIP, NAME=name))
             elif kind == "shot":
-                ev(slot, code(SHOT_PRESS))
-                deadline = time.time() + SHOT_WAIT_S
-                while ev(slot, code(SHOT_PHASE)) != "ShootingWindow":
-                    if time.time() > deadline:
-                        raise c.SlotError("the Round never reached the Shooting Window in 30 s")
-                    time.sleep(c.poll_s())
-                ev(slot, code(SHOT_SUBMIT))
+                run_eval(slot, build_code(SHOT_PRESS))
+                in_window, _ = common.poll_until(
+                    lambda: (run_eval(slot, build_code(SHOT_PHASE)) == "ShootingWindow", None), SHOT_WAIT_S)
+                if not in_window:
+                    raise common.SlotError(f"the Round never reached the Shooting Window in {SHOT_WAIT_S:g} s")
+                run_eval(slot, build_code(SHOT_SUBMIT))
             time.sleep(args.seconds)
-            picture = take_picture(slot, name)
-            rows = parse_samples(ev(slot, code(READ)))
+            picture, picture_error = take_picture(slot, name)
+            rows = parse_samples(run_eval(slot, build_code(READ)))
             after = counts(slot)
-        except c.SlotError as e:
+        except common.SlotError as e:
             detail["error"] = str(e)
     finally:
-        for step in (lambda: ev(slot, code(CLEANUP)), lambda: call(slot, "editor_stop") if played else None):
+        for step in (lambda: run_eval(slot, build_code(CLEANUP)), lambda: call(slot, "editor_stop") if played else None):
             try:
                 step()
-            except c.SlotError as e:
+            except common.SlotError as e:
                 detail["error"] = (detail["error"] + "; " if detail["error"] else "") + f"cleanup: {e}"
-        c.release_lock(slot)
+        common.release_lock(slot)
     if not rows and detail["error"] is None:
         detail["error"] = "no samples came back (did the game run frames?)"
     elif len(rows) < MIN_SAMPLES and detail["error"] is None:
         detail["error"] = f"only {len(rows)} frames sampled (need {MIN_SAMPLES}); the Editor was not running the game; result not trusted"
     m = measure(rows, before, after)
-    ok, lines = block(slot, args.scene, args.action, m, picture, results_path)
+    ok, lines = block(slot, args.scene, args.action, m, picture, picture_error, results_path)
     if detail["error"]:
         ok = False
         lines[0] = lines[0].replace("PASS", "FAIL")
         lines.insert(1, f"ERROR    {detail['error']}")
-    detail.update(verdict="PASS" if ok else "FAIL", measures=m, picture=picture, samples=rows,
+    detail.update(verdict="PASS" if ok else "FAIL", measures=m, picture=picture, picture_error=picture_error, samples=rows,
                   console_before=before, console_after=after)
     results_path.write_text(json.dumps(detail, indent=1), encoding="utf-8")
     print("\n".join(lines))

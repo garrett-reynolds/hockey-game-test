@@ -193,3 +193,31 @@ def test_too_few_frames_is_not_trusted(h):
     rc, out = check(h)
     assert rc == 1
     assert "only 1 frames sampled" in out
+
+
+def test_play_wait_message_uses_the_real_limit(h):
+    setup(h, GOOD)
+    h.set("w2", "editor_status", reply(READY))  # Play never starts
+    h.env["SLOT_PLAY_WAIT_S"] = "1"
+    rc, out = check(h)
+    assert rc == 1
+    assert "Play did not start within 1 s" in out
+
+
+def test_picture_that_was_not_saved_fails_the_block_with_the_reason(h):
+    setup(h, GOOD)
+    h.set("w2", "capture_game_view", reply({}, rc=1))
+    rc, out = check(h)
+    assert rc == 1
+    assert out.splitlines()[0].endswith("FAIL")
+    pic = [x for x in out.splitlines() if x.startswith("picture")][0]
+    assert "ERROR" in pic and "capture_game_view" in pic
+    assert "NOT SAVED" not in out
+
+
+def test_picture_reply_without_a_file_fails_the_block(h):
+    setup(h, GOOD)
+    h.set("w2", "capture_game_view", reply({"success": True}))
+    rc, out = check(h)
+    assert rc == 1
+    assert "picture  ERROR" in out or "ERROR" in [x for x in out.splitlines() if x.startswith("picture")][0]

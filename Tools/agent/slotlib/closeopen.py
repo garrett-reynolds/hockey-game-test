@@ -90,9 +90,6 @@ def kill_tree(pid):
         pass  # the verdict comes from `unity status`
 
 
-WHY = {"no_answer": "not answering", "compiling": "still compiling or reloading"}
-
-
 def run_open(args):
     slot = args.slot
     c.check_slot(slot)
@@ -119,6 +116,6 @@ def run_open(args):
     else:
         hint = (f" Jammed? Run: slot.py close {slot} --force  then  slot.py open {slot}"
                 if already and state == "no_answer" else "")
-        print(f"{c.label(slot)}: not ready after {open_wait_s():.0f} s: Editor {WHY[state]}.{hint}")
+        print(f"{c.label(slot)}: not ready after {open_wait_s():.0f} s: Editor {c.STATE_TEXT[state]}.{hint}")
         return 1
     return 0

@@ -4,13 +4,12 @@
 It returns the CLI exit code when the process exits, or HANG when the Editor looks hung.
 Each minute it reads the Editor's CPU (Editor plus workers). Two low minutes in a row while the run is
 live means a hang: about 2 minutes. A busy Editor, or a minute where the CPU could not be read, is not a hang.
-Never kills the CLI process from here: a run cut short jams the Editor. Closing the Editor ends it.
+It does not kill the CLI itself: `test` stops the CLI after a HANG, before it releases the slot lock.
 """
-import os
 import subprocess
 import time
 
-from . import cpu
+from . import common, cpu
 
 HANG = "hang"
 HANG_EXIT = 3
@@ -18,12 +17,12 @@ LOW_SAMPLES = 2
 
 
 def interval_s():
-    return float(os.environ.get("SLOT_CPU_INTERVAL_S", "60"))
+    return common.env_float("SLOT_CPU_INTERVAL_S", 60)
 
 
 def min_cpu_s():
     """CPU seconds an Editor must use in one interval to count as busy (an idle Editor uses well under this)."""
-    return float(os.environ.get("SLOT_CPU_MIN", "1.0"))
+    return common.env_float("SLOT_CPU_MIN", 1.0)
 
 
 def watch_run(slot, proc):

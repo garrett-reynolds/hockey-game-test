@@ -19,20 +19,18 @@ def add_parser(sub):
 
 def wait_until_ready(slot):
     """Poll until the Editor answers, is done compiling, and has no test run. Refuse on Play or a live run."""
-    deadline = time.time() + c.wait_s()
-    state = "no_answer"
-    while True:
+    def check():
         state = c.editor_state(slot)
-        if state == "ready":
-            return
-        if state == "play":
-            raise c.SlotError(f"{c.label(slot)}: the Editor is in Play. Refusing to test. Stop Play first.")
-        if state == "test_run":
-            raise c.SlotError(f"{c.label(slot)}: a test run is already live in this Editor. Refusing.")
-        if time.time() >= deadline:
-            what = "not answering" if state == "no_answer" else "still compiling"
-            raise c.SlotError(f"{c.label(slot)}: Editor {what} after {c.wait_s():.0f} s. Not started.")
-        time.sleep(c.poll_s())
+        return state not in ("no_answer", "compiling"), state
+
+    _, state = c.poll_until(check, c.wait_s())
+    if state == "ready":
+        return
+    if state == "play":
+        raise c.SlotError(f"{c.label(slot)}: the Editor is in Play. Refusing to test. Stop Play first.")
+    if state == "test_run":
+        raise c.SlotError(f"{c.label(slot)}: a test run is already live in this Editor. Refusing.")
+    raise c.SlotError(f"{c.label(slot)}: Editor {c.STATE_TEXT[state]} after {c.wait_s():.0f} s. Not started.")
 
 
 def run(args):
@@ -63,6 +61,16 @@ def run(args):
         c.release_lock(slot)
 
 
+def stop_cli(proc):
+    """Stop the run_tests CLI child (only called for a hung Editor): terminate, then kill if it lingers."""
+    proc.terminate()
+    try:
+        proc.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
+
+
 def execute(slot, kind, flt):
     full = kind == "full"
     limit = c.FULL_TIMEOUT if full else c.FAST_TIMEOUT
@@ -81,10 +89,11 @@ def execute(slot, kind, flt):
         proc = subprocess.Popen(argv, stdout=out, stderr=subprocess.STDOUT)
         rc = watch.watch_run(slot, proc)
     if rc == watch.HANG:
+        stop_cli(proc)  # the lock is released after this; no run_tests CLI may outlive it
         script = Path(sys.argv[0]).resolve()
         print(f"{c.label(slot)} {kind}: HANG. The Editor used almost no CPU for 2 minutes while the run was live.")
         print(f"Next: close and reopen the slot: python {script} close {slot}  then  python {script} open {slot}")
-        print("Do not retry the run before the Editor answers again. The run_tests CLI is left alone; closing the Editor ends it.")
+        print("Do not retry the run before the Editor answers again. The run_tests CLI was stopped (the Editor was already hung).")
         return watch.HANG_EXIT
     try:
         summary = json.loads(out_path.read_text(encoding="utf-8-sig"))["Summary"]

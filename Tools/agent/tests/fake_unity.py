@@ -97,6 +97,8 @@ def main():
     with open(counter, "w") as f:
         f.write(str(n + 1))
     r = replies[min(n, len(replies) - 1)]
+    with open(os.path.join(d, f"pid-{cmd}.txt"), "w") as f:
+        f.write(str(os.getpid()))
     time.sleep(r.get("sleep", 0))
     sys.stdout.write(r.get("out", ""))
     return r.get("rc", 0)
