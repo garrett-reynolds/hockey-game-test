@@ -8,6 +8,11 @@ namespace HockeyGame.Core
         public double SlowDownSeconds = 1.2;
         public double ShootingWindowSeconds = 3.0;
         public double ResultHoldSeconds = 2.5;
+        /// <summary>
+        /// Extra seconds on the result hold of a Goal or a Save, after the Replay, for the goalie's AI clip (PROTOTYPE).
+        /// 0 (the default) keeps today's timing; the game sets it to 2.5 while its AI clips are on. Not in Test Mode, not for a Miss, Too Late or Frame Hit.
+        /// </summary>
+        public double ClipHoldSeconds = 0;
         /// <summary>False: no Replay (#145). The game sets it from the saved Replay setting.</summary>
         public bool ReplayOn = true;
 

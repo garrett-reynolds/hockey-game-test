@@ -63,11 +63,8 @@ namespace HockeyGame
             _frameSeconds = Time.unscaledTime;
             // PROTOTYPE: AI clips on the goalie. K flips them for comparing; Step is left as it was (tests call it directly).
             var keyboard = UnityEngine.InputSystem.Keyboard.current;
-            if (keyboard != null && keyboard.kKey.wasPressedThisFrame)
-            {
-                UseAiClips = !UseAiClips;
-                Debug.Log("[AiClips] UseAiClips = " + UseAiClips);
-            }
+            if (keyboard != null && keyboard.kKey.wasPressedThisFrame) ToggleAiClips();
+            _round.Settings.ClipHoldSeconds = UseAiClips ? ClipHoldSecondsOn : 0.0; // the longer Goal / Save hold goes with the clips
             GoalieClipReactions clips = _goalie?.Clips;
             clips?.Pre();
             Step(Time.deltaTime, Time.unscaledDeltaTime);
@@ -76,6 +73,16 @@ namespace HockeyGame
 
         /// <summary>PROTOTYPE: the goalie plays AI clips after a Goal, after a Save and when idle. K flips it in Play.</summary>
         public bool UseAiClips = true;
+
+        /// <summary>PROTOTYPE: extra result hold after a Goal or a Save while the clips are on (RoundSettings.ClipHoldSeconds).</summary>
+        public const double ClipHoldSecondsOn = 2.5;
+
+        /// <summary>What the K key calls: flips UseAiClips (and with it the longer hold) and logs one line.</summary>
+        public void ToggleAiClips()
+        {
+            UseAiClips = !UseAiClips;
+            Debug.Log("[AiClips] UseAiClips = " + UseAiClips);
+        }
 
         /// <summary>
         /// Each physics step (#111, before Unity simulates it): poses the goalie for the end of the step, then moves the hit

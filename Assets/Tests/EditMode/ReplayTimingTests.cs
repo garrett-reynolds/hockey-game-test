@@ -89,6 +89,42 @@ namespace HockeyGame.Core.Tests
             }
         }
 
+        // ---- the clip hold (PROTOTYPE): ClipHoldSeconds more after a Goal or a Save ----
+
+        [Test]
+        public void ClipHoldSeconds_adds_to_the_hold_of_a_Goal_and_a_Save_only_and_0_keeps_today_s_timing()
+        {
+            foreach (bool replayOn in new[] { true, false })
+            {
+                foreach (string shot in new[] { "goal", "save", "post", "bar", "wide", "late" })
+                {
+                    Round round = After(shot, replayOn);
+                    double today = round.ResultHoldLength;
+                    round.Settings.ClipHoldSeconds = 2.5;
+                    double extra = shot == "goal" || shot == "save" ? 2.5 : 0;
+                    Assert.AreEqual(today + extra, round.ResultHoldLength, Tol, shot + " replay " + replayOn);
+                    round.Settings.ClipHoldSeconds = 0;
+                    Assert.AreEqual(today, round.ResultHoldLength, Tol, shot + " 0 = today");
+                }
+            }
+        }
+
+        [Test]
+        public void With_ClipHoldSeconds_a_Goal_holds_2_5_s_longer_before_the_next_Shot_and_the_fade_follows_the_new_end()
+        {
+            Round round = After("goal");
+            round.Settings.ClipHoldSeconds = 2.5;
+            double hold = ReplayTiming.HoldSeconds + ShotFade.LeadSeconds + 2.5;
+            Assert.AreEqual(hold, round.ResultHoldLength, Tol);
+            round.Tick(hold - 0.01);
+            Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
+            Assert.AreEqual(0.01, round.ResultHoldSecondsLeft, 1e-6);
+            round.Tick(0.02);
+            Assert.AreEqual(RoundPhase.SkateIn, round.Phase);
+            // The Replay's camera is unchanged: past 4.5 s after landing it is looking back, and stays so.
+            Assert.AreEqual(CameraMode.LookBack, ReplayTiming.CameraAt(ReplayTiming.HoldSeconds + 1.0));
+        }
+
         [Test]
         public void The_result_holds_2_5_s_with_no_Replay()
         {
