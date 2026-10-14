@@ -230,9 +230,13 @@ namespace HockeyGame
                     if (GearPiece.PieceOf(r.name) != GearPiece.Stick) continue;
                     MeshFilter filter = r.GetComponent<MeshFilter>();
                     if (filter == null || filter.sharedMesh == null) continue;
+                    // The blade: the stick's lowest 4 cm in the pose it has now (the Ready Stance), as GoalieCharacter.Blade.
+                    // The shaft is left out: a cheer lifts it over the crossbar and would push the goalie half a metre out.
                     Vector3[] v = filter.sharedMesh.vertices;
+                    float lowest = float.MaxValue;
+                    foreach (Vector3 a in v) lowest = Mathf.Min(lowest, r.transform.TransformPoint(a).y);
                     var points = new List<Vector3>();
-                    for (int i = 0; i < v.Length; i += Mathf.Max(1, v.Length / 96)) points.Add(v[i]);
+                    foreach (Vector3 a in v) if (r.transform.TransformPoint(a).y < lowest + 0.04f) points.Add(a);
                     _stick = r.transform;
                     _stickPoints = points.ToArray();
                 }
