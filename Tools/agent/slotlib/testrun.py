@@ -78,6 +78,12 @@ def execute(slot, kind, flt):
     with open(out_path, "wb") as out:
         proc = subprocess.Popen(argv, stdout=out, stderr=subprocess.STDOUT)
         rc = watch.watch_run(slot, proc)
+    if rc == watch.HANG:
+        script = Path(sys.argv[0]).resolve()
+        print(f"{c.label(slot)} {kind}: HANG. The Editor used almost no CPU for 2 minutes while the run was live.")
+        print(f"Next: close and reopen the slot: python {script} close {slot}  then  python {script} open {slot}")
+        print("Do not retry the run before the Editor answers again. The run_tests CLI is left alone; closing the Editor ends it.")
+        return watch.HANG_EXIT
     try:
         summary = json.loads(out_path.read_text(encoding="utf-8-sig"))["Summary"]
         total, passed, failed = summary["Total"], summary["Passed"], summary["Failed"]

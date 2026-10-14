@@ -15,8 +15,13 @@ python C:/Users/garrett.reynolds/Projects/Personal/hockey-wt/_notes/slot.py test
 - Time limits are fixed: fast 900 s; `--full` 1,800 s with the inner `-- --timeout 1800`. There is no flag to change them.
 - Full output goes to `_notes/results/<slot>-<fast|full>-<time>.json`. The tool prints one result line and the file path. Exit 0 = all passed, 1 = failures or no result, 2 = refused.
 
-Environment overrides (used by the tests): `SLOT_UNITY_EXE` (a `.py` file is run with Python), `SLOT_ROOT`, `SLOT_LOCK_DIR`, `SLOT_RESULTS_DIR`, `SLOT_POLL_S`, `SLOT_WAIT_S`, `SLOT_STATUS_TIMEOUT_S`.
+- `close <slot> [--force]`: runs `unity close`, then confirms with `unity status`. Prints "closed" and exits 0 only when status no longer lists the Editor; else "not closed, still open", exit 1 (the `false none` case). Refuses (exit 2) while a slot tool run or a test run is live, unless `--force`. Already closed: says so, exit 0.
+- `open <slot>`: opens the Editor and waits until it answers (limit 600 s), then prints "ready" (exit 0), or "not ready: not answering / still compiling" (exit 1). If the Editor is already open it never starts a second one; it only waits for it. If `unity status` cannot be read it refuses (exit 2).
+- `test` refuses at once, with "not open; run: slot.py open <slot>", when the slot is not in `unity status`.
+- Hang watch (inside `test`): each minute the tool reads the CPU of the slot Editor plus its worker processes. Two low minutes in a row (under 1 CPU second each) while the run is live prints `HANG` with the next step (`slot.py close <slot>`, then `slot.py open <slot>`) and exits 3. The run_tests CLI is not killed. A minute whose CPU cannot be read is skipped, never counted as low. This replaces `_notes/hangwatch.py`: do not start it beside agents.
 
-Layout: `slot.py` (entry), `slotlib/common.py` (Unity CLI call, slot list, lock, Editor state), one module per sub-command (`status.py`, `testrun.py`), `slotlib/watch.py` (seam for the hang watch / CPU sampler, ticket #179).
+Environment overrides (used by the tests): `SLOT_CLOSE_WAIT_S`, `SLOT_OPEN_WAIT_S`, `SLOT_CPU_SOURCE` (a `.py` that prints cumulative CPU seconds for a slot), `SLOT_CPU_INTERVAL_S`, `SLOT_CPU_MIN`, `SLOT_UNITY_EXE` (a `.py` file is run with Python), `SLOT_ROOT`, `SLOT_LOCK_DIR`, `SLOT_RESULTS_DIR`, `SLOT_POLL_S`, `SLOT_WAIT_S`, `SLOT_STATUS_TIMEOUT_S`.
+
+Layout: `slot.py` (entry), `slotlib/common.py` (Unity CLI call, slot list, lock, Editor state), one module per sub-command (`status.py`, `testrun.py`), `closeopen.py` (close, open), `editors.py` (open Editors from `unity status`), `cpu.py` (CPU reader), `watch.py` (hang watch).
 
 Tests: `python -m pytest Tools/agent/tests` from the repo root. They run the command line against `tests/fake_unity.py`.
