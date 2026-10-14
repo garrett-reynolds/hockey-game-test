@@ -28,6 +28,8 @@ def test_fast_run_uses_900s_limit_and_edit_mode(h):
     assert c[c.index("--mode") + 1] == "EditMode"
     assert c[c.index("--filter") + 1] == "Goalie"
     assert "--include_explicit" not in c
+    i = c.index("--")
+    assert c[i + 1:] == ["--timeout", "900"]
 
 
 def test_full_run_uses_1800s_with_inner_timeout(h):

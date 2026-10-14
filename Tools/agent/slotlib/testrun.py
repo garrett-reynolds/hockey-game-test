@@ -70,7 +70,9 @@ def execute(slot, kind, flt):
     if flt:
         cmd += ["--filter", flt]
     if full:
-        cmd += ["--include_explicit", "true", "--", "--timeout", str(c.FULL_TIMEOUT)]
+        cmd += ["--include_explicit", "true"]
+    # The inner limit (after "--") is the one run_tests itself obeys; without it a slow run stays at 300 s.
+    cmd += ["--", "--timeout", str(limit)]
     argv = c.unity_command(slot, *cmd, timeout=limit)
     # c.unity_command puts --timeout/--result-only before the command name, as the real CLI wants.
     c.results_dir().mkdir(parents=True, exist_ok=True)
