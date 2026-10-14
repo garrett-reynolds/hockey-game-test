@@ -951,7 +951,7 @@ namespace HockeyGame
         /// Moves the stick, blade first, by reaching the blocker hand: the hand keeps its turn (not its wrist bend), so the
         /// stick keeps its angle and its blade stays flat. Behind the pads the bent wrist does not show.
         /// </summary>
-        void ReachStickHand(Vector3 target, float facing, bool slide)
+        void ReachStickHand(Vector3 target, float facing, bool slide, bool keepBend = false)
         {
             Transform shoulder = Bone(HumanBodyBones.RightUpperArm), elbow = Bone(HumanBodyBones.RightLowerArm), hand = Bone(HumanBodyBones.RightHand);
             Quaternion turn = hand.rotation;
@@ -965,6 +965,9 @@ namespace HockeyGame
             }
             Vector3 forward = Root.transform.rotation * Vector3.back;
             Vector3 pole = shoulder.position + Vector3.down * 0.4f - forward * 0.2f - Vector3.right * 0.15f;
+            // keepBend: a small lift of the blade (KeepBladeUp) keeps the elbow bending the way it already does. The stance arm hangs
+            // nearly straight, where a fixed pole re-picks the bend plane and swings the forearm forward and twisted for a 3 cm move.
+            if (keepBend) pole = elbow.position;
             TwoBone(shoulder, elbow, elbow.InverseTransformPoint(hand.position), wrist, pole);
             hand.rotation = turn;
         }
@@ -1240,7 +1243,7 @@ namespace HockeyGame
         {
             if (!_gearShapes.ContainsKey(GearPiece.Stick)) return;
             float low = _bladeY - Lowest(GearPiece.Stick);
-            if (low > 0.002f) ReachStickHand(GearPoint(GearPiece.Stick) + Vector3.up * low, 0f, false); // the hand keeps its turn: the stick only rises
+            if (low > 0.002f) ReachStickHand(GearPoint(GearPiece.Stick) + Vector3.up * low, 0f, false, true); // the hand keeps its turn: the stick only rises
         }
 
         /// <summary>The reaction with its beaten hand carried on toward the puck's line, too late (the arm alone: no push).</summary>
