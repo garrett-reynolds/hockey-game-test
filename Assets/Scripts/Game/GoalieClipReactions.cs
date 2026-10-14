@@ -73,6 +73,23 @@ namespace HockeyGame
 
         // The AI clips keep the facing and height they were made with (Root "Based upon Original"): half of them faced away
         // and all put the skates under the ice. Each clip is turned and lifted once, at its first frame, onto the code pose.
+        // A clip can step or lean back into the net (Garrett, 2026-10-14: up to 20 cm with the goalie on the goal line). At its
+        // start the whole clip is sampled once (NetScanSamples) and the push that keeps its body and stick out of the net is
+        // kept for the clip: it eases in and out with the blend, so the goalie glides out, never snaps.
+        static readonly HumanBodyBones[] NetBones =
+        {
+            HumanBodyBones.Hips, HumanBodyBones.Spine, HumanBodyBones.Chest, HumanBodyBones.Head, HumanBodyBones.LeftLowerArm,
+            HumanBodyBones.RightLowerArm, HumanBodyBones.LeftHand, HumanBodyBones.RightHand, HumanBodyBones.LeftLowerLeg,
+            HumanBodyBones.RightLowerLeg, HumanBodyBones.LeftFoot, HumanBodyBones.RightFoot, HumanBodyBones.LeftToes, HumanBodyBones.RightToes
+        };
+        const int NetScanSamples = 40;
+        const float NetMargin = 0.01f;
+        Transform[] _netBones = new Transform[0];
+        Transform _stick;
+        Vector3[] _stickPoints = new Vector3[0];
+        Vector3 _netPush;            // world, toward the shooter
+        bool _scanning;
+
         Vector3 _snapHipsWorld, _animHips0;
         float _snapYaw, _snapFootY, _dy;
         Quaternion _yawFix = Quaternion.identity;
@@ -134,12 +151,19 @@ namespace HockeyGame
         /// <summary>Over the last clip: the most the body faced away from the code pose (degrees) and the lowest foot against the code pose's lowest foot (metres, below 0 = under).</summary>
         public float LastMaxFacingOffDegrees { get; private set; }
         public float LastMinFootGapMetres { get; private set; }
+        /// <summary>The last clip's push out of the net (metres toward the shooter; 0 = none needed), and the furthest a checked
+        /// point was still into the net while it played (metres).</summary>
+        public float LastNetPushMetres { get; private set; }
+        public float LastMaxIntoNetMetres { get; private set; }
 
         /// <summary>The clips are on (the K toggle; set by every Post). Off until the first Post, so code that never runs the
         /// clips (the pose tests) keeps the code reactions even where Assets/AIClips is present.</summary>
         public bool Use { get; set; }
         /// <summary>Tests: take the clips as found (true) or missing (false) without Assets/AIClips; null asks the AssetDatabase.</summary>
         public bool? ClipsFoundOverride;
+        /// <summary>The rink the goalie stands in (the Net Face at z = 0, the net behind it at +z): a clip is moved out of the
+        /// net (NetPush). Null: no net to keep out of.</summary>
+        public Transform Rink { get; set; }
         /// <summary>This hold's Goal or Save clip has started or will start (set by every Post; tests may set it): the hold has
         /// room for it (WindowFits). Test Mode's short hold has none, so its code reaction plays.</summary>
         public bool ClipThisHold { get; set; }
@@ -193,6 +217,24 @@ namespace HockeyGame
                 {
                     Transform t = animator.GetBoneTransform(b);
                     if (t != null) feet.Add(t);
+                }
+                var net = new List<Transform>();
+                foreach (HumanBodyBones b in NetBones)
+                {
+                    Transform t = animator.GetBoneTransform(b);
+                    if (t != null) net.Add(t);
+                }
+                _netBones = net.ToArray();
+                foreach (MeshRenderer r in animator.GetComponentsInChildren<MeshRenderer>(true))
+                {
+                    if (GearPiece.PieceOf(r.name) != GearPiece.Stick) continue;
+                    MeshFilter filter = r.GetComponent<MeshFilter>();
+                    if (filter == null || filter.sharedMesh == null) continue;
+                    Vector3[] v = filter.sharedMesh.vertices;
+                    var points = new List<Vector3>();
+                    for (int i = 0; i < v.Length; i += Mathf.Max(1, v.Length / 96)) points.Add(v[i]);
+                    _stick = r.transform;
+                    _stickPoints = points.ToArray();
                 }
             }
             _feet = feet.ToArray();
@@ -333,6 +375,7 @@ namespace HockeyGame
             _animator.runtimeAnimatorController = _override;
             _animator.enabled = false; // evaluated by hand, once a frame (Step)
             _clip = clip;
+            ScanNet();
             _holdsWindow = holdsWindow;
             _t = 0f;
             _w = 0f;
@@ -425,8 +468,58 @@ namespace HockeyGame
             _hips.SetPositionAndRotation(new Vector3(_snapHipsWorld.x + off.x, p.y + _dy, _snapHipsWorld.z + off.z), square * _hips.rotation);
             float under = _snapFootY - LowestFootY(); // a weight shift (stick slap) put a skate 2 cm into the ice: lift it out
             if (under > 0f) _hips.position += Vector3.up * under;
+            if (_scanning) return;
+            _hips.position += _netPush; // out of the net (ScanNet)
+            LastMaxIntoNetMetres = Mathf.Max(LastMaxIntoNetMetres, IntoNet());
             LastMaxFacingOffDegrees = Mathf.Max(LastMaxFacingOffDegrees, Mathf.Abs(Mathf.DeltaAngle(BodyYaw(), _snapYaw)));
             LastMinFootGapMetres = Mathf.Min(LastMinFootGapMetres, LowestFootY() - _snapFootY);
+        }
+
+        /// <summary>Samples the whole clip once, aligned as it will play, and keeps the push toward the shooter that takes every
+        /// checked bone and the stick out of the net (_netPush). The kept code pose goes back on the bones after.</summary>
+        void ScanNet()
+        {
+            _netPush = Vector3.zero;
+            LastNetPushMetres = 0f;
+            LastMaxIntoNetMetres = 0f;
+            if (Rink == null || _hips == null) return;
+            _scanning = true;
+            float worst = 0f;
+            for (int i = 0; i <= NetScanSamples; i++)
+            {
+                _animator.Play(StateHash, 0, Mathf.Min(0.999f, i / (float)NetScanSamples));
+                _animator.Update(0f);
+                Align();
+                worst = Mathf.Max(worst, IntoNet());
+            }
+            _scanning = false;
+            _aligned = false; // the real first frame aligns again (the same clip time 0)
+            Put(_snapRot, _snapPos);
+            if (worst <= 0f) return;
+            LastNetPushMetres = worst + NetMargin;
+            _netPush = Rink.TransformVector(new Vector3(0f, 0f, -LastNetPushMetres));
+        }
+
+        /// <summary>The furthest any checked bone or stick point is into the net now (rink metres; 0 = clear).</summary>
+        float IntoNet()
+        {
+            if (Rink == null) return 0f;
+            float worst = 0f;
+            foreach (Transform t in _netBones) worst = Mathf.Max(worst, OutOfNet(Rink.InverseTransformPoint(t.position)));
+            if (_stick != null)
+                foreach (Vector3 v in _stickPoints) worst = Mathf.Max(worst, OutOfNet(Rink.InverseTransformPoint(_stick.TransformPoint(v))));
+            return worst;
+        }
+
+        /// <summary>How far a rink point must move toward the shooter (-z) to be out of the net: behind the goal line in the
+        /// opening, or in a post or the crossbar (they stand centred on the Net Face, NetFrame.ThicknessMetres thick).</summary>
+        public static float OutOfNet(Vector3 q)
+        {
+            const float halfW = (float)NetFrame.FaceWidthMetres / 2f, h = (float)NetFrame.FaceHeightMetres, t = (float)NetFrame.ThicknessMetres;
+            float ax = Mathf.Abs(q.x);
+            if (q.y < 0f || q.y > h + t || ax > halfW + t) return 0f;
+            if (ax <= halfW && q.y <= h) return Mathf.Max(0f, q.z);
+            return q.z > -t / 2f ? q.z + t / 2f : 0f;
         }
 
         /// <summary>A blend of two poses that each stand on the ice can still dip a skate into it (up to 7 cm, measured in the 0.2 s

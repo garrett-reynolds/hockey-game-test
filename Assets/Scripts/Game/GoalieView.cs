@@ -60,7 +60,7 @@ namespace HockeyGame
         {
             _character = character != null && character.Present ? character : null;
             _glow = GlowMaterial();
-            if (_character != null) Clips = new GoalieClipReactions(_character.Animator); // PROTOTYPE: AI clips (BreakawayView drives it)
+            if (_character != null) Clips = new GoalieClipReactions(_character.Animator) { Rink = parent }; // PROTOTYPE: AI clips (BreakawayView drives it)
             _block = RinkBuilder.Cube(parent, BlockName, new Vector3(0f, BlockHeight / 2f, BlockZ),
                 new Vector3(BlockWidth, BlockHeight, BlockDepth), GoalieColour);
             _gapGlow = new GameObject("Gap glow");
