@@ -91,14 +91,17 @@ namespace HockeyGame
             foreach (SkinnedMeshRenderer r in body)
             {
                 if (r.name != "Jersey" && r.name != "Pants" && r.name != "Socks") continue;
-                foreach (Material m in r.sharedMaterials)
+                // Copies: the imported materials are shared by every goalie (and stay in the Editor), so they are left as imported.
+                Material[] originals = r.sharedMaterials;
+                var matte = new Material[originals.Length];
+                for (int i = 0; i < originals.Length; i++)
                 {
+                    var m = new Material(originals[i]) { name = originals[i].name + " (matte)" };
                     if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", 0f);
-                    if (m.HasProperty("_SpecularHighlights")) m.SetFloat("_SpecularHighlights", 0f);
-                    if (m.HasProperty("_EnvironmentReflections")) m.SetFloat("_EnvironmentReflections", 0f);
-                    m.EnableKeyword("_SPECULARHIGHLIGHTS_OFF");
-                    m.EnableKeyword("_ENVIRONMENTREFLECTIONS_OFF");
+                    // No shader keywords: a player build strips variants no asset uses (BuildSafeLightingTests), so smoothness alone.
+                    matte[i] = m;
                 }
+                r.sharedMaterials = matte;
             }
         }
 

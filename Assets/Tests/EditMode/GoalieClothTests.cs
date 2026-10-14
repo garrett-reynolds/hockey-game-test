@@ -38,10 +38,28 @@ namespace HockeyGame.Core.Tests
                 {
                     seen++;
                     Assert.LessOrEqual(Smoothness(m), ClothSmoothnessLimit, r.name + " / " + m.name + " smoothness");
-                    Assert.IsTrue(m.IsKeywordEnabled("_SPECULARHIGHLIGHTS_OFF"), r.name + " / " + m.name + " specular highlights off");
                 }
             }
             Assert.AreEqual(5, seen, "jersey (2), pants (1) and socks (2) materials");
+        }
+
+        [Test]
+        public void The_imported_model_materials_are_left_as_imported()
+        {
+            var character = new GoalieCharacter(_parent.transform);
+            Assume.That(character.Present, "the goalie model loads");
+            var model = Resources.Load<GameObject>("Models/goalie-dressing");
+            int seen = 0;
+            foreach (Renderer r in model.GetComponentsInChildren<Renderer>(true))
+            {
+                if (!IsCloth(r.name)) continue;
+                foreach (Material m in r.sharedMaterials)
+                {
+                    seen++;
+                    Assert.AreEqual(GearSmoothness, Smoothness(m), 0.001f, r.name + " / " + m.name + " (the imported asset)");
+                }
+            }
+            Assert.AreEqual(5, seen, "imported cloth materials");
         }
 
         [Test]
@@ -62,7 +80,6 @@ namespace HockeyGame.Core.Tests
                     Assert.IsFalse(cloth.Contains(m), r.name + " / " + m.name + " is shared with the cloth");
                     if (m.name == "Visor") continue; // glossy on purpose
                     Assert.AreEqual(GearSmoothness, Smoothness(m), 0.001f, r.name + " / " + m.name + " smoothness");
-                    Assert.IsFalse(m.IsKeywordEnabled("_SPECULARHIGHLIGHTS_OFF"), r.name + " / " + m.name + " keeps its highlight");
                 }
             }
             Assert.Greater(seen, 10, "gear materials seen");
