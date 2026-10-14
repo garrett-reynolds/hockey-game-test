@@ -6,8 +6,8 @@ using UnityEngine;
 namespace HockeyGame
 {
     /// <summary>
-    /// PROTOTYPE: AI-made humanoid clips on the goalie. After a Goal one of three clips, after a Save the glove clip (Glove) or the
-    /// cheer (Blocker, Pads, Stick, Body), and an idle clip in Idle and RoundOver. A Miss keeps the procedural Relief.
+    /// PROTOTYPE: AI-made humanoid clips on the goalie. After a Goal a clip from GoalClips, after a Save one from SaveClips (a Glove
+    /// save prefers the glove clip), never the same one twice in a row, and an idle clip in Idle and RoundOver. A Miss keeps the procedural Relief.
     /// <para>
     /// The Animator is off (no controller) except in a clip window. At the window's start the bones' local poses are kept
     /// (Pre/Post: Post runs after BreakawayView.Step). While the clip owns the pose (Owns), GoalieView.PoseCharacter skips every
@@ -21,7 +21,10 @@ namespace HockeyGame
     {
         public const string SlumpClip = "clip-16-slump", StickSlapClip = "clip-17-stick-slap", LookBackClip = "clip-18-look-back";
         public const string GloveClip = "clip-20-show-hand-up", CheerClip = "clip-30-cheer-point", IdleClip = "clip-31-idle-shoulder-roll";
+        /// <summary>The upsets (a Goal) and the celebrations (a Save): a clip never plays twice in a row from its pool
+        /// (NoRepeatPicker). Add a clip by adding its name here. A Glove save prefers GloveClip when the rule allows it.</summary>
         public static readonly string[] GoalClips = { SlumpClip, StickSlapClip, LookBackClip };
+        public static readonly string[] SaveClips = { GloveClip, CheerClip };
         public const string ControllerPath = "Assets/AIClips/AIClipViewer.controller";
         const string ClipFolder = "Assets/AIClips";
         static readonly int StateHash = Animator.StringToHash("Clip");
@@ -90,7 +93,22 @@ namespace HockeyGame
         RoundPhase _lastPhase = RoundPhase.Idle;
         bool _playedThisHold;
         bool _startedThisHold;       // the one try this hold started a clip
-        int _goalCycle;
+        // The last upset and celebration, kept for the whole session (this object lives as long as the GoalieView).
+        NoRepeatPicker _goalPicks, _savePicks;
+        NoRepeatPicker _pendingPicks;   // the pool the clip being started was picked from (remembered once it starts)
+
+        sealed class SystemRandomSource : IRandomSource
+        {
+            readonly System.Random _random = new System.Random();
+            public double Next() => _random.NextDouble();
+        }
+
+        /// <summary>Tests: the random source for the Goal and Save picks (starts a fresh memory).</summary>
+        public void UseRandom(IRandomSource random)
+        {
+            _goalPicks = new NoRepeatPicker(GoalClips, random);
+            _savePicks = new NoRepeatPicker(SaveClips, random);
+        }
         double _nextIdleAt = IdleFirstSeconds;
         double _phaseClock;          // real seconds in this phase, counted here (Round.PhaseSecondsElapsed stands still in Idle and RoundOver)
 
@@ -137,7 +155,7 @@ namespace HockeyGame
             if (!Use || !ClipThisHold || !(AfterShot.IsGoal(gesture) || gesture == AfterShotGesture.None)) return false;
             if (ClipsFoundOverride.HasValue) return ClipsFoundOverride.Value;
             if (!EnsureOverride()) return false;
-            string[] names = gesture == AfterShotGesture.None ? new[] { GloveClip, CheerClip } : GoalClips;
+            string[] names = gesture == AfterShotGesture.None ? SaveClips : GoalClips;
             foreach (string name in names)
                 if (Load(name) == null) return false;
             return true;
@@ -151,6 +169,7 @@ namespace HockeyGame
         public GoalieClipReactions(Animator animator)
         {
             _animator = animator;
+            UseRandom(new SystemRandomSource());
             var list = new List<Transform>();
             var hips = new List<bool>();
             if (animator != null && animator.isHuman)
@@ -255,13 +274,15 @@ namespace HockeyGame
                 if (landed < AfterWhistleSeconds) return; // at the Goal or Save, Replay or not (the Replay records and shows the clip's start)
                 if (result.Kind == ShotResultKind.Goal)
                 {
-                    name = GoalClips[_goalCycle % GoalClips.Length];
+                    _pendingPicks = _goalPicks;
+                    name = _goalPicks.Next();
                     kind = "Goal";
                 }
                 else
                 {
                     SaveReaction reaction = round.LastRace.HasValue ? round.LastRace.Value.SaveReaction : SaveReactions.For(result.X, result.Y);
-                    name = reaction == SaveReaction.Glove ? GloveClip : CheerClip;
+                    _pendingPicks = _savePicks;
+                    name = _savePicks.Next(reaction == SaveReaction.Glove ? GloveClip : null);
                     kind = "Save " + reaction;
                 }
                 window = (float)round.ResultHoldSecondsLeft;
@@ -286,7 +307,7 @@ namespace HockeyGame
                 if (kind.StartsWith("Idle")) _nextIdleAt = _phaseClock + IdleRepeatSeconds;
                 return; // missing: the procedural gesture stays
             }
-            if (kind == "Goal") _goalCycle++;
+            if (holds) _pendingPicks.Remember(name); // only a clip that starts counts for the no-repeat rule
             Begin(clip, kind, holds, window);
         }
 

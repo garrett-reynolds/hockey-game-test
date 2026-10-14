@@ -141,12 +141,16 @@ namespace HockeyGame.Core.Tests
             Animator animator = character.Animator;
             var settings = new RoundSettings { ReplayOn = false };
             var clips = new GoalieClipReactions(animator);
+            clips.UseRandom(new SeededRandom(1));
             var code = new Pose(animator);
             var worst = new Dictionary<string, Worst>();
 
-            // Goal: the three Goal clips in turn.
-            foreach (string unused in GoalieClipReactions.GoalClips)
+            // Goal: Goals until every Goal clip has played (they are picked at random, never twice in a row).
+            for (int g = 0; g < 12; g++)
             {
+                bool all = true;
+                foreach (string name in GoalieClipReactions.GoalClips) all &= worst.ContainsKey(name);
+                if (all) break;
                 Round round = NewRound(character, settings, clips);
                 round.SubmitShot(50, 50, 90, false);
                 round.Whistle(ShotResultKind.Goal);
