@@ -46,8 +46,8 @@ namespace HockeyGame
         GUIStyle _big, _mid, _small, _scoreBox;
         Texture2D _scoreBoxBack; // made with the styles; freed in OnDestroy
         Texture2D _logo; // the Shootout logo, made with the styles; freed in OnDestroy
-        readonly LowerThirdView _lowerThird = new LowerThirdView(); // the TV bar with a Round number after each Shot (#141)
-        readonly LowerThirdWords _lowerThirdWords = new LowerThirdWords(); // its words, built once per Shot (#151)
+        readonly LowerThirdView _lowerThird = new LowerThirdView(); // the TV bar along the bottom, on the whole Round (#141, look A)
+        readonly LowerThirdWords _lowerThirdWords = new LowerThirdWords(); // its words, built only when the Round's numbers change (#151)
         ArenaState _show; // this frame's Arena Show, worked out once in Update and read by everything that frame, OnGUI too
         const float ScoreBoxWidth = 330f;
         TeamSkin _skin; // picked by the save file's teamSkin setting before the rink is built
@@ -289,8 +289,8 @@ namespace HockeyGame
                     break;
             }
 
-            if (_flow.Screen == FlowScreen.Playing) // early in the result hold only (LowerThird): never over the Replay or the result word
-                _lowerThird.Draw(w, h, LowerThird.Of(_round, _lowerThirdWords));
+            if (LowerThird.Shown(_flow)) // the whole Round (aim, flight, result, Replay); not on the Start or End screen, not in Test Mode
+                _lowerThird.Draw(w, h, _lowerThirdWords.Get(_round));
 
             switch (_flow.Screen)
             {
@@ -370,7 +370,6 @@ namespace HockeyGame
         {
             _effects?.Dispose();
             _goalie?.Dispose();
-            _lowerThird.Dispose();
             if (_scoreBoxBack != null) SceneObjects.DestroySafely(_scoreBoxBack);
             if (_logo != null) SceneObjects.DestroySafely(_logo);
         }

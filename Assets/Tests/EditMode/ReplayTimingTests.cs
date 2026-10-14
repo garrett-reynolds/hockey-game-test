@@ -321,21 +321,16 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void With_the_Replay_off_the_lower_third_goes_in_and_out_at_the_same_times_as_with_it_on()
+        public void With_the_Replay_off_the_lower_third_says_the_same_through_the_hold_as_with_it_on()
         {
             Round on = After("goal"), off = After("goal", replayOn: false);
-            double last = 0;
             for (double t = 0; t <= 4.4; t += 0.05)
             {
-                double a = LowerThird.Of(on).Amount, b = LowerThird.Of(off).Amount;
-                Assert.AreEqual(a, b, Tol, "at " + t);
-                if (t > 0.5 && t < 1.2) Assert.Greater(b, 0.99, "in at " + t);
-                if (t > ReplayTiming.OnNetSeconds + 0.01) Assert.AreEqual(0, b, "out after " + ReplayTiming.OnNetSeconds + " s, at " + t);
-                last = b;
+                Assert.AreEqual(LowerThird.Of(on).Stat, LowerThird.Of(off).Stat, "at " + t);
+                Assert.AreEqual(LowerThird.Of(on).Tally, LowerThird.Of(off).Tally, "at " + t);
                 on.Tick(0.05);
                 off.Tick(0.05);
             }
-            Assert.AreEqual(0, last);
         }
 
         // ---- what the Replay shows ----

@@ -123,21 +123,23 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void There_is_no_lower_third_in_Test_Mode_though_a_Round_has_one()
         {
+            // The Score Box already counts the visit's Goals and Shots in Test Mode: the bar would count them twice.
             ScreenFlow flow = NewTestModeFlow();
             flow.SubmitShot(50, 90, 100, false);
             flow.Round.WhistleNow();
             for (double t = 0; t < 0.95; t += 0.05)
             {
                 flow.Tick(0.05);
-                Assert.AreEqual(0, LowerThird.Of(flow.Round).Amount, "Test Mode at " + t);
+                Assert.IsFalse(LowerThird.Shown(flow), "Test Mode at " + t);
             }
 
-            var round = new Round(ScriptedRandom.Halves(), new RoundSettings(), FakeReach.NeverReaches(), 0);
-            round.StartRound();
-            round.Tick(3.7);
-            round.SubmitShotAndWhistle(50, 90, 100, false);
+            ScreenFlow round = NewFlow();
+            round.Press();
+            round.Tick(3.7 + 0.5);
+            round.SubmitShot(50, 90, 100, false);
+            round.Round.WhistleNow();
             round.Tick(0.8);
-            Assert.AreEqual(1, LowerThird.Of(round).Amount, 1e-9, "a Round at the same moment");
+            Assert.IsTrue(LowerThird.Shown(round), "a Round at the same moment");
         }
 
 

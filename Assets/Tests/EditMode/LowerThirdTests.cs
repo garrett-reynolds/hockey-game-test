@@ -4,6 +4,7 @@ using NUnit.Framework;
 
 namespace HockeyGame.Core.Tests
 {
+    /// <summary>The always-on lower third (#141, #151, look A): its words from the Round's real data, and when it is on screen.</summary>
     public class LowerThirdTests
     {
         const ShotResultKind G = ShotResultKind.Goal, S = ShotResultKind.Save, M = ShotResultKind.Miss, T = ShotResultKind.TooLate;
@@ -16,45 +17,50 @@ namespace HockeyGame.Core.Tests
         }
 
         static LowerThirdText Text(IReadOnlyList<double?> speeds, params ShotResultKind[] results) =>
-            LowerThird.Choose(new List<ShotResultKind>(results), speeds).Value;
+            LowerThird.Choose(new List<ShotResultKind>(results), speeds, results.Length, 10);
 
-        static string Headline(params ShotResultKind[] results) => Text(Speeds(results.Length), results).Headline;
+        static string Stat(params ShotResultKind[] results) => Text(Speeds(results.Length), results).Stat;
 
-        // ---- number choice ----
+        // ---- the words ----
 
         [Test]
-        public void No_Shots_yet_has_nothing_to_show()
+        public void Before_the_first_Shot_it_says_First_Shot_with_a_zero_tally()
         {
-            Assert.IsNull(LowerThird.Choose(new List<ShotResultKind>(), new List<double?>()));
+            LowerThirdText text = LowerThird.Choose(new List<ShotResultKind>(), new List<double?>(), 1, 3);
+            Assert.AreEqual("First Shot", text.Stat);
+            Assert.AreEqual("GOALS 0  ·  SHOTS 0", text.Tally);
+            Assert.AreEqual("SHOT 1 OF 3", text.ShotOf);
+        }
+
+        [Test]
+        public void The_tally_counts_Goals_and_Shots_and_a_Too_Late_Shot_is_a_Shot()
+        {
+            Assert.AreEqual("GOALS 2  ·  SHOTS 3", Text(Speeds(3), G, M, G).Tally);
+            Assert.AreEqual("GOALS 0  ·  SHOTS 1", Text(new List<double?> { null }, T).Tally);
+        }
+
+        [Test]
+        public void The_cap_reads_the_Shot_of_the_Round_and_never_shot_0()
+        {
+            var none = new List<ShotResultKind>();
+            var noSpeeds = new List<double?>();
+            Assert.AreEqual("SHOT 2 OF 3", LowerThird.Choose(none, noSpeeds, 2, 3).ShotOf);
+            Assert.AreEqual("SHOT 1 OF 5", LowerThird.Choose(none, noSpeeds, 0, 5).ShotOf, "before StartRound");
+            Assert.AreEqual("SHOT 5 OF 5", LowerThird.Choose(none, noSpeeds, 6, 5).ShotOf);
         }
 
         [Test]
         public void A_streak_of_3_Goals_in_a_row_wins()
         {
-            Assert.AreEqual("3 in a row!", Headline(G, G, G));
-            Assert.AreEqual("4 in a row!", Headline(S, G, G, G, G));
+            Assert.AreEqual("3 in a row!", Stat(G, G, G));
+            Assert.AreEqual("4 in a row!", Stat(S, G, G, G, G));
         }
 
         [Test]
         public void A_streak_must_be_running_now_and_2_in_a_row_is_not_one()
         {
-            Assert.AreEqual("2 Goals from 2 Shots", Headline(G, G));
-            Assert.AreEqual("3 Goals from 4 Shots", Headline(G, G, S, G), "the streak is 1 now");
-            Assert.AreEqual("3 Goals from 4 Shots", Headline(G, G, G, S), "a streak that ended is not shown");
-        }
-
-        [Test]
-        public void Without_a_streak_it_is_the_tally()
-        {
-            Assert.AreEqual("0 Goals from 1 Shot", Headline(S));
-            Assert.AreEqual("1 Goal from 1 Shot", Headline(G));
-            Assert.AreEqual("2 Goals from 3 Shots", Headline(G, M, G));
-        }
-
-        [Test]
-        public void A_Too_Late_Shot_counts_as_a_Shot_in_the_tally()
-        {
-            Assert.AreEqual("0 Goals from 1 Shot", Text(new List<double?> { null }, T).Headline);
+            Assert.AreEqual("Last Shot 100 km/h  ·  average 100 km/h", Stat(G, G));
+            Assert.AreEqual("Last Shot 100 km/h  ·  average 100 km/h", Stat(G, G, G, S), "a streak that ended is not shown");
         }
 
         [Test]
@@ -63,15 +69,20 @@ namespace HockeyGame.Core.Tests
             // The chase for the best score is gone (#151): people play once. Every kind of line, every Round length, says nothing of it.
             var kinds = new[] { G, S, M, T };
             var seen = new List<string>();
-            for (int n = 1; n <= Round.ShotsPerRound; n++)
+            for (int n = 0; n <= Round.ShotsPerRound; n++)
                 for (int pattern = 0; pattern < 40; pattern++)
                 {
                     var results = new ShotResultKind[n];
-                    for (int i = 0; i < n; i++) results[i] = kinds[(pattern * (i + 3) + i * i) % 4];
-                    LowerThirdText text = Text(Speeds(n), results);
-                    seen.Add(text.Kicker);
-                    seen.Add(text.Headline);
-                    seen.Add(text.SpeedLine);
+                    var speeds = new List<double?>();
+                    for (int i = 0; i < n; i++)
+                    {
+                        results[i] = kinds[(pattern * (i + 3) + i * i) % 4];
+                        speeds.Add(results[i] == T ? (double?)null : 90 + i);
+                    }
+                    LowerThirdText text = LowerThird.Choose(new List<ShotResultKind>(results), speeds, n, Round.ShotsPerRound);
+                    seen.Add(text.Tally);
+                    seen.Add(text.Stat);
+                    seen.Add(text.ShotOf);
                 }
             Assert.Greater(seen.Count, 100);
             foreach (string line in seen)
@@ -82,19 +93,19 @@ namespace HockeyGame.Core.Tests
             }
         }
 
-        // ---- the speed line ----
+        // ---- the speed stat ----
 
         [Test]
-        public void The_first_Shots_average_is_its_own_speed()
+        public void After_the_first_Shot_it_is_that_Shots_speed()
         {
-            Assert.AreEqual("92 km/h  |  average 92 km/h", Text(new List<double?> { 92 }, G).SpeedLine);
+            Assert.AreEqual("Last Shot 92 km/h", Text(new List<double?> { 92 }, S).Stat);
         }
 
         [Test]
-        public void The_speed_line_is_the_last_Shots_speed_and_the_average_of_the_Shots_so_far()
+        public void Then_it_is_the_last_Shots_speed_and_the_average_of_the_Shots_so_far()
         {
-            Assert.AreEqual("100 km/h  |  average 90 km/h", Text(new List<double?> { 80, 100 }, G, S).SpeedLine);
-            Assert.AreEqual("60 km/h  |  average 80 km/h", Text(new List<double?> { 80, 100, 60 }, G, S, G).SpeedLine);
+            Assert.AreEqual("Last Shot 100 km/h  ·  average 90 km/h", Text(new List<double?> { 80, 100 }, G, S).Stat);
+            Assert.AreEqual("Last Shot 60 km/h  ·  average 80 km/h", Text(new List<double?> { 80, 100, 60 }, G, S, G).Stat);
         }
 
         [Test]
@@ -102,21 +113,24 @@ namespace HockeyGame.Core.Tests
         {
             // 92.5 rounds away from zero to 93 (ShotResultText.Speed); the average 85.25 shows as 85.
             Assert.AreEqual("93 km/h", ShotResultText.Speed(92.5));
-            Assert.AreEqual("93 km/h  |  average 85 km/h", Text(new List<double?> { 78, 92.5 }, G, G).SpeedLine);
+            Assert.AreEqual("Last Shot 93 km/h  ·  average 85 km/h", Text(new List<double?> { 78, 92.5 }, G, S).Stat);
         }
 
         [Test]
         public void A_Shot_with_no_speed_is_left_out_of_the_average_and_shows_no_speed()
         {
             // Too Late has no puck: no speed of its own, and it does not pull the average down.
-            Assert.AreEqual("average 90 km/h", Text(new List<double?> { 80, 100, null }, G, S, T).SpeedLine);
-            Assert.AreEqual("100 km/h  |  average 90 km/h", Text(new List<double?> { 80, null, 100 }, G, T, S).SpeedLine);
+            Assert.AreEqual("Average 90 km/h", Text(new List<double?> { 80, 100, null }, G, S, T).Stat);
+            Assert.AreEqual("Last Shot 100 km/h  ·  average 90 km/h", Text(new List<double?> { 80, null, 100 }, G, T, S).Stat);
         }
 
         [Test]
-        public void With_no_speed_at_all_the_speed_line_is_empty()
+        public void With_no_speed_at_all_it_counts_the_Shots_left()
         {
-            Assert.AreEqual("", Text(new List<double?> { null }, T).SpeedLine);
+            var none = new List<double?> { null, null, null };
+            Assert.AreEqual("2 Shots left", LowerThird.Choose(new List<ShotResultKind> { T }, none, 1, 3).Stat);
+            Assert.AreEqual("1 Shot left", LowerThird.Choose(new List<ShotResultKind> { T, T }, none, 2, 3).Stat);
+            Assert.AreEqual("Round over", LowerThird.Choose(new List<ShotResultKind> { T, T, T }, none, 3, 3).Stat);
         }
 
         // ---- the Round keeps every Shot's speed ----
@@ -158,12 +172,11 @@ namespace HockeyGame.Core.Tests
             round.SubmitShotAndWhistle(50, 50, 150, true); // a Test Shot (dev), very fast
             Assert.AreEqual(1, round.Results.Count, "a Test Shot is still a Shot in the Results");
             Assert.IsNull(round.ShotSpeedsKmh[0], "but it has no speed in the Round's list");
-            Assert.AreEqual("", LowerThird.Choose(round.Results, round.ShotSpeedsKmh).Value.SpeedLine, "no speed to average yet");
+            StringAssert.DoesNotContain("km/h", LowerThird.Of(round).Stat, "no speed to average yet");
             round.Tick(round.ResultHoldLength);
             round.Tick(3.7);
             round.SubmitShotAndWhistle(50, 50, 80, false);
-            LowerThirdText text = LowerThird.Choose(round.Results, round.ShotSpeedsKmh).Value;
-            Assert.AreEqual("80 km/h  |  average 80 km/h", text.SpeedLine, "the average is the real Shot's, not 115");
+            Assert.AreEqual("Last Shot 80 km/h", LowerThird.Of(round).Stat, "the Round's only speed is the real Shot's, not 150");
         }
 
         [Test]
@@ -175,18 +188,11 @@ namespace HockeyGame.Core.Tests
             round.Tick(3.7);
             round.SubmitShotAndWhistle(50, 50, 100, false);
             Assert.AreEqual(5, round.BestScore);
-            LowerThirdShow show = default;
-            for (int i = 0; i < 100 && show.Amount <= 0; i++)
-            {
-                round.Tick(0.1);
-                show = LowerThird.Of(round, new LowerThirdWords());
-            }
-            Assert.Greater(show.Amount, 0, "the lower third is on screen, so its words are real");
-            foreach (string line in new[] { show.Text.Kicker, show.Text.Headline, show.Text.SpeedLine })
+            LowerThirdText text = LowerThird.Of(round);
+            foreach (string line in new[] { text.Tally, text.Stat, text.ShotOf })
             {
                 StringAssert.DoesNotContain("best", line.ToLowerInvariant());
                 StringAssert.DoesNotContain("beat", line.ToLowerInvariant());
-                StringAssert.DoesNotContain("chasing", line.ToLowerInvariant());
                 StringAssert.DoesNotContain("5", line, "the best score's number");
             }
         }
@@ -200,7 +206,7 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(0, round.ShotSpeedsKmh.Count);
         }
 
-        // ---- the words are built once per Shot ----
+        // ---- the words are built only when the values change (#151) ----
 
         [Test]
         public void The_words_are_built_once_per_Shot_and_the_same_strings_come_back()
@@ -208,28 +214,38 @@ namespace HockeyGame.Core.Tests
             var words = new LowerThirdWords();
             var results = new List<ShotResultKind> { G };
             var speeds = new List<double?> { 90 };
-            LowerThirdText a = words.Get(results, speeds).Value;
-            LowerThirdText b = words.Get(results, speeds).Value;
+            LowerThirdText a = words.Get(results, speeds, 1, 3);
+            LowerThirdText b = words.Get(results, speeds, 1, 3);
             Assert.AreEqual(1, words.Builds);
-            Assert.AreSame(a.Headline, b.Headline);
-            Assert.AreSame(a.Kicker, b.Kicker);
-            Assert.AreSame(a.SpeedLine, b.SpeedLine);
+            Assert.AreSame(a.Tally, b.Tally);
+            Assert.AreSame(a.Stat, b.Stat);
+            Assert.AreSame(a.ShotOf, b.ShotOf);
             results.Add(S);
             speeds.Add(70);
-            LowerThirdText c = words.Get(results, speeds).Value;
+            LowerThirdText c = words.Get(results, speeds, 2, 3);
             Assert.AreEqual(2, words.Builds, "a new Shot builds again");
-            Assert.AreEqual("1 Goal from 2 Shots", c.Headline);
-            Assert.AreEqual("70 km/h  |  average 80 km/h", c.SpeedLine);
+            Assert.AreEqual("GOALS 1  ·  SHOTS 2", c.Tally);
+            Assert.AreEqual("Last Shot 70 km/h  ·  average 80 km/h", c.Stat);
+        }
+
+        [Test]
+        public void The_next_Shot_number_builds_new_words_for_the_cap()
+        {
+            var words = new LowerThirdWords();
+            var results = new List<ShotResultKind> { G };
+            var speeds = new List<double?> { 90 };
+            Assert.AreEqual("SHOT 1 OF 3", words.Get(results, speeds, 1, 3).ShotOf);
+            Assert.AreEqual("SHOT 2 OF 3", words.Get(results, speeds, 2, 3).ShotOf);
+            Assert.AreEqual(2, words.Builds);
         }
 
         [Test]
         public void A_new_Round_with_as_many_results_still_builds_new_words()
         {
             var words = new LowerThirdWords();
-            Assert.AreEqual("1 Goal from 1 Shot", words.Get(new List<ShotResultKind> { G }, new List<double?> { 90 }).Value.Headline);
-            Assert.AreEqual("0 Goals from 1 Shot", words.Get(new List<ShotResultKind> { S }, new List<double?> { 90 }).Value.Headline);
-            Assert.AreEqual("0 Goals from 1 Shot", words.Get(new List<ShotResultKind> { S }, new List<double?> { 91 }).Value.Headline);
-            Assert.AreEqual("91 km/h  |  average 91 km/h", words.Get(new List<ShotResultKind> { S }, new List<double?> { 91 }).Value.SpeedLine);
+            Assert.AreEqual("GOALS 1  ·  SHOTS 1", words.Get(new List<ShotResultKind> { G }, new List<double?> { 90 }, 1, 3).Tally);
+            Assert.AreEqual("GOALS 0  ·  SHOTS 1", words.Get(new List<ShotResultKind> { S }, new List<double?> { 90 }, 1, 3).Tally);
+            Assert.AreEqual("Last Shot 91 km/h", words.Get(new List<ShotResultKind> { S }, new List<double?> { 91 }, 1, 3).Stat);
             Assert.AreEqual(3, words.Builds);
         }
 
@@ -239,142 +255,103 @@ namespace HockeyGame.Core.Tests
             var words = new LowerThirdWords();
             var results = new List<ShotResultKind> { G, S, G };
             var speeds = new List<double?> { 90, 80, null };
-            words.Get(results, speeds);
+            words.Get(results, speeds, 3, 3);
             long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int i = 0; i < 1000; i++) words.Get(results, speeds);
+            for (int i = 0; i < 1000; i++) words.Get(results, speeds, 3, 3);
             long garbage = GC.GetAllocatedBytesForCurrentThread() - before;
             Assert.AreEqual(0, garbage, "bytes allocated in 1000 frames");
         }
 
         [Test]
-        public void The_bar_draws_from_the_cache_while_the_Round_runs()
+        public void The_bar_reads_the_Round_through_the_cache()
         {
             var round = InWindow();
             round.SubmitShotAndWhistle(50, 50, 100, false);
-            round.Tick(0.8);
             var words = new LowerThirdWords();
-            LowerThirdShow a = LowerThird.Of(round, words);
-            LowerThirdShow b = LowerThird.Of(round, words);
+            LowerThirdText a = words.Get(round), b = words.Get(round);
             Assert.AreEqual(1, words.Builds);
-            Assert.AreSame(a.Text.Headline, b.Text.Headline);
-            Assert.AreEqual("1 Goal from 1 Shot", a.Text.Headline);
-            Assert.AreEqual("100 km/h  |  average 100 km/h", a.Text.SpeedLine);
+            Assert.AreSame(a.Stat, b.Stat);
+            Assert.AreEqual("GOALS 1  ·  SHOTS 1", a.Tally);
+            Assert.AreEqual("Last Shot 100 km/h", a.Stat);
+            Assert.AreEqual("SHOT 1 OF " + round.ShotCount, a.ShotOf);
         }
 
-        // ---- when it is on screen ----
+        // ---- when it is on screen: always, while a Round plays ----
 
-        [Test]
-        public void It_slides_in_after_the_Whistle_holds_then_slides_out_before_the_Replay_looks_up()
+        static ScreenFlow NewFlow(bool replayOn = true) =>
+            new ScreenFlow(ScriptedRandom.Halves(), new SaveData(), FakeReach.NeverReaches(), new RoundSettings { ReplayOn = replayOn });
+
+        // Plays a whole Round from the Start screen in 0.05 s steps: each Shot is a Goal, whistled 0.3 s after it leaves.
+        // Asserts it shows at every step of the Playing screen; returns what the steps went through.
+        static HashSet<string> PlayWholeRound(ScreenFlow flow)
         {
-            Assert.AreEqual(0, LowerThird.SlideAmount(0), 1e-9);
-            Assert.AreEqual(0, LowerThird.SlideAmount(LowerThird.InDelaySeconds), 1e-9);
-            Assert.AreEqual(1, LowerThird.SlideAmount(LowerThird.InDelaySeconds + LowerThird.SlideSeconds), 1e-9);
-            Assert.AreEqual(1, LowerThird.SlideAmount(1.0), 1e-9);
-            Assert.AreEqual(0, LowerThird.SlideAmount(ReplayTiming.OnNetSeconds), 1e-9, "out when the camera looks up: the Arena Show's time");
-            Assert.AreEqual(0, LowerThird.SlideAmount(ReplayTiming.OnNetSeconds + ReplayTiming.LookUpSeconds), 1e-9);
-            Assert.AreEqual(0, LowerThird.SlideAmount(ReplayTiming.OnNetSeconds + ReplayTiming.LookUpSeconds + 1.0), 1e-9, "the Replay itself");
-            Assert.AreEqual(0, LowerThird.SlideAmount(-1), 1e-9);
+            var seen = new HashSet<string>();
+            Assert.IsFalse(LowerThird.Shown(flow), "the Start screen");
+            flow.Press();
+            double flying = 0;
+            for (int step = 0; step < 4000 && flow.Screen == FlowScreen.Playing; step++)
+            {
+                Round round = flow.Round;
+                Assert.IsTrue(LowerThird.Shown(flow), "Playing, " + round.Phase + " at step " + step);
+                seen.Add(round.Phase.ToString());
+                if (round.Phase == RoundPhase.ShootingWindow) flow.SubmitShot(50, 90, 100, false);
+                if (round.AwaitingWhistle)
+                {
+                    seen.Add("flight");
+                    flying += 0.05;
+                    if (flying >= 0.3) { round.WhistleNow(); flying = 0; }
+                }
+                if (ArenaShow.From(flow).Camera == CameraMode.LookUp) seen.Add("Replay");
+                flow.Tick(0.05);
+            }
+            Assert.AreEqual(FlowScreen.End, flow.Screen);
+            Assert.IsFalse(LowerThird.Shown(flow), "the End screen");
+            return seen;
         }
 
         [Test]
-        public void It_is_off_the_screen_before_the_camera_looks_up_at_the_Video_Board()
+        public void It_shows_through_the_whole_Round_aim_flight_result_and_Replay_and_not_on_the_Start_or_End_screen()
         {
-            for (double t = ReplayTiming.OnNetSeconds; t < ReplayTiming.HoldSeconds; t += 0.05)
-                Assert.AreEqual(0, LowerThird.SlideAmount(t), 1e-9, "at " + t);
+            HashSet<string> seen = PlayWholeRound(NewFlow());
+            foreach (string part in new[] { "SkateIn", "ShootingWindow", "flight", "ResultHold", "Replay" })
+                Assert.IsTrue(seen.Contains(part), "the Round went through " + part);
         }
 
         [Test]
-        public void It_is_off_while_the_player_aims_and_while_the_puck_flies()
+        public void It_shows_through_the_whole_Round_with_the_Replay_off()
         {
-            var round = new Round(ScriptedRandom.Halves(), new RoundSettings(), FakeReach.NeverReaches(), 0);
-            round.StartRound();
-            Assert.AreEqual(0, LowerThird.Of(round).Amount, "skating in");
+            HashSet<string> seen = PlayWholeRound(NewFlow(replayOn: false));
+            Assert.IsFalse(seen.Contains("Replay"));
+            Assert.IsTrue(seen.Contains("ResultHold"));
+        }
+
+        [Test]
+        public void It_is_hidden_in_Test_Mode_where_the_Score_Box_already_counts_Goals_and_Shots()
+        {
+            var flow = new ScreenFlow(ScriptedRandom.Halves(), new SaveData(), FakeReach.NeverReaches(), null);
+            flow.OpenSettings();
+            flow.StartTestMode();
+            Assert.AreEqual(FlowScreen.Playing, flow.Screen);
+            Assert.IsFalse(LowerThird.Shown(flow));
+        }
+
+        [Test]
+        public void The_stat_changes_in_place_at_the_Whistle_of_each_Shot()
+        {
+            var round = InWindow();
+            Assert.AreEqual("First Shot", LowerThird.Of(round).Stat, "aiming the first Shot");
+            round.SubmitShot(50, 50, 100, false);
+            round.Tick(0.3);
+            Assert.AreEqual("First Shot", LowerThird.Of(round).Stat, "the puck flies: no result yet");
+            round.WhistleNow();
+            LowerThirdText after = LowerThird.Of(round);
+            Assert.AreEqual("Last Shot 100 km/h", after.Stat, "the Whistle");
+            Assert.AreEqual("GOALS 1  ·  SHOTS 1", after.Tally);
+            round.Tick(round.ResultHoldLength);
             round.Tick(3.7);
             Assert.AreEqual(RoundPhase.ShootingWindow, round.Phase);
-            Assert.AreEqual(0, LowerThird.Of(round).Amount, "aiming");
-            round.SubmitShot(50, 50, 100, false);
-            round.Tick(1.0);
-            Assert.IsTrue(round.AwaitingWhistle);
-            Assert.AreEqual(0, LowerThird.Of(round).Amount, "the puck flies");
-        }
-
-        [Test]
-        public void After_the_Whistle_of_a_Goal_it_shows_the_Round_numbers()
-        {
-            var round = InWindow();
-            round.SubmitShotAndWhistle(50, 50, 100, false);
-            round.Tick(0.8);
-            LowerThirdShow show = LowerThird.Of(round);
-            Assert.AreEqual(1, show.Amount, 1e-9);
-            Assert.AreEqual("1 Goal from 1 Shot", show.Text.Headline);
-        }
-
-        [Test]
-        public void It_counts_from_the_Whistle_not_from_the_Shot()
-        {
-            var round = InWindow();
-            round.SubmitShot(50, 50, 100, false);
-            round.Tick(2.0); // a long flight
-            round.WhistleNow();
-            Assert.AreEqual(0, LowerThird.Of(round).Amount, 1e-9, "just whistled");
-            round.Tick(0.8);
-            Assert.AreEqual(1, LowerThird.Of(round).Amount, 1e-9);
-        }
-
-        [Test]
-        public void It_is_gone_by_the_end_of_the_hold_and_in_the_next_Shot()
-        {
-            var round = InWindow();
-            round.SubmitShotAndWhistle(50, 50, 100, false);
-            round.Tick(2.0);
-            Assert.AreEqual(0, LowerThird.Of(round).Amount, 1e-9);
-            round.Tick(round.ResultHoldLength);
-            Assert.AreEqual(RoundPhase.SkateIn, round.Phase);
-            Assert.AreEqual(0, LowerThird.Of(round).Amount, 1e-9);
-        }
-
-        [Test]
-        public void It_still_shows_when_no_Replay_plays()
-        {
-            // The Replay on/off setting is not built (#145). A Wide Miss has no Replay today: the same case the setting will make.
-            var round = InWindow();
-            round.SubmitShotAndWhistle(-20, 50, 100, false);
-            Assert.IsFalse(ReplayTiming.Follows(round.LastResult), "a Wide Miss has no Replay");
-            Assert.AreEqual(ShotResultKind.Miss, round.LastResult.Value.Kind);
-            Assert.AreEqual(2.5, round.ResultHoldLength, 1e-9, "the hold without a Replay");
-            round.Tick(0.8);
-            LowerThirdShow show = LowerThird.Of(round);
-            Assert.AreEqual(1, show.Amount, 1e-9);
-            Assert.AreEqual("0 Goals from 1 Shot", show.Text.Headline);
-        }
-
-        [Test]
-        public void It_shows_the_same_with_and_without_a_Replay()
-        {
-            double[] ts = { 0.1, 0.3, 0.45, 0.8, 1.2, 1.4, 1.6, 2.2 };
-            foreach (double t in ts)
-            {
-                var goal = InWindow();
-                goal.SubmitShotAndWhistle(50, 50, 100, false);
-                goal.Tick(t);
-                var wide = InWindow();
-                wide.SubmitShotAndWhistle(-20, 50, 100, false);
-                wide.Tick(t);
-                Assert.AreEqual(LowerThird.Of(goal).Amount, LowerThird.Of(wide).Amount, 1e-9, "at " + t);
-            }
-        }
-
-        [Test]
-        public void It_shows_after_a_Too_Late_Shot()
-        {
-            var round = InWindow();
-            round.Tick(3.0); // the window runs out
-            Assert.AreEqual(RoundPhase.ResultHold, round.Phase);
-            round.Tick(0.8);
-            LowerThirdShow show = LowerThird.Of(round);
-            Assert.AreEqual(1, show.Amount, 1e-9);
-            Assert.AreEqual("0 Goals from 1 Shot", show.Text.Headline);
-            Assert.AreEqual("", show.Text.SpeedLine, "no Shot had a speed");
+            Assert.AreEqual("SHOT 2 OF " + round.ShotCount, LowerThird.Of(round).ShotOf, "the next Shot");
+            Assert.AreEqual("Last Shot 100 km/h", LowerThird.Of(round).Stat, "the stat stays until the next Whistle");
         }
     }
 }
