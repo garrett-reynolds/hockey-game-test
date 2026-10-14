@@ -38,6 +38,7 @@ class Harness:
             SLOT_POLL_S="0.05",
             SLOT_WAIT_S="2",
             SLOT_STATUS_TIMEOUT_S="5",
+            PYTHONIOENCODING="utf-8",
         )
 
     def set(self, slot, command, *replies):

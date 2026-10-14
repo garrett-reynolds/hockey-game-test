@@ -43,12 +43,32 @@ def slot_root():
     return os.environ.get("SLOT_ROOT", ROOT_DEFAULT)
 
 
+def env_float(name, default):
+    """A number of seconds from an env var (tests shorten them), else the default."""
+    return float(os.environ.get(name, str(default)))
+
+
 def poll_s():
-    return float(os.environ.get("SLOT_POLL_S", "3"))
+    return env_float("SLOT_POLL_S", 3)
 
 
 def wait_s():
-    return float(os.environ.get("SLOT_WAIT_S", "600"))
+    return env_float("SLOT_WAIT_S", 600)
+
+
+def status_grace_s():
+    """Extra seconds a short Editor command may take beyond its own --timeout before we stop waiting."""
+    return env_float("SLOT_STATUS_GRACE_S", 15)
+
+
+def poll_until(check, timeout_s, interval_s=None):
+    """Call check() until it returns (True, value) or timeout_s has passed. Returns the last (done, value)."""
+    deadline = time.time() + timeout_s
+    while True:
+        done, value = check()
+        if done or time.time() >= deadline:
+            return done, value
+        time.sleep(poll_s() if interval_s is None else interval_s)
 
 
 def status_timeout_s():
@@ -84,38 +104,68 @@ def unity_command(slot, *args, timeout=None):
     return unity_argv(*argv)
 
 
-def query(slot, command):
-    """Run a short read-only Editor command. Returns the parsed JSON dict, or None if the Editor does not answer."""
-    t = status_timeout_s()
+def parse_json(text):
+    """Parse a CLI reply; a UTF-8 byte order mark in front is ignored. None when it is not a JSON object."""
     try:
-        p = subprocess.run(unity_command(slot, command, timeout=t), capture_output=True, text=True,
-                           timeout=t + 15, encoding="utf-8", errors="replace")
-    except (subprocess.TimeoutExpired, OSError):
-        return None
-    if p.returncode != 0:
-        return None
-    try:
-        data = json.loads(p.stdout)
+        data = json.loads(text.lstrip("﻿"))
     except ValueError:
         return None
     return data if isinstance(data, dict) else None
 
 
+def query_why(slot, command):
+    """Run a short read-only Editor command. Returns (dict, None), or (None, short reason it did not answer)."""
+    t = status_timeout_s()
+    try:
+        p = subprocess.run(unity_command(slot, command, timeout=t), capture_output=True, text=True,
+                           timeout=t + status_grace_s(), encoding="utf-8", errors="replace")
+    except subprocess.TimeoutExpired:
+        return None, "timed out"
+    except OSError as e:
+        return None, f"cannot run the Unity CLI: {e.__class__.__name__}"
+    if p.returncode != 0:
+        text = (p.stderr or p.stdout or "").strip()
+        first = text.splitlines()[0].strip() if text else f"CLI exit {p.returncode}"
+        return None, first[:70]
+    data = parse_json(p.stdout)
+    return (data, None) if data is not None else (None, "unreadable reply")
+
+
+def query(slot, command):
+    """Like query_why, but only the dict (None if the Editor does not answer)."""
+    return query_why(slot, command)[0]
+
+
 # ---- Editor state ---------------------------------------------------------------------------
 
-def editor_state(slot):
-    """One of: 'no_answer', 'compiling', 'play', 'test_run', 'ready' (plus the raw detail)."""
-    ed = query(slot, "editor_status")
+# One text per Editor state, shared by status, open and play-check.
+STATE_TEXT = {
+    "no_answer": "not answering",
+    "compiling": "busy (compiling or reloading)",
+    "play": "in Play",
+    "test_run": "busy (test run live in the Editor)",
+    "ready": "free",
+}
+
+
+def editor_probe(slot):
+    """(state, why): why is the short reason when the state is 'no_answer', else None."""
+    ed, why = query_why(slot, "editor_status")
     if ed is None:
-        return "no_answer"
+        return "no_answer", why
     if ed.get("playMode", "stopped") != "stopped":
-        return "play"
+        return "play", None
     if ed.get("compiling") or ed.get("domainReloadInProgress") or ed.get("status") not in ("ready", None):
-        return "compiling"
+        return "compiling", None
     ts = query(slot, "test_status")
     if ts is not None and ts.get("status") == "running":
-        return "test_run"
-    return "ready"
+        return "test_run", None
+    return "ready", None
+
+
+def editor_state(slot):
+    """One of: 'no_answer', 'compiling', 'play', 'test_run', 'ready'."""
+    return editor_probe(slot)[0]
 
 
 # ---- Lock -----------------------------------------------------------------------------------

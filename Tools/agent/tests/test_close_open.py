@@ -181,3 +181,67 @@ def test_open_refuses_when_status_cannot_be_read(h):
     rc, out = h.run("open", "w2")
     assert rc == 2
     assert actions(h, "open") == []
+
+
+# ---- review fixes: close --force kills a jammed Editor; open points to it -----------------------
+
+KILLER = r'''import json, os, sys
+d = os.environ["FAKE_DIR"]
+open(os.path.join(d, "killed.log"), "a").write(sys.argv[1] + "\n")
+sc = json.load(open(os.path.join(d, "scenario.json"), encoding="utf-8"))
+sc["_status"] = {"status": [{"out": "", "rc": 6}]}
+json.dump(sc, open(os.path.join(d, "scenario.json"), "w", encoding="utf-8"))
+'''
+
+
+@pytest.fixture
+def killer(h, tmp_path):
+    k = tmp_path / "fake_killer.py"
+    k.write_text(KILLER, encoding="utf-8")
+    h.env["SLOT_KILLER"] = str(k)
+    return h.dir / "killed.log"
+
+
+def test_close_force_kills_the_editor_when_close_does_not_take(h, killer):
+    status_says(h, ("w2",))  # stays listed until the killer runs
+    h.set("w2", "close", {"out": "false none", "rc": 0})
+    rc, out = h.run("close", "w2", "--force")
+    assert rc == 0, out
+    assert killer.read_text().split() == ["4242"]  # the PID `unity status` showed
+    assert "killed" in out and "closed (confirmed by `unity status`)" in out
+
+
+def test_close_force_does_not_kill_when_close_took(h, killer):
+    status_says(h, ("w2",), ())
+    rc, out = h.run("close", "w2", "--force")
+    assert rc == 0, out
+    assert not killer.exists()
+
+
+def test_close_without_force_never_kills(h, killer):
+    status_says(h, ("w2",))
+    h.ready("w2")
+    h.set("w2", "close", {"out": "false none", "rc": 0})
+    rc, out = h.run("close", "w2")
+    assert rc == 1
+    assert not killer.exists()
+    assert "--force" in out
+
+
+def test_close_force_says_when_the_kill_did_not_remove_the_editor(h, tmp_path):
+    k = tmp_path / "noop_killer.py"
+    k.write_text("pass\n", encoding="utf-8")
+    h.env["SLOT_KILLER"] = str(k)
+    status_says(h, ("w2",))
+    rc, out = h.run("close", "w2", "--force")
+    assert rc == 1
+    assert "still open" in out
+
+
+def test_open_of_a_listed_but_silent_editor_points_to_close_force(h):
+    status_says(h, ("w2",))
+    h.env["SLOT_OPEN_WAIT_S"] = "1"
+    rc, out = h.run("open", "w2")
+    assert rc == 1
+    assert "slot.py close w2 --force" in out
+    assert actions(h, "open") == []

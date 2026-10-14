@@ -8,8 +8,8 @@ def _norm(path):
     return path.replace("\\", "/").rstrip("/").lower()
 
 
-def open_editors():
-    """{normalised project path: pid} for every open Editor, or None if `unity status` could not be read.
+def open_rows():
+    """{normalised project path: {"pid", "port"}} for every open Editor, or None if `unity status` could not be read.
 
     The real CLI exits non-zero when no Editor matches but still prints the table header, so the header
     (not the exit code) tells us the answer can be trusted.
@@ -27,8 +27,14 @@ def open_editors():
         parts = ln.split()
         # Port State Project... Version PID (the project path may hold spaces)
         if len(parts) >= 5 and parts[0].isdigit() and parts[-1].isdigit():
-            found[_norm(" ".join(parts[2:-2]))] = int(parts[-1])
+            found[_norm(" ".join(parts[2:-2]))] = {"pid": int(parts[-1]), "port": int(parts[0])}
     return found
+
+
+def open_editors():
+    """{normalised project path: pid}, or None if `unity status` could not be read."""
+    rows = open_rows()
+    return None if rows is None else {path: row["pid"] for path, row in rows.items()}
 
 
 def editor_pid(slot):
@@ -37,3 +43,7 @@ def editor_pid(slot):
     if found is None:
         return False, None
     return True, found.get(_norm(c.slot_path(slot)))
+
+
+def slot_key(slot):
+    return _norm(c.slot_path(slot))
