@@ -81,7 +81,7 @@ namespace HockeyGame.Core.Tests
             if (over != "") Assert.Fail($"worst swing {worstSwing:F1} deg, worst roll {worstRoll:F1} deg (limit 5); over the limit:{over}");
         }
 
-        static readonly Vector3 Eye =new Vector3(0f, 1.5f, -9f);
+        static readonly Vector3 Eye = new Vector3(0f, 1.5f, -9f);
 
         [Test]
         public void A_goal_bend_forward_keeps_the_blocker_arm_hanging_with_the_blade_lifted_back()

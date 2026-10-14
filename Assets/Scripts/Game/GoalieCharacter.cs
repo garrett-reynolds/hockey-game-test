@@ -1226,7 +1226,7 @@ namespace HockeyGame
             if (!Present || metres <= 0f) return;
             Prepare();
             GoalieStanceLife.SitLower(this, _model, metres);
-            KeepBladeUp(true); // a small lift: keep the elbow bend. The bigger GOAL! and push lifts keep the fixed pole (only SitLower is measured)
+            KeepBladeUp(true); // keep the elbow bend (as ShowPush does). Only the bigger GOAL! lift keeps the fixed pole
         }
 
         /// <summary>Turns the head toward the puck at `point`, `weight` of the way (at most WatchDegrees), the shoulders taking shoulderShare of the turn.</summary>
