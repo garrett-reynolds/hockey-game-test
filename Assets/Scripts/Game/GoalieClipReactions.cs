@@ -50,6 +50,8 @@ namespace HockeyGame
         public const float MaxSpeed = 2.5f;
         /// <summary>A hold with less than this left (seconds) gets no clip.</summary>
         public const float MinWindowSeconds = 0.35f;
+        /// <summary>A Goal or Save clip starts only with room to blend in, play at least MinWindowSeconds and blend out; else the code reaction plays (never a frozen goalie).</summary>
+        public static bool WindowFits(double windowSeconds, float blendSeconds) => windowSeconds >= 2 * blendSeconds + MinWindowSeconds;
         /// <summary>Seconds after the Whistle a Goal or Save clip starts (with or without a Replay).</summary>
         public const double AfterWhistleSeconds = 0.3;
         /// <summary>Idle clip: first plays this long into Idle / RoundOver, then every IdleRepeatSeconds after it ends.</summary>
@@ -87,6 +89,7 @@ namespace HockeyGame
         AnimatorCullingMode _savedCulling;
         RoundPhase _lastPhase = RoundPhase.Idle;
         bool _playedThisHold;
+        bool _startedThisHold;       // the one try this hold started a clip
         int _goalCycle;
         double _nextIdleAt = IdleFirstSeconds;
         double _phaseClock;          // real seconds in this phase, counted here (Round.PhaseSecondsElapsed stands still in Idle and RoundOver)
@@ -119,15 +122,19 @@ namespace HockeyGame
         public bool Use { get; set; }
         /// <summary>Tests: take the clips as found (true) or missing (false) without Assets/AIClips; null asks the AssetDatabase.</summary>
         public bool? ClipsFoundOverride;
+        /// <summary>This hold's Goal or Save clip has started or will start (set by every Post; tests may set it): the hold has
+        /// room for it (WindowFits). Test Mode's short hold has none, so its code reaction plays.</summary>
+        public bool ClipThisHold { get; set; }
 
         /// <summary>
         /// True when a clip plays for this result in place of the code-made after-Shot reaction (GoalieView then shows none of
-        /// its look back, gestures, head shake, head turn or follow-through): the clips are on, it is a Goal (an Annoyed
-        /// Gesture) or a Save (None), and the clips are there. A Miss (Relief) has no clip and keeps its code reaction.
+        /// its look back, gestures, head shake, head turn or follow-through): the clips are on, this hold's clip really starts
+        /// (ClipThisHold), it is a Goal (an Annoyed Gesture) or a Save (None), and the clips are there. A Miss (Relief) has no
+        /// clip and keeps its code reaction.
         /// </summary>
         public bool ReplacesReaction(AfterShotGesture gesture)
         {
-            if (!Use || !(AfterShot.IsGoal(gesture) || gesture == AfterShotGesture.None)) return false;
+            if (!Use || !ClipThisHold || !(AfterShot.IsGoal(gesture) || gesture == AfterShotGesture.None)) return false;
             if (ClipsFoundOverride.HasValue) return ClipsFoundOverride.Value;
             if (!EnsureOverride()) return false;
             string[] names = gesture == AfterShotGesture.None ? new[] { GloveClip, CheerClip } : GoalClips;
@@ -183,7 +190,25 @@ namespace HockeyGame
         /// <summary>After the code posed the goalie this frame (BreakawayView.Step): starts, plays and ends the clip window.</summary>
         public void Post(Round round, bool use, float realDt)
         {
-            Use = use;
+            RoundPhase phase = round.Phase;
+            // K takes effect outside a result hold only: a hold keeps the choice it started with (no snap mid-reaction).
+            if (phase != RoundPhase.ResultHold || _lastPhase != RoundPhase.ResultHold) Use = use;
+            PostClip(round, realDt);
+            ClipThisHold = _hasBones && phase == RoundPhase.ResultHold
+                && (_playedThisHold ? _startedThisHold : WillStartThisHold(round));
+        }
+
+        /// <summary>Before the one try of this hold: whether it will start a clip (the clips are on, a Goal or Save, the window fits).</summary>
+        bool WillStartThisHold(Round round)
+        {
+            if (!Use || !round.LastResult.HasValue || !round.LastResult.Value.HasShot || round.LastResult.Value.Kind == ShotResultKind.Miss) return false;
+            double landed = round.PhaseSecondsElapsed - round.ResultDelaySeconds;
+            return WindowFits(round.ResultHoldSecondsLeft - Math.Max(0.0, AfterWhistleSeconds - landed), BlendSeconds);
+        }
+
+        void PostClip(Round round, float realDt)
+        {
+            bool use = Use;
             if (!_hasBones) return;
             RoundPhase phase = round.Phase;
             realDt = Mathf.Min(realDt, 0.1f); // the first frame of a Play reports the whole start-up as its delta; a stall must not skip the clip
@@ -193,7 +218,7 @@ namespace HockeyGame
                 _lastPhase = phase;
                 _phaseClock = 0.0;
                 _nextIdleAt = IdleFirstSeconds;
-                if (phase != RoundPhase.ResultHold) _playedThisHold = false;
+                if (phase != RoundPhase.ResultHold) _playedThisHold = _startedThisHold = false;
                 if (_mode == Mode.In || _mode == Mode.Play) BeginOut();
             }
             if (!_animator.gameObject.activeInHierarchy)
@@ -242,7 +267,8 @@ namespace HockeyGame
                 window = (float)round.ResultHoldSecondsLeft;
                 holds = true;
                 _playedThisHold = true; // one try per hold, played or not
-                if (window < MinWindowSeconds) return;
+                if (!WindowFits(window, BlendSeconds)) return; // too short to show a clip: the code reaction plays
+                _startedThisHold = true; // (a missing clip is caught by ReplacesReaction's own check)
             }
             else if (phase == RoundPhase.Idle || phase == RoundPhase.RoundOver)
             {

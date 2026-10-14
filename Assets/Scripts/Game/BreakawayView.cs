@@ -64,7 +64,8 @@ namespace HockeyGame
             // PROTOTYPE: AI clips on the goalie. K flips them for comparing; Step is left as it was (tests call it directly).
             var keyboard = UnityEngine.InputSystem.Keyboard.current;
             if (keyboard != null && keyboard.kKey.wasPressedThisFrame) ToggleAiClips();
-            _round.Settings.ClipHoldSeconds = UseAiClips ? ClipHoldSecondsOn : 0.0; // the longer Goal / Save hold (no Replay) goes with the clips
+            if (_round.Phase != RoundPhase.ResultHold) // K mid-hold acts from the next Shot (GoalieClipReactions.Post keeps the hold's choice too)
+                _round.Settings.ClipHoldSeconds = UseAiClips ? ClipHoldSecondsOn : 0.0; // the longer Goal / Save hold (no Replay) goes with the clips
             GoalieClipReactions clips = _goalie?.Clips;
             if (keyboard != null && keyboard.bKey.wasPressedThisFrame && clips != null) CycleClipBlend(clips);
             clips?.Pre();

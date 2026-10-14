@@ -134,6 +134,8 @@ namespace HockeyGame.Core.Tests
             GoalieView coded = Make(out GoalieCharacter codedCharacter);
             clipped.Clips.Use = true;
             clipped.Clips.ClipsFoundOverride = true; // as if Assets/AIClips were there (it is never committed)
+            clipped.Clips.ClipThisHold = true;       // as if the hold had room for the clip (Post decides it in Play)
+            coded.Clips.ClipThisHold = true;
             coded.Clips.Use = false;                 // K: the clips are off
             Assert.IsTrue(clipped.Clips.ReplacesReaction(AfterShotGesture.Slump));
             Assert.IsTrue(clipped.Clips.ReplacesReaction(AfterShotGesture.None), "a Save");

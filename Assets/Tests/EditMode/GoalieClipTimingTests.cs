@@ -22,10 +22,10 @@ namespace HockeyGame.Core.Tests
         [TearDown]
         public void TearDown() { if (_parent != null) Object.DestroyImmediate(_parent); }
 
-        static Round NewRound(GoalieCharacter character, RoundSettings settings, GoalieClipReactions clips)
+        static Round NewRound(GoalieCharacter character, RoundSettings settings, GoalieClipReactions clips, bool testMode = false)
         {
             var round = new Round(new SeededRandom(11), settings, new GoalieCharacterReach(character, settings), 0);
-            round.StartRound();
+            if (testMode) round.StartTestMode(0); else round.StartRound(); // (StartRound turns Test Mode off)
             for (int i = 0; i < 4000 && round.Phase != RoundPhase.ShootingWindow; i++)
             {
                 round.Tick(0.05);
@@ -78,6 +78,77 @@ namespace HockeyGame.Core.Tests
             round.Whistle(ShotResultKind.Goal);
             double at = SecondsToClipTry(clips, round);
             Assert.That(at, Is.LessThanOrEqualTo(0.5));
+        }
+
+        // ---- the code reaction is held back only when a clip really plays (never a frozen goalie) ----
+
+        /// <summary>Plays the hold after a Goal; the worst (all frames true / any frame true) of ReplacesReaction(Slump) over it.</summary>
+        static void HoldAfterGoal(GoalieClipReactions clips, Round round, out bool always, out bool ever, System.Func<int, bool> useAt = null)
+        {
+            round.SubmitShot(50, 50, 90, false);
+            round.Whistle(ShotResultKind.Goal);
+            always = true; ever = false;
+            for (int i = 0; i < 400 && round.Phase == RoundPhase.ResultHold; i++)
+            {
+                round.Tick(Frame);
+                clips.Pre();
+                clips.Post(round, useAt == null || useAt(i), Frame);
+                if (round.Phase != RoundPhase.ResultHold) break;
+                if (round.PhaseSecondsElapsed - round.ResultDelaySeconds < 0) continue; // before the Whistle the code poses as always
+                bool replaces = clips.ReplacesReaction(AfterShotGesture.Slump);
+                always &= replaces; ever |= replaces;
+            }
+        }
+
+        [Test]
+        public void In_Test_Mode_s_short_hold_no_clip_fits_so_the_code_reaction_stays()
+        {
+            var character = new GoalieCharacter(_parent.transform);
+            Assume.That(character.Present, "needs the goalie model");
+            character.Show(true);
+            var settings = new RoundSettings { ReplayOn = false };
+            var clips = new GoalieClipReactions(character.Animator) { ClipsFoundOverride = true };
+            Round round = NewRound(character, settings, clips, testMode: true);
+            Assert.IsTrue(round.TestMode);
+            HoldAfterGoal(clips, round, out _, out bool ever);
+            Assert.IsFalse(ever, "a 1 s hold has no room for a clip: the code reaction plays, the goalie never freezes");
+        }
+
+        [Test]
+        public void In_a_normal_hold_the_clip_replaces_the_code_reaction_from_the_Whistle_to_the_end()
+        {
+            var character = new GoalieCharacter(_parent.transform);
+            Assume.That(character.Present, "needs the goalie model");
+            character.Show(true);
+            var settings = new RoundSettings { ReplayOn = false, ClipHoldSeconds = 1.5 };
+            var clips = new GoalieClipReactions(character.Animator) { ClipsFoundOverride = true };
+            Round round = NewRound(character, settings, clips);
+            HoldAfterGoal(clips, round, out bool always, out _);
+            Assert.IsTrue(always);
+        }
+
+        [Test]
+        public void K_pressed_mid_hold_changes_nothing_until_the_next_Shot()
+        {
+            var character = new GoalieCharacter(_parent.transform);
+            Assume.That(character.Present, "needs the goalie model");
+            character.Show(true);
+            var settings = new RoundSettings { ReplayOn = false, ClipHoldSeconds = 1.5 };
+            var clips = new GoalieClipReactions(character.Animator) { ClipsFoundOverride = true };
+            Round round = NewRound(character, settings, clips);
+            HoldAfterGoal(clips, round, out bool always, out _, i => i < 30); // K turns the clips off 1 s in
+            Assert.IsTrue(always, "the hold keeps the choice it started with: no snap back into the code reaction");
+            clips.Post(round, false, Frame); // the next phase
+            Assert.IsFalse(clips.Use, "K takes effect once the hold is over");
+        }
+
+        [Test]
+        public void B_and_K_are_not_any_key_on_the_start_and_end_screens()
+        {
+            Assert.IsTrue(RoundDriver.IsPrototypeKey(UnityEngine.InputSystem.Key.B));
+            Assert.IsTrue(RoundDriver.IsPrototypeKey(UnityEngine.InputSystem.Key.K));
+            Assert.IsFalse(RoundDriver.IsPrototypeKey(UnityEngine.InputSystem.Key.Space));
+            Assert.IsFalse(RoundDriver.IsPrototypeKey(UnityEngine.InputSystem.Key.Enter));
         }
 
         // ---- the blend in and out: three choices, 0.8 s by default, a key cycles them ----
