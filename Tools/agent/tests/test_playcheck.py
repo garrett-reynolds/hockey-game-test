@@ -186,3 +186,10 @@ def test_shot_action_presses_waits_for_the_window_and_shoots(h):
     assert out.splitlines()[0].endswith("shot  PASS")
     code = " ".join(" ".join(a) for a in h.calls() if "eval" in a)
     assert "Press" in code and "SubmitShot" in code
+
+
+def test_too_few_frames_is_not_trusted(h):
+    setup(h, samples((0, 0.0, 1.0, 0.0, 0.0)))
+    rc, out = check(h)
+    assert rc == 1
+    assert "only 1 frames sampled" in out

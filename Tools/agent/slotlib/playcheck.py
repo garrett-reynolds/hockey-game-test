@@ -10,6 +10,7 @@ import json
 import math
 import os
 import re
+import shutil
 import subprocess
 import time
 
@@ -17,8 +18,9 @@ from . import common as c
 
 # Limits. Fixed on purpose: a check that can be loosened per run stops meaning anything.
 FACING_LIMIT_DEG = 45.0
-SKATE_LIMIT_M = -0.01
+SKATE_LIMIT_M = -0.03  # the plain idle pose already sits 1.6 cm in the ice (measured on w2)
 JUMP_LIMIT_M = 0.3
+MIN_SAMPLES = 20
 CALL_TIMEOUT_S = 60
 PLAY_WAIT_S = 60
 SHOT_WAIT_S = 30
@@ -29,6 +31,7 @@ BF = "System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.Non
 
 PREPARE = """
 int crowd=@CROWD@;
+UnityEngine.Application.runInBackground=true;
 var root=UnityEngine.GameObject.Find("Goalie Character");
 if(root==null) return "error: no Goalie Character in the scene (is the game running?)";
 var an=root.GetComponentInChildren<UnityEngine.Animator>();
@@ -46,8 +49,8 @@ foreach(var cr in UnityEngine.Object.FindObjectsByType<HockeyGame.Crowd>(UnityEn
 UnityEditor.EditorUtility.audioMasterMute=(crowd==0);
 var sb=new System.Text.StringBuilder();
 int last=-1;
-System.Action cb=()=>{
- if(!UnityEditor.EditorApplication.isPlaying) return;
+UnityEditor.EditorApplication.CallbackFunction cb=()=>{
+ if(!UnityEditor.EditorApplication.isPlaying) return; UnityEditor.EditorApplication.QueuePlayerLoopUpdate();
  int f=UnityEngine.Time.frameCount; if(f==last) return; last=f;
  var d=r.position-l.position; float yaw=UnityEngine.Mathf.Atan2(d.x,d.z)*UnityEngine.Mathf.Rad2Deg;
  float low=1e9f; foreach(var s in skates) if(s!=null&&s.enabled) low=UnityEngine.Mathf.Min(low,s.bounds.min.y);
@@ -67,7 +70,7 @@ return sb==null?"":sb.ToString();
 """
 
 CLEANUP = """
-var cb=System.AppDomain.CurrentDomain.GetData("pc.cb") as System.Action;
+var cb=System.AppDomain.CurrentDomain.GetData("pc.cb") as UnityEditor.EditorApplication.CallbackFunction;
 if(cb!=null) UnityEditor.EditorApplication.update-=cb;
 System.AppDomain.CurrentDomain.SetData("pc.cb",null);
 System.AppDomain.CurrentDomain.SetData("pc.sb",null);
@@ -89,7 +92,7 @@ if(clips==null) return "error: this branch has no AI clips (GoalieView.Clips)";
 var ct=clips.GetType();
 var clip=ct.GetMethod("Load",bf).Invoke(clips,new object[]{"@NAME@"});
 if(clip==null) return "error: clip not found: @NAME@";
-ct.GetMethod("Begin",bf).Invoke(clips,new object[]{clip,"Idle",false,0f});
+try{ ct.GetMethod("EnsureOverride",bf).Invoke(clips,null); ct.GetMethod("Begin",bf).Invoke(clips,new object[]{clip,"Idle",false,0f}); }catch(System.Exception e){ var s=(e.InnerException==null?e:e.InnerException).ToString(); return "error: Begin threw "+s.Substring(0,System.Math.Min(300,s.Length)); }
 return "ok";
 """
 
@@ -186,12 +189,22 @@ def wait_playing(slot):
 
 
 def take_picture(slot, label):
-    folder = f"{c.slot_path(slot)}/Logs"
+    """The CLI only writes inside Assets (it maps any path to Assets/<path>). Save to a scratch folder
+    there, move the file to <project>/Logs, then delete the scratch folder and its .meta."""
+    proj = c.slot_path(slot)
+    folder = f"{proj}/Logs"
     path = f"{folder}/playcheck-{slot}-{time.strftime('%Y%m%d-%H%M%S')}.png"
+    scratch = f"{proj}/Assets/PlayCheckTmp"
+    tmp = f"{scratch}/pc.png"
     try:
         os.makedirs(folder, exist_ok=True)
-        data = call(slot, "capture_game_view", "--save_path", path)
-        if not os.path.exists(path):
+        data = call(slot, "capture_game_view", "--save_path", tmp)
+        saved = data.get("savedPath")
+        for src in ([f"{proj}/{saved}"] if saved else []) + [tmp]:
+            if os.path.exists(src):
+                shutil.move(src, path)
+                break
+        else:
             inner = data.get("data")
             b64 = data.get("base64") or (inner.get("base64") if isinstance(inner, dict) else None)
             if b64:
@@ -200,6 +213,19 @@ def take_picture(slot, label):
         return path if os.path.exists(path) else None
     except (c.SlotError, OSError):
         return None
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+        try:
+            os.remove(scratch + ".meta")
+        except OSError:
+            pass
+        for d in (f"{proj}/Assets/Logs",):  # in case the CLI mapped the path itself
+            if os.path.isdir(d) and not os.listdir(d):
+                shutil.rmtree(d, ignore_errors=True)
+                try:
+                    os.remove(d + ".meta")
+                except OSError:
+                    pass
 
 
 # ---- Measures ------------------------------------------------------------------------------------
@@ -313,6 +339,8 @@ def run(args):
         c.release_lock(slot)
     if not rows and detail["error"] is None:
         detail["error"] = "no samples came back (did the game run frames?)"
+    elif len(rows) < MIN_SAMPLES and detail["error"] is None:
+        detail["error"] = f"only {len(rows)} frames sampled (need {MIN_SAMPLES}); the Editor was not running the game; result not trusted"
     m = measure(rows, before, after)
     ok, lines = block(slot, args.scene, args.action, m, picture, results_path)
     if detail["error"]:
