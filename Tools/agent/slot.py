@@ -8,6 +8,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from slotlib import common, status, testrun  # noqa: E402
 
 COMMANDS = [status, testrun]  # later tickets add close/open (#178) and play-check (#180) here
+from slotlib import playcheck  # noqa: E402
+COMMANDS.append(playcheck)
 
 
 def main(argv=None):

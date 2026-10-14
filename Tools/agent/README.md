@@ -20,3 +20,14 @@ Environment overrides (used by the tests): `SLOT_UNITY_EXE` (a `.py` file is run
 Layout: `slot.py` (entry), `slotlib/common.py` (Unity CLI call, slot list, lock, Editor state), one module per sub-command (`status.py`, `testrun.py`), `slotlib/watch.py` (seam for the hang watch / CPU sampler, ticket #179).
 
 Tests: `python -m pytest Tools/agent/tests` from the repo root. They run the command line against `tests/fake_unity.py`.
+
+## play-check (#180)
+
+```
+python C:/Users/garrett.reynolds/Projects/Personal/hockey-wt/_notes/slot.py play-check w2 --scene Assets/Scenes/Rink.unity [--action clip:<name>|shot] [--seconds 8] [--crowd]
+```
+
+- Refuses a slot with a live run, a compiling or busy Editor, or one already in Play. Holds the slot lock (kind `play-check`). Always runs `editor_stop` at the end, also on failure.
+- Opens the scene, enters Play, hides the crowd and mutes sound (unless `--crowd`), runs the action, samples every frame (Editor-side sampler registered by one eval, removed by the last eval), saves one picture to `<project>/Logs/playcheck-<slot>-<time>.png`.
+- Prints a fixed block: facing (limit 45 deg), skate (lowest blade vs ice, limit >= -0.01 m), jump (largest per-frame hips move, limit 0.3 m), console (errors during Play, limit 0), picture path, detail file. Exit 0 = PASS, 1 = FAIL, 2 = refused. Detail (all samples) in `_notes/results/<slot>-playcheck-<time>.json`.
+- `clip:<name>` needs the AI clip branch (`GoalieView.Clips`); `shot` presses, waits for the Shooting Window and submits one Shot.
