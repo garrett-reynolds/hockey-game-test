@@ -5,9 +5,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from slotlib import common, status, testrun  # noqa: E402
+from slotlib import closeopen, common, status, testrun  # noqa: E402
 
-COMMANDS = [status, testrun]  # later tickets add close/open (#178) and play-check (#180) here
+COMMANDS = [status, testrun, closeopen]  # later tickets add play-check (#180) here
 
 
 def main(argv=None):

@@ -1,10 +1,12 @@
 """`slot.py test <slot> [--full] [--filter X]`: a safe EditMode run on one slot Editor."""
 import json
 import subprocess
+import sys
 import time
+from pathlib import Path
 
 from . import common as c
-from . import watch
+from . import editors, watch
 
 
 def add_parser(sub):
@@ -40,6 +42,9 @@ def run(args):
     if lock and lock["live"]:
         raise c.SlotError(f"{c.label(slot)}: a run is already running (pid {lock.get('pid')}, "
                           f"{lock.get('kind', '?')}). Refusing a second one.")
+    known, pid = editors.editor_pid(slot)
+    if known and pid is None:
+        raise c.SlotError(f"{c.label(slot)}: not open; run: slot.py open {slot}")
     try:
         wait_until_ready(slot)
     except c.SlotError as e:
