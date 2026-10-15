@@ -207,6 +207,8 @@ namespace HockeyGame.Core
         public bool TestMode;
         /// <summary>Shots whistled this Test Mode visit (Round.ShotsWhistled, with Goals); the Score Box counts them in Test Mode. Not read otherwise.</summary>
         public int ShotsSubmitted;
+        /// <summary>True while the always-on lower third shows (LowerThird.Shown): it carries the same numbers, so the Score Box hides.</summary>
+        public bool LowerThirdShown;
     }
 
     /// <summary>One answer of the Arena Show: what every arena part does now. The Unity parts only follow it.</summary>
@@ -333,7 +335,8 @@ namespace HockeyGame.Core
                 LastShotSpeedKmh = round.LastShotSpeedKmh,
                 NoReplay = !round.ReplayOn,
                 TestMode = round.TestMode,
-                ShotsSubmitted = round.ShotsWhistled
+                ShotsSubmitted = round.ShotsWhistled,
+                LowerThirdShown = LowerThird.Shown(flow)
             };
         }
 
@@ -370,7 +373,7 @@ namespace HockeyGame.Core
                 replayHold ? ReplayTiming.LookUpAt(landed) : 0,
                 camera == CameraMode.Replay ? ReplayTiming.ShowSecondsAt(landed) : 0,
                 calm,
-                new ScoreBox(input.Phase != RoundPhase.Idle, score));
+                new ScoreBox(input.Phase != RoundPhase.Idle && !input.LowerThirdShown, score));
         }
 
         /// <summary>The Score Box's words, e.g. "GOALS 2 · SHOT 4 OF 6".</summary>

@@ -336,6 +336,34 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void The_old_Score_Box_hides_while_the_bar_shows_and_keeps_its_old_behaviour_elsewhere()
+        {
+            var flow = NewFlow();
+            Assert.IsFalse(ArenaShow.From(flow).ScoreBox.Shown, "the Start screen");
+            flow.Press();
+            double flying = 0;
+            for (int step = 0; step < 4000 && flow.Screen == FlowScreen.Playing; step++)
+            {
+                Assert.IsTrue(LowerThird.Shown(flow));
+                Assert.IsFalse(ArenaShow.From(flow).ScoreBox.Shown, "the bar shows, so no Score Box: " + flow.Round.Phase + " at step " + step);
+                if (flow.Round.Phase == RoundPhase.ShootingWindow) flow.SubmitShot(50, 90, 100, false);
+                if (flow.Round.AwaitingWhistle)
+                {
+                    flying += 0.05;
+                    if (flying >= 0.3) { flow.Round.WhistleNow(); flying = 0; }
+                }
+                flow.Tick(0.05);
+            }
+            Assert.AreEqual(FlowScreen.End, flow.Screen);
+            Assert.IsTrue(ArenaShow.From(flow).ScoreBox.Shown, "the End screen has no bar, so the Score Box stays");
+
+            var test = new ScreenFlow(ScriptedRandom.Halves(), new SaveData(), FakeReach.NeverReaches(), null);
+            test.OpenSettings();
+            test.StartTestMode();
+            Assert.IsTrue(ArenaShow.From(test).ScoreBox.Shown, "Test Mode has no bar, so the Score Box stays");
+        }
+
+        [Test]
         public void The_stat_changes_in_place_at_the_Whistle_of_each_Shot()
         {
             var round = InWindow();
