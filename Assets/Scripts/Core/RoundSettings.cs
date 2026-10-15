@@ -11,7 +11,8 @@ namespace HockeyGame.Core
         /// <summary>
         /// Extra seconds on the result hold of a Goal or a Save with no Replay, for the goalie's AI clip (PROTOTYPE): the clip
         /// starts at the Whistle, and a Replay's own hold already fits it. 0 (the default) keeps today's timing; the game sets
-        /// it to 1.5 while its AI clips are on. Not in Test Mode, not with a Replay, not for a Miss, Too Late or Frame Hit.
+        /// it to 1.5 while its AI clips are on. Not with a Replay, not for a Miss, Too Late or Frame Hit. In Test Mode a value above 0 only
+        /// lengthens the hold (Round.ResultHoldLength): a Goal or a Save as in normal play, a Miss 2.5 s, a Frame Hit and Too Late stay short.
         /// </summary>
         public double ClipHoldSeconds = 0;
         /// <summary>False: no Replay (#145). The game sets it from the saved Replay setting.</summary>
