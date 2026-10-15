@@ -30,42 +30,38 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void Every_event_word_reads_and_lines_split_like_commas()
         {
-            var events = PlayCheckScript.Parse("toolate\nreplay:on\r\nreplay:off, save:Blocker,save:Stick\n save:Body ,idle:2.5");
+            var events = PlayCheckScript.Parse("toolate\nsave:Blocker,save:Stick\r\n save:Body ,idle:2.5");
 
-            Assert.AreEqual(7, events.Count);
+            Assert.AreEqual(5, events.Count);
             Assert.AreEqual(PlayCheckEventKind.TooLate, events[0].Kind);
-            Assert.AreEqual(PlayCheckEventKind.Replay, events[1].Kind);
-            Assert.IsTrue(events[1].On);
-            Assert.IsFalse(events[2].On);
-            Assert.AreEqual(SaveReaction.Blocker, events[3].Reaction);
-            Assert.AreEqual(SaveReaction.Stick, events[4].Reaction);
-            Assert.AreEqual(SaveReaction.Body, events[5].Reaction);
-            Assert.AreEqual(2.5, events[6].Seconds, 1e-12);
+            Assert.AreEqual(SaveReaction.Blocker, events[1].Reaction);
+            Assert.AreEqual(SaveReaction.Stick, events[2].Reaction);
+            Assert.AreEqual(SaveReaction.Body, events[3].Reaction);
+            Assert.AreEqual(2.5, events[4].Seconds, 1e-12);
         }
 
         [Test]
         public void Words_read_in_any_case_and_keep_one_written_form()
         {
-            var events = PlayCheckScript.Parse("GOAL, Save:glove, Idle:10, Replay:OFF");
+            var events = PlayCheckScript.Parse("GOAL, Save:glove, Idle:10, MISS");
 
             Assert.AreEqual("goal", events[0].Text);
             Assert.AreEqual("save:Glove", events[1].Text);
             Assert.AreEqual("idle:10", events[2].Text);
-            Assert.AreEqual("replay:off", events[3].Text);
+            Assert.AreEqual("miss", events[3].Text);
         }
 
         [Test]
         public void Only_goal_save_miss_and_toolate_are_shots()
         {
-            var events = PlayCheckScript.Parse("goal, save:Pads, miss, toolate, replay:on, idle:1");
+            var events = PlayCheckScript.Parse("goal, save:Pads, miss, toolate, idle:1");
 
-            Assert.AreEqual(new[] { true, true, true, true, false, false }, new[] { events[0].IsShot, events[1].IsShot, events[2].IsShot, events[3].IsShot, events[4].IsShot, events[5].IsShot });
+            Assert.AreEqual(new[] { true, true, true, true, false }, new[] { events[0].IsShot, events[1].IsShot, events[2].IsShot, events[3].IsShot, events[4].IsShot });
         }
 
         [TestCase("goal, shoot", "shoot")]
         [TestCase("save:Elbow", "save:Elbow")]
         [TestCase("save", "save")]
-        [TestCase("replay:maybe", "replay:maybe")]
         [TestCase("idle:abc", "idle:abc")]
         [TestCase("idle:-1", "idle:-1")]
         [TestCase("goal,,miss", "empty")]
@@ -74,7 +70,35 @@ namespace HockeyGame.Core.Tests
             var e = Assert.Throws<ArgumentException>(() => PlayCheckScript.Parse(script));
 
             StringAssert.Contains(named, e.Message);
-            StringAssert.Contains("goal, save:<Glove|Blocker|Pads|Stick|Body>, miss, toolate, replay:on|off, idle:<seconds>", e.Message);
+            StringAssert.Contains("goal, save:<Glove|Blocker|Pads|Stick|Body>, miss, toolate, idle:<seconds>", e.Message);
+        }
+
+        // The tool must never touch the player's saved settings, and the game reapplies the saved Replay
+        // setting every frame, so there is no safe way to switch the Replay yet: replay: is refused before Play.
+        [TestCase("replay:on")]
+        [TestCase("replay:off")]
+        [TestCase("goal, Replay:OFF")]
+        [TestCase("replay:maybe")]
+        public void Replay_is_refused_before_Play(string script)
+        {
+            var e = Assert.Throws<ArgumentException>(() => PlayCheckScript.Parse(script));
+
+            StringAssert.Contains("replay: not supported yet", e.Message);
+        }
+
+        class FieldOwner { int _here = 0; public int Here => _here; }
+
+        [Test]
+        public void A_renamed_game_field_is_named_at_once()
+        {
+            Assert.IsNull(PlayCheckRunner.FieldMissing(typeof(FieldOwner), "_here"));
+            Assert.AreEqual("PlayCheck: FieldOwner._gone not found (renamed?)", PlayCheckRunner.FieldMissing(typeof(FieldOwner), "_gone"));
+        }
+
+        [Test]
+        public void The_game_fields_the_runner_reads_all_exist()
+        {
+            Assert.IsNull(PlayCheckRunner.GameFieldsMissing());
         }
 
         [Test]

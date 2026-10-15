@@ -6,23 +6,21 @@ using HockeyGame.Core;
 namespace HockeyGame.PlayCheck
 {
     /// <summary>One kind of Play-check event (see PlayCheckScript).</summary>
-    public enum PlayCheckEventKind { Goal, Save, Miss, TooLate, Replay, Idle }
+    public enum PlayCheckEventKind { Goal, Save, Miss, TooLate, Idle }
 
-    /// <summary>One event of a Play-check script: Reaction counts for a Save, On for Replay, Seconds for Idle.</summary>
+    /// <summary>One event of a Play-check script: Reaction counts for a Save, Seconds for Idle.</summary>
     public readonly struct PlayCheckEvent
     {
         public PlayCheckEventKind Kind { get; }
         public SaveReaction Reaction { get; }
-        public bool On { get; }
         public double Seconds { get; }
         /// <summary>The event as the script names it, in the one written form (e.g. "save:Glove", "idle:10").</summary>
         public string Text { get; }
 
-        public PlayCheckEvent(PlayCheckEventKind kind, SaveReaction reaction, bool on, double seconds, string text)
+        public PlayCheckEvent(PlayCheckEventKind kind, SaveReaction reaction, double seconds, string text)
         {
             Kind = kind;
             Reaction = reaction;
-            On = on;
             Seconds = seconds;
             Text = text;
         }
@@ -33,12 +31,12 @@ namespace HockeyGame.PlayCheck
 
     /// <summary>
     /// The Play-check event script and probe list (pure; no Play needed). Script: events split by "," or a new line:
-    /// goal, save:&lt;SaveReaction&gt;, miss, toolate, replay:on|off, idle:&lt;seconds&gt;. Probes: clip, bone:&lt;HumanBodyBones&gt;,
+    /// goal, save:&lt;SaveReaction&gt;, miss, toolate, idle:&lt;seconds&gt; (replay: is refused: not supported yet). Probes: clip, bone:&lt;HumanBodyBones&gt;,
     /// pos:&lt;GameObject name&gt;. A wrong word throws ArgumentException with a clear message, before Play starts.
     /// </summary>
     public static class PlayCheckScript
     {
-        public const string EventWords = "goal, save:<Glove|Blocker|Pads|Stick|Body>, miss, toolate, replay:on|off, idle:<seconds>";
+        public const string EventWords = "goal, save:<Glove|Blocker|Pads|Stick|Body>, miss, toolate, idle:<seconds>";
         public const string ProbeWords = "clip, bone:<HumanBodyBones>, pos:<GameObject name>";
 
         public static IReadOnlyList<PlayCheckEvent> Parse(string script)
@@ -73,21 +71,21 @@ namespace HockeyGame.PlayCheck
             }
             switch (word.ToLowerInvariant())
             {
-                case "goal" when arg == null: return new PlayCheckEvent(PlayCheckEventKind.Goal, default, false, 0, "goal");
-                case "miss" when arg == null: return new PlayCheckEvent(PlayCheckEventKind.Miss, default, false, 0, "miss");
-                case "toolate" when arg == null: return new PlayCheckEvent(PlayCheckEventKind.TooLate, default, false, 0, "toolate");
+                case "goal" when arg == null: return new PlayCheckEvent(PlayCheckEventKind.Goal, default, 0, "goal");
+                case "miss" when arg == null: return new PlayCheckEvent(PlayCheckEventKind.Miss, default, 0, "miss");
+                case "toolate" when arg == null: return new PlayCheckEvent(PlayCheckEventKind.TooLate, default, 0, "toolate");
                 case "save" when arg != null:
                     foreach (SaveReaction r in Enum.GetValues(typeof(SaveReaction)))
                         if (string.Equals(r.ToString(), arg, StringComparison.OrdinalIgnoreCase))
-                            return new PlayCheckEvent(PlayCheckEventKind.Save, r, false, 0, "save:" + r);
+                            return new PlayCheckEvent(PlayCheckEventKind.Save, r, 0, "save:" + r);
                     break;
-                case "replay" when arg != null:
-                    if (string.Equals(arg, "on", StringComparison.OrdinalIgnoreCase)) return new PlayCheckEvent(PlayCheckEventKind.Replay, default, true, 0, "replay:on");
-                    if (string.Equals(arg, "off", StringComparison.OrdinalIgnoreCase)) return new PlayCheckEvent(PlayCheckEventKind.Replay, default, false, 0, "replay:off");
-                    break;
+                case "replay":
+                    // The tool never writes the saved settings (SaveStore.Current), and RoundDriver copies the saved Replay
+                    // setting into Round.Settings every frame, so a Replay switch has no safe path without a game change.
+                    throw new ArgumentException("Play-check script: '" + raw + "': replay: not supported yet. Use: " + EventWords);
                 case "idle" when arg != null:
                     if (double.TryParse(arg, NumberStyles.Float, CultureInfo.InvariantCulture, out double s) && s >= 0 && !double.IsInfinity(s))
-                        return new PlayCheckEvent(PlayCheckEventKind.Idle, default, false, s, "idle:" + s.ToString("R", CultureInfo.InvariantCulture));
+                        return new PlayCheckEvent(PlayCheckEventKind.Idle, default, s, "idle:" + s.ToString("R", CultureInfo.InvariantCulture));
                     break;
             }
             throw Wrong("'" + raw + "'");

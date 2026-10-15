@@ -14,9 +14,10 @@ namespace HockeyGame.PlayCheck
     /// <summary>
     /// The agent Play-check tool (#172): opens a scene, enters Play, runs frames without window focus (an EditorApplication.update
     /// callback that calls QueuePlayerLoopUpdate), plays an event script in a real Round through the game's own calls
-    /// (ScreenFlow.Press, ScreenFlow.SubmitShot, the saved Replay setting; physics gives the Whistle), logs JSON lines to a
-    /// file and exits Play. Start returns at once (an eval must not block); Poll reads the state and, at the end, the summary.
-    /// Usage: docs/agents/play-check-tool.md.
+    /// (ScreenFlow.Press, ScreenFlow.SubmitShot; physics gives the Whistle), logs JSON lines to a file and exits Play. It never
+    /// writes the saved settings (SaveStore.Current). Start returns at once (an eval must not block); Poll reads the state and,
+    /// at the end, the summary. The callbacks, crowd, mute and runInBackground are put back however the run ends (the end of
+    /// the script, a failure, Stop(), Play stopped by hand, an assembly reload). Usage: docs/agents/play-check-tool.md.
     /// </summary>
     public static class PlayCheckRunner
     {
@@ -26,6 +27,8 @@ namespace HockeyGame.PlayCheck
         const double EventTimeoutSeconds = 60.0; // game seconds one event may take
         const double RunTimeoutSeconds = 270.0; // wall seconds for the whole run (the ticket's limit is 5 min)
         const double PlayWaitSeconds = 60.0;
+        const double StopWaitSeconds = 30.0; // wall seconds Play may take to exit before the run finishes anyway
+        const BindingFlags FieldFlags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
 
         enum Stage { None, WaitPlay, Running, Stopping, Done }
 
@@ -35,14 +38,13 @@ namespace HockeyGame.PlayCheck
         static int _index, _step, _sampleEvery, _frames, _lastFrame = -1, _lastHandledShot, _resultsAtShot, _errors, _warnings, _matched, _timeouts;
         static string _openScene;
         static bool _playRequested;
-        static bool _crowd, _oldMute, _oldBackground, _oldReplay;
-        static double _wallStart, _gameStart, _eventStart, _holdStart, _idleUntil;
+        static bool _crowd, _oldMute, _oldBackground, _muteSet, _backgroundSet;
+        static double _wallStart, _stopStart, _gameStart, _eventStart, _holdStart, _idleUntil, _lastLoggedGameSeconds;
         static string _logPath, _expected, _failure, _summary;
         static StreamWriter _log;
         static RoundDriver _driver;
         static ScreenFlow _flow;
         static Round _round;
-        static SaveData _save;
         static IGoalieReach _reach;
         static Animator _goalieAnimator;
         static RoundPhase? _lastPhase;
@@ -67,6 +69,8 @@ namespace HockeyGame.PlayCheck
                 _probes = PlayCheckScript.ParseProbes(probes);
             }
             catch (ArgumentException e) { return "error: " + e.Message; }
+            string missing = GameFieldsMissing();
+            if (missing != null) return "error: " + missing;
 
             var active = EditorSceneManager.GetActiveScene();
             bool open = active.path != scene;
@@ -87,6 +91,8 @@ namespace HockeyGame.PlayCheck
             _wallStart = EditorApplication.timeSinceStartup;
             _stage = Stage.WaitPlay;
             Application.logMessageReceived += OnLog;
+            AssemblyReloadEvents.beforeAssemblyReload += OnBeforeAssemblyReload;
+            EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
             _openScene = open ? scene : null;
             _playRequested = false;
             EditorApplication.update += Tick; // its first call opens the scene and enters Play, after this eval has answered (both can take seconds)
@@ -107,7 +113,7 @@ namespace HockeyGame.PlayCheck
             }
         }
 
-        /// <summary>Stops a run now: restores the crowd, sound and Replay setting, exits Play, removes the callbacks.</summary>
+        /// <summary>Stops a run now: restores the crowd, sound and runInBackground, exits Play, removes the callbacks.</summary>
         public static string Stop()
         {
             if (_stage == Stage.None || _stage == Stage.Done) return "nothing running";
@@ -115,12 +121,35 @@ namespace HockeyGame.PlayCheck
             return "stopping";
         }
 
+        /// <summary>Null when owner has the instance field name, else "PlayCheck: Owner.name not found (renamed?)".</summary>
+        public static string FieldMissing(Type owner, string name) =>
+            owner.GetField(name, FieldFlags) != null ? null : "PlayCheck: " + owner.Name + "." + name + " not found (renamed?)";
+
+        /// <summary>Null when every game field the runner reads (RoundDriver._flow, Round._reach) exists, else the first FieldMissing message.</summary>
+        public static string GameFieldsMissing() => FieldMissing(typeof(RoundDriver), "_flow") ?? FieldMissing(typeof(Round), "_reach");
+
+        static void OnBeforeAssemblyReload()
+        {
+            if (_stage == Stage.None || _stage == Stage.Done) return;
+            if (_failure == null) _failure = "an assembly reload came during the run";
+            Write("error", _failure, null);
+            Finish();
+        }
+
+        static void OnPlayModeStateChanged(PlayModeStateChange change)
+        {
+            if (change != PlayModeStateChange.EnteredEditMode || _stage == Stage.None || _stage == Stage.Done) return;
+            if (_stage != Stage.Stopping && _failure == null) { _failure = "Play stopped before the script ended"; Write("error", _failure, null); }
+            Finish();
+        }
+
         static void Reset()
         {
             _index = _step = _frames = _errors = _warnings = _matched = _timeouts = 0;
             _lastFrame = -1;
             _lastHandledShot = -1;
-            _driver = null; _flow = null; _round = null; _save = null; _reach = null; _goalieAnimator = null;
+            _lastLoggedGameSeconds = 0;
+            _driver = null; _flow = null; _round = null; _reach = null; _goalieAnimator = null;
             _lastPhase = null;
             _failure = null; _summary = null; _expected = null;
             _hiddenCrowds.Clear(); _firstErrors.Clear(); _results.Clear();
@@ -165,6 +194,12 @@ namespace HockeyGame.PlayCheck
                         break;
                     case Stage.Stopping:
                         if (!EditorApplication.isPlaying) Finish();
+                        else if (EditorApplication.timeSinceStartup - _stopStart > StopWaitSeconds)
+                        {
+                            if (_failure == null) _failure = "Play did not exit in " + StopWaitSeconds + " s";
+                            Write("error", "Play did not exit in " + StopWaitSeconds + " s; finishing anyway", null);
+                            Finish();
+                        }
                         break;
                 }
             }
@@ -178,21 +213,21 @@ namespace HockeyGame.PlayCheck
         {
             _driver = UnityEngine.Object.FindFirstObjectByType<RoundDriver>();
             if (_driver == null) return false; // the scene is still starting
-            const BindingFlags bf = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
-            _flow = typeof(RoundDriver).GetField("_flow", bf)?.GetValue(_driver) as ScreenFlow;
-            _save = typeof(RoundDriver).GetField("_save", bf)?.GetValue(_driver) as SaveData;
-            if (_flow == null || _save == null) return false; // Start() has not run yet
+            // the fields exist (Start checked them with GameFieldsMissing); a null value means RoundDriver.Start() has not run yet
+            _flow = typeof(RoundDriver).GetField("_flow", FieldFlags).GetValue(_driver) as ScreenFlow;
+            if (_flow == null) return false;
             _round = _flow.Round;
-            _reach = typeof(Round).GetField("_reach", bf)?.GetValue(_round) as IGoalieReach;
+            _reach = typeof(Round).GetField("_reach", FieldFlags).GetValue(_round) as IGoalieReach;
             var goalie = GameObject.Find("Goalie Character");
             _goalieAnimator = goalie != null ? goalie.GetComponentInChildren<Animator>() : null;
 
             _oldBackground = Application.runInBackground;
+            _backgroundSet = true;
             Application.runInBackground = true;
-            _oldMute = EditorUtility.audioMasterMute;
-            _oldReplay = _save.ReplayOn;
             if (!_crowd)
             {
+                _oldMute = EditorUtility.audioMasterMute;
+                _muteSet = true;
                 EditorUtility.audioMasterMute = true;
                 foreach (var c in UnityEngine.Object.FindObjectsByType<Crowd>(FindObjectsSortMode.None))
                     if (c.Drawn) { c.Drawn = false; _hiddenCrowds.Add(c); }
@@ -241,11 +276,6 @@ namespace HockeyGame.PlayCheck
             }
             switch (ev.Kind)
             {
-                case PlayCheckEventKind.Replay:
-                    _save.ReplayOn = ev.On; // the saved Replay setting, as the settings menu sets it; RoundDriver applies it each frame
-                    Write("done", ev.Text + " (saved Replay setting now " + (ev.On ? "on" : "off") + ")", null);
-                    NextEvent();
-                    break;
                 case PlayCheckEventKind.Idle:
                     if (_step == 0) { _idleUntil = GameNow + ev.Seconds; _step = 1; }
                     if (GameNow >= _idleUntil) { Write("done", ev.Text, null); NextEvent(); }
@@ -349,26 +379,34 @@ namespace HockeyGame.PlayCheck
             if (_stage == Stage.Stopping || _stage == Stage.Done) return;
             Restore();
             _stage = Stage.Stopping;
+            _stopStart = EditorApplication.timeSinceStartup;
             if (EditorApplication.isPlaying) EditorApplication.isPlaying = false;
             else Finish();
         }
 
+        /// <summary>Puts back each value the run changed, each on its own (a value never changed is left alone).</summary>
         static void Restore()
         {
             try
             {
                 foreach (var c in _hiddenCrowds) if (c != null) c.Drawn = true;
                 _hiddenCrowds.Clear();
-                if (_save != null) { _save.ReplayOn = _oldReplay; EditorUtility.audioMasterMute = _oldMute; Application.runInBackground = _oldBackground; }
             }
-            catch (Exception e) { Write("error", "restore: " + e.Message, null); }
+            catch (Exception e) { Write("error", "restore crowd: " + e.Message, null); }
+            if (_muteSet) EditorUtility.audioMasterMute = _oldMute; // _muteSet stays: Finish puts it back again
+            if (_backgroundSet) { Application.runInBackground = _oldBackground; _backgroundSet = false; }
         }
 
+        /// <summary>Ends the run once (later calls do nothing): restores, removes every callback, writes the summary.</summary>
         static void Finish()
         {
+            if (_stage == Stage.None || _stage == Stage.Done) return;
             EditorApplication.update -= Tick;
             Application.logMessageReceived -= OnLog;
-            if (_save != null) EditorUtility.audioMasterMute = _oldMute; // again: leaving Play can reset it
+            AssemblyReloadEvents.beforeAssemblyReload -= OnBeforeAssemblyReload;
+            EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+            Restore();
+            if (_muteSet) { EditorUtility.audioMasterMute = _oldMute; _muteSet = false; } // again: leaving Play can reset it
             var ci = CultureInfo.InvariantCulture;
             var sb = new StringBuilder("{\"type\":\"summary\"");
             sb.Append(",\"ok\":").Append(_failure == null && _timeouts == 0 && _errors == 0 ? "true" : "false");
@@ -379,7 +417,7 @@ namespace HockeyGame.PlayCheck
             bool first = true;
             foreach (var kv in _results) { if (!first) sb.Append(','); first = false; sb.Append(PlayCheckLog.Text(kv.Key)).Append(':').Append(kv.Value); }
             sb.Append("},\"frames\":").Append(_frames);
-            sb.Append(",\"gameSeconds\":").Append((_round == null ? 0 : GameNowSafe()).ToString("F1", ci));
+            sb.Append(",\"gameSeconds\":").Append(_lastLoggedGameSeconds.ToString("F1", ci));
             sb.Append(",\"wallSeconds\":").Append((EditorApplication.timeSinceStartup - _wallStart).ToString("F1", ci));
             sb.Append(",\"consoleErrors\":").Append(_errors).Append(",\"consoleWarnings\":").Append(_warnings);
             sb.Append(",\"firstErrors\":[").Append(string.Join(",", _firstErrors.ConvertAll(PlayCheckLog.Text))).Append(']');
@@ -391,9 +429,6 @@ namespace HockeyGame.PlayCheck
             _stage = Stage.Done;
         }
 
-        static double _lastGameNow;
-        static double GameNowSafe() => _lastGameNow;
-
         static void Write(string type, string evt, string result, double? holdStart = null, double? holdEnd = null)
         {
             if (_log == null) return;
@@ -404,7 +439,7 @@ namespace HockeyGame.PlayCheck
             if (EditorApplication.isPlaying && _round != null)
             {
                 t = GameNow;
-                _lastGameNow = t;
+                _lastLoggedGameSeconds = t; // the summary's gameSeconds: Play (and GameNow) are gone by Finish
                 frame = Time.frameCount;
                 phase = _round.Phase.ToString();
                 probes = Probes();
