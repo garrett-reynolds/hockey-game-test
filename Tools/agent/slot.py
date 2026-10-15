@@ -1,13 +1,13 @@
-"""Slot tool entry: `python slot.py <status|test|close|open|play-check> ...`. One module per sub-command in slotlib/."""
+"""Slot tool entry: `python slot.py <status|test|close|open|play-check|done> ...`. One module per sub-command in slotlib/."""
 import argparse
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from slotlib import closeopen, common, playcheck, status, testrun  # noqa: E402
+from slotlib import closeopen, common, done, playcheck, status, testrun  # noqa: E402
 
-COMMANDS = [status, testrun, closeopen, playcheck]
+COMMANDS = [status, testrun, closeopen, playcheck, done]
 
 
 def main(argv=None):
