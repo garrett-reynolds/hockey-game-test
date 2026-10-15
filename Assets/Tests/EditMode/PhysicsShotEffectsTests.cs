@@ -256,11 +256,12 @@ namespace HockeyGame.Core.Tests
             var round = InWindow(FakeReach.NeverReaches());
             Shoot(round, effects, x, y, 100);
             var heard = new List<SoundCue>();
-            for (int i = 0; i < 3.0 / Step; i++)
+            for (int i = 0; i < 2.0 / Step; i++) // within the result hold: the puck goes when the hold ends
             {
                 Frame(round, effects);
                 if (effects.HitSound.HasValue) heard.Add(effects.HitSound.Value);
             }
+            Assert.AreEqual(RoundPhase.ResultHold, round.Phase, "the Shot is still shown");
             Assert.IsTrue(heard.Contains(expected), "heard " + string.Join(", ", heard) + "; touched " + effects.Shot.FirstTouched?.name + ", whistle " + effects.Shot.WhistleSeconds + " " + effects.Shot.Result + ", crossed " + effects.Shot.CrossedNetFace + ", active " + effects.Shot.Puck.gameObject.activeSelf + ", at " + effects.Shot.Puck.position);
             Assert.IsFalse(heard.Contains(SoundCue.PostPing), "no post in the way");
             StringAssert.Contains(wall, effects.Shot.FirstTouched.name);
@@ -423,6 +424,7 @@ namespace HockeyGame.Core.Tests
             {
                 replay.RestoreLive();
                 Frame(round, effects);
+                if (round.Phase != RoundPhase.ResultHold) break; // the hold ended on this frame and the puck went with the turn
                 replay.Show(ArenaShow.From(flow));
                 replay.Step();
                 Renderer[] liveLook = live.GetComponentsInChildren<Renderer>();
@@ -472,7 +474,7 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void The_puck_stays_after_the_hold_and_the_next_Shot_replaces_it()
+        public void The_puck_stays_for_the_hold_and_goes_when_the_next_turn_begins()
         {
             var effects = Effects();
             var round = InWindow(FakeReach.NeverReaches());
@@ -480,13 +482,42 @@ namespace HockeyGame.Core.Tests
             UntilWhistle(round, effects);
             PhysicsShot first = effects.Shot;
             GameObject firstPuck = first.Puck.gameObject;
-            while (round.Phase != RoundPhase.ShootingWindow) Frame(round, effects); // the hold, then the next skate-in and slow-down
-            Assert.IsTrue(firstPuck != null && firstPuck.activeSelf, "still there (in the net, in view) until the next Shot");
+            while (round.Phase == RoundPhase.ResultHold)
+            {
+                Assert.IsTrue(firstPuck != null, "the puck stays for the whole hold (the Replay and the goalie watch it)");
+                Frame(round, effects);
+            }
+            Assert.AreEqual(RoundPhase.SkateIn, round.Phase, "the hold gives way to the next turn");
+            Assert.IsNull(effects.Shot, "the last Shot is gone with the turn");
+            Assert.IsTrue(firstPuck == null, "its puck is removed when the next turn begins, not left until the next Shot (Garrett, 2026-10-13: 'The pucks aren't removed each turn')");
+            Assert.AreEqual(0, _root.GetComponentsInChildren<Rigidbody>(true).Length, "no puck in the scene");
 
+            while (round.Phase != RoundPhase.ShootingWindow) Frame(round, effects);
             Shoot(round, effects, 30, 40, 100);
-            Assert.AreNotSame(first, effects.Shot);
-            Assert.IsTrue(firstPuck == null, "the next Shot replaces the puck");
             Assert.AreEqual(1, _root.GetComponentsInChildren<Rigidbody>(true).Length, "one puck");
+        }
+
+        // The start screen: a puck left from the game (it kept bouncing off the boards) clanged the boards cue again and again.
+        [Test]
+        public void The_start_screen_has_no_puck_and_no_Shot_sound_after_a_game()
+        {
+            var effects = Effects();
+            var round = InWindow(FakeReach.NeverReaches());
+            round.StartTestMode(0); // Test Mode keeps its last puck until the next window; leaving it goes to the start screen (Idle)
+            Shoot(round, effects, -30, 20, 100); // wide and low: off the boards
+            for (int i = 0; i < 1.0 / Step; i++) Frame(round, effects);
+            Assert.IsNotNull(effects.Shot, "the Shot is alive in Test Mode");
+            round.EndTestMode();
+            Assert.AreEqual(RoundPhase.Idle, round.Phase);
+            var heard = new List<SoundCue>();
+            for (int i = 0; i < 6.0 / Step; i++)
+            {
+                Frame(round, effects);
+                if (effects.HitSound.HasValue) heard.Add(effects.HitSound.Value);
+            }
+            Assert.IsNull(effects.Shot, "no Shot on the start screen");
+            Assert.AreEqual(0, _root.GetComponentsInChildren<Rigidbody>(true).Length, "no puck on the start screen");
+            Assert.AreEqual(0, heard.Count, "no Shot sound on the start screen, heard " + string.Join(", ", heard));
         }
 
         // ---- No hang ----

@@ -53,7 +53,17 @@ namespace HockeyGame.Core
         /// A flight too long for ShowSeconds of real time (flight + TailSeconds over ShowSeconds) starts ShowSeconds before the
         /// clip's end instead, so the Replay never plays faster than real time.
         /// </summary>
-        public static double ClipStart(double flightSeconds, bool bottleKnocked = false) => Math.Max(0, ClipEnd(flightSeconds, bottleKnocked) - ShowSeconds);
+        public static double ClipStart(double flightSeconds, bool bottleKnocked = false) =>
+            bottleKnocked ? Math.Max(0, ShotEnd(flightSeconds) - ShotShowSeconds) : Math.Max(0, ClipEnd(flightSeconds) - ShowSeconds);
+
+        /// <summary>The bottle's fall after the Shot's own clip, in seconds of clip: it plays after the Shot at real time (BottleShowSeconds of the Replay).</summary>
+        public const double BottleShowSeconds = BottleTailSeconds - TailSeconds;
+
+        /// <summary>The Shot's own part of a Replay with a knocked bottle (seconds of the Replay): all but the bottle's fall. Without it the one-piece stretch gave a quick Shot under half of ShowSeconds and it flashed by (Garrett, 2026-10-13: "I miss the shot in every replay").</summary>
+        public const double ShotShowSeconds = ShowSeconds - BottleShowSeconds;
+
+        /// <summary>Where the Shot's own clip ends, in seconds after the Shot: TailSeconds after the puck lands.</summary>
+        static double ShotEnd(double flightSeconds) => Math.Max(0, flightSeconds) + TailSeconds;
 
         /// <summary>The clip runs this long after the puck lands when the water bottle was knocked off (#164), so the Replay shows it land (it lands by about 1.0 s).</summary>
         public const double BottleTailSeconds = 1.2;
@@ -65,6 +75,15 @@ namespace HockeyGame.Core
         /// <summary>The moment of the Shot (seconds after it) the Replay shows showSeconds into it: the clip, slowed to ShowSeconds.</summary>
         public static double ShotSecondsAt(double showSeconds, double flightSeconds, bool bottleKnocked = false)
         {
+            if (bottleKnocked)
+            {
+                // Two pieces: the Shot's clip slowed to fill ShotShowSeconds (as without the bottle, never faster than real time), then the
+                // bottle's fall at real time until it lands (ClipEnd).
+                double shotStart = ClipStart(flightSeconds, true), shotEnd = ShotEnd(flightSeconds);
+                if (showSeconds <= ShotShowSeconds)
+                    return shotStart + (shotEnd - shotStart) * Numbers.Clamp01(showSeconds / ShotShowSeconds);
+                return Math.Min(shotEnd + (showSeconds - ShotShowSeconds), ClipEnd(flightSeconds, true));
+            }
             double start = ClipStart(flightSeconds, bottleKnocked);
             return start + (ClipEnd(flightSeconds, bottleKnocked) - start) * Numbers.Clamp01(showSeconds / ShowSeconds);
         }
