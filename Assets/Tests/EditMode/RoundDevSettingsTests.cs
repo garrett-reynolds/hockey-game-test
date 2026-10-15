@@ -386,7 +386,7 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void The_bottle_rows_are_sliders_in_the_Water_Bottle_card_with_ranges_and_defaults()
         {
-            Assert.AreEqual(60, SaveData.BottleKnockSpeedRange.Min, 1e-9);
+            Assert.AreEqual(10, SaveData.BottleKnockSpeedRange.Min, 1e-9);
             Assert.AreEqual(160, SaveData.BottleKnockSpeedRange.Max, 1e-9);
             Assert.AreEqual(5, SaveData.BottleKnockSpeedRange.Step, 1e-9);
             Assert.AreEqual(50, SaveData.BottleJumpRange.Min, 1e-9);
@@ -413,13 +413,21 @@ namespace HockeyGame.Core.Tests
             Step(menu, "Bottle knock speed", +1, 100);
             Assert.AreEqual(160, save.BottleKnockSpeedKmh, 1e-9);
             Step(menu, "Bottle knock speed", -1, 100);
-            Assert.AreEqual(60, save.BottleKnockSpeedKmh, 1e-9);
+            Assert.AreEqual(10, save.BottleKnockSpeedKmh, 1e-9, "down to 10 km/h (#171)");
             Step(menu, "Bottle knock speed", +1, 1);
-            Assert.AreEqual(65, save.BottleKnockSpeedKmh, 1e-9, "5 km/h a step");
+            Assert.AreEqual(15, save.BottleKnockSpeedKmh, 1e-9, "5 km/h a step");
             Step(menu, "Bottle jump", +1, 100);
             Assert.AreEqual(200, save.BottleJumpPercent, 1e-9);
             Step(menu, "Bottle jump", -1, 100);
             Assert.AreEqual(50, save.BottleJumpPercent, 1e-9);
+        }
+
+        [Test]
+        public void A_saved_Bottle_knock_speed_of_10_loads_as_10_not_clamped_up_to_60()
+        {
+            string path = TempFile("bottleKnockSpeedKmh=10\n");
+            try { Assert.AreEqual(10, SaveData.Load(path).BottleKnockSpeedKmh, 1e-9); }
+            finally { File.Delete(path); }
         }
 
         [Test]
