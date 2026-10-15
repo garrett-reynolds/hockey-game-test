@@ -49,9 +49,9 @@ def repo(h, tmp_path):
     return path
 
 
-def log_run(h, when, head, passed=5, failed=0, rc=0, status="green", branch="feat/x", result="r.txt"):
+def log_run(h, when, head, passed=5, failed=0, rc=0, status="green", branch="feat/x", result="r.txt", flt=None):
     h.results.mkdir(exist_ok=True)
-    rec = {"time": when, "slot": "w2", "branch": branch, "head": head, "mode": "fast", "filter": None,
+    rec = {"time": when, "slot": "w2", "branch": branch, "head": head, "mode": "fast", "filter": flt,
            "total": None if passed is None else passed + failed, "passed": passed, "failed": failed, "rc": rc,
            "status": status, "result_file": result}
     with open(h.results / "w2-runs.jsonl", "a", encoding="utf-8") as f:
@@ -125,6 +125,27 @@ def test_no_green_run_at_head_fails_runs(h, repo):
     assert rc == 1, out
     assert line(out, "FAIL runs")
     assert "done: 1 check(s) FAIL" in out
+
+
+def test_filtered_green_at_head_does_not_count_when_an_unfiltered_run_is_red(h, repo):
+    hd = head(repo)
+    log_run(h, RUN1, hd, passed=3, flt="PlayCheckToolTests")
+    log_run(h, RUN2, hd, passed=40, failed=2, rc=1, status="red")
+    rc, out = h.run("done", "w2")
+    assert rc == 1, out
+    fails = line(out, "FAIL runs")
+    assert fails and "no unfiltered green run at HEAD" in fails[0]
+    assert "(filtered green runs do not count)" in fails[0]
+
+
+def test_filtered_green_only_fails_runs_but_empty_filter_string_counts_as_unfiltered(h, repo):
+    hd = head(repo)
+    log_run(h, RUN1, hd, flt="Foo")
+    rc, out = h.run("done", "w2")
+    assert rc == 1 and line(out, "FAIL runs"), out
+    log_run(h, RUN2, hd, flt="")
+    rc, out = h.run("done", "w2")
+    assert line(out, "OK runs"), out
 
 
 def test_runs_prints_first_red_and_last_green_with_result_files(h, repo):

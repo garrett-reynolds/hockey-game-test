@@ -54,7 +54,7 @@ python C:/Users/garrett.reynolds/Projects/Personal/hockey-wt/_notes/slot.py done
 
 - Run before a hand-off. Prints one line per check (`OK` or `FAIL`), then `done: all checks OK` or `done: N check(s) FAIL`. Never talks to the Editor, and nothing is killed.
 - `git`: branch, uncommitted count and commits ahead of `main`. Lists at most 10 uncommitted names and at most 10 commits, then `+N more`. Fails only when git cannot be read.
-- `runs`: reads the run log `_notes/results/<slot>-runs.jsonl` for this branch. Passes when a green run (passed > 0, failed 0, exit 0) is logged at the current HEAD. Prints the first red run and the last green run with their result files.
+- `runs`: reads the run log `_notes/results/<slot>-runs.jsonl` for this branch. Passes when a green run (passed > 0, failed 0, exit 0) is logged at the current HEAD. A run with a `--filter` never counts as green (fast or full both count when unfiltered); the FAIL line then says filtered green runs do not count. Prints the first red run and the last green run with their result files.
 - `test files`: only `.cs` files under a `Tests` folder in `Assets/` count (pytest runs are never in the run log). Fails when one changed (committed since `main`, or uncommitted) after the last logged run, or when there is no run at all.
 - `wait loops`: lists shell or python processes with an `until`/`while` and a `sleep` that name the slot folder or `slot.py`. Fails when there is one; prints its PID.
 - Exit 0 = all checks OK, 1 = at least one FAIL, 2 = unknown slot.
