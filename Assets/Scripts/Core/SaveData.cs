@@ -53,7 +53,7 @@ namespace HockeyGame.Core
         public static readonly NumberRange GapThinGearReachRange = new NumberRange(0, 0.08, 0.01);
 
         /// <summary>Dev part, Water Bottle (#164): the Shot speed (km/h) a Goal must beat to knock the bottle.</summary>
-        public static readonly NumberRange BottleKnockSpeedRange = new NumberRange(60, 160, 5);
+        public static readonly NumberRange BottleKnockSpeedRange = new NumberRange(10, 160, 5);
 
         /// <summary>Dev part, Water Bottle (#164): the knock push in percent; 100 is the push the bottle always had.</summary>
         public static readonly NumberRange BottleJumpRange = new NumberRange(50, 200, 10);
