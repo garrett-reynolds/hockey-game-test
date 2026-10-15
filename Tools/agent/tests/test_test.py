@@ -9,7 +9,7 @@ def test_fast_run_passes_and_writes_results_file(h):
     h.set("w2", "run_tests", reply(SUMMARY_OK))
     rc, out = h.run("test", "w2")
     assert rc == 0, out
-    lines = [x for x in out.splitlines() if x.strip()]
+    lines = [x for x in out.splitlines() if x.strip() and "code changed" not in x]  # #186 adds a refresh line
     assert len(lines) == 2
     assert "w2 fast: 5 passed, 0 failed of 5" in lines[0]
     path = lines[1].strip()
@@ -74,6 +74,9 @@ def test_waits_out_a_recompile_then_runs(h):
     h.set("w2", "editor_status", reply(COMPILING), reply(COMPILING), reply(READY))
     h.set("w2", "test_status", reply({"status": "no_tests"}))
     h.set("w2", "run_tests", reply(SUMMARY_OK))
+    h.set("w2", "menu", reply({"ok": True}))  # #186: the first run refreshes and recompiles
+    h.set("w2", "recompile", reply({"ok": True}))
+    h.set("w2", "recompile_status", reply({"status": "completed", "errors": []}))
     rc, out = h.run("test", "w2")
     assert rc == 0, out
     # run_tests was called only after the third editor_status answer

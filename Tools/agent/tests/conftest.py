@@ -48,6 +48,11 @@ class Harness:
     def ready(self, slot):
         self.set(slot, "editor_status", reply(READY))
         self.set(slot, "test_status", reply({"status": "no_tests"}))
+        # #186: `test` refreshes and recompiles first when the code changed; these are the defaults it needs.
+        for command, answer in (("menu", {"ok": True}), ("recompile", {"ok": True}),
+                                ("recompile_status", {"status": "completed", "errors": []})):
+            if command not in self.scenario.get(slot, {}):
+                self.set(slot, command, reply(answer))
 
     def run(self, *args, timeout=60):
         p = subprocess.run([sys.executable, str(SLOT_PY), *args], env=self.env, capture_output=True,

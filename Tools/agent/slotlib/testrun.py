@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 
 from . import common as c
-from . import editors, watch
+from . import editors, fresh, watch
 
 
 def add_parser(sub):
@@ -44,7 +44,11 @@ def run(args):
     if known and pid is None:
         raise c.SlotError(f"{c.label(slot)}: not open; run: slot.py open {slot}")
     try:
-        wait_until_ready(slot)
+        wait_until_ready(slot)  # never refresh an Editor that is in Play, busy or silent
+        code = fresh.ensure_fresh(slot)
+        if code is not None:
+            return code
+        wait_until_ready(slot)  # the recompile reloads the Editor: wait for it again
     except c.SlotError as e:
         if lock:
             raise c.SlotError(f"{e} Found a stale lock (pid {lock.get('pid')} gone); kept because the Editor "

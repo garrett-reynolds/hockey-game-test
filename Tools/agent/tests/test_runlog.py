@@ -106,7 +106,7 @@ def test_two_printed_lines_unchanged(h, repo):
     h.ready("w2")
     h.set("w2", "run_tests", reply(SUMMARY_OK))
     rc, out = h.run("test", "w2")
-    assert len([x for x in out.splitlines() if x.strip()]) == 2
+    assert len([x for x in out.splitlines() if x.strip() and "code changed" not in x]) == 2  # #186 refresh line
 
 
 def test_log_write_failure_does_not_fail_the_run(h, repo):
