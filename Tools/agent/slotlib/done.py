@@ -96,7 +96,10 @@ def is_red(r):
     return isinstance(r.get("failed"), int) and r["failed"] > 0
 
 
-def is_green(r):
+def is_green(r, ignore_filter=False):
+    """Green needs an unfiltered run: a filtered run proves nothing about the rest."""
+    if not ignore_filter and r.get("filter"):
+        return False
     return r.get("failed") == 0 and isinstance(r.get("passed"), int) and r["passed"] > 0 and r.get("rc") == 0
 
 
@@ -114,6 +117,8 @@ def check_runs(runs, branch, head):
         detail.append(f"  last green: {describe(green)}")
     if any(is_green(r) and r.get("head") == head for r in runs):
         return Check(True, f"OK runs: green run at HEAD {head[:7]} on {branch}", detail)
+    if any(is_green(r, ignore_filter=True) and r.get("head") == head for r in runs):
+        return Check(False, f"FAIL runs: no unfiltered green run at HEAD {head[:7]} (filtered green runs do not count)", detail)
     return Check(False, f"FAIL runs: no green run at HEAD {head[:7]} on {branch}", detail)
 
 
