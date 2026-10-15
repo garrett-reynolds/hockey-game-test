@@ -1,10 +1,13 @@
 """`slot.py done <slot>` (#188): git state, red/green runs and changed test files. Never talks to the Editor."""
 import json
+import os
+import re
 import subprocess
 import time
 from pathlib import Path, PurePosixPath
 
 from . import common as c
+from . import cpu
 
 MAIN = "main"
 
@@ -140,6 +143,50 @@ def check_test_files(slot, runs, dirty):
     return True, f"OK test files: {len(times)} changed, all before the last run", []
 
 
+SHELLS = {"bash", "sh", "python", "pythonw", "py", "powershell", "pwsh"}
+LOOP_WORD = re.compile(r"\b(until|while)\b", re.I)
+SLEEP_WORD = re.compile(r"\b(sleep|Start-Sleep|time\.sleep)\b", re.I)
+
+
+def norm(text):
+    return text.replace("\\", "/").lower()
+
+
+def is_wait_loop(proc, slot_dir):
+    name = str(proc.get("name") or "").lower()
+    if name.endswith(".exe"):
+        name = name[:-4]
+    cmd = str(proc.get("cmd") or "")
+    if name not in SHELLS or not LOOP_WORD.search(cmd) or not SLEEP_WORD.search(cmd):
+        return False
+    low = norm(cmd)
+    return norm(slot_dir) in low or "slot.py" in low
+
+
+def own_chain(procs):
+    """This process and every ancestor, so `done` never lists itself or the shell that started it."""
+    parent = {p["id"]: p["parent"] for p in procs}
+    chain, pid = set(), os.getpid()
+    while pid is not None and pid not in chain:
+        chain.add(pid)
+        pid = parent.get(pid)
+    return chain
+
+
+def check_wait_loops(slot):
+    try:
+        procs = cpu.read_processes(cpu.PS_NAMES)
+        procs = [p for p in procs if isinstance(p, dict) and "id" in p]
+    except (subprocess.SubprocessError, OSError, ValueError):
+        return False, "FAIL wait loops: could not read processes", []
+    skip = own_chain(procs)
+    hits = [p for p in procs if p["id"] not in skip and is_wait_loop(p, c.slot_path(slot))]
+    detail = [f"  PID {p['id']}  {str(p.get('cmd'))[:100]}" for p in hits]
+    if hits:
+        return False, f"FAIL wait loops: {len(hits)}", detail
+    return True, "OK wait loops: 0", []
+
+
 def add_parser(sub):
     p = sub.add_parser("done", help="check a slot is ready to hand off: git state, green run at HEAD, test files run")
     p.add_argument("slot")
@@ -160,7 +207,8 @@ def run(args):
         return 1
     runs = read_runs(slot, branch)
     for ok, text, detail in (check_runs(runs, branch, head),
-                             check_test_files(slot, runs, uncommitted(slot))):
+                             check_test_files(slot, runs, uncommitted(slot)),
+                             check_wait_loops(slot)):
         lines.append(text)
         lines += detail
         fails += 0 if ok else 1
