@@ -14,7 +14,7 @@ import shutil
 import subprocess
 import time
 
-from . import common, editors, fresh, testrun
+from . import common, testrun
 
 # Limits. Fixed on purpose: a check that can be loosened per run stops meaning anything.
 FACING_LIMIT_DEG = 45.0
@@ -291,40 +291,16 @@ def run(args):
     slot = args.slot
     common.check_slot(slot)
     kind, name = parse_action(args.action)
-    lock = common.read_lock(slot)
-    if lock and lock["live"]:
-        raise common.SlotError(f"{common.label(slot)}: a run is already running (pid {lock.get('pid')}, "
-                          f"{lock.get('kind', '?')}). Refusing the Play check.")
-    known, pid = editors.editor_pid(slot)
-    if known and pid is None:
-        raise common.SlotError(f"{common.label(slot)}: not open; run: slot.py open {slot}")
-    try:
-        testrun.wait_until_ready(slot, "play-check")  # same order as `test` (#187): never refresh a busy Editor
-    except common.SlotError as e:
-        if lock:
-            raise common.SlotError(f"{e} Found a stale lock (pid {lock.get('pid')} gone); kept because the Editor "
-                                   f"did not answer.")
-        raise
-    if lock:
-        common.release_lock(slot)  # stale: the Editor answers and its owner is gone
-    common.acquire_lock(slot, "play-check")
-    try:
-        code = fresh.ensure_fresh(slot)  # Refresh + recompile when the code changed (stamp shared with `test`)
-        if code is None:
-            testrun.wait_until_ready(slot, "play-check")  # the recompile reloads the Editor: wait for it again
-    except BaseException:
-        common.release_lock(slot)
-        raise
+    code = testrun.prepare(slot, "play-check", "play-check")  # same start as `test` (#187); lock held on None
     if code is not None:
-        common.release_lock(slot)
         return code
-    common.results_dir().mkdir(parents=True, exist_ok=True)
-    stamp = time.strftime("%Y%m%d-%H%M%S")
-    results_path = common.results_dir() / f"{slot}-playcheck-{stamp}.json"
-    detail = {"slot": slot, "scene": args.scene, "action": args.action, "seconds": args.seconds,
-              "crowd": bool(args.crowd), "error": None}
-    rows, picture, picture_error, before, after, played = [], None, None, {"error": 0, "warn": 0}, {"error": 0, "warn": 0}, False
     try:
+        detail = {"slot": slot, "scene": args.scene, "action": args.action, "seconds": args.seconds,
+                  "crowd": bool(args.crowd), "error": None}
+        rows, picture, picture_error, before, after, played = [], None, None, {"error": 0, "warn": 0}, {"error": 0, "warn": 0}, False
+        common.results_dir().mkdir(parents=True, exist_ok=True)
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        results_path = common.results_dir() / f"{slot}-playcheck-{stamp}.json"
         try:
             call(slot, "open_scene", "--path", args.scene)
             before = counts(slot)

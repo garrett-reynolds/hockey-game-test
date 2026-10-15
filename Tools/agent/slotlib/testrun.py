@@ -33,9 +33,10 @@ def wait_until_ready(slot, what="test"):
     raise c.SlotError(f"{c.label(slot)}: Editor {c.STATE_TEXT[state]} after {c.wait_s():.0f} s. Not started.")
 
 
-def run(args):
-    slot = args.slot
-    c.check_slot(slot)
+def prepare(slot, kind, what="test"):
+    """Shared start of `test` and `play-check` (#187): refuse a live run or a closed Editor, wait until ready,
+    clear a stale lock, take the lock, Refresh + recompile when the code changed, wait again.
+    Returns None with the lock held (the caller frees it), or an exit code with the lock freed."""
     lock = c.read_lock(slot)
     if lock and lock["live"]:
         raise c.SlotError(f"{c.label(slot)}: a run is already running (pid {lock.get('pid')}, "
@@ -44,7 +45,7 @@ def run(args):
     if known and pid is None:
         raise c.SlotError(f"{c.label(slot)}: not open; run: slot.py open {slot}")
     try:
-        wait_until_ready(slot)  # never refresh an Editor that is in Play, busy or silent
+        wait_until_ready(slot, what)  # never refresh an Editor that is in Play, busy or silent
     except c.SlotError as e:
         if lock:
             raise c.SlotError(f"{e} Found a stale lock (pid {lock.get('pid')} gone); kept because the Editor "
@@ -53,13 +54,27 @@ def run(args):
     if lock:
         print(f"{c.label(slot)}: stale lock (pid {lock.get('pid')} gone) cleared; the Editor answers.")
         c.release_lock(slot)
-    kind = "full" if args.full else "fast"
-    c.acquire_lock(slot, kind)  # held from here: a second `test` must not recompile under a refresh or a run
+    c.acquire_lock(slot, kind)  # held from here: a second run must not recompile under a refresh or a run
     try:
-        code = fresh.ensure_fresh(slot)
-        if code is not None:
-            return code
-        wait_until_ready(slot)  # the recompile reloads the Editor: wait for it again
+        code = fresh.ensure_fresh(slot, what)
+        if code is None:
+            wait_until_ready(slot, what)  # the recompile reloads the Editor: wait for it again
+    except BaseException:
+        c.release_lock(slot)
+        raise
+    if code is not None:
+        c.release_lock(slot)
+    return code
+
+
+def run(args):
+    slot = args.slot
+    c.check_slot(slot)
+    kind = "full" if args.full else "fast"
+    code = prepare(slot, kind)
+    if code is not None:
+        return code
+    try:
         return execute(slot, kind, args.filter)
     finally:
         c.release_lock(slot)

@@ -1,6 +1,6 @@
 """ensure_fresh(slot): Refresh + recompile the slot's Editor when the code changed since the last good compile (#186).
 
-One entry for `test` and, later, play-check. The stamp is the HEAD sha plus (path, mtime) of the uncommitted code
+One entry for `test` and play-check (#187), both through testrun.prepare. The stamp is the HEAD sha plus (path, mtime) of the uncommitted code
 files under Assets/ and Packages/manifest.json. It is saved in lock_dir() as <slot>.stamp.json, and only after a
 recompile with no compile error.
 """
@@ -113,13 +113,13 @@ def unity(slot, *args):
     return None, "unreachable"
 
 
-def call(slot, step, *args):
+def call(slot, step, *args, what="test"):
     """unity() for one step; a command that cannot run, or a second Network error, stops the run (exit 2)."""
     rc, text = unity(slot, *args)
     if rc is None:
         if text == NETWORK:
             raise c.SlotError(f"{c.label(slot)}: Network error twice during {step}; the Editor may be reloading. "
-                              f"Run slot.py test again.")
+                              f"Run slot.py {what} again.")
         raise c.SlotError(f"{c.label(slot)}: {step} did not run ({text}). Not started.")
     return rc, text
 
@@ -155,12 +155,12 @@ def refuse_on_errors(slot, lines):
     return 1
 
 
-def refresh(slot):
+def refresh(slot, what="test"):
     """Refresh, recompile, wait for the compile. Returns the compile error lines ([] = fine)."""
-    rc, text = call(slot, "menu", "menu", "--path", "Assets/Refresh")
+    rc, text = call(slot, "menu", "menu", "--path", "Assets/Refresh", what=what)
     if rc != 0:
         raise c.SlotError(f"{c.label(slot)}: Refresh failed ({text.splitlines()[0][:70] if text else rc}). Not started.")
-    rc, text = call(slot, "recompile", "recompile")
+    rc, text = call(slot, "recompile", "recompile", what=what)
     if rc != 0:
         raise c.SlotError(f"{c.label(slot)}: recompile failed ({text.splitlines()[0][:70] if text else rc}). Not started.")
     kind, lines = verdict(c.parse_json(text), text, allow_no_status=True)  # only the poll proves success
@@ -168,7 +168,7 @@ def refresh(slot):
         return lines
 
     def check():
-        rc, text = call(slot, "recompile_status", "recompile_status")
+        rc, text = call(slot, "recompile_status", "recompile_status", what=what)
         d = c.parse_json(text) if rc == 0 else None
         if d is None:
             return False, None  # the Editor may be reloading; keep asking
@@ -181,14 +181,15 @@ def refresh(slot):
     return result[1] if result[0] == "failed" else []
 
 
-def ensure_fresh(slot):
-    """Refresh + recompile when the code changed. Returns None when fine, else an exit code (1 = compile error)."""
+def ensure_fresh(slot, what="test"):
+    """Refresh + recompile when the code changed. Returns None when fine, else an exit code (1 = compile error).
+    `what` names the command in the retry hint (test or play-check)."""
     new = current_stamp(slot)
     reason = "first run" if new is None else why_changed(read_stamp(slot), new)
     if reason is None:
         return None
     print(f"{slot}: code changed since the last compile ({reason}); Refresh + recompile")
-    lines = refresh(slot)
+    lines = refresh(slot, what)
     if lines:
         return refuse_on_errors(slot, lines)
     if new is not None:

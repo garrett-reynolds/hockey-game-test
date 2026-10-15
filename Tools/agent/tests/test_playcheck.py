@@ -286,8 +286,9 @@ def test_unchanged_code_sends_no_refresh(h, repo):
     assert check(h)[0] == 0
     again(h)
     h.set("w2", "editor_status", reply(READY), reply(READY), reply(PLAY))
-    rc, out = check(h)
+    rc, out = check_raw(h)
     assert rc == 0, out
+    assert "Refresh + recompile" not in out
     assert unity_names(h).count("menu") == 1
 
 
@@ -347,6 +348,26 @@ def test_stale_lock_kept_message_when_editor_does_not_answer(h):
     assert rc == 2
     assert "Found a stale lock" in out and "kept because the Editor did not answer" in out
     assert (h.locks / "w2.lock").exists()
+
+
+def test_stale_lock_cleared_message_when_editor_answers(h, repo):
+    setup(h, GOOD)
+    (h.locks).mkdir(exist_ok=True)
+    gone = dead_pid()
+    h.write_lock("w2", gone)
+    rc, out = check_raw(h)
+    assert rc == 0, out
+    assert f"stale lock (pid {gone} gone) cleared; the Editor answers." in out
+
+
+def test_second_network_error_names_play_check(h, repo):
+    setup(h, GOOD)
+    h.set("w2", "menu", {"out": "Network error", "rc": 1, "sleep": 0})
+    rc, out = check_raw(h)
+    assert rc == 2, out
+    assert "Network error twice during menu; the Editor may be reloading. Run slot.py play-check again." in out
+    assert "editor_play" not in commands(h)
+    assert not (h.locks / "w2.lock").exists()
 
 
 def test_lock_released_when_refresh_fails(h, repo):
