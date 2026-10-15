@@ -14,7 +14,7 @@ import shutil
 import subprocess
 import time
 
-from . import common, fresh, testrun
+from . import common, editors, fresh, testrun
 
 # Limits. Fixed on purpose: a check that can be loosened per run stops meaning anything.
 FACING_LIMIT_DEG = 45.0
@@ -295,7 +295,16 @@ def run(args):
     if lock and lock["live"]:
         raise common.SlotError(f"{common.label(slot)}: a run is already running (pid {lock.get('pid')}, "
                           f"{lock.get('kind', '?')}). Refusing the Play check.")
-    testrun.wait_until_ready(slot, "play-check")  # same order as `test` (#187): never refresh a busy Editor
+    known, pid = editors.editor_pid(slot)
+    if known and pid is None:
+        raise common.SlotError(f"{common.label(slot)}: not open; run: slot.py open {slot}")
+    try:
+        testrun.wait_until_ready(slot, "play-check")  # same order as `test` (#187): never refresh a busy Editor
+    except common.SlotError as e:
+        if lock:
+            raise common.SlotError(f"{e} Found a stale lock (pid {lock.get('pid')} gone); kept because the Editor "
+                                   f"did not answer.")
+        raise
     if lock:
         common.release_lock(slot)  # stale: the Editor answers and its owner is gone
     common.acquire_lock(slot, "play-check")

@@ -2,10 +2,11 @@ import base64
 import json
 import os
 import subprocess
+import time
 
 import pytest
 
-from conftest import PLAY, READY, SUMMARY_OK, reply
+from conftest import PLAY, READY, SUMMARY_OK, dead_pid, reply
 
 SCENE = "Assets/Scenes/Rink.unity"
 PNG = base64.b64encode(b"\x89PNG fake picture").decode()
@@ -273,7 +274,7 @@ def test_first_play_check_refreshes_then_enters_play(h, repo):
     setup(h, GOOD)
     rc, out = check_raw(h)
     assert rc == 0, out
-    seq =[n for n in unity_names(h) if n in ("menu", "recompile", "recompile_status")]
+    seq = [n for n in unity_names(h) if n in ("menu", "recompile", "recompile_status")]
     assert seq[:3] == ["menu", "recompile", "recompile_status"]
     assert "Refresh + recompile" in out
     all_calls = [a for argv in h.calls() for a in argv]
@@ -322,6 +323,30 @@ def test_test_after_play_check_sends_no_refresh(h, repo):
     rc, out = h.run("test", "w2")
     assert rc == 0, out
     assert unity_names(h).count("menu") == 1
+
+
+def test_refuses_at_once_when_editor_not_open(h):
+    setup(h, GOOD)
+    root = h.env["SLOT_ROOT"].replace("/", "\\")
+    row = f"7800\tready\t{root}\\w3\t6000.6.5f1\t4242\n"  # only w3 is open
+    h.set("_status", "status", {"out": row, "rc": 0})
+    start = time.time()
+    rc, out = check(h)
+    assert rc == 2
+    assert "not open; run: slot.py open w2" in out
+    assert time.time() - start < 1.5  # SLOT_WAIT_S is 2: it must not wait that out
+    assert "editor_play" not in commands(h)
+    assert not (h.locks / "w2.lock").exists()
+
+
+def test_stale_lock_kept_message_when_editor_does_not_answer(h):
+    h.set("w2", "editor_status", reply({}, rc=1))
+    (h.locks).mkdir(exist_ok=True)
+    h.write_lock("w2", dead_pid())
+    rc, out = check(h)
+    assert rc == 2
+    assert "Found a stale lock" in out and "kept because the Editor did not answer" in out
+    assert (h.locks / "w2.lock").exists()
 
 
 def test_lock_released_when_refresh_fails(h, repo):
