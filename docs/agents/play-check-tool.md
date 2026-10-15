@@ -10,6 +10,8 @@ U="C:/Users/garrett.reynolds/AppData/Local/Unity/bin/unity.exe"; P=C:/Users/garr
 "$U" command --project-path $P --result-only eval --code 'return HockeyGame.PlayCheck.PlayCheckRunner.Poll();'
 ```
 
+If Start answers "Main thread operation timed out" (the first eval after a recompile can), call Poll before you retry: Start may already be running. The runner keeps its state in static fields across entering Play, so it needs Enter Play Mode Options with domain reload off (this project's setting).
+
 The same Start line works from a file with `eval_file --file <path.cs>`. `PlayCheckRunner.Stop()` ends a run early (restores, exits Play, removes its callbacks). A relative log path is from the project folder (`Logs/` is not committed).
 
 - Start arguments: `script`, `logPath`, `probes` (or null), `sampleEvery` (a frame line every N frames, default 10; 0 = none), `crowd` (default false), `scene` (default Rink).
