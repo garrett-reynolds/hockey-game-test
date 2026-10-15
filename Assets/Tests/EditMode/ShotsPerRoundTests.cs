@@ -395,8 +395,9 @@ namespace HockeyGame.Core.Tests
         public void The_lower_third_tallies_and_averages_over_3_and_10_Shots()
         {
             var three = new List<double?> { 80, 90, 100 };
-            LowerThirdText t3 = LowerThird.Choose(new List<ShotResultKind> { ShotResultKind.Goal, ShotResultKind.Miss, ShotResultKind.Save }, three).Value;
-            Assert.AreEqual("100 km/h  |  average 90 km/h", t3.SpeedLine);
+            LowerThirdText t3 = LowerThird.Choose(new List<ShotResultKind> { ShotResultKind.Goal, ShotResultKind.Miss, ShotResultKind.Save }, three, 3, 3);
+            Assert.AreEqual("Last Shot 100 km/h  ·  average 90 km/h", t3.Stat);
+            Assert.AreEqual("SHOT 3 OF 3", t3.ShotOf);
 
             var ten = new List<double?>();
             var results = new List<ShotResultKind>();
@@ -405,13 +406,14 @@ namespace HockeyGame.Core.Tests
                 ten.Add(90 + 2 * i);
                 results.Add(i % 3 == 0 ? ShotResultKind.Goal : ShotResultKind.Miss);
             }
-            LowerThirdText t10 = LowerThird.Choose(results, ten).Value;
-            Assert.AreEqual("108 km/h  |  average 99 km/h", t10.SpeedLine);
-            Assert.AreEqual("4 Goals from 10 Shots", t10.Headline);
+            LowerThirdText t10 = LowerThird.Choose(results, ten, 10, 10);
+            Assert.AreEqual("Last Shot 108 km/h  ·  average 99 km/h", t10.Stat);
+            Assert.AreEqual("GOALS 4  ·  SHOTS 10", t10.Tally);
+            Assert.AreEqual("SHOT 10 OF 10", t10.ShotOf);
         }
 
         [Test]
-        public void The_lower_third_of_a_Round_reads_the_speeds_the_Round_kept_for_3_and_10_Shots()
+        public void The_lower_third_of_a_Round_counts_every_Shot_the_Round_kept_for_3_and_10_Shots()
         {
             foreach (int shots in new[] { 3, 10 })
             {
@@ -423,8 +425,10 @@ namespace HockeyGame.Core.Tests
                     if (shot < shots - 1) round.Tick(round.ResultHoldLength);
                 }
                 Assert.AreEqual(shots, round.ShotSpeedsKmh.Count);
-                LowerThirdText text = LowerThird.Choose(round.Results, round.ShotSpeedsKmh).Value;
-                Assert.AreEqual("100 km/h  |  average 100 km/h", text.SpeedLine, "Round of " + shots);
+                LowerThirdText text = LowerThird.Of(round);
+                Assert.AreEqual(shots + " in a row!", text.Stat, "Round of " + shots + ": every Shot a Goal");
+                Assert.AreEqual("GOALS " + shots + "  ·  SHOTS " + shots, text.Tally, "Round of " + shots);
+                Assert.AreEqual("SHOT " + shots + " OF " + shots, text.ShotOf, "Round of " + shots);
             }
         }
     }
