@@ -146,31 +146,49 @@ namespace HockeyGame.Core.Tests
             var worst = new Dictionary<string, Worst>();
 
             // Goal: Goals until every Goal clip has played (they are picked at random, never twice in a row).
-            for (int g = 0; g < 12; g++)
+            // The Goals alternate sides (X 80 = the goalie's left, 20 = the right) so both look-backs come up.
+            for (int g = 0; g < 60; g++)
             {
                 bool all = true;
-                foreach (string name in GoalieClipReactions.GoalClips) all &= worst.ContainsKey(name);
+                foreach (string name in GoalieClipReactions.GoalClipFiles) all &= worst.ContainsKey(name);
                 if (all) break;
                 Round round = NewRound(character, settings, clips);
-                round.SubmitShot(50, 50, 90, false);
+                round.SubmitShot(g % 2 == 0 ? 80 : 20, 50, 90, false);
                 round.Whistle(ShotResultKind.Goal);
                 Play(clips, round, code, animator, worst);
             }
-            // Save: shots at several spots until both the Glove and the Cheer clip have played.
+            // Save: shots at several spots until every Save clip has played.
             double[,] spots = { { 10, 90 }, { 90, 90 }, { 50, 50 }, { 50, 10 }, { 10, 10 }, { 90, 10 }, { 50, 90 }, { 25, 70 }, { 75, 70 } };
-            for (int s = 0; s < spots.GetLength(0)
-                 && !(worst.ContainsKey(GoalieClipReactions.GloveClip) && worst.ContainsKey(GoalieClipReactions.CheerClip)); s++)
+            for (int s = 0; s < 100; s++)
             {
+                bool all = true;
+                foreach (string name in GoalieClipReactions.SaveClips) all &= worst.ContainsKey(name);
+                if (all) break;
+                int spot = s % spots.GetLength(0);
                 Round round = NewRound(character, settings, clips);
-                round.SubmitShot(spots[s, 0], spots[s, 1], 90, false);
+                round.SubmitShot(spots[spot, 0], spots[spot, 1], 90, false);
                 round.Whistle(ShotResultKind.Save);
                 Play(clips, round, code, animator, worst);
             }
-            // Idle: the start screen (the Round is in Idle).
-            Play(clips, new Round(new SeededRandom(5), settings, new GoalieCharacterReach(character, settings), 0), code, animator, worst);
+            // Miss: miss-relief.
+            {
+                Round round = NewRound(character, settings, clips);
+                round.SubmitShot(50, 50, 90, false);
+                round.Whistle(ShotResultKind.Miss);
+                Play(clips, round, code, animator, worst);
+            }
+            // Idle: the start screen (the Round is in Idle); twice, so both Idle clips play.
+            for (int n = 0; n < 2; n++)
+            {
+                NewRound(character, settings, clips); // leaves Idle, so the next Idle starts its clock again
+                Play(clips, new Round(new SeededRandom(5), settings, new GoalieCharacterReach(character, settings), 0), code, animator, worst);
+            }
 
-            string[] expected = { GoalieClipReactions.SlumpClip, GoalieClipReactions.StickSlapClip, GoalieClipReactions.LookBackClip,
-                GoalieClipReactions.GloveClip, GoalieClipReactions.CheerClip, GoalieClipReactions.IdleClip };
+            var expectedList = new List<string>(GoalieClipReactions.GoalClipFiles);
+            expectedList.AddRange(GoalieClipReactions.SaveClips);
+            expectedList.AddRange(GoalieClipReactions.IdleClips);
+            expectedList.Add(GoalieClipReactions.MissClip);
+            string[] expected = expectedList.ToArray();
             var problems = new List<string>();
             var report = new System.Text.StringBuilder();
             foreach (string name in expected)
