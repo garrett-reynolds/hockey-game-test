@@ -31,7 +31,7 @@ python Tools/agent/install.py          # copies slot.py, slotlib/ and githooks/p
 python Tools/agent/install.py --check  # lists drift between the two copies; exit 1 if any
 ```
 
-Layout: `slot.py` (entry), `slotlib/common.py` (Unity CLI call, slot list, lock, Editor state), one module per sub-command (`status.py`, `testrun.py`), `closeopen.py` (close, open), `editors.py` (open Editors from `unity status`), `cpu.py` (CPU reader), `watch.py` (hang watch).
+Layout: `slot.py` (entry), `slotlib/common.py` (Unity CLI call, slot list, lock, Editor state), one module per sub-command (`status.py`, `testrun.py`), `closeopen.py` (close, open), `editors.py` (open Editors from `unity status`), `cpu.py` (CPU reader), `watch.py` (hang watch), `done.py` (the `done` check).
 
 Tests: `python -m pytest Tools/agent/tests` from the repo root. They run the command line against `tests/fake_unity.py`.
 
@@ -45,3 +45,16 @@ python C:/Users/garrett.reynolds/Projects/Personal/hockey-wt/_notes/slot.py play
 - Opens the scene, enters Play, hides the crowd and mutes sound (unless `--crowd`), runs the action, samples every frame (Editor-side sampler registered by one eval, removed by the last eval), saves one picture to `<project>/Logs/playcheck-<slot>-<time>.png`.
 - Prints a fixed block: facing (limit 45 deg), skate (lowest blade vs ice, limit >= -0.03 m), jump (largest per-frame hips move, limit 0.3 m), console (errors during Play, limit 0), picture path, detail file. Exit 0 = PASS, 1 = FAIL, 2 = refused. Detail (all samples) in `_notes/results/<slot>-playcheck-<time>.json`.
 - `clip:<name>` needs the AI clip branch (`GoalieView.Clips`); `shot` presses, waits for the Shooting Window and submits one Shot.
+
+## done (#188, #189)
+
+```
+python C:/Users/garrett.reynolds/Projects/Personal/hockey-wt/_notes/slot.py done w2
+```
+
+- Run before a hand-off. Prints one line per check (`OK` or `FAIL`), then `done: all checks OK` or `done: N check(s) FAIL`. Never talks to the Editor, and nothing is killed.
+- `git`: branch, uncommitted count and commits ahead of `main`. Lists at most 10 uncommitted names and at most 10 commits, then `+N more`. Fails only when git cannot be read.
+- `runs`: reads the run log `_notes/results/<slot>-runs.jsonl` for this branch. Passes when a green run (passed > 0, failed 0, exit 0) is logged at the current HEAD. Prints the first red run and the last green run with their result files.
+- `test files`: only `.cs` files under a `Tests` folder in `Assets/` count (pytest runs are never in the run log). Fails when one changed (committed since `main`, or uncommitted) after the last logged run, or when there is no run at all.
+- `wait loops`: lists shell or python processes with an `until`/`while` and a `sleep` that name the slot folder or `slot.py`. Fails when there is one; prints its PID.
+- Exit 0 = all checks OK, 1 = at least one FAIL, 2 = unknown slot.

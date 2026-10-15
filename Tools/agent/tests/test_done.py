@@ -92,6 +92,26 @@ def test_uncommitted_files_are_listed_but_do_not_fail_git(h, repo):
     assert "dirty.asset" in out and "base.txt" in out
 
 
+def test_many_uncommitted_files_are_capped_at_ten_names(h, repo):
+    log_run(h, RUN1, head(repo))
+    for i in range(12):
+        (repo / f"dirty{i:02d}.asset").write_text("d", encoding="utf-8")
+    rc, out = h.run("done", "w2")
+    assert "12 uncommitted" in out
+    assert len([x for x in out.splitlines() if x.startswith("  uncommitted:")]) == 10
+    assert "  +2 more" in out
+
+
+def test_many_commits_ahead_are_capped_at_ten_lines(h, repo):
+    for i in range(11):
+        commit(repo, f"Tools/agent/c{i}.py", msg=f"work item {i}")
+    log_run(h, RUN1, head(repo))
+    rc, out = h.run("done", "w2")
+    assert "12 ahead of main" in out
+    assert len([x for x in out.splitlines() if "work item" in x or "feature work" in x]) == 10
+    assert "  +2 more" in out
+
+
 def test_git_failing_is_a_fail(h, tmp_path):
     (tmp_path / "wt" / "w2").mkdir(parents=True)  # a folder that is not a git repo
     rc, out = h.run("done", "w2")
@@ -154,14 +174,14 @@ def test_committed_test_file_newer_than_last_run_fails(h, repo):
 
 def test_committed_test_file_older_than_last_run_is_ok(h, repo):
     commit(repo, UNITY_TEST, date=OLD)
-    commit(repo, PY_TEST, date=OLD)
+    commit(repo, UNITY_TEST2, date=OLD)
     log_run(h, RUN1, head(repo))
     rc, out = h.run("done", "w2")
     assert rc == 0, out
 
 
 def test_any_status_counts_as_the_last_run_for_test_files(h, repo):
-    commit(repo, PY_TEST, date="2020-06-01T10:30:00")
+    commit(repo, UNITY_TEST, date="2020-06-01T10:30:00")
     log_run(h, RUN1, "0" * 40)
     log_run(h, RUN2, head(repo), passed=None, failed=None, rc=3, status="hang")  # newest run, a hang
     rc, out = h.run("done", "w2")
@@ -183,13 +203,21 @@ def test_uncommitted_test_file_uses_its_mtime(h, repo):
 
 
 def test_modified_tracked_test_file_uses_its_mtime(h, repo):
-    commit(repo, PY_TEST, date=OLD)
+    commit(repo, UNITY_TEST, date=OLD)
     log_run(h, RUN1, head(repo))
-    f = repo / PY_TEST
+    f = repo / UNITY_TEST
     f.write_text("edited", encoding="utf-8")
     os.utime(f, (epoch(FUTURE), epoch(FUTURE)))
     rc, out = h.run("done", "w2")
     assert rc == 1 and line(out, "FAIL test files")
+
+
+def test_python_test_files_do_not_count(h, repo):
+    commit(repo, PY_TEST, date="2020-06-01T12:00:00")
+    log_run(h, RUN2, head(repo))
+    rc, out = h.run("done", "w2")
+    assert rc == 0, out
+    assert "OK test files: none changed" in out
 
 
 def test_non_test_files_do_not_count(h, repo):
@@ -201,7 +229,7 @@ def test_non_test_files_do_not_count(h, repo):
 
 
 def test_test_file_with_no_run_at_all_fails(h, repo):
-    commit(repo, PY_TEST, date=OLD)
+    commit(repo, UNITY_TEST, date=OLD)
     rc, out = h.run("done", "w2")
     assert rc == 1
     assert line(out, "FAIL test files") and line(out, "FAIL runs")
@@ -211,10 +239,25 @@ def test_test_file_with_no_run_at_all_fails(h, repo):
 LOOP = "import time\nwhile True: time.sleep(0.5)"
 
 
+def in_process_list(pid):
+    q = f"(Get-CimInstance Win32_Process -Filter 'ProcessId={pid}').CommandLine"
+    out = subprocess.run(["powershell", "-NoProfile", "-Command", q], capture_output=True, text=True, timeout=30)
+    return bool(out.stdout.strip())
+
+
 def start_loop(*extra):
+    """Start a loop process and poll (up to 5 s) until its command line shows in the process list."""
     import sys
     p = subprocess.Popen([sys.executable, "-c", LOOP, *extra])
-    time.sleep(1.0)  # let the process show up in the process list
+    try:
+        deadline = time.time() + 5
+        while not in_process_list(p.pid):
+            assert time.time() < deadline, "loop process never showed in the process list"
+            time.sleep(0.1)
+    except BaseException:
+        p.kill()
+        p.wait()
+        raise
     return p
 
 
