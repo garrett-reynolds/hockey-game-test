@@ -147,10 +147,24 @@ namespace HockeyGame.Core
         /// Before Shots 2 to 6 a Replay's hold runs ShotFade.LeadSeconds (0.35 s) longer, so the fade to black starts after the
         /// Replay's look-back has ended, never over it (#129): 4.85 s.
         /// </summary>
-        public double ResultHoldLength => _settings.TestMode ? _settings.TestModeHoldSeconds : // Test Mode (#156): one short hold, no Replay, no fade lead
+        public double ResultHoldLength => _settings.TestMode ? TestModeHoldLength : // Test Mode (#156): one short hold, no Replay, no fade lead
             (ReplayTiming.Follows(LastResult) ? ReplayTiming.HoldSeconds : _settings.ResultHoldSeconds)
             + (ReplayTiming.Follows(LastResult) && ShotNumber < ShotCount ? ShotFade.LeadSeconds : 0)
             + ClipHoldExtra;
+
+        /// <summary>Test Mode's hold (PROTOTYPE keep-clips): TestModeHoldSeconds, except while the AI clips are on (ClipHoldSeconds above 0)
+        /// a Goal, a Save or a Miss holds as long as normal play with no Replay (ResultHoldSeconds, plus ClipHoldSeconds for a Goal or a Save), so a clip fits.
+        /// A Frame Hit and Too Late keep the short hold.</summary>
+        double TestModeHoldLength
+        {
+            get
+            {
+                if (_settings.ClipHoldSeconds <= 0) return _settings.TestModeHoldSeconds;
+                ArenaResult r = ArenaShow.ResultOf(LastResult);
+                if (r == ArenaResult.Goal || r == ArenaResult.Save) return _settings.ResultHoldSeconds + _settings.ClipHoldSeconds;
+                return r == ArenaResult.WideMiss ? _settings.ResultHoldSeconds : _settings.TestModeHoldSeconds;
+            }
+        }
 
         /// <summary>RoundSettings.ClipHoldSeconds on a Goal or a Save with no Replay (not a Frame Hit, Miss or Too Late): the clip starts at the Whistle, and a Replay's own hold already fits it.</summary>
         double ClipHoldExtra

@@ -139,7 +139,7 @@ namespace HockeyGame.Core.Tests
             coded.Clips.Use = false;                 // K: the clips are off
             Assert.IsTrue(clipped.Clips.ReplacesReaction(AfterShotGesture.Slump));
             Assert.IsTrue(clipped.Clips.ReplacesReaction(AfterShotGesture.None), "a Save");
-            Assert.IsFalse(clipped.Clips.ReplacesReaction(AfterShotGesture.Relief), "a Miss has no clip: Relief stays");
+            Assert.IsTrue(clipped.Clips.ReplacesReaction(AfterShotGesture.Relief), "a Miss has miss-relief now");
             Assert.IsFalse(coded.Clips.ReplacesReaction(AfterShotGesture.Slump));
 
             Vector3 net = NetPoint(15, 85);

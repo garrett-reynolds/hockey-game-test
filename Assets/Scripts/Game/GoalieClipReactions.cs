@@ -7,7 +7,7 @@ namespace HockeyGame
 {
     /// <summary>
     /// PROTOTYPE: AI-made humanoid clips on the goalie. After a Goal a clip from GoalClips, after a Save one from SaveClips (a Glove
-    /// save prefers the glove clip), never the same one twice in a row, and an idle clip in Idle and RoundOver. A Miss keeps the procedural Relief.
+    /// save prefers the glove clip), never the same one twice in a row, and an idle clip (two take turns) in Idle and RoundOver. A Miss plays miss-relief; with no room or no clip the procedural Relief stays.
     /// <para>
     /// The Animator is off (no controller) except in a clip window. At the window's start the bones' local poses are kept
     /// (Pre/Post: Post runs after BreakawayView.Step). While the clip owns the pose (Owns), GoalieView.PoseCharacter skips every
@@ -19,12 +19,36 @@ namespace HockeyGame
     /// </summary>
     public sealed class GoalieClipReactions
     {
-        public const string SlumpClip = "clip-16-slump", StickSlapClip = "clip-17-stick-slap", LookBackClip = "clip-18-look-back";
-        public const string GloveClip = "clip-20-show-hand-up", CheerClip = "clip-30-cheer-point", IdleClip = "clip-31-idle-shoulder-roll";
+        public const string SlumpClip = "clip-16-slump", StickSlapClip = "clip-17-stick-slap";
+        public const string GoalSlumpClip = "goal-slump", GoalLookUpClip = "goal-look-up";
+        /// <summary>The two look-backs: clip-18 is over the goalie's LEFT shoulder, goal-look-back over the RIGHT (Garrett, 2026-10-15).</summary>
+        public const string LookBackClip = "clip-18-look-back", RightLookBackClip = "goal-look-back";
+        /// <summary>The Goal pool's one look-back entry; it resolves to the clip of the Goal's side (ResolveGoalClip).</summary>
+        public const string LookBackEntry = "look-back";
+        public const string GloveClip = "clip-20-show-hand-up", CheerClip = "clip-30-cheer-point", GloveUpClip = "save-glove-up";
+        public const string IdleClip = "clip-31-idle-shoulder-roll", IdleClip2 = "idle-shoulder-roll", MissClip = "miss-relief";
         /// <summary>The upsets (a Goal) and the celebrations (a Save): a clip never plays twice in a row from its pool
-        /// (NoRepeatPicker). Add a clip by adding its name here. A Glove save prefers GloveClip when the rule allows it.</summary>
-        public static readonly string[] GoalClips = { SlumpClip, StickSlapClip, LookBackClip };
-        public static readonly string[] SaveClips = { GloveClip, CheerClip };
+        /// (NoRepeatPicker). Add a clip by adding its name here. A Glove save prefers GlovePreferred when the rule allows it.
+        /// The look-back counts as one Goal entry.</summary>
+        public static readonly string[] GoalClips = { SlumpClip, StickSlapClip, GoalSlumpClip, GoalLookUpClip, LookBackEntry };
+        /// <summary>Every file the Goal pool can play (both look-backs).</summary>
+        public static readonly string[] GoalClipFiles = { SlumpClip, StickSlapClip, GoalSlumpClip, GoalLookUpClip, LookBackClip, RightLookBackClip };
+        public static readonly string[] SaveClips =
+        {
+            GloveClip, CheerClip, "save-calm-nod", "save-chest-tap", "save-fist-pump", "save-glove-shake", GloveUpClip,
+            "save-head-shake", "save-reset", "save-shout"
+        };
+        public static readonly string[] GlovePreferred = { GloveUpClip, GloveClip };
+        public static readonly string[] IdleClips = { IdleClip, IdleClip2 };
+
+        /// <summary>The look-back clip for a Goal at Net Face X: X from 50 up is the shooter's right = the goalie's left.</summary>
+        public static string LookBackFor(double netFaceX) => netFaceX >= SaveReactions.HandSidesSplit ? LookBackClip : RightLookBackClip;
+
+        /// <summary>The clip file for a Goal pool entry: the look-back entry becomes the side's clip, any other entry is its own file.</summary>
+        public static string ResolveGoalClip(string entry, double netFaceX) => entry == LookBackEntry ? LookBackFor(netFaceX) : entry;
+
+        /// <summary>The clip with exactly this name under Assets/AIClips (the Editor only); null if missing. FindAssets matches parts of names.</summary>
+        public AnimationClip LoadClip(string name) => Load(name);
         public const string ControllerPath = "Assets/AIClips/AIClipViewer.controller";
         const string ClipFolder = "Assets/AIClips";
         static readonly int StateHash = Animator.StringToHash("Clip");
@@ -111,8 +135,9 @@ namespace HockeyGame
         bool _playedThisHold;
         bool _startedThisHold;       // the one try this hold started a clip
         // The last upset and celebration, kept for the whole session (this object lives as long as the GoalieView).
-        NoRepeatPicker _goalPicks, _savePicks;
+        NoRepeatPicker _goalPicks, _savePicks, _idlePicks;
         NoRepeatPicker _pendingPicks;   // the pool the clip being started was picked from (remembered once it starts)
+        string _pendingEntry;           // the pool entry picked (a look-back entry, not the side's file)
 
         sealed class SystemRandomSource : IRandomSource
         {
@@ -125,6 +150,7 @@ namespace HockeyGame
         {
             _goalPicks = new NoRepeatPicker(GoalClips, random);
             _savePicks = new NoRepeatPicker(SaveClips, random);
+            _idlePicks = new NoRepeatPicker(IdleClips, random);
         }
         double _nextIdleAt = IdleFirstSeconds;
         double _phaseClock;          // real seconds in this phase, counted here (Round.PhaseSecondsElapsed stands still in Idle and RoundOver)
@@ -171,15 +197,15 @@ namespace HockeyGame
         /// <summary>
         /// True when a clip plays for this result in place of the code-made after-Shot reaction (GoalieView then shows none of
         /// its look back, gestures, head shake, head turn or follow-through): the clips are on, this hold's clip really starts
-        /// (ClipThisHold), it is a Goal (an Annoyed Gesture) or a Save (None), and the clips are there. A Miss (Relief) has no
-        /// clip and keeps its code reaction.
+        /// (ClipThisHold), it is a Goal (an Annoyed Gesture), a Save (None) or a Miss (Relief), and the clips are there.
         /// </summary>
         public bool ReplacesReaction(AfterShotGesture gesture)
         {
-            if (!Use || !ClipThisHold || !(AfterShot.IsGoal(gesture) || gesture == AfterShotGesture.None)) return false;
+            bool miss = gesture == AfterShotGesture.Relief;
+            if (!Use || !ClipThisHold || !(AfterShot.IsGoal(gesture) || gesture == AfterShotGesture.None || miss)) return false;
             if (ClipsFoundOverride.HasValue) return ClipsFoundOverride.Value;
             if (!EnsureOverride()) return false;
-            string[] names = gesture == AfterShotGesture.None ? SaveClips : GoalClips;
+            string[] names = miss ? new[] { MissClip } : gesture == AfterShotGesture.None ? SaveClips : GoalClipFiles;
             foreach (string name in names)
                 if (Load(name) == null) return false;
             return true;
@@ -266,7 +292,7 @@ namespace HockeyGame
         /// <summary>Before the one try of this hold: whether it will start a clip (the clips are on, a Goal or Save, the window fits).</summary>
         bool WillStartThisHold(Round round)
         {
-            if (!Use || !round.LastResult.HasValue || !round.LastResult.Value.HasShot || round.LastResult.Value.Kind == ShotResultKind.Miss) return false;
+            if (!Use || !round.LastResult.HasValue || !round.LastResult.Value.HasShot) return false;
             double landed = round.PhaseSecondsElapsed - round.ResultDelaySeconds;
             return WindowFits(round.ResultHoldSecondsLeft - Math.Max(0.0, AfterWhistleSeconds - landed), BlendSeconds);
         }
@@ -315,20 +341,27 @@ namespace HockeyGame
             {
                 if (_playedThisHold || !round.ResultShowing || !round.LastResult.HasValue || !round.LastResult.Value.HasShot) return;
                 ShotResult result = round.LastResult.Value;
-                if (result.Kind == ShotResultKind.Miss) return; // the procedural Relief stays
                 double landed = round.PhaseSecondsElapsed - round.ResultDelaySeconds;
-                if (landed < AfterWhistleSeconds) return; // at the Goal or Save, Replay or not (the Replay records and shows the clip's start)
-                if (result.Kind == ShotResultKind.Goal)
+                if (landed < AfterWhistleSeconds) return; // at the Goal, Save or Miss, Replay or not (the Replay records and shows the clip's start)
+                if (result.Kind == ShotResultKind.Miss)
+                {
+                    _pendingPicks = null; // one clip: nothing to keep apart
+                    name = MissClip;
+                    kind = "Miss";
+                }
+                else if (result.Kind == ShotResultKind.Goal)
                 {
                     _pendingPicks = _goalPicks;
-                    name = _goalPicks.Next();
+                    _pendingEntry = _goalPicks.Next();
+                    name = ResolveGoalClip(_pendingEntry, result.X); // the look-back is the clip of the Goal's side
                     kind = "Goal";
                 }
                 else
                 {
                     SaveReaction reaction = round.LastRace.HasValue ? round.LastRace.Value.SaveReaction : SaveReactions.For(result.X, result.Y);
                     _pendingPicks = _savePicks;
-                    name = _savePicks.Next(reaction == SaveReaction.Glove ? GloveClip : null);
+                    name = reaction == SaveReaction.Glove ? _savePicks.NextPreferring(GlovePreferred) : _savePicks.Next();
+                    _pendingEntry = name;
                     kind = "Save " + reaction;
                 }
                 window = (float)round.ResultHoldSecondsLeft;
@@ -340,7 +373,7 @@ namespace HockeyGame
             else if (phase == RoundPhase.Idle || phase == RoundPhase.RoundOver)
             {
                 if (_phaseClock < _nextIdleAt) return; // the Round's own clock does not run in Idle / RoundOver (it waits for a Press)
-                name = IdleClip;
+                name = _idlePicks.Next();
                 kind = "Idle " + phase;
                 _nextIdleAt = double.PositiveInfinity; // set again when it ends
             }
@@ -353,7 +386,8 @@ namespace HockeyGame
                 if (kind.StartsWith("Idle")) _nextIdleAt = _phaseClock + IdleRepeatSeconds;
                 return; // missing: the procedural gesture stays
             }
-            if (holds) _pendingPicks.Remember(name); // only a clip that starts counts for the no-repeat rule
+            if (holds && _pendingPicks != null) _pendingPicks.Remember(_pendingEntry); // only a clip that starts counts for the no-repeat rule
+            if (!holds) _idlePicks.Remember(name);
             Begin(clip, kind, holds, window);
         }
 

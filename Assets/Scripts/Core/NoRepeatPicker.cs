@@ -39,6 +39,17 @@ namespace HockeyGame.Core
             return _pool[0];
         }
 
+        /// <summary>One of the preferred clips that is in the pool and was not the last, at random; with none allowed, Next().</summary>
+        public string NextPreferring(IReadOnlyList<string> preferred)
+        {
+            var allowed = new List<string>();
+            if (preferred != null)
+                foreach (string clip in preferred)
+                    if (clip != Last && Array.IndexOf(_pool, clip) >= 0) allowed.Add(clip);
+            if (allowed.Count == 0) return Next();
+            return allowed[Math.Min(allowed.Count - 1, (int)(_random.Next() * allowed.Count))];
+        }
+
         /// <summary>Records the clip that played.</summary>
         public void Remember(string clip) { Last = clip; }
     }

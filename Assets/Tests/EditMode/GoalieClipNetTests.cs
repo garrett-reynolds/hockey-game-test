@@ -163,14 +163,15 @@ namespace HockeyGame.Core.Tests
                 var worst = new Dictionary<string, (float into, string what, float at)>();
                 foreach (bool goal in new[] { true, false })
                 {
-                    string[] pool = goal ? GoalieClipReactions.GoalClips : GoalieClipReactions.SaveClips;
-                    for (int n = 0; n < 12; n++)
+                    string[] pool = goal ? GoalieClipReactions.GoalClipFiles : GoalieClipReactions.SaveClips;
+                    for (int n = 0; n < 100; n++)
                     {
                         bool all = true;
                         foreach (string name in pool) all &= worst.ContainsKey(name);
                         if (all) break;
                         Round round = NewRound(character, settings, clips);
-                        round.SubmitShot(goal ? 50 : 10, goal ? 50 : 90, 90, false);
+                        // Goals alternate sides (X 80 = the goalie's left, 20 = the right) so both look-backs come up.
+                        round.SubmitShot(goal ? (n % 2 == 0 ? 80 : 20) : 10, goal ? 50 : 90, 90, false);
                         round.Whistle(goal ? ShotResultKind.Goal : ShotResultKind.Save);
                         Play(clips, round, body, worst);
                     }

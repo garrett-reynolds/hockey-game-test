@@ -145,6 +145,43 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(2, flow.Round.ShotNumber);
         }
 
+        // PROTOTYPE (keep-clips): with the AI clips on (ClipHoldSeconds > 0) Test Mode holds a Goal, Save or Miss as long as normal play with no Replay.
+        [Test]
+        public void With_the_clips_on_the_Test_Mode_hold_after_a_Goal_a_Save_and_a_Miss_matches_normal_play_with_no_Replay()
+        {
+            foreach (string shot in new[] { "goal", "save", "miss" })
+            {
+                var settings = new RoundSettings { ClipHoldSeconds = 1.5 };
+                var flow = new ScreenFlow(ScriptedRandom.Halves(), new SaveData(), shot == "save" ? FakeReach.InTheWay() : FakeReach.NeverReaches(), settings);
+                flow.OpenSettings();
+                flow.StartTestMode();
+                flow.SubmitShot(shot == "miss" ? -10 : 50, shot == "miss" ? 50 : 90, 100, false);
+                flow.Round.WhistleNow();
+                double expected = shot == "miss" ? settings.ResultHoldSeconds : settings.ResultHoldSeconds + 1.5; // the Miss has no extra
+                Assert.AreEqual(expected, flow.Round.ResultHoldLength, 1e-9, shot);
+            }
+        }
+
+        [Test]
+        public void With_the_clips_on_a_Frame_Hit_keeps_the_short_Test_Mode_hold_and_with_the_clips_off_so_do_a_Goal_a_Save_and_a_Miss()
+        {
+            var on = new RoundSettings { ClipHoldSeconds = 1.5 };
+            ScreenFlow flow = NewTestModeFlow(null, on);
+            flow.SubmitShot(-NetFrame.PostWidth / 2, 50, 100, false);
+            flow.Round.WhistleNow();
+            Assert.AreEqual(on.TestModeHoldSeconds, flow.Round.ResultHoldLength, 1e-9, "Frame Hit, clips on");
+            foreach (string shot in new[] { "goal", "save", "miss" })
+            {
+                var off = new RoundSettings { ClipHoldSeconds = 0 };
+                var f = new ScreenFlow(ScriptedRandom.Halves(), new SaveData(), shot == "save" ? FakeReach.InTheWay() : FakeReach.NeverReaches(), off);
+                f.OpenSettings();
+                f.StartTestMode();
+                f.SubmitShot(shot == "miss" ? -10 : 50, shot == "miss" ? 50 : 90, 100, false);
+                f.Round.WhistleNow();
+                Assert.AreEqual(off.TestModeHoldSeconds, f.Round.ResultHoldLength, 1e-9, shot + ", clips off");
+            }
+        }
+
         [Test]
         public void The_hold_is_short_for_a_Save_and_a_Frame_Hit_too_and_has_no_Replay_lead()
         {
