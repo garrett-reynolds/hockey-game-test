@@ -14,7 +14,7 @@ import shutil
 import subprocess
 import time
 
-from . import common
+from . import common, fresh, testrun
 
 # Limits. Fixed on purpose: a check that can be loosened per run stops meaning anything.
 FACING_LIMIT_DEG = 45.0
@@ -295,13 +295,20 @@ def run(args):
     if lock and lock["live"]:
         raise common.SlotError(f"{common.label(slot)}: a run is already running (pid {lock.get('pid')}, "
                           f"{lock.get('kind', '?')}). Refusing the Play check.")
-    state = common.editor_state(slot)
-    if state != "ready":
-        why = "the Editor is " + common.STATE_TEXT[state]
-        raise common.SlotError(f"{common.label(slot)}: {why}. Refusing the Play check.")
+    testrun.wait_until_ready(slot, "play-check")  # same order as `test` (#187): never refresh a busy Editor
     if lock:
         common.release_lock(slot)  # stale: the Editor answers and its owner is gone
     common.acquire_lock(slot, "play-check")
+    try:
+        code = fresh.ensure_fresh(slot)  # Refresh + recompile when the code changed (stamp shared with `test`)
+        if code is None:
+            testrun.wait_until_ready(slot, "play-check")  # the recompile reloads the Editor: wait for it again
+    except BaseException:
+        common.release_lock(slot)
+        raise
+    if code is not None:
+        common.release_lock(slot)
+        return code
     common.results_dir().mkdir(parents=True, exist_ok=True)
     stamp = time.strftime("%Y%m%d-%H%M%S")
     results_path = common.results_dir() / f"{slot}-playcheck-{stamp}.json"

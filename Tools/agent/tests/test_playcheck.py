@@ -1,8 +1,11 @@
 import base64
 import json
 import os
+import subprocess
 
-from conftest import PLAY, READY, reply
+import pytest
+
+from conftest import PLAY, READY, SUMMARY_OK, reply
 
 SCENE = "Assets/Scenes/Rink.unity"
 PNG = base64.b64encode(b"\x89PNG fake picture").decode()
@@ -29,7 +32,11 @@ CONSOLE_ERR = {"cursor": 14, "counts": {"error": 2, "warn": 6, "log": 4}, "entri
 
 def setup(h, data, console_after=CONSOLE_CLEAN, extra_evals=()):
     slot = "w2"
-    h.set(slot, "editor_status", reply(READY), reply(PLAY))
+    # probes: ready wait, ready wait after the refresh, then Play (#187)
+    h.set(slot, "editor_status", reply(READY), reply(READY), reply(PLAY))
+    for command, answer in (("menu", {"ok": True}), ("recompile", {"ok": True}),
+                            ("recompile_status", {"status": "completed", "errors": []})):
+        h.set(slot, command, reply(answer))
     h.set(slot, "test_status", reply({"status": "no_tests"}))
     h.set(slot, "open_scene", reply({"success": True}))
     h.set(slot, "console_status", reply(CONSOLE_BEFORE), reply(console_after))
@@ -40,8 +47,15 @@ def setup(h, data, console_after=CONSOLE_CLEAN, extra_evals=()):
     h.set(slot, "eval", ev("ok"), *extra_evals, ev(data), ev("ok"))
 
 
-def check(h, *extra, evals=()):
+def check_raw(h, *extra):
     return h.run("play-check", "w2", "--scene", SCENE, "--seconds", "0.1", *extra)
+
+
+def check(h, *extra, evals=()):
+    """The run's output from the PLAY CHECK block on (a Refresh note may come first, #187)."""
+    rc, out = check_raw(h, *extra)
+    i = out.find("PLAY CHECK")
+    return rc, out[i:] if i > 0 else out
 
 
 def commands(h):
@@ -221,3 +235,99 @@ def test_picture_reply_without_a_file_fails_the_block(h):
     rc, out = check(h)
     assert rc == 1
     assert "picture  ERROR" in out or "ERROR" in [x for x in out.splitlines() if x.startswith("picture")][0]
+
+
+# ---- Refresh + recompile before Play (#187) ------------------------------------------------
+
+def git(path, *args):
+    return subprocess.run(["git", "-C", str(path), *args], capture_output=True, text=True, check=True).stdout.strip()
+
+
+@pytest.fixture
+def repo(h, tmp_path):
+    path = tmp_path / "wt" / "w2"
+    path.mkdir(parents=True)
+    git(path, "init", "-q")
+    git(path, "checkout", "-q", "-b", "feat/x")
+    (path / "a.txt").write_text("a", encoding="utf-8")
+    git(path, "add", "a.txt")
+    git(path, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "a")
+    return path
+
+
+def unity_names(h):
+    out = []
+    for argv in h.calls():
+        if "--result-only" in argv:
+            out.append(argv[argv.index("--result-only") + 1:][0])
+    return out
+
+
+def again(h):
+    """Rewind every fake reply so a second run starts from the first reply again."""
+    for f in h.dir.glob("count-*"):
+        f.unlink()
+
+
+def test_first_play_check_refreshes_then_enters_play(h, repo):
+    setup(h, GOOD)
+    rc, out = check_raw(h)
+    assert rc == 0, out
+    seq =[n for n in unity_names(h) if n in ("menu", "recompile", "recompile_status")]
+    assert seq[:3] == ["menu", "recompile", "recompile_status"]
+    assert "Refresh + recompile" in out
+    all_calls = [a for argv in h.calls() for a in argv]
+    assert all_calls.index("menu") < all_calls.index("editor_play")
+
+
+def test_unchanged_code_sends_no_refresh(h, repo):
+    setup(h, GOOD)
+    assert check(h)[0] == 0
+    again(h)
+    h.set("w2", "editor_status", reply(READY), reply(READY), reply(PLAY))
+    rc, out = check(h)
+    assert rc == 0, out
+    assert unity_names(h).count("menu") == 1
+
+
+def test_changed_code_refreshes_again(h, repo):
+    setup(h, GOOD)
+    assert check(h)[0] == 0
+    (repo / "b.txt").write_text("b", encoding="utf-8")
+    git(repo, "add", "b.txt")
+    git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "b")
+    again(h)
+    h.set("w2", "editor_status", reply(READY), reply(READY), reply(PLAY))
+    assert check(h)[0] == 0
+    assert unity_names(h).count("menu") == 2
+
+
+def test_compile_error_stops_before_play(h, repo):
+    setup(h, GOOD)
+    h.set("w2", "recompile_status", reply({"status": "failed", "errors": ["Foo.cs(3,1): error CS1002: ; expected"]}))
+    rc, out = check(h)
+    assert rc == 1
+    assert "compile error" in out and "CS1002" in out
+    assert "editor_play" not in commands(h)
+    assert not (h.locks / "w2.lock").exists()
+
+
+def test_test_after_play_check_sends_no_refresh(h, repo):
+    setup(h, GOOD)
+    assert check(h)[0] == 0
+    h.ready("w2")
+    again(h)
+    h.set("w2", "editor_status", reply(READY))
+    h.set("w2", "run_tests", reply(SUMMARY_OK))
+    rc, out = h.run("test", "w2")
+    assert rc == 0, out
+    assert unity_names(h).count("menu") == 1
+
+
+def test_lock_released_when_refresh_fails(h, repo):
+    setup(h, GOOD)
+    h.set("w2", "menu", reply({}, rc=1))
+    rc, out = check(h)
+    assert rc != 0
+    assert "editor_play" not in commands(h)
+    assert not (h.locks / "w2.lock").exists()

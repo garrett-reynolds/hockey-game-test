@@ -17,7 +17,7 @@ def add_parser(sub):
     p.set_defaults(func=run)
 
 
-def wait_until_ready(slot):
+def wait_until_ready(slot, what="test"):
     """Poll until the Editor answers, is done compiling, and has no test run. Refuse on Play or a live run."""
     def check():
         state = c.editor_state(slot)
@@ -27,7 +27,7 @@ def wait_until_ready(slot):
     if state == "ready":
         return
     if state == "play":
-        raise c.SlotError(f"{c.label(slot)}: the Editor is in Play. Refusing to test. Stop Play first.")
+        raise c.SlotError(f"{c.label(slot)}: the Editor is in Play. Refusing to {what}. Stop Play first.")
     if state == "test_run":
         raise c.SlotError(f"{c.label(slot)}: a test run is already live in this Editor. Refusing.")
     raise c.SlotError(f"{c.label(slot)}: Editor {c.STATE_TEXT[state]} after {c.wait_s():.0f} s. Not started.")
