@@ -5,6 +5,7 @@
         "HockeyGame.Core",
         "HockeyGame",
         "HockeyGame.Editor",
+        "HockeyGame.PlayCheck",
         "Unity.InputSystem",
         "Unity.RenderPipelines.Core.Runtime",
         "Unity.RenderPipelines.Universal.Runtime",
