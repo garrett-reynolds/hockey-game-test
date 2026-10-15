@@ -206,3 +206,45 @@ def test_test_file_with_no_run_at_all_fails(h, repo):
     assert rc == 1
     assert line(out, "FAIL test files") and line(out, "FAIL runs")
     assert "done: 2 check(s) FAIL" in out
+
+
+LOOP = "import time\nwhile True: time.sleep(0.5)"
+
+
+def start_loop(*extra):
+    import sys
+    p = subprocess.Popen([sys.executable, "-c", LOOP, *extra])
+    time.sleep(1.0)  # let the process show up in the process list
+    return p
+
+
+def test_wait_loop_of_the_slot_fails_and_is_not_killed(h, repo):
+    log_run(h, RUN1, head(repo))
+    p = start_loop(str(repo))
+    try:
+        rc, out = h.run("done", "w2")
+        assert rc == 1, out
+        assert line(out, "FAIL wait loops: 1")
+        assert f"  PID {p.pid}  " in out
+        assert p.poll() is None  # nothing is killed
+    finally:
+        p.kill()
+        p.wait()
+
+
+def test_unrelated_loop_is_not_listed(h, repo):
+    log_run(h, RUN1, head(repo))
+    p = start_loop()
+    try:
+        rc, out = h.run("done", "w2")
+        assert rc == 0, out
+        assert f"PID {p.pid}" not in out
+    finally:
+        p.kill()
+        p.wait()
+
+
+def test_no_loop_is_ok(h, repo):
+    log_run(h, RUN1, head(repo))
+    rc, out = h.run("done", "w2")
+    assert line(out, "OK wait loops: 0"), out

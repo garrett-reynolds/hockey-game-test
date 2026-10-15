@@ -15,6 +15,21 @@ PS = ("Get-CimInstance Win32_Process | ForEach-Object { [pscustomobject]@{ id=[i
       "| ConvertTo-Json -Compress")
 
 
+PS_NAMES = ("Get-CimInstance Win32_Process | ForEach-Object { [pscustomobject]@{ id=[int]$_.ProcessId; "
+            "parent=[int]$_.ParentProcessId; name=[string]$_.Name; cmd=[string]$_.CommandLine } } "
+            "| ConvertTo-Json -Compress")
+
+
+def read_processes(query=PS):
+    """Run one PowerShell process query and return its rows as a list of dicts. Raises OSError, ValueError or
+    subprocess.SubprocessError when the query fails (callers decide what that means)."""
+    p = subprocess.run(["powershell", "-NoProfile", "-Command", query], capture_output=True, text=True, timeout=60)
+    if p.returncode != 0:
+        raise OSError(p.stderr.strip() or "process query failed")
+    data = json.loads(p.stdout or "[]")
+    return data if isinstance(data, list) else [data]
+
+
 def tree_cpu(procs, root):
     """Sum of cpu for root and every descendant. procs: [{'id','parent','cpu'}]."""
     kids = {}
@@ -43,8 +58,6 @@ def sample(slot):
         known, pid = editors.editor_pid(slot)
         if not known or pid is None:
             return None
-        p = subprocess.run(["powershell", "-NoProfile", "-Command", PS], capture_output=True, text=True, timeout=60)
-        data = json.loads(p.stdout or "[]")
-        return tree_cpu(data if isinstance(data, list) else [data], pid)
-    except (subprocess.TimeoutExpired, OSError, ValueError):
+        return tree_cpu(read_processes(), pid)
+    except (subprocess.SubprocessError, OSError, ValueError):
         return None
