@@ -45,10 +45,6 @@ def run(args):
         raise c.SlotError(f"{c.label(slot)}: not open; run: slot.py open {slot}")
     try:
         wait_until_ready(slot)  # never refresh an Editor that is in Play, busy or silent
-        code = fresh.ensure_fresh(slot)
-        if code is not None:
-            return code
-        wait_until_ready(slot)  # the recompile reloads the Editor: wait for it again
     except c.SlotError as e:
         if lock:
             raise c.SlotError(f"{e} Found a stale lock (pid {lock.get('pid')} gone); kept because the Editor "
@@ -58,8 +54,12 @@ def run(args):
         print(f"{c.label(slot)}: stale lock (pid {lock.get('pid')} gone) cleared; the Editor answers.")
         c.release_lock(slot)
     kind = "full" if args.full else "fast"
-    c.acquire_lock(slot, kind)
+    c.acquire_lock(slot, kind)  # held from here: a second `test` must not recompile under a refresh or a run
     try:
+        code = fresh.ensure_fresh(slot)
+        if code is not None:
+            return code
+        wait_until_ready(slot)  # the recompile reloads the Editor: wait for it again
         return execute(slot, kind, args.filter)
     finally:
         c.release_lock(slot)

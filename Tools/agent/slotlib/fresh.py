@@ -13,6 +13,7 @@ from . import common as c
 CODE_ENDINGS = tuple("." + e for e in ("cs", "shader", "hlsl", "cginc", "compute", "asmdef", "asmref", "uss", "uxml"))
 NETWORK = "Network error"
 DONE_STATES = ("completed", "up_to_date")
+PENDING_STATES = ("idle", "triggered", "compiling", "running", "pending", "in_progress", "started")
 MAX_ERROR_LINES = 5
 
 
@@ -104,30 +105,47 @@ def unity(slot, *args):
         except OSError as e:
             return None, f"cannot run the Unity CLI: {e.__class__.__name__}"
         text = ((p.stdout or "") + "\n" + (p.stderr or "")).strip()
-        if NETWORK in text and attempt == 1:
-            continue
+        if NETWORK in text:
+            if attempt == 1:
+                continue
+            return None, NETWORK  # twice in a row, whatever the exit code said
         return p.returncode, text
     return None, "unreachable"
 
 
-def error_lines(data):
-    """Compile error lines from a recompile reply (dict), or [] when it shows none.
+def call(slot, step, *args):
+    """unity() for one step; a command that cannot run, or a second Network error, stops the run (exit 2)."""
+    rc, text = unity(slot, *args)
+    if rc is None:
+        if text == NETWORK:
+            raise c.SlotError(f"{c.label(slot)}: Network error twice during {step}; the Editor may be reloading. "
+                              f"Run slot.py test again.")
+        raise c.SlotError(f"{c.label(slot)}: {step} did not run ({text}). Not started.")
+    return rc, text
 
-    The real error reply shape was not found in the notes; a non-empty "errors" list or status "failed" is a guess."""
+
+def verdict(data, raw, allow_no_status=False):
+    """Read a recompile / recompile_status reply. Returns ("clean", []), ("pending", []) or ("failed", lines).
+
+    Real shape (com.unity.pipeline, build-and-compilation.md): status idle|triggered|compiling|completed|up_to_date,
+    plus failed (bool), errors (string list), compilationFailed (bool); `recompile` itself can answer status
+    "failed" when errors are standing. Only positive proof is clean: a done status AND no truthy key whose name
+    holds "error" or "fail" AND success is not false. A status that is neither done nor pending is a failure."""
     if not isinstance(data, dict):
-        return []
-    errors = data.get("errors")
+        return "pending", []
+    status = str(data.get("status", "")).lower()
+    bad = [k for k, v in data.items() if v and ("error" in k.lower() or "fail" in k.lower())]
+    if status in DONE_STATES and not bad and data.get("success") is not False:
+        return "clean", []
+    if (status in PENDING_STATES or (allow_no_status and not status)) and not bad and data.get("success") is not False:
+        return "pending", []
     lines = []
-    if isinstance(errors, list):
-        for e in errors:
-            if isinstance(e, dict):
-                e = e.get("message") or e.get("error") or json.dumps(e)
-            lines.append(str(e))
-    elif errors:
-        lines.append(str(errors))
-    if not lines and data.get("status") == "failed":
-        lines.append(str(data.get("message") or data.get("error") or "recompile failed"))
-    return lines
+    errors = data.get("errors")
+    for e in errors if isinstance(errors, list) else []:
+        if isinstance(e, dict):
+            e = e.get("message") or e.get("error") or json.dumps(e)
+        lines.append(str(e))
+    return "failed", lines or [x for x in raw.splitlines() if x.strip()] or ["(empty reply)"]
 
 
 def refuse_on_errors(slot, lines):
@@ -139,28 +157,28 @@ def refuse_on_errors(slot, lines):
 
 def refresh(slot):
     """Refresh, recompile, wait for the compile. Returns the compile error lines ([] = fine)."""
-    rc, text = unity(slot, "menu", "--path", "Assets/Refresh")
+    rc, text = call(slot, "menu", "menu", "--path", "Assets/Refresh")
     if rc != 0:
         raise c.SlotError(f"{c.label(slot)}: Refresh failed ({text.splitlines()[0][:70] if text else rc}). Not started.")
-    rc, text = unity(slot, "recompile")
+    rc, text = call(slot, "recompile", "recompile")
     if rc != 0:
         raise c.SlotError(f"{c.label(slot)}: recompile failed ({text.splitlines()[0][:70] if text else rc}). Not started.")
-    if error_lines(c.parse_json(text)):
-        return error_lines(c.parse_json(text))
+    kind, lines = verdict(c.parse_json(text), text, allow_no_status=True)  # only the poll proves success
+    if kind == "failed":
+        return lines
 
     def check():
-        rc, text = unity(slot, "recompile_status")
+        rc, text = call(slot, "recompile_status", "recompile_status")
         d = c.parse_json(text) if rc == 0 else None
         if d is None:
             return False, None  # the Editor may be reloading; keep asking
-        if error_lines(d):
-            return True, d
-        return d.get("status") in DONE_STATES, d
+        kind, lines = verdict(d, text)
+        return kind != "pending", (kind, lines)
 
-    done, d = c.poll_until(check, c.wait_s())
+    done, result = c.poll_until(check, c.wait_s())
     if not done:
         raise c.SlotError(f"{c.label(slot)}: compile not finished after {c.wait_s():.0f} s. Not started.")
-    return error_lines(d)
+    return result[1] if result[0] == "failed" else []
 
 
 def ensure_fresh(slot):

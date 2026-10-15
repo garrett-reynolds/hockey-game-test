@@ -192,3 +192,94 @@ def test_busy_slot_is_refused_before_any_refresh(h, repo):
     h.write_lock("w2", os.getpid())
     rc, out = go(h)
     assert rc == 2 and refreshes(h) == 0
+
+
+# ---- fix round 1: positive proof of a clean compile (real reply shape: status, failed, errors, compilationFailed)
+
+REAL_CLEAN = {"status": "completed", "failed": False, "errors": [], "compilationFailed": False}
+
+
+def with_status(h, *replies):
+    h.ready("w2")
+    h.set("w2", "recompile_status", *replies)
+    h.set("w2", "run_tests", reply(SUMMARY_OK))
+    return h.run("test", "w2")
+
+
+def test_real_clean_reply_passes_and_idle_triggered_are_waited_out(h, repo):
+    rc, out = with_status(h, reply({"status": "idle"}), reply({"status": "triggered"}),
+                          reply({"status": "compiling"}), reply(REAL_CLEAN))
+    assert rc == 0, out
+    assert names(h).count("recompile_status") == 4
+
+
+@pytest.mark.parametrize("bad", [
+    {"status": "completed", "compile_errors": ["x"]},
+    {"status": "completed", "failed": True, "errors": ["Foo(1,1): error CS1002"]},
+    {"status": "completed", "compilationFailed": True},
+    {"status": "completed", "errorCount": 3},
+    {"status": "completed", "success": False},
+    {"status": "error"},
+    {"status": "compile_failed", "message": "boom"},
+])
+def test_anything_but_positive_proof_stops_with_exit_1_and_no_stamp(h, repo, bad):
+    rc, out = with_status(h, reply(bad))
+    assert rc == 1, out
+    assert h.run_tests_calls() == []
+    assert not (h.locks / "w2.stamp.json").exists()
+    assert not (h.locks / "w2.lock").exists()
+
+
+def test_unknown_status_shows_the_raw_reply(h, repo):
+    rc, out = with_status(h, reply({"status": "exploded", "message": "boom"}))
+    assert rc == 1 and "exploded" in out
+
+
+def test_recompile_itself_answering_failed_stops(h, repo):
+    h.ready("w2")
+    h.set("w2", "recompile", reply({"status": "failed", "message": "Scripts still have compile errors"}))
+    h.set("w2", "run_tests", reply(SUMMARY_OK))
+    rc, out = h.run("test", "w2")
+    assert rc == 1 and "compile errors" in out
+    assert h.run_tests_calls() == [] and not (h.locks / "w2.stamp.json").exists()
+
+
+# ---- fix round 1: second Network error is a clear message
+
+@pytest.mark.parametrize("step", ["menu", "recompile", "recompile_status"])
+@pytest.mark.parametrize("rc", [0, 1])
+def test_second_network_error_names_the_step(h, repo, step, rc):
+    h.ready("w2")
+    h.set("w2", step, {"out": "Network error", "rc": rc, "sleep": 0})
+    h.set("w2", "run_tests", reply(SUMMARY_OK))
+    code, out = h.run("test", "w2")
+    assert code == 2, out
+    assert f"Network error twice during {step}; the Editor may be reloading. Run slot.py test again." in out
+    assert h.run_tests_calls() == []
+    assert not (h.locks / "w2.lock").exists()
+
+
+# ---- fix round 1: the run lock is held during the refresh
+
+def test_second_test_is_refused_while_a_refresh_is_live(h, repo):
+    import subprocess
+    import sys
+    import time
+    from conftest import SLOT_PY
+    h.ready("w2")
+    h.set("w2", "menu", reply({"ok": True}, sleep=2.5))
+    h.set("w2", "run_tests", reply(SUMMARY_OK))
+    first = subprocess.Popen([sys.executable, str(SLOT_PY), "test", "w2"], env=h.env, stdout=subprocess.PIPE,
+                             stderr=subprocess.STDOUT, text=True)
+    try:
+        deadline = time.time() + 20
+        while time.time() < deadline and refreshes(h) == 0:
+            time.sleep(0.05)
+        assert refreshes(h) == 1
+        rc, out = h.run("test", "w2")
+        assert rc == 2 and "already running" in out, out
+        assert names(h).count("recompile") == 0  # the second run sent no recompile under the first
+    finally:
+        first_out = first.communicate(timeout=60)[0]
+    assert first.returncode == 0, first_out
+    assert not (h.locks / "w2.lock").exists()
