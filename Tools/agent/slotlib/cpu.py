@@ -10,14 +10,12 @@ import sys
 
 from . import editors
 
-PS = ("Get-CimInstance Win32_Process | ForEach-Object { [pscustomobject]@{ id=[int]$_.ProcessId; "
-      "parent=[int]$_.ParentProcessId; cpu=([double]$_.UserModeTime + [double]$_.KernelModeTime) / 1e7 } } "
-      "| ConvertTo-Json -Compress")
+_PS_HEAD = ("Get-CimInstance Win32_Process | ForEach-Object { [pscustomobject]@{ id=[int]$_.ProcessId; "
+            "parent=[int]$_.ParentProcessId; ")
+_PS_TAIL = " } } | ConvertTo-Json -Compress"
 
-
-PS_NAMES = ("Get-CimInstance Win32_Process | ForEach-Object { [pscustomobject]@{ id=[int]$_.ProcessId; "
-            "parent=[int]$_.ParentProcessId; name=[string]$_.Name; cmd=[string]$_.CommandLine } } "
-            "| ConvertTo-Json -Compress")
+PS = _PS_HEAD + "cpu=([double]$_.UserModeTime + [double]$_.KernelModeTime) / 1e7" + _PS_TAIL
+PS_NAMES = _PS_HEAD + "name=[string]$_.Name; cmd=[string]$_.CommandLine" + _PS_TAIL
 
 
 def read_processes(query=PS):

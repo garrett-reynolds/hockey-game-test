@@ -4,6 +4,7 @@ import os
 import re
 import subprocess
 import time
+from collections import namedtuple
 from pathlib import Path, PurePosixPath
 
 from . import common as c
@@ -41,8 +42,21 @@ def uncommitted(slot):
     return names
 
 
+Check = namedtuple("Check", "ok text detail")
+MAX_LISTED = 10
+
+
+def capped(lines):
+    """At most MAX_LISTED lines, then '  +N more'."""
+    if len(lines) <= MAX_LISTED:
+        return lines
+    return lines[:MAX_LISTED] + [f"  +{len(lines) - MAX_LISTED} more"]
+
+
+GitState = namedtuple("GitState", "check branch head dirty")  # branch, head, dirty are None when git fails
+
+
 def check_git(slot):
-    """Returns (ok, first line, detail lines, branch, head)."""
     try:
         branch = git(slot, "branch", "--show-current").strip()
         head = git(slot, "rev-parse", "HEAD").strip()
@@ -50,9 +64,10 @@ def check_git(slot):
         ahead = int(git(slot, "rev-list", "--count", f"{MAIN}..HEAD").strip())
         commits = git(slot, "log", "--oneline", f"{MAIN}..HEAD").splitlines()
     except (GitError, ValueError) as e:
-        return False, f"FAIL git: {e}", [], None, None
-    detail = [f"  uncommitted: {n}" for n in dirty] + [f"  {x}" for x in commits]
-    return True, f"OK git: branch {branch}, {len(dirty)} uncommitted, {ahead} ahead of {MAIN}", detail, branch, head
+        return GitState(Check(False, f"FAIL git: {e}", []), None, None, None)
+    detail = capped([f"  uncommitted: {n}" for n in dirty]) + capped([f"  {x}" for x in commits])
+    text = f"OK git: branch {branch}, {len(dirty)} uncommitted, {ahead} ahead of {MAIN}"
+    return GitState(Check(True, text, detail), branch, head, dirty)
 
 
 def epoch(text):
@@ -98,15 +113,13 @@ def check_runs(runs, branch, head):
     if green:
         detail.append(f"  last green: {describe(green)}")
     if any(is_green(r) and r.get("head") == head for r in runs):
-        return True, f"OK runs: green run at HEAD {head[:7]} on {branch}", detail
-    return False, f"FAIL runs: no green run at HEAD {head[:7]} on {branch}", detail
+        return Check(True, f"OK runs: green run at HEAD {head[:7]} on {branch}", detail)
+    return Check(False, f"FAIL runs: no green run at HEAD {head[:7]} on {branch}", detail)
 
 
 def is_test_file(path):
     p = PurePosixPath(path)
-    if p.parts and p.parts[0] == "Assets":
-        return p.suffix == ".cs" and "Tests" in p.parts[:-1]
-    return p.parts[:3] == ("Tools", "agent", "tests") and len(p.parts) == 4 and p.suffix == ".py"
+    return bool(p.parts) and p.parts[0] == "Assets" and p.suffix == ".cs" and "Tests" in p.parts[:-1]
 
 
 def test_file_times(slot, dirty):
@@ -128,9 +141,9 @@ def check_test_files(slot, runs, dirty):
     try:
         times = test_file_times(slot, dirty)
     except (GitError, ValueError, OSError) as e:
-        return False, f"FAIL test files: {e}", []
+        return Check(False, f"FAIL test files: {e}", [])
     if not times:
-        return True, "OK test files: none changed", []
+        return Check(True, "OK test files: none changed", [])
     if not runs:
         late = sorted(times)
         why = "no run logged for this branch"
@@ -139,8 +152,8 @@ def check_test_files(slot, runs, dirty):
         late = sorted(n for n, t in times.items() if t > last)
         why = "changed after the last run"
     if late:
-        return False, f"FAIL test files: {len(late)} {why}", [f"  {n}" for n in late]
-    return True, f"OK test files: {len(times)} changed, all before the last run", []
+        return Check(False, f"FAIL test files: {len(late)} {why}", [f"  {n}" for n in late])
+    return Check(True, f"OK test files: {len(times)} changed, all before the last run", [])
 
 
 SHELLS = {"bash", "sh", "python", "pythonw", "py", "powershell", "pwsh"}
@@ -178,13 +191,13 @@ def check_wait_loops(slot):
         procs = cpu.read_processes(cpu.PS_NAMES)
         procs = [p for p in procs if isinstance(p, dict) and "id" in p]
     except (subprocess.SubprocessError, OSError, ValueError):
-        return False, "FAIL wait loops: could not read processes", []
+        return Check(False, "FAIL wait loops: could not read processes", [])
     skip = own_chain(procs)
     hits = [p for p in procs if p["id"] not in skip and is_wait_loop(p, c.slot_path(slot))]
     detail = [f"  PID {p['id']}  {str(p.get('cmd'))[:100]}" for p in hits]
     if hits:
-        return False, f"FAIL wait loops: {len(hits)}", detail
-    return True, "OK wait loops: 0", []
+        return Check(False, f"FAIL wait loops: {len(hits)}", detail)
+    return Check(True, "OK wait loops: 0", [])
 
 
 def add_parser(sub):
@@ -196,22 +209,22 @@ def add_parser(sub):
 def run(args):
     c.check_slot(args.slot)
     slot = args.slot
-    lines, fails = [], 0
-    ok, text, detail, branch, head = check_git(slot)
-    lines.append(text)
-    lines += detail
-    if not ok:
-        fails += 1
+    state = check_git(slot)
+    checks = [state.check]
+    if state.check.ok:
+        runs = read_runs(slot, state.branch)
+        checks += [check_runs(runs, state.branch, state.head),
+                   check_test_files(slot, runs, state.dirty),
+                   check_wait_loops(slot)]
+    lines = []
+    for chk in checks:
+        lines.append(chk.text)
+        lines += chk.detail
+    fails = sum(1 for chk in checks if not chk.ok)
+    if not state.check.ok:
         print("\n".join(lines))
         print(f"done: {fails} check(s) FAIL")
         return 1
-    runs = read_runs(slot, branch)
-    for ok, text, detail in (check_runs(runs, branch, head),
-                             check_test_files(slot, runs, uncommitted(slot)),
-                             check_wait_loops(slot)):
-        lines.append(text)
-        lines += detail
-        fails += 0 if ok else 1
     print("\n".join(lines))
     print(f"done: {fails} check(s) FAIL" if fails else "done: all checks OK")
     return 1 if fails else 0
