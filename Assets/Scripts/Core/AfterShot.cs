@@ -144,6 +144,14 @@ namespace HockeyGame.Core
                 Ramp(sinceArrival, SaveReturnFrom, SaveReturnTo), Ramp(sinceArrival, SaveRecoverFrom, SaveRecoverTo));
         }
 
+        /// <summary>
+        /// The moment with no reaction of its own (PROTOTYPE: an AI clip plays it instead): no late reach, arm drop, head turn,
+        /// glance, gesture or follow-through. The glide back to his spot and the recovery into the Ready Stance stay, so the
+        /// clip blends out into the pose the next Shot starts from.
+        /// </summary>
+        public static AfterShotMoment WithoutReaction(AfterShotMoment moment) =>
+            new AfterShotMoment(0, 0, 0, 0, 0, 0, moment.Return, moment.Recover);
+
         /// <summary>True for a GOAL!'s gestures (the two Annoyed Gestures).</summary>
         public static bool IsGoal(AfterShotGesture gesture) => gesture == AfterShotGesture.Slump || gesture == AfterShotGesture.StickSlap;
 

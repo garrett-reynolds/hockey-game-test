@@ -46,6 +46,8 @@ namespace HockeyGame
         double _lateMargin = double.PositiveInfinity, _lateMarginLimit; // from React: they pick the Annoyed Gesture at Judge
         float _sinceArrival = -1f, _sinceNetting = -1f, _sinceContact = -1f;
         Vector3 _puck, _post;                    // where the puck is now; the post a Miss glances back at
+        double _followAtWhistle;                 // PROTOTYPE: the head follow and its target just before the Whistle, held while an AI clip replaces the reaction
+        Vector3 _watchAtWhistle;
         RoundSettings _before;                   // Before the Shot (#70, BeforeTheShot): its switches and sizes; null: none of it
         Vector3 _puckOnStick;
         float _watching, _settled;
@@ -58,6 +60,7 @@ namespace HockeyGame
         {
             _character = character != null && character.Present ? character : null;
             _glow = GlowMaterial();
+            if (_character != null) Clips = new GoalieClipReactions(_character.Animator) { Rink = parent }; // PROTOTYPE: AI clips (BreakawayView drives it)
             _block = RinkBuilder.Cube(parent, BlockName, new Vector3(0f, BlockHeight / 2f, BlockZ),
                 new Vector3(BlockWidth, BlockHeight, BlockDepth), GoalieColour);
             _gapGlow = new GameObject("Gap glow");
@@ -161,6 +164,9 @@ namespace HockeyGame
         void PoseCharacter()
         {
             if (_character == null || !_visible) return;
+            // PROTOTYPE: while an AI clip owns the bones, no procedural writer runs (ShowReaction, ShowPush, SitLower, Live and
+            // WatchPuck, and through them ReadyStance, Stance Life, gestures, skate push, butterfly and shape).
+            if (Clips != null && Clips.Owns) return;
             float facing = Mathf.Lerp(_ready, PosedFacing(), _set);
             ShownFacing = facing;
             float recovered = 0f;
@@ -168,9 +174,23 @@ namespace HockeyGame
             else
             {
                 AfterShotMoment moment = AfterShot.At(_gesture, _sinceArrival, _sinceNetting);
-                // The head follows the live puck from just after it first touches something, not only once it stops (the Whistle).
-                moment = AfterShot.WithHeadFollow(moment, _gesture, AfterShot.HeadFollow(_sinceContact, _character.YawTo(_puck)));
-                _character.ShowReaction(_set, facing, _gesture, moment, Vector3.Lerp(_puck, _post, (float)moment.Glance));
+                Vector3 watch;
+                if (_sinceArrival >= 0f && Clips != null && Clips.ReplacesReaction(_gesture))
+                {
+                    // PROTOTYPE: an AI clip plays this Goal or Save: from the Whistle the code adds no reaction of its own, and the
+                    // head keeps the follow it had at the Whistle (no turn after the puck), so nothing stacks on the clip.
+                    moment = AfterShot.WithHeadFollow(AfterShot.WithoutReaction(moment), _gesture, _followAtWhistle);
+                    watch = _watchAtWhistle;
+                }
+                else
+                {
+                    // The head follows the live puck from just after it first touches something, not only once it stops (the Whistle).
+                    double follow = AfterShot.HeadFollow(_sinceContact, _character.YawTo(_puck));
+                    moment = AfterShot.WithHeadFollow(moment, _gesture, follow);
+                    watch = Vector3.Lerp(_puck, _post, (float)moment.Glance);
+                    if (_sinceArrival < 0f) { _followAtWhistle = follow; _watchAtWhistle = _puck; }
+                }
+                _character.ShowReaction(_set, facing, _gesture, moment, watch);
                 recovered = (float)moment.Recover;
             }
             // The skate push (#126) goes on right after the reaction (it sets the legs) and before SitLower and Live, which plant from
@@ -246,6 +266,9 @@ namespace HockeyGame
             _settled = settled;
             _before = settings;
         }
+
+        /// <summary>PROTOTYPE: the AI clips on this goalie; null for the block goalie.</summary>
+        public GoalieClipReactions Clips { get; }
 
         /// <summary>The facing (degrees, see Face) the goalie character was last shown at.</summary>
         public float ShownFacing { get; private set; }
@@ -338,7 +361,9 @@ namespace HockeyGame
             _lateMarginLimit = lateMarginLimitSeconds;
             _sinceArrival = _sinceNetting = _sinceContact = -1f;
             _puck = netPoint;
-            _post = new Vector3((netPoint.x >= 0f ? 1f : -1f) * (float)NetFaceMapping.WidthMetres / 2f, PostGlanceHeight, 0f);
+            _followAtWhistle = 0;
+            _watchAtWhistle = netPoint;
+            _post =new Vector3((netPoint.x >= 0f ? 1f : -1f) * (float)NetFaceMapping.WidthMetres / 2f, PostGlanceHeight, 0f);
             PoseCharacter();
         }
 

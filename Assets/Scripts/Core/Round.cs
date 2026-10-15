@@ -149,7 +149,18 @@ namespace HockeyGame.Core
         /// </summary>
         public double ResultHoldLength => _settings.TestMode ? _settings.TestModeHoldSeconds : // Test Mode (#156): one short hold, no Replay, no fade lead
             (ReplayTiming.Follows(LastResult) ? ReplayTiming.HoldSeconds : _settings.ResultHoldSeconds)
-            + (ReplayTiming.Follows(LastResult) && ShotNumber < ShotCount ? ShotFade.LeadSeconds : 0);
+            + (ReplayTiming.Follows(LastResult) && ShotNumber < ShotCount ? ShotFade.LeadSeconds : 0)
+            + ClipHoldExtra;
+
+        /// <summary>RoundSettings.ClipHoldSeconds on a Goal or a Save with no Replay (not a Frame Hit, Miss or Too Late): the clip starts at the Whistle, and a Replay's own hold already fits it.</summary>
+        double ClipHoldExtra
+        {
+            get
+            {
+                ArenaResult r = ArenaShow.ResultOf(LastResult);
+                return (r == ArenaResult.Goal || r == ArenaResult.Save) && !ReplayFollows ? _settings.ClipHoldSeconds : 0;
+            }
+        }
 
         /// <summary>
         /// Real seconds from the Shot to its Whistle (Shot-to-Whistle, since #108: not the puck's flight); 0 until the Whistle.

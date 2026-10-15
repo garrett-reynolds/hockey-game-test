@@ -127,6 +127,40 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void With_AI_clips_on_a_goal_s_code_reaction_adds_no_head_turn_or_gesture_and_with_them_off_it_still_does()
+        {
+            // Garrett, 2026-10-14: the code-made head shake played along with the AI clip ("It looks insane").
+            GoalieView clipped = Make(out GoalieCharacter clippedCharacter);
+            GoalieView coded = Make(out GoalieCharacter codedCharacter);
+            clipped.Clips.Use = true;
+            clipped.Clips.ClipsFoundOverride = true; // as if Assets/AIClips were there (it is never committed)
+            clipped.Clips.ClipThisHold = true;       // as if the hold had room for the clip (Post decides it in Play)
+            coded.Clips.ClipThisHold = true;
+            coded.Clips.Use = false;                 // K: the clips are off
+            Assert.IsTrue(clipped.Clips.ReplacesReaction(AfterShotGesture.Slump));
+            Assert.IsTrue(clipped.Clips.ReplacesReaction(AfterShotGesture.None), "a Save");
+            Assert.IsFalse(clipped.Clips.ReplacesReaction(AfterShotGesture.Relief), "a Miss has no clip: Relief stays");
+            Assert.IsFalse(coded.Clips.ReplacesReaction(AfterShotGesture.Slump));
+
+            Vector3 net = NetPoint(15, 85);
+            foreach (GoalieView view in new[] { clipped, coded })
+                view.React(Result(ShotResultKind.Goal, 15, 85), From, null, 0.2, 0.05); // a wide Late Margin: the Slump (its head shakes)
+            At(clipped, net, 0f, -1f);
+            float whistleYaw = Yaw(clippedCharacter);
+            float worstClipped = 0f, worstCoded = 0f;
+            for (float t = 0.1f; t <= 1.6f; t += 0.05f)
+            {
+                Vector3 puck = net + Vector3.forward * 0.6f + Vector3.down * 0.3f;
+                At(clipped, puck, t, t - 0.35f);
+                At(coded, puck, t, t - 0.35f);
+                worstClipped = Mathf.Max(worstClipped, Mathf.Abs(Mathf.DeltaAngle(Yaw(clippedCharacter), whistleYaw)));
+                worstCoded = Mathf.Max(worstCoded, Mathf.Abs(Mathf.DeltaAngle(Yaw(codedCharacter), whistleYaw)));
+            }
+            Assert.Greater(worstCoded, 70f, "clips off: the code still looks back into the net");
+            Assert.Less(worstClipped, 3f, "clips on: no code look back or head shake");
+        }
+
+        [Test]
         public void After_a_goal_meets_the_netting_the_goalie_looks_back_into_the_net_over_the_shoulder_on_its_side()
         {
             foreach (double x in new[] { 15.0, 88.0 })

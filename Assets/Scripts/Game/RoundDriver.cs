@@ -101,6 +101,18 @@ namespace HockeyGame
             }
         }
 
+        /// <summary>PROTOTYPE keys (K: AI clips on/off, B: clip blend) that are never "any key" on the start and end screens.</summary>
+        public static bool IsPrototypeKey(UnityEngine.InputSystem.Key key) =>
+            key == UnityEngine.InputSystem.Key.K || key == UnityEngine.InputSystem.Key.B;
+
+        /// <summary>True when a key other than a prototype key went down this frame.</summary>
+        static bool PressedOtherThanPrototypeKeys(UnityEngine.InputSystem.Keyboard keyboard)
+        {
+            foreach (var control in keyboard.allKeys)
+                if (control != null && control.wasPressedThisFrame && !IsPrototypeKey(control.keyCode)) return true;
+            return false;
+        }
+
         void Update()
         {
             _replay.RestoreLive(); // last frame's Replay poses go back before anything moves
@@ -161,7 +173,7 @@ namespace HockeyGame
                 }
                 else if (keyboard.f1Key.wasPressedThisFrame)
                     _testShotsOn = !_testShotsOn;
-                else if (!_flow.SettingsOpen && !playing && keyboard.anyKey.wasPressedThisFrame)
+                else if (!_flow.SettingsOpen && !playing && keyboard.anyKey.wasPressedThisFrame && PressedOtherThanPrototypeKeys(keyboard))
                     pressed = true;
             }
 
@@ -299,11 +311,7 @@ namespace HockeyGame
                     GUI.Label(StartScreenLayout.Prompt(w, h), "Shoot or press any key", _mid);
                     GUI.Label(StartScreenLayout.UsbStatus(w, h), _usb.StatusText, _mid);
                     break;
-                case FlowScreen.End:
-                    GUI.Label(new Rect(0, h * 0.2f, w, 60), _round.Goals + " / " + _round.ShotCount + " goals", _big);
-                    string best = "Best score: " + _save.BestScore + " / " + _round.ShotCount;
-                    if (_round.IsNewBest) best = "New best! " + best;
-                    GUI.Label(new Rect(0, h * 0.2f + 70, w, 40), best, _mid);
+                case FlowScreen.End: // the score and best score are on the Video Board
                     if (_flow.EndAcceptsInput)
                         GUI.Label(new Rect(0, h * 0.2f + 120, w, 40), "Shoot or press any key", _mid);
                     break;

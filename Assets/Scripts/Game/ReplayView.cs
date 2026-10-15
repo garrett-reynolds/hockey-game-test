@@ -127,6 +127,8 @@ namespace HockeyGame
         /// <summary>One frame, after the views have posed the scene: records the Shot, and plays the Replay while the Arena Show says so.</summary>
         public void Step()
         {
+            // An AI clip on the goalie (PROTOTYPE, it starts at the Whistle) is recorded and replayed like any pose: RestoreLive
+            // puts its live pose back at the next frame's start, before the clip poses the bones again.
             Record();
             bool play = _show.Camera == CameraMode.Replay && _track.SampleCount > 0;
             if (play)

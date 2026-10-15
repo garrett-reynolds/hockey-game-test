@@ -61,7 +61,54 @@ namespace HockeyGame
         {
             if (_round == null) return;
             _frameSeconds = Time.unscaledTime;
+            // PROTOTYPE: AI clips on the goalie. K flips them for comparing; Step is left as it was (tests call it directly).
+            var keyboard = UnityEngine.InputSystem.Keyboard.current;
+            if (keyboard != null && keyboard.kKey.wasPressedThisFrame) ToggleAiClips();
+            if (_round.Phase != RoundPhase.ResultHold) // K mid-hold acts from the next Shot (GoalieClipReactions.Post keeps the hold's choice too)
+                _round.Settings.ClipHoldSeconds = UseAiClips ? ClipHoldSecondsOn : 0.0; // the longer Goal / Save hold (no Replay) goes with the clips
+            GoalieClipReactions clips = _goalie?.Clips;
+            if (keyboard != null && keyboard.bKey.wasPressedThisFrame && clips != null) CycleClipBlend(clips);
+            clips?.Pre();
             Step(Time.deltaTime, Time.unscaledDeltaTime);
+            clips?.Post(_round, UseAiClips, Time.unscaledDeltaTime);
+        }
+
+        /// <summary>PROTOTYPE: the goalie plays AI clips after a Goal, after a Save and when idle. K flips it in Play.</summary>
+        public bool UseAiClips = true;
+
+        /// <summary>PROTOTYPE: extra result hold after a Goal or a Save with no Replay while the clips are on (RoundSettings.ClipHoldSeconds):
+        /// the 2.5 s hold then fits a 2.9 s clip from 0.3 s after the Whistle and the 0.8 s blend out at the clip's own speed.</summary>
+        public const double ClipHoldSecondsOn = 1.5;
+
+        /// <summary>Real seconds the blend note stays on screen after B.</summary>
+        const float BlendNoteSeconds = 2f;
+        string _blendNote;
+        float _blendNoteUntil;
+        GUIStyle _blendNoteStyle;
+
+        /// <summary>What the B key calls (PROTOTYPE): the next clip blend time (0.5, 0.8, 1.2 s), shown briefly on screen and logged.</summary>
+        public void CycleClipBlend(GoalieClipReactions clips)
+        {
+            float seconds = clips.CycleBlend();
+            _blendNote = GoalieClipReactions.BlendNote(seconds);
+            _blendNoteUntil = Time.unscaledTime + BlendNoteSeconds;
+            Debug.Log("[AiClips] " + _blendNote);
+        }
+
+        void DrawBlendNote()
+        {
+            if (_blendNote == null || Time.unscaledTime > _blendNoteUntil || Event.current.type != EventType.Repaint) return;
+            // Above the Test Shots line at the very bottom-left, large enough to read.
+            if (_blendNoteStyle == null)
+                _blendNoteStyle = new GUIStyle(GUI.skin.label) { fontSize = 26, fontStyle = FontStyle.Bold, normal = { textColor = Color.white } };
+            GUI.Label(new Rect(16, Screen.height - 110, 400, 40), _blendNote, _blendNoteStyle);
+        }
+
+        /// <summary>What the K key calls: flips UseAiClips (and with it the longer hold) and logs one line.</summary>
+        public void ToggleAiClips()
+        {
+            UseAiClips = !UseAiClips;
+            Debug.Log("[AiClips] UseAiClips = " + UseAiClips);
         }
 
         /// <summary>
@@ -338,6 +385,7 @@ namespace HockeyGame
         {
             if (_round == null) return;
             DrawFade();
+            DrawBlendNote();
             if (_round.Phase != RoundPhase.ShootingWindow || _round.TestMode || Event.current.type != EventType.Repaint) return; // Test Mode: no ring, the window never closes
 
             float fraction = (float)Breakaway.RingFraction(_round.WindowSecondsLeft, _round.Settings);
