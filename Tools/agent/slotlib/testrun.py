@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 
 from . import common as c
-from . import editors, fresh, watch
+from . import editors, fresh, memory, watch
 
 
 def add_parser(sub):
@@ -14,13 +14,31 @@ def add_parser(sub):
     p.add_argument("slot", help="w1, w2 or w3")
     p.add_argument("--full", action="store_true", help="full run (--include_explicit), 1800 s")
     p.add_argument("--filter", default=None, help="run_tests filter pattern")
+    add_memory_flag(p)
     p.set_defaults(func=run)
 
 
+def add_memory_flag(p):
+    p.add_argument("--skip-memory-check", action="store_true",
+                   help=f"run even when free memory is under {memory.MIN_FREE_GB:g} GB")
+
+
 def wait_until_ready(slot, what="test"):
-    """Poll until the Editor answers, is done compiling, and has no test run. Refuse on Play or a live run."""
+    """Poll until the Editor answers, is done compiling, and has no test run. Refuse on Play or a live run.
+    Stops within one poll (a few seconds) when the Editor process is gone, instead of waiting wait_s (#219)."""
+    known, pid = editors.editor_pid(slot)
+    pid = pid if known else None  # no pid to watch when `unity status` could not be read
+
     def check():
+        if pid is not None and not c.pid_alive(pid):
+            raise c.SlotError(f"{c.label(slot)}: the Editor process (pid {pid}) has exited. Not waiting. "
+                              f"Recover it: slot.py close {slot}  then  slot.py open {slot}")
         state = c.editor_state(slot)
+        if state == "no_answer":
+            known_now, pid_now = editors.editor_pid(slot)
+            if known_now and pid_now is None:
+                raise c.SlotError(f"{c.label(slot)}: the Editor is no longer open (it exited or crashed). "
+                                  f"Not waiting. Run: slot.py open {slot}")
         return state not in ("no_answer", "compiling"), state
 
     _, state = c.poll_until(check, c.wait_s())
@@ -33,10 +51,14 @@ def wait_until_ready(slot, what="test"):
     raise c.SlotError(f"{c.label(slot)}: Editor {c.STATE_TEXT[state]} after {c.wait_s():.0f} s. Not started.")
 
 
-def prepare(slot, kind, what="test"):
-    """Shared start of `test` and `play-check` (#187): refuse a live run or a closed Editor, wait until ready,
-    clear a stale lock, take the lock, Refresh + recompile when the code changed, wait again.
+def prepare(slot, kind, what="test", skip_memory_check=False):
+    """Shared start of `test` and `play-check` (#187): check free memory (#219), refuse a live run or a closed
+    Editor, wait until ready, clear a stale lock, take the lock, Refresh + recompile when the code changed, wait again.
     Returns None with the lock held (the caller frees it), or an exit code with the lock freed."""
+    if not skip_memory_check:
+        low = memory.check()
+        if low:
+            raise c.SlotError(f"{c.label(slot)}: {low}")
     lock = c.read_lock(slot)
     if lock and lock["live"]:
         if lock["tool_live"]:
@@ -75,7 +97,7 @@ def run(args):
     slot = args.slot
     c.check_slot(slot)
     kind = "full" if args.full else "fast"
-    code = prepare(slot, kind)
+    code = prepare(slot, kind, skip_memory_check=args.skip_memory_check)
     if code is not None:
         return code
     try:

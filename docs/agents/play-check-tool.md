@@ -23,3 +23,9 @@ The same Start line works from a file with `eval_file --file <path.cs>`. `PlayCh
 - The crowd, mute, runInBackground and the runner's callbacks are put back however the run ends: script done, a failure, `Stop()`, Play stopped by hand, or an assembly reload.
 - A missing game field the runner reads (`RoundDriver._flow`, `Round._reach`) fails Start at once: "PlayCheck: RoundDriver._flow not found (renamed?)".
 - After the run the Editor stays in Edit mode with the run's scene (Rink.unity by default) open; the scene that was open before is not reopened.
+
+## The slot tool's `play-check` (Tools/agent, `slot.py play-check <slot> --scene <scene>`)
+
+- Memory check (#219): `slot.py test` and `slot.py play-check` read free physical memory first. Under 3.0 GB they stop at once (exit 2) with "N GB free, 3.0 GB needed". A run grows its Editor by about 2 GB (idle Editor 1.7 GB, running Editor 3.6 GB on this PC) and Windows needs about 1 GB. `--skip-memory-check` runs anyway.
+- Small picture (#219): next to each full picture (`<project>/Logs/playcheck-<slot>-<time>.png`) the tool saves `playcheck-<slot>-<time>-small.png`, 640 px wide. The `picture` line prints the small path first, then the full one. Read the small one; the full one stays for detail. Needs Pillow (already installed); without it only the full picture is saved.
+- Dead Editor (#219): while the tool waits for an Editor to answer, it stops within a few seconds with "the Editor process (pid N) has exited" or "no longer open", not after the 600 s wait.

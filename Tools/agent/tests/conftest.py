@@ -35,6 +35,7 @@ class Harness:
             SLOT_ROOT=str(tmp / "wt"),
             SLOT_LOCK_DIR=str(self.locks),
             SLOT_RESULTS_DIR=str(self.results),
+            SLOT_FREE_MEM_MB="16000",  # #219: plenty, so the memory check never depends on this PC
             SLOT_POLL_S="0.05",
             SLOT_WAIT_S="2",
             SLOT_STATUS_TIMEOUT_S="5",

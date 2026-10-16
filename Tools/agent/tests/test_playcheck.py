@@ -474,7 +474,10 @@ def test_lock_released_when_refresh_fails(h, repo):
 def test_cleanup_restores_the_saved_mute_and_never_unmutes():
     from pathlib import Path
     src = (Path(__file__).resolve().parent.parent / "slotlib" / "playcheck.py").read_text(encoding="utf-8")
-    assert "audioMasterMute=false" not in src.replace(" ", "")
+    import re
+    # Stronger than the old plain-text check: any spacing, any case (#219). The literal is not written out here
+    # because test_guards.py fails on any file under Tools/agent that contains it.
+    assert not re.search(r"audioMasterMute\s*=\s*false", src, re.IGNORECASE)
     assert 'SetData("pc.mute",UnityEditor.EditorUtility.audioMasterMute)' in src
     cleanup = src.split("CLEANUP = ", 1)[1].split('"""', 2)[1]
     assert 'GetData("pc.mute")' in cleanup
