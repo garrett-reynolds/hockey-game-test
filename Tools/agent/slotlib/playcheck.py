@@ -52,6 +52,7 @@ System.AppDomain.CurrentDomain.SetData("pc.mute",UnityEditor.EditorUtility.audio
 UnityEditor.EditorUtility.audioMasterMute=(UnityEditor.EditorUtility.audioMasterMute||crowd==0);
 var sb=new System.Text.StringBuilder();
 int last=-1;
+HockeyGame.ReplayView rv=null;
 UnityEditor.EditorApplication.CallbackFunction cb=()=>{
  if(hips==null||l==null||r==null){ var me=System.AppDomain.CurrentDomain.GetData("pc.cb") as UnityEditor.EditorApplication.CallbackFunction; if(me!=null) UnityEditor.EditorApplication.update-=me; return; } /* the goalie was destroyed (scene change, Play stopping): stop, do not throw every frame (#211). Block comment only: build_code joins the lines into one. */
  try{
@@ -59,9 +60,10 @@ UnityEditor.EditorApplication.CallbackFunction cb=()=>{
  int f=UnityEngine.Time.frameCount; if(f==last) return; last=f;
  var d=r.position-l.position; float yaw=UnityEngine.Mathf.Atan2(d.x,d.z)*UnityEngine.Mathf.Rad2Deg;
  float low=1e9f; foreach(var s in skates) if(s!=null&&s.enabled) low=UnityEngine.Mathf.Min(low,s.bounds.min.y);
+ if(rv==null) rv=UnityEngine.Object.FindFirstObjectByType<HockeyGame.ReplayView>(); int rp=(rv!=null&&rv.Showing)?1:0;
  var p=hips.position; var ci=System.Globalization.CultureInfo.InvariantCulture;
  if(sb.Length>0) sb.Append(';');
- sb.Append(UnityEngine.Time.realtimeSinceStartup.ToString("F4",ci)).Append(',').Append(yaw.ToString("F2",ci)).Append(',').Append(p.x.ToString("F4",ci)).Append(',').Append(p.y.ToString("F4",ci)).Append(',').Append(p.z.ToString("F4",ci)).Append(',').Append((low-ice).ToString("F4",ci));
+ sb.Append(UnityEngine.Time.realtimeSinceStartup.ToString("F4",ci)).Append(',').Append(yaw.ToString("F2",ci)).Append(',').Append(p.x.ToString("F4",ci)).Append(',').Append(p.y.ToString("F4",ci)).Append(',').Append(p.z.ToString("F4",ci)).Append(',').Append((low-ice).ToString("F4",ci)).Append(',').Append(rp);
  }catch(System.Exception){ var me2=System.AppDomain.CurrentDomain.GetData("pc.cb") as UnityEditor.EditorApplication.CallbackFunction; if(me2!=null) UnityEditor.EditorApplication.update-=me2; } /* any read of a destroyed object ends the sampler quietly; game errors are not touched */
 };
 UnityEditor.EditorApplication.update+=cb;
@@ -252,9 +254,9 @@ def parse_samples(text):
     rows = []
     for part in text.split(";"):
         bits = part.split(",")
-        if len(bits) == 6:
+        if len(bits) in (6, 7):
             try:
-                rows.append([float(b) for b in bits])
+                rows.append([float(b) for b in bits] + ([0.0] if len(bits) == 6 else []))  # 7th: ReplayView.Showing (#215)
             except ValueError:
                 pass
     return rows
@@ -268,13 +270,20 @@ def measure(rows, before, after):
         skate = min(r[5] for r in rows)
         # Hips speed in m/s, not metres per frame: a slow frame (hitch) moves the time-based hips further,
         # but the speed stays the same. dt is floored at one 60 fps frame so a tiny dt cannot inflate it.
-        jump = max([math.dist(a[2:5], b[2:5]) / max(b[0] - a[0], MIN_FRAME_S) for a, b in zip(rows, rows[1:])] or [0.0])
+        # Pairs taken while ReplayView.Showing, or across a change in it, are skipped: the Replay applies a recorded
+        # pose in LateUpdate, so the hips cut in one frame. That is a camera cut, not a goalie jump (#215).
+        pairs = list(zip(rows, rows[1:]))
+        kept = [(a, b) for a, b in pairs if not (a[6] or b[6])]
+        skipped = len(pairs) - len(kept)
+        jump = max([math.dist(a[2:5], b[2:5]) / max(b[0] - a[0], MIN_FRAME_S) for a, b in kept] or [0.0])
     else:
         facing = skate = jump = None
+        skipped = 0
     return {
         "facing": {"value": facing, "limit": FACING_LIMIT_DEG, "pass": facing is not None and facing <= FACING_LIMIT_DEG},
         "skate": {"value": skate, "limit": SKATE_LIMIT_M, "pass": skate is not None and skate >= SKATE_LIMIT_M},
-        "jump": {"value": jump, "limit": JUMP_LIMIT_MPS, "pass": jump is not None and jump <= JUMP_LIMIT_MPS},
+        "jump": {"value": jump, "limit": JUMP_LIMIT_MPS, "pass": jump is not None and jump <= JUMP_LIMIT_MPS,
+                 "skipped": skipped},
         "console": {"errors": max(0, after["error"] - before["error"]), "warnings": max(0, after["warn"] - before["warn"]),
                     "limit": 0, "pass": after["error"] - before["error"] <= 0},
     }
@@ -294,7 +303,7 @@ def block(slot, scene, action, m, picture, picture_error, results_path):
         f"PLAY CHECK {slot} {scene} {action}  {word(ok)}",
         fmt("facing", m["facing"], "deg", f"limit {FACING_LIMIT_DEG:g}", 1),
         fmt("skate", m["skate"], "m", f"limit >= {SKATE_LIMIT_M:g}", 3),
-        fmt("jump", m["jump"], "m/s", f"limit {JUMP_LIMIT_MPS:g}", 3),
+        fmt("jump", m["jump"], "m/s", f"limit {JUMP_LIMIT_MPS:g}; skipped {m['jump']['skipped']} sample pairs for the Replay", 3),
         f"{'console':<8} {word(con['pass'])}  {con['errors']} errors, {con['warnings']} warnings  (limit {con['limit']} errors)",
         f"{'picture':<8} " + (f"ERROR {picture_error}" if picture_error else picture or "NOT TAKEN"),
         f"{'detail':<8} {results_path}",
