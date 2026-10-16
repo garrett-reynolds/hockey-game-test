@@ -112,15 +112,67 @@ namespace HockeyGame.Editor
                     if (_stage == 1)
                     {
                         Shoot(Path.Combine(folder, "t159-settings-player.png"), "Player");
+                        Shoot(Path.Combine(folder, "t195-fix-bar.png"), "bottom bar with the ESC CLOSE button"); // #195 review
+                        // #197: two changed rows (Master volume down 3 steps, Easy mode on): amber marks, SAVE lit.
+                        var menu = _screen.Menu;
+                        menu.Select(0);
+                        for (int i = 0; i < 3; i++) menu.Change(-1);
+                        for (int i = 0; i < menu.RowCount; i++)
+                            if (menu.Label(i) == "Easy mode") { menu.Select(i); menu.Activate(); }
+                        Call("Refresh");
+                        _stage = 3;
+                        _frames = 0;
+                    }
+                    else if (_stage == 3)
+                    {
+                        Shoot(Path.Combine(folder, "t197-marks.png"), "two unsaved rows");
+                        Call("SaveNow");
+                        Call("Refresh");
+                        _stage = 4;
+                        _frames = 0;
+                    }
+                    else if (_stage == 4)
+                    {
+                        Shoot(Path.Combine(folder, "t197-saved.png"), "right after SAVE");
+                        // #198: one unsaved change, then a close asks "Save changes?".
+                        _screen.Menu.Select(0);
+                        _screen.Menu.Change(-1);
+                        _screen.Menu.RequestClose();
+                        Call("Refresh");
+                        Call("SyncConfirm");
+                        _stage = 5;
+                        _frames = 0;
+                    }
+                    else if (_stage == 5)
+                    {
+                        Shoot(Path.Combine(folder, "t198-box.png"), "Save changes? box open");
+                        _screen.Menu.ConfirmDiscard();
+                        Call("SyncConfirm");
                         _screen.Menu.ShowPart(SettingsPart.Dev);
                         // Rebuild is private (the page rebuilds itself on a key or click, which this tool must not simulate); a rename fails here and is logged.
-                        typeof(SettingsScreen).GetMethod("Rebuild", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(_screen, null);
+                        Call("Rebuild");
                         _stage = 2;
                         _frames = 0;
                     }
-                    else
+                    else if (_stage == 2)
                     {
                         Shoot(Path.Combine(folder, "t159-settings-dev.png"), "Dev (" + _screen.Menu.RowCount + " rows)");
+                        _screen.ForceHoverRow = 0; // #199: a tip on the top row (no mouse; Pointer refreshes the page)
+                        _screen.Pointer(new Vector2(-1f, -1f), false, false);
+                        _stage = 6;
+                        _frames = 0;
+                    }
+                    else if (_stage == 6)
+                    {
+                        Shoot(Path.Combine(folder, "t199-top.png"), "tip on the top Dev row");
+                        _screen.ForceHoverRow = _screen.Menu.RowCount - 1; // and on the bottom row
+                        _screen.Pointer(new Vector2(-1f, -1f), false, false);
+                        _stage = 7;
+                        _frames = 0;
+                    }
+                    else if (_stage == 7)
+                    {
+                        Shoot(Path.Combine(folder, "t199-bottom.png"), "tip on the bottom Dev row");
                         Finish();
                     }
                 }
@@ -130,6 +182,12 @@ namespace HockeyGame.Editor
                 Debug.LogError("Settings pictures failed: " + e);
                 Finish();
             }
+        }
+
+        // The page's private methods (it refreshes itself on a key or click, which this tool must not simulate); a rename fails here and is logged.
+        static void Call(string method)
+        {
+            typeof(SettingsScreen).GetMethod(method, BindingFlags.Instance | BindingFlags.NonPublic).Invoke(_screen, null);
         }
 
         static void Shoot(string path, string what)

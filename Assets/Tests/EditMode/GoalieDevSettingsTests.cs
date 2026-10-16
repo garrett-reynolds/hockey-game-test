@@ -27,6 +27,7 @@ namespace HockeyGame.Core.Tests
         {
             menu.Select(RowOf(menu, label));
             for (int i = 0; i < times; i++) menu.Change(dir);
+            menu.Save(); // #197: changes wait for Save; the tests read the saved data
         }
 
         [Test]
@@ -86,14 +87,19 @@ namespace HockeyGame.Core.Tests
             var save = new SaveData();
             var menu = DevMenu(save);
             menu.SetFraction(RowOf(menu, "Reaction time"), 1);
+            menu.Save(); // #197: changes wait for Save
             Assert.AreEqual(0.30, save.ReactionSeconds, 1e-9);
             menu.SetFraction(RowOf(menu, "Max push"), 0.5); // 0.1 + 0.5 * 0.8 = 0.5
+            menu.Save();
             Assert.AreEqual(0.5, save.MaxPushMetres, 1e-9);
             menu.SetFraction(RowOf(menu, "Hand speed"), 1);
+            menu.Save();
             Assert.AreEqual(12, save.HandMetresPerSecond, 1e-9);
             menu.SetFraction(RowOf(menu, "Hand speed"), 0.5); // 3 + 0.5 * 9 = 7.5, above the leg (6)
+            menu.Save();
             Assert.AreEqual(7.5, save.HandMetresPerSecond, 1e-9);
             menu.SetFraction(RowOf(menu, "Leg speed"), 1);
+            menu.Save();
             Assert.AreEqual(7.5, save.LegMetresPerSecond, 1e-9, "the leg stops at the hand");
         }
 
@@ -194,6 +200,7 @@ namespace HockeyGame.Core.Tests
             };
             var menu = DevMenu(save);
             Assert.IsTrue(menu.ResetPart());
+            menu.Save(); // #197: Reset to default waits for Save
             var defaults = new SaveData();
             Assert.AreEqual(defaults.ReactionSeconds, save.ReactionSeconds);
             Assert.AreEqual(defaults.ReactionWobbleSeconds, save.ReactionWobbleSeconds);
@@ -214,6 +221,7 @@ namespace HockeyGame.Core.Tests
             var save = new SaveData { ReactionSeconds = 0.25, HandMetresPerSecond = 11, MaxPushMetres = 0.85, MasterVolume = 0.3 };
             var menu = new SettingsMenu(save, new string[0]); // opens on the Player part
             Assert.IsTrue(menu.ResetPart());
+            menu.Save(); // #197
             Assert.AreEqual(1.0, save.MasterVolume, 1e-9);
             Assert.AreEqual(0.25, save.ReactionSeconds, 1e-9);
             Assert.AreEqual(11, save.HandMetresPerSecond, 1e-9);

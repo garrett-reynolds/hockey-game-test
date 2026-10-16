@@ -29,7 +29,7 @@ namespace HockeyGame
 
         sealed class RowView
         {
-            public VisualElement Row, Fill, Thumb, Track;
+            public VisualElement Row, Fill, Thumb, Track, Mark;
             public Label Value, OnCell, OffCell;
         }
 
@@ -39,12 +39,26 @@ namespace HockeyGame
         readonly VisualElement _page, _content, _startButton;
         const float StripeDegrees = -18f, TabSlant = 24f; // the header stripes' turn and the tabs' lean (tan 18 degrees x 76 px)
         readonly VisualElement _tabPlayer, _tabDev;
-        readonly Label _reset, _hints;
+        readonly Label _reset, _hints, _saveButton, _escClose;
+        double _savedUntil;                // Time.unscaledTimeAsDouble when "SAVED" goes away (SavedFade: solid, then fading out)
+        static readonly Color SavedGreen = new Color32(40, 170, 80, 255), SavedWords = Color.white;       // the SAVED look, as .lc-save-done
+        static readonly Color SaveDimGreen = new Color32(30, 40, 78, 255), SaveDimWords = new Color32(150, 160, 185, 255); // and what it fades to, as .lc-save-dim
+        readonly VisualElement _confirm;   // the "Save changes?" box (#198) over the page
+        readonly Label _confirmSave, _confirmDiscard;
+        bool _closeApproved;               // the menu allowed leaving: the caller closes the page
+        bool _persist;                   // the SaveData changed (Save or Reset best score): UpdateInput says so once, the caller writes the file
         readonly List<SlantShape> _tabShapes = new List<SlantShape>();
         readonly List<RowView> _rows = new List<RowView>();
         readonly List<Hit> _hits = new List<Hit>();
         SettingsMenu _menu;
         int _dragRow = -1;
+        // Hover tip box (#199): the row under the mouse, or -1. A tool may set ForceHoverRow to show a tip without a mouse.
+        // The tip box's size is set here, in one place (the sheet gives it colours and type only): the width, the padding and the borders.
+        const float TipBoxWidth = 640f, TipPadX = 18f, TipPadY = 10f, TipBorder = 3f, TipBorderLeft = 12f;
+        readonly Label _tipBox;
+        int _hoverRow = -1;
+        /// <summary>For the picture tool: shows the tip of this row without a mouse over it. The game never sets it.</summary>
+        public int ForceHoverRow = -1;
         SettingsPart _shownPart;
 
         public SettingsScreen(SaveData save)
@@ -90,9 +104,25 @@ namespace HockeyGame
             _content.style.position = Position.Absolute;
             var bottom = Add(_page, "lc-bottombar");
             _reset = Add(bottom, "lc-reset", "");
-            _hints = Add(bottom, "lc-hints", "ESC  CLOSE      TAB  PLAYER / DEV      R  RESET");
+            _saveButton = Add(bottom, "lc-save", "SAVE");
+            _escClose = Add(bottom, "lc-esc", "ESC  CLOSE"); // a button: a click acts like Esc (CloseKey)
+            _hints = Add(bottom, "lc-hints", "TAB  PLAYER / DEV      R  RESET      S  SAVE"); // the old text, before ESC CLOSE became a button: ESC  CLOSE      TAB  PLAYER / DEV      R  RESET      S  SAVE");
             _page.AddToClassList("lc-hidden");
+            _tipBox = Add(_page, "lc-tipbox lc-hidden", ""); // last, so it draws over the cards (#199)
+            _tipBox.style.width = TipBoxWidth;
+            _tipBox.style.paddingLeft = _tipBox.style.paddingRight = TipPadX;
+            _tipBox.style.paddingTop = _tipBox.style.paddingBottom = TipPadY;
+            _tipBox.style.borderTopWidth = _tipBox.style.borderRightWidth = _tipBox.style.borderBottomWidth = TipBorder;
+            _tipBox.style.borderLeftWidth = TipBorderLeft;
             _root.Add(_page);
+
+            _confirm = Add(_root, "lc-confirm lc-hidden"); // over the page; its look is in the sheet
+            var box = Add(_confirm, "lc-confirm-box");
+            Add(box, "lc-confirm-stripe");
+            Add(box, "lc-confirm-head", "Save changes?");
+            Add(box, "lc-confirm-text", "Some settings are changed but not saved.");
+            _confirmSave = Add(box, "lc-confirm-button lc-confirm-save", "Save");
+            _confirmDiscard = Add(box, "lc-confirm-button lc-confirm-discard", "Discard");
 
             _startButton = new VisualElement();
             _startButton.AddToClassList("lc-start-button");
@@ -100,6 +130,38 @@ namespace HockeyGame
             Add(_startButton, "lc-start-key", "ESC");
             _startButton.AddToClassList("lc-hidden");
             _root.Add(_startButton);
+        }
+
+        // The "Save changes?" box (#198, look C "TV graphic", as the PAUSED box): built in the constructor from the sheet's lc-confirm-*
+        // classes. This shows or hides it and marks the chosen button (gold with navy words; the other is blue with white).
+        void SyncConfirm()
+        {
+            bool open = _menu != null && _menu.ConfirmOpen;
+            _confirm.EnableInClassList("lc-hidden", !open);
+            if (!open) return;
+            _confirmSave.EnableInClassList("lc-confirm-chosen", _menu.ConfirmChoice == ConfirmButton.Save);
+            _confirmDiscard.EnableInClassList("lc-confirm-chosen", _menu.ConfirmChoice == ConfirmButton.Discard);
+        }
+
+        /// <summary>True when the "Save changes?" box is up (for tests and tools).</summary>
+        public bool ConfirmOpen => _menu != null && _menu.ConfirmOpen;
+
+        /// <summary>
+        /// Esc, F2 or a click on ESC CLOSE while the page is open: closes at once with nothing unsaved, else shows the box; with the box
+        /// up it goes back to the page. The caller then asks TakeCloseApproved.
+        /// </summary>
+        public void CloseKey()
+        {
+            _menu.Press(SettingsKey.Escape);
+            Sync();
+        }
+
+        /// <summary>True once when leaving the page was allowed (nothing unsaved, or Save / Discard picked in the box): the caller closes it.</summary>
+        public bool TakeCloseApproved()
+        {
+            bool approved = _closeApproved;
+            _closeApproved = false;
+            return approved;
         }
 
         // A tab: a slanted white outline (shown when the tab is on), a slanted fill, and upright text on top.
@@ -129,6 +191,21 @@ namespace HockeyGame
             return label;
         }
 
+        /// <summary>The middle of the ESC CLOSE button in screen pixels (y up), for tests and tools that fake a click.</summary>
+        public Vector2 EscClosePoint() => ScreenCentreOf(_escClose);
+
+        /// <summary>The middle of the SAVE button in screen pixels (y up), for tests and tools that fake a click.</summary>
+        public Vector2 SavePoint() => ScreenCentreOf(_saveButton);
+
+        Vector2 ScreenCentreOf(VisualElement el)
+        {
+            // ScreenToPanel is a plain scale and shift, so two points give the way back (panel y counts down, screen y counts up).
+            Vector2 p0 = RuntimePanelUtils.ScreenToPanel(_root.panel, Vector2.zero), p1 = RuntimePanelUtils.ScreenToPanel(_root.panel, new Vector2(100f, 100f));
+            Vector2 perPixel = (p1 - p0) / 100f;
+            Vector2 centre = el.worldBound.center;
+            return new Vector2((centre.x - p0.x) / perPixel.x, Screen.height - (centre.y - p0.y) / perPixel.y);
+        }
+
         /// <summary>The page's root (the Settings page and the start button), for tests and tools.</summary>
         public VisualElement Root => _root;
 
@@ -141,6 +218,11 @@ namespace HockeyGame
         public void Open()
         {
             _menu = new SettingsMenu(_save, PortNames(), () => TestModeRequested?.Invoke());
+            _menu.SaveDataChanged += () => _persist = true;
+            _menu.CloseApproved += () => _closeApproved = true;
+            _persist = false;
+            _closeApproved = false;
+            _savedUntil = 0f;
             _dragRow = -1;
             Rebuild();
             _page.RemoveFromClassList("lc-hidden");
@@ -150,6 +232,7 @@ namespace HockeyGame
         {
             _dragRow = -1;
             _page.AddToClassList("lc-hidden");
+            _confirm.AddToClassList("lc-hidden");
         }
 
         /// <summary>The start screen's Settings button shows only on the start screen with the page closed.</summary>
@@ -166,58 +249,96 @@ namespace HockeyGame
         }
 
         /// <summary>
-        /// Keys and the mouse on the open page. True when a setting changed (save it).
-        /// Tab, R, Up/Down, Left/Right and Enter go to the SettingsMenu; a click picks a tab, the Reset button, a row's control.
+        /// Keys and the mouse on the open page. True once when the SaveData changed (SAVE, Reset best score): write the file.
+        /// Tab, R, Up/Down, Left/Right and Enter go to the SettingsMenu; a click picks a tab, the Reset button, SAVE, ESC CLOSE, a row's control.
         /// </summary>
         public bool UpdateInput(Keyboard keyboard, Mouse mouse)
         {
-            bool changed = false;
+            if (_menu.ConfirmOpen)
+            {
+                // The "Save changes?" box owns the keys and the mouse (Esc and F2 go back through CloseKey).
+                if (keyboard != null)
+                {
+                    if (keyboard.leftArrowKey.wasPressedThisFrame || keyboard.upArrowKey.wasPressedThisFrame) _menu.Press(SettingsKey.Left);
+                    else if (keyboard.rightArrowKey.wasPressedThisFrame || keyboard.downArrowKey.wasPressedThisFrame) _menu.Press(SettingsKey.Right);
+                    else if (keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame) _menu.Press(SettingsKey.Enter);
+                    else if (keyboard.sKey.wasPressedThisFrame) _menu.Press(SettingsKey.Save);
+                }
+                bool boxPersisted = mouse != null && Pointer(mouse.position.ReadValue(), mouse.leftButton.wasPressedThisFrame, mouse.leftButton.isPressed);
+                Sync();
+                return TakePersist() || boxPersisted;
+            }
             if (keyboard != null)
             {
-                if (keyboard.upArrowKey.wasPressedThisFrame) changed = _menu.Press(SettingsKey.Up);
-                else if (keyboard.downArrowKey.wasPressedThisFrame) changed = _menu.Press(SettingsKey.Down);
-                else if (keyboard.leftArrowKey.wasPressedThisFrame) changed = _menu.Press(SettingsKey.Left);
-                else if (keyboard.rightArrowKey.wasPressedThisFrame) changed = _menu.Press(SettingsKey.Right);
+                // Row changes wait for SAVE, so a key never says "write the file" itself: the SaveDataChanged event does (TakePersist).
+                if (keyboard.upArrowKey.wasPressedThisFrame) _menu.Press(SettingsKey.Up);
+                else if (keyboard.downArrowKey.wasPressedThisFrame) _menu.Press(SettingsKey.Down);
+                else if (keyboard.leftArrowKey.wasPressedThisFrame) _menu.Press(SettingsKey.Left);
+                else if (keyboard.rightArrowKey.wasPressedThisFrame) _menu.Press(SettingsKey.Right);
                 else if (keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame)
-                    changed = _menu.Press(SettingsKey.Enter);
+                    _menu.Press(SettingsKey.Enter);
                 else if (keyboard.tabKey.wasPressedThisFrame) _menu.Press(SettingsKey.Tab);
-                else if (keyboard.rKey.wasPressedThisFrame) changed = _menu.Press(SettingsKey.Reset);
+                else if (keyboard.rKey.wasPressedThisFrame) _menu.Press(SettingsKey.Reset);
+                else if (keyboard.sKey.wasPressedThisFrame) SaveNow();
             }
-            if (mouse != null) changed |= UpdateMouse(mouse);
+            // The pointer's call hands the persist flag back itself (it clears it), so keep what it says.
+            bool persisted = mouse != null && Pointer(mouse.position.ReadValue(), mouse.leftButton.wasPressedThisFrame, mouse.leftButton.isPressed);
             Sync();
-            return changed;
+            return TakePersist() || persisted;
         }
 
-        bool UpdateMouse(Mouse mouse) =>
-            Pointer(mouse.position.ReadValue(), mouse.leftButton.wasPressedThisFrame, mouse.leftButton.isPressed);
+        // SAVE (the button or the S key): applies the waiting changes; the green "SAVED" shows for a moment.
+        void SaveNow()
+        {
+            if (_menu.Save()) _savedUntil = Time.unscaledTimeAsDouble + SavedFade.SavedSeconds;
+        }
+
+        // True once after the SaveData changed (SAVE, Reset best score): the caller writes the file. Row changes alone never do.
+        bool TakePersist()
+        {
+            bool persist = _persist;
+            _persist = false;
+            return persist;
+        }
 
         /// <summary>
         /// The pointer on the open page, in screen pixels (y up). pressed: the button went down this frame; down: it is held.
-        /// True when a setting changed. UpdateInput feeds it from the mouse; a tool can feed it directly.
+        /// True once when the SaveData changed (SAVE, Reset best score): write the file. UpdateInput feeds it from the mouse; a tool or test can feed it directly.
         /// </summary>
         public bool Pointer(Vector2 at, bool pressed, bool down)
         {
-            bool changed = false;
+            if (_menu.ConfirmOpen)
+            {
+                // The box takes the pointer: a button under it is chosen (and picked on a press); anything else does nothing.
+                if (Over(_confirmSave, at)) _menu.SetConfirmChoice(ConfirmButton.Save);
+                else if (Over(_confirmDiscard, at)) _menu.SetConfirmChoice(ConfirmButton.Discard);
+                else pressed = false;
+                if (pressed) _menu.ConfirmPress();
+                _dragRow = -1;
+                Sync();
+                return TakePersist();
+            }
             if (pressed)
             {
                 if (Over(_tabPlayer, at)) _menu.ShowPart(SettingsPart.Player);
                 else if (Over(_tabDev, at)) _menu.ShowPart(SettingsPart.Dev);
-                else if (Over(_reset, at)) changed = _menu.ResetPart();
-                else changed = Click(at);
+                else if (Over(_reset, at)) _menu.ResetPart();
+                else if (Over(_saveButton, at)) SaveNow();
+                else if (Over(_escClose, at)) CloseKey(); // as Esc: closes, or asks "Save changes?"
+                else Click(at);
             }
+            _hoverRow = RowAt(at);
             if (_dragRow >= 0)
             {
-                if (down)
-                    changed |= DragTo(_dragRow, at);
-                else
-                    _dragRow = -1;
+                if (down) DragTo(_dragRow, at);
+                else _dragRow = -1;
             }
             Sync();
-            return changed;
+            return TakePersist();
         }
 
         // A press on a row: the control under the pointer wins over the row itself.
-        bool Click(Vector2 at)
+        void Click(Vector2 at)
         {
             for (int i = _hits.Count - 1; i >= 0; i--)
             {
@@ -228,17 +349,49 @@ namespace HockeyGame
                 {
                     case HitKind.Slider:
                         _dragRow = hit.Row;
-                        return DragTo(hit.Row, at);
+                        DragTo(hit.Row, at);
+                        break;
                     case HitKind.ToggleOn:
-                        return _menu.Value(hit.Row) != "ON" && _menu.Activate();
+                        if (_menu.Value(hit.Row) != "ON") _menu.Activate();
+                        break;
                     case HitKind.ToggleOff:
-                        return _menu.Value(hit.Row) != "OFF" && _menu.Activate();
+                        if (_menu.Value(hit.Row) != "OFF") _menu.Activate();
+                        break;
                     case HitKind.Cell:
-                        return _menu.Kind(hit.Row) == SettingsRowKind.Choice ? _menu.Change(1) : _menu.Activate();
+                        if (_menu.Kind(hit.Row) == SettingsRowKind.Choice) _menu.Change(1);
+                        else _menu.Activate();
+                        break;
                 }
-                return false; // the row itself: selected
+                return; // the row itself: selected
             }
-            return false;
+        }
+
+        // The row under the pointer, or -1 (#199).
+        int RowAt(Vector2 at)
+        {
+            for (int i = _hits.Count - 1; i >= 0; i--)
+                if (Over(_hits[i].El, at)) return _hits[i].Row;
+            return -1;
+        }
+
+        // Shows the tip box beside the hovered row, inside the page, off the row; hides it when the mouse is on no row (#199).
+        void RefreshTip()
+        {
+            int hover = ForceHoverRow >= 0 ? ForceHoverRow : _hoverRow;
+            bool show = hover >= 0 && hover < _rows.Count && !_menu.ConfirmOpen && _page.resolvedStyle.display != DisplayStyle.None;
+            string tip = show ? _menu.Tip(hover) : null;
+            show = !string.IsNullOrEmpty(tip);
+            _tipBox.EnableInClassList("lc-hidden", !show);
+            if (!show) return;
+            _tipBox.text = tip;
+            Rect row = _rows[hover].Row.worldBound, page = _page.worldBound;
+            float textWidth = TipBoxWidth - 2 * TipPadX - TipBorderLeft - TipBorder;
+            float textHeight = _tipBox.MeasureTextSize(tip, textWidth, VisualElement.MeasureMode.Exactly,
+                0, VisualElement.MeasureMode.Undefined).y;
+            float boxHeight = textHeight + 2 * TipPadY + 2 * TipBorder;
+            var at = TipPlacement.Place(row.x - page.x, row.y - page.y, row.width, row.height, page.width, page.height, TipBoxWidth, boxHeight);
+            _tipBox.style.left = (float)at.X;
+            _tipBox.style.top = (float)at.Y;
         }
 
         bool DragTo(int row, Vector2 at)
@@ -265,11 +418,13 @@ namespace HockeyGame
         {
             if (_menu.Part != _shownPart) Rebuild();
             else Refresh();
+            SyncConfirm();
         }
 
         void Rebuild()
         {
             _shownPart = _menu.Part;
+            _hoverRow = -1; // row numbers belong to the part shown
             _content.Clear();
             _rows.Clear();
             _hits.Clear();
@@ -318,6 +473,11 @@ namespace HockeyGame
         {
             var view = new RowView { Row = new VisualElement() };
             view.Row.AddToClassList("lc-row");
+            view.Mark = new VisualElement(); // the amber bar of an unsaved row (#197)
+            view.Mark.AddToClassList("lc-mark");
+            view.Mark.pickingMode = PickingMode.Ignore;
+            view.Mark.style.display = DisplayStyle.None;
+            view.Row.Add(view.Mark);
             // A slider's usual hint "(next Round)" is in its card's title; a different one (Result hold: "(no Replay)") goes after the label.
             string label = _menu.Label(i);
             if (_menu.Kind(i) == SettingsRowKind.Slider && _menu.Hint(i) != null && _menu.Hint(i) != "(next Round)" && _menu.Hint(i) != "(next Shot)")
@@ -365,10 +525,32 @@ namespace HockeyGame
         /// <summary>Shows the current values, slider places and the selected row.</summary>
         void Refresh()
         {
+            RefreshTip();
+            bool waiting = _menu.HasUnsavedChanges;
+            double savedLeft = _savedUntil - Time.unscaledTimeAsDouble;
+            bool justSaved = !waiting && savedLeft > 0;
+            _saveButton.text = justSaved ? "SAVED" : "SAVE";
+            _saveButton.EnableInClassList("lc-save-done", justSaved);
+            _saveButton.EnableInClassList("lc-save-dim", !waiting && !justSaved);
+            // SAVED stays green, then fades over its last moments into the dim SAVE (SavedFade); the sheet's colours return when it is over.
+            if (justSaved)
+            {
+                float solid = (float)SavedFade.Opacity(savedLeft);
+                _saveButton.style.backgroundColor = Color.Lerp(SaveDimGreen, SavedGreen, solid);
+                _saveButton.style.color = Color.Lerp(SaveDimWords, SavedWords, solid);
+            }
+            else
+            {
+                _saveButton.style.backgroundColor = StyleKeyword.Null;
+                _saveButton.style.color = StyleKeyword.Null;
+            }
             for (int i = 0; i < _rows.Count; i++)
             {
                 var v = _rows[i];
                 v.Row.EnableInClassList("lc-selected", i == _menu.Selected);
+                bool unsaved = _menu.IsRowUnsaved(i);
+                v.Row.EnableInClassList("lc-unsaved", unsaved);
+                v.Mark.style.display = unsaved ? DisplayStyle.Flex : DisplayStyle.None;
                 string value = _menu.Value(i);
                 switch (_menu.Kind(i))
                 {

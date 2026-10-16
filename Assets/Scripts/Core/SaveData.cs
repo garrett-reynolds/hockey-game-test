@@ -145,6 +145,56 @@ namespace HockeyGame.Core
             else _bests[shots] = goals;
         }
 
+        /// <summary>
+        /// Takes every value of another SaveData, bests included (replaced, not merged). The Settings page keeps its working
+        /// copy this way (#197). A new setting field must be added here; SettingsMenuSaveTests checks every public field.
+        /// </summary>
+        public void CopyFrom(SaveData other)
+        {
+            CopySettingsFrom(other);
+            _bests.Clear();
+            foreach (var pair in other._bests) _bests[pair.Key] = pair.Value;
+            LastUsbPort = other.LastUsbPort;
+            TeamSkin = other.TeamSkin;
+        }
+
+        /// <summary>
+        /// Takes the values that have a row on the Settings page and leaves LastUsbPort, the bests and TeamSkin alone: the game changes
+        /// those itself, so SAVE must not overwrite them with the page's older copy (#195 review).
+        /// </summary>
+        public void CopySettingsFrom(SaveData other)
+        {
+            _shotsPerRound = other._shotsPerRound;
+            UsbPort = other.UsbPort;
+            EasyMode = other.EasyMode;
+            TestShotOnAtStart = other.TestShotOnAtStart;
+            InputIgnoreSeconds = other.InputIgnoreSeconds;
+            AutoReturnSeconds = other.AutoReturnSeconds;
+            TickOn = other.TickOn;
+            ReplayOn = other.ReplayOn;
+            MasterVolume = other.MasterVolume;
+            Mute = other.Mute;
+            CrowdVolume = other.CrowdVolume;
+            GameVolume = other.GameVolume;
+            MusicVolume = other.MusicVolume;
+            ForceGoalieBlocks = other.ForceGoalieBlocks;
+            ReactionSeconds = other.ReactionSeconds;
+            ReactionWobbleSeconds = other.ReactionWobbleSeconds;
+            HandMetresPerSecond = other.HandMetresPerSecond;
+            LegMetresPerSecond = other.LegMetresPerSecond;
+            MaxPushMetres = other.MaxPushMetres;
+            ShuffleMaxMetres = other.ShuffleMaxMetres;
+            SkateInSeconds = other.SkateInSeconds;
+            ShootingWindowSeconds = other.ShootingWindowSeconds;
+            ResultHoldSeconds = other.ResultHoldSeconds;
+            CheatMetres = other.CheatMetres;
+            LateSettleMetres = other.LateSettleMetres;
+            LateSettleSeconds = other.LateSettleSeconds;
+            GapThinGearReachMetres = other.GapThinGearReachMetres;
+            BottleKnockSpeedKmh = other.BottleKnockSpeedKmh;
+            BottleJumpPercent = other.BottleJumpPercent;
+        }
+
         /// <summary>"Reset best score": clears the best of every Shots-per-Round number.</summary>
         public void ClearBestScores() => _bests.Clear();
 

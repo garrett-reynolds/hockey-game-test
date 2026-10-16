@@ -18,6 +18,17 @@
     background-color: rgba(10, 16, 34, 0.80);
 }
 
+/* Hover tip box (#199): beside the row under the mouse. Its size (width, padding, border widths) is set in SettingsScreen.cs, where the placing maths reads it. */
+.lc-tipbox {
+    position: absolute;
+    background-color: rgb(10, 16, 34);
+    border-color: rgb(232, 190, 40);
+    border-left-color: rgb(20, 60, 150);
+    color: rgb(255, 255, 255);
+    font-size: 24px;
+    white-space: normal;
+}
+
 .lc-topbar {
     /* Fully opaque, and 150 px tall (down to the cards): the arena's Video Board text no longer shows through under the header. */
     position: absolute; left: 0; top: 0; right: 0; height: 150px;
@@ -184,10 +195,48 @@
     -unity-text-align: middle-center;
 }
 
-.lc-hints {
-    position: absolute; right: 60px; top: 8px; width: 900px; height: 46px;
+/* SAVE (#197): lit gold when changes wait, dim when there is nothing to save, green "SAVED" for a moment after it. */
+.lc-save {
+    position: absolute; left: 660px; top: 8px; width: 260px; height: 46px;
+    background-color: rgb(232, 190, 40);
+    color: rgb(10, 16, 34);
+    font-size: 30px;
+    -unity-font-style: bold-and-italic;
+    -unity-text-align: middle-center;
+}
+
+.lc-save-dim {
+    background-color: rgb(30, 40, 78);
+    color: rgb(150, 160, 185);
+}
+
+.lc-save-done {
+    background-color: rgb(40, 170, 80);
     color: rgb(255, 255, 255);
-    font-size: 26px;
+}
+
+/* A row with a change that is not saved yet: an amber bar at its left edge and an amber label. */
+.lc-mark {
+    position: absolute; left: 0px; top: 6px; bottom: 6px; width: 8px;
+    background-color: rgb(255, 170, 0);
+}
+
+.lc-unsaved .lc-row-label { color: rgb(255, 190, 40); }
+
+/* ESC CLOSE: a button (a click acts like Esc). */
+.lc-esc {
+    position: absolute; left: 960px; top: 8px; width: 230px; height: 46px;
+    background-color: rgb(20, 60, 150);
+    color: rgb(255, 255, 255);
+    font-size: 30px;
+    -unity-font-style: bold-and-italic;
+    -unity-text-align: middle-center;
+}
+
+.lc-hints {
+    position: absolute; right: 30px; top: 8px; width: 700px; height: 46px;
+    color: rgb(255, 255, 255);
+    font-size: 24px;
     -unity-font-style: bold;
     -unity-text-align: middle-right;
 }
@@ -213,4 +262,56 @@
     color: rgb(232, 190, 40);
     font-size: 24px;
     -unity-font-style: bold;
+}
+
+/* ---- the "Save changes?" box (#198): the page dimmed behind, a navy box with a gold stripe, a red header, a line, two buttons ---- */
+
+.lc-confirm {
+    position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+    background-color: rgba(0, 0, 0, 0.6);
+}
+
+.lc-confirm-box {
+    position: absolute; left: 580px; top: 360px; width: 760px; height: 360px;
+    background-color: rgb(10, 16, 34);
+}
+
+.lc-confirm-stripe {
+    position: absolute; left: 0; top: 0; width: 760px; height: 8px;
+    background-color: rgb(232, 190, 40);
+}
+
+.lc-confirm-head {
+    position: absolute; left: 0; top: 8px; width: 760px; height: 100px;
+    background-color: rgb(200, 30, 45);
+    color: rgb(255, 255, 255);
+    font-size: 60px;
+    -unity-font-style: bold-and-italic;
+    -unity-text-align: middle-center;
+}
+
+.lc-confirm-text {
+    position: absolute; left: 0; top: 126px; width: 760px; height: 50px;
+    color: rgb(191, 199, 224);
+    font-size: 28px;
+    -unity-font-style: bold-and-italic;
+    -unity-text-align: middle-center;
+}
+
+.lc-confirm-button {
+    position: absolute; top: 214px; width: 300px; height: 96px;
+    background-color: rgb(20, 60, 150);
+    color: rgb(255, 255, 255);
+    font-size: 44px;
+    -unity-font-style: bold-and-italic;
+    -unity-text-align: middle-center;
+}
+
+.lc-confirm-save { left: 50px; }
+
+.lc-confirm-discard { left: 410px; }
+
+.lc-confirm-chosen {
+    background-color: rgb(232, 190, 40);
+    color: rgb(10, 16, 34);
 }

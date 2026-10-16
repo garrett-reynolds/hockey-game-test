@@ -35,6 +35,22 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void Every_row_in_both_parts_has_a_tip()
+        {
+            var menu = NewMenu(new SaveData());
+            foreach (var part in new[] { SettingsPart.Player, SettingsPart.Dev })
+            {
+                menu.ShowPart(part);
+                for (int i = 0; i < menu.RowCount; i++)
+                {
+                    string tip = menu.Tip(i);
+                    Assert.IsFalse(string.IsNullOrWhiteSpace(tip), part + " row " + menu.Label(i) + " has no tip");
+                    Assert.LessOrEqual(tip.Length, 140, menu.Label(i) + " tip is too long");
+                }
+            }
+        }
+
+        [Test]
         public void Rows_show_their_current_values()
         {
             var menu = NewMenu(new SaveData { BestScore = 3 }, "COM3");
@@ -151,9 +167,11 @@ namespace HockeyGame.Core.Tests
             var menu = NewMenu(save);
             menu.Press(SettingsKey.Tab);
             Assert.IsTrue(menu.Press(SettingsKey.Enter));
+            menu.Save(); // #197: a change waits for Save
             Assert.IsTrue(save.ForceGoalieBlocks);
             Assert.AreEqual("ON", menu.Value(0));
             Assert.IsTrue(menu.Press(SettingsKey.Left));
+            menu.Save();
             Assert.IsFalse(save.ForceGoalieBlocks);
         }
 
@@ -167,11 +185,14 @@ namespace HockeyGame.Core.Tests
             Assert.IsFalse(menu.Press(SettingsKey.Up));
             Assert.AreEqual(0, menu.Selected);
             Assert.IsTrue(menu.Press(SettingsKey.Right));
+            menu.Press(SettingsKey.Save); // #197: a change waits for Save (the S key)
             Assert.AreEqual(0.6, save.MasterVolume, 1e-9);
             Assert.IsTrue(menu.Press(SettingsKey.Left));
+            menu.Save();
             Assert.AreEqual(0.5, save.MasterVolume, 1e-9);
             for (int i = 0; i < 4; i++) menu.Press(SettingsKey.Down); // past Crowd, Game sounds and Music to Mute
             Assert.IsTrue(menu.Press(SettingsKey.Enter));
+            menu.Save();
             Assert.IsTrue(save.Mute);
         }
 
@@ -202,13 +223,17 @@ namespace HockeyGame.Core.Tests
             var menu = NewMenu(save);
             Assert.AreEqual(0.5, menu.Fraction(0), 1e-9);
             Assert.IsTrue(menu.SetFraction(0, 0.83));
+            menu.Save(); // #197: a change waits for Save
             Assert.AreEqual(0.8, save.MasterVolume, 1e-9, "snaps to the 10% step");
             Assert.IsFalse(menu.SetFraction(0, 0.8), "same value: nothing to save");
             menu.SetFraction(0, 1.7);
+            menu.Save();
             Assert.AreEqual(1.0, save.MasterVolume, 1e-9, "dragged past the end stays at the end");
             menu.SetFraction(0, -0.4);
+            menu.Save();
             Assert.AreEqual(0.0, save.MasterVolume, 1e-9);
             menu.SetFraction(12, 0.3);
+            menu.Save();
             Assert.AreEqual(37.0, save.AutoReturnSeconds, 1e-9, "a slider with its own range: 1 to 120 s, 30% along snaps to the whole second 37");
             Assert.AreEqual(12, menu.Selected, "the mouse selects the row it works");
         }
@@ -220,12 +245,15 @@ namespace HockeyGame.Core.Tests
             var menu = NewMenu(save, "COM3");
             menu.Select(4);
             Assert.IsTrue(menu.Activate());
+            menu.Save(); // #197: toggles and choices wait for Save; the button acts at once
             Assert.IsTrue(save.Mute);
             menu.Select(9);
             Assert.IsTrue(menu.Activate());
+            menu.Save();
             Assert.IsFalse(save.ReplayOn);
             menu.Select(10);
             Assert.IsTrue(menu.Change(1));
+            menu.Save();
             Assert.AreEqual("COM3", save.UsbPort);
             menu.Select(13);
             Assert.IsTrue(menu.Activate());
@@ -243,6 +271,7 @@ namespace HockeyGame.Core.Tests
             };
             var menu = NewMenu(save);
             Assert.IsTrue(menu.Press(SettingsKey.Reset));
+            menu.Save(); // #197: Reset to default waits for Save
             var d = new SaveData();
             Assert.IsTrue(save.ReplayOn, "Reset to default turns the Replay back on (#145)");
             Assert.AreEqual(d.ReplayOn, save.ReplayOn);
@@ -268,6 +297,7 @@ namespace HockeyGame.Core.Tests
             var menu = NewMenu(save);
             menu.ShowPart(SettingsPart.Dev);
             Assert.IsTrue(menu.ResetPart());
+            menu.Save(); // #197
             Assert.IsFalse(save.ForceGoalieBlocks);
             Assert.AreEqual(0.2, save.MasterVolume, 1e-9);
         }
@@ -294,6 +324,7 @@ namespace HockeyGame.Core.Tests
             var menu = NewMenu(save);
             Select(menu, label);
             Assert.IsTrue(menu.Change(1));
+            menu.Save(); // #197
             double[] now = { save.CrowdVolume, save.GameVolume, save.MusicVolume };
             double[] want = { 0.5, 0.5, 0.5 };
             want[label == "Crowd" ? 0 : label == "Game sounds" ? 1 : 2] = 0.6;
@@ -331,20 +362,25 @@ namespace HockeyGame.Core.Tests
 
             Select(menu, "Easy mode");
             Assert.IsTrue(menu.Activate());
+            menu.Save(); // #197: each change waits for Save
             Assert.IsTrue(save.EasyMode);
             Assert.IsTrue(menu.Change(1));
+            menu.Save();
             Assert.IsFalse(save.EasyMode);
 
             Select(menu, "Test Shots on at start");
             menu.Activate();
+            menu.Save();
             Assert.IsFalse(save.TestShotOnAtStart);
 
             Select(menu, "Tick");
             menu.Change(-1);
+            menu.Save();
             Assert.IsFalse(save.TickOn);
 
             Select(menu, "Mute");
             menu.Activate();
+            menu.Save();
             Assert.IsTrue(save.Mute);
         }
 
@@ -356,14 +392,18 @@ namespace HockeyGame.Core.Tests
 
             Select(menu, "End screen input-ignore time");
             menu.Change(1);
+            menu.Save(); // #197: each change waits for Save
             Assert.AreEqual(1.0, save.InputIgnoreSeconds, 1e-9);
             for (int i = 0; i < 5; i++) menu.Change(-1);
+            menu.Save();
             Assert.AreEqual(0.0, save.InputIgnoreSeconds, 1e-9);
 
             Select(menu, "End screen auto-return time");
             menu.Change(1);
+            menu.Save();
             Assert.AreEqual(3.0, save.AutoReturnSeconds, 1e-9);
             for (int i = 0; i < 5; i++) menu.Change(-1);
+            menu.Save();
             Assert.AreEqual(1.0, save.AutoReturnSeconds, 1e-9);
         }
 
@@ -374,10 +414,13 @@ namespace HockeyGame.Core.Tests
             var menu = NewMenu(save);
             Select(menu, "Master volume");
             menu.Change(-1);
+            menu.Save(); // #197: each change waits for Save
             Assert.AreEqual(0.0, save.MasterVolume, 1e-9);
             menu.Change(-1);
+            menu.Save();
             Assert.AreEqual(0.0, save.MasterVolume, 1e-9);
             for (int i = 0; i < 12; i++) menu.Change(1);
+            menu.Save();
             Assert.AreEqual(1.0, save.MasterVolume, 1e-9);
             Assert.AreEqual("100%", menu.Value(menu.Selected));
         }
@@ -389,12 +432,16 @@ namespace HockeyGame.Core.Tests
             var menu = NewMenu(save, "COM3", "COM4");
             Select(menu, "USB port");
             menu.Change(1);
+            menu.Save(); // #197: each change waits for Save
             Assert.AreEqual("COM3", save.UsbPort);
             menu.Change(1);
+            menu.Save();
             Assert.AreEqual("COM4", save.UsbPort);
             menu.Change(1);
+            menu.Save();
             Assert.AreEqual(SaveData.AutoUsbPort, save.UsbPort);
             menu.Change(-1);
+            menu.Save();
             Assert.AreEqual("COM4", save.UsbPort);
         }
 
@@ -406,8 +453,10 @@ namespace HockeyGame.Core.Tests
             Select(menu, "USB port");
             Assert.AreEqual("COM9", menu.Value(menu.Selected));
             menu.Change(1);
+            menu.Save(); // #197: each change waits for Save
             Assert.AreEqual(SaveData.AutoUsbPort, save.UsbPort);
             menu.Change(-1);
+            menu.Save();
             Assert.AreEqual("COM9", save.UsbPort);
         }
 
@@ -419,6 +468,32 @@ namespace HockeyGame.Core.Tests
             Select(menu, "USB port");
             Assert.IsFalse(menu.Change(1));
             Assert.AreEqual(SaveData.AutoUsbPort, save.UsbPort);
+        }
+
+        [Test]
+        public void Tips_say_changes_act_when_SAVE_is_pressed_not_at_once_and_the_USB_port_acts_on_SAVE()
+        {
+            var menu = NewMenu(new SaveData());
+            foreach (var part in new[] { SettingsPart.Player, SettingsPart.Dev })
+            {
+                menu.ShowPart(part);
+                for (int i = 0; i < menu.RowCount; i++)
+                {
+                    string tip = menu.Tip(i);
+                    if (menu.Kind(i) == SettingsRowKind.Button) continue; // action rows may say "at once"
+                    StringAssert.DoesNotContain("at once", tip, menu.Label(i));
+                }
+            }
+            menu.ShowPart(SettingsPart.Player);
+            int usb = 0;
+            while (menu.Label(usb) != "USB port") usb++;
+            StringAssert.DoesNotContain("next launch", menu.Tip(usb));
+            foreach (var label in new[] { "Master volume", "Crowd", "Game sounds", "Music", "Mute", "Tick", "Easy mode", "Replay", "USB port" })
+            {
+                int row = 0;
+                while (menu.Label(row) != label) row++;
+                StringAssert.Contains("SAVE", menu.Tip(row), label);
+            }
         }
     }
 }

@@ -243,17 +243,34 @@ namespace HockeyGame.Core
         public void EndTestMode()
         {
             if (!_settings.TestMode) return;
+            // ShotCount stays 6 (the Test Mode deck size) until the next StartRound(best, shots) sets it; nothing reads it on the start screen.
+            ResetToIdle();
+        }
+
+        /// <summary>
+        /// Quit to start from the Pause box (#196): the Round goes back to Idle with nothing kept (no score, no Shots). The best score
+        /// is never touched here. Does nothing when the Round is already Idle or over.
+        /// </summary>
+        public void Abandon()
+        {
+            if (Phase == RoundPhase.Idle || Phase == RoundPhase.RoundOver) return;
+            ResetToIdle();
+        }
+
+        // What Abandon and EndTestMode share: the Round goes back to Idle with nothing of the Shots kept.
+        private void ResetToIdle()
+        {
             _settings.TestMode = false;
             _results.Clear();
             _speeds.Clear();
             Goals = 0;
+            IsNewBest = false;
             LastResult = null;
             LastShot = null;
             LastRace = null;
             ShotsSubmitted = 0;
             LastShotSpeedKmh = null;
             ShotNumber = 0;
-            // ShotCount stays 6 (the Test Mode deck size) until the next StartRound(best, shots) sets it; nothing reads it on the start screen.
             EnterPhase(RoundPhase.Idle);
         }
 
