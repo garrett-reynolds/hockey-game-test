@@ -38,7 +38,8 @@ def fake_status(d):
     replies = scenario_of(d).get("_status", {}).get("status")
     if replies is None:
         root = os.environ.get("SLOT_ROOT", "").replace("/", "\\")
-        rows = "".join(f"7800\tready\t{root}\\{f}\t6000.6.5f1\t4242\n" for f in ("111", "w2", "w3"))
+        # The PID is the slot tool (our parent): a live process, so the dead-Editor check (#219) sees an Editor.
+        rows = "".join(f"7800\tready\t{root}\\{f}\t6000.6.5f1\t{os.getppid()}\n" for f in ("111", "w2", "w3"))
     else:
         r = next_reply(d, "_status", replies)
         if r.get("raw"):  # a reply with no table header: the CLI failed in some other way

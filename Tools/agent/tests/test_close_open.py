@@ -16,10 +16,10 @@ def short_waits(h):
 FOLDER = {"w1": "111", "w2": "w2", "w3": "w3"}
 
 
-def rows(h, *slots):
+def rows(h, *slots, pid=4242):
     """The `unity status` text with the given slots open (backslash paths, like the real CLI)."""
     root = h.env["SLOT_ROOT"].replace("/", "\\")
-    return "".join(f"7800\tready\t{root}\\{FOLDER[s]}\t6000.6.5f1\t4242\n" for s in slots)
+    return "".join(f"7800\tready\t{root}\\{FOLDER[s]}\t6000.6.5f1\t{pid}\n" for s in slots)
 
 
 def status_says(h, *per_call):
@@ -45,7 +45,8 @@ def test_test_refuses_at_once_when_editor_not_open(h):
 
 
 def test_test_still_runs_when_editor_is_open(h):
-    status_says(h, ("w2",))
+    # a live pid: the dead-Editor check (#219) would stop the made-up 4242
+    h.set("_status", "status", {"out": rows(h, "w2", pid=os.getpid()), "rc": 0})
     h.ready("w2")
     h.set("w2", "run_tests", reply(SUMMARY_OK))
     rc, out = h.run("test", "w2")

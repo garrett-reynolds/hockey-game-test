@@ -148,6 +148,7 @@ def add_parser(sub):
     p.add_argument("--action", default="idle", help="idle (default), clip:<name> or shot")
     p.add_argument("--seconds", type=float, default=8.0, help="how long to sample after the action (default 8)")
     p.add_argument("--crowd", action="store_true", help="leave the crowd and sound on (default: hidden, muted)")
+    testrun.add_memory_flag(p)
     p.set_defaults(func=run)
 
 
@@ -202,6 +203,28 @@ def wait_playing(slot):
     done, _ = common.poll_until(playing, PLAY_WAIT_S)
     if not done:
         raise common.SlotError(f"Play did not start within {PLAY_WAIT_S:g} s")
+
+
+SMALL_WIDTH = 640
+
+
+def make_small(path):
+    """Save a copy about 640 px wide next to the picture as <name>-small.png and return its path, or None.
+    Uses Pillow only if it is already installed (#219: no new package); a picture already that narrow is only copied."""
+    try:
+        from PIL import Image
+    except ImportError:
+        return None
+    small = path[:-4] + "-small.png" if path.lower().endswith(".png") else path + "-small.png"
+    try:
+        with Image.open(path) as im:
+            w, h = im.size
+            if w > SMALL_WIDTH:
+                im = im.resize((SMALL_WIDTH, max(1, round(h * SMALL_WIDTH / w))), Image.LANCZOS)
+            im.save(small, "PNG")
+        return small
+    except (OSError, ValueError):
+        return None
 
 
 def take_picture(slot, label):
@@ -317,7 +340,7 @@ def run(args):
     slot = args.slot
     common.check_slot(slot)
     kind, name = parse_action(args.action)
-    code = testrun.prepare(slot, "play-check", "play-check")  # same start as `test` (#187); lock held on None
+    code = testrun.prepare(slot, "play-check", "play-check", args.skip_memory_check)  # same start as `test` (#187); lock held on None
     if code is not None:
         return code
     try:
@@ -368,12 +391,14 @@ def run(args):
     elif len(rows) < MIN_SAMPLES and detail["error"] is None:
         detail["error"] = f"only {len(rows)} frames sampled (need {MIN_SAMPLES}); the Editor was not running the game; result not trusted"
     m = measure(rows, before, after)
-    ok, lines = block(slot, args.scene, args.action, m, picture, picture_error, results_path)
+    small = make_small(picture) if picture else None
+    shown = f"{small}  (small, {SMALL_WIDTH} px wide; full: {picture})" if small else picture
+    ok, lines = block(slot, args.scene, args.action, m, shown, picture_error, results_path)
     if detail["error"]:
         ok = False
         lines[0] = lines[0].replace("PASS", "FAIL")
         lines.insert(1, f"ERROR    {detail['error']}")
-    detail.update(verdict="PASS" if ok else "FAIL", measures=m, picture=picture, picture_error=picture_error, samples=rows,
+    detail.update(verdict="PASS" if ok else "FAIL", measures=m, picture=picture, picture_small=small, picture_error=picture_error, samples=rows,
                   console_before=before, console_after=after)
     results_path.write_text(json.dumps(detail, indent=1), encoding="utf-8")
     print("\n".join(lines))
