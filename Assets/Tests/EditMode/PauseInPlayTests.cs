@@ -34,13 +34,25 @@ namespace HockeyGame.Core.Tests
         static string Fmt(Vector3 v) => v.x.ToString("F4", CultureInfo.InvariantCulture) + "," + v.y.ToString("F4", CultureInfo.InvariantCulture)
             + "," + v.z.ToString("F4", CultureInfo.InvariantCulture);
 
-        // Esc down for one frame, then up: the driver's wasPressedThisFrame sees one press.
-        static IEnumerator PressEsc(Keyboard keyboard)
+        // EditMode can advance this coroutine before the next game Update (#217). Wait for the
+        // real driver's public response, with a bound; the caller still asserts pause or resume.
+        static IEnumerator PressEsc(Keyboard keyboard, ScreenFlow flow)
         {
-            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.Escape));
-            yield return null;
-            InputSystem.QueueStateEvent(keyboard, new KeyboardState());
-            yield return null;
+            bool wasPaused = flow.Paused;
+            double deadline = Time.realtimeSinceStartupAsDouble + 5;
+            try
+            {
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.Escape));
+                while (flow.Paused == wasPaused && Time.realtimeSinceStartupAsDouble < deadline)
+                    yield return null;
+            }
+            finally
+            {
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+            }
+            while (keyboard.escapeKey.isPressed && Time.realtimeSinceStartupAsDouble < deadline)
+                yield return null;
+            Assert.IsFalse(keyboard.escapeKey.isPressed, "the synthetic Esc key is released");
         }
 
         [UnityTest, Category("Slow"), Explicit("Slow: enters Play (runs only in the full run)")]
@@ -76,11 +88,13 @@ namespace HockeyGame.Core.Tests
                 var goalie = (GoalieView)typeof(RoundDriver).GetField("_goalie", Any).GetValue(driver);
                 // Esc goes through the real path (RoundDriver.Update and UpdatePaused read Keyboard.current); the key comes from a fake
                 // keyboard device made in code. No OS input is sent.
-                keyboard = InputSystem.AddDevice<Keyboard>("PauseTestKeyboard");
                 oldBackgroundBehavior = InputSystem.settings.backgroundBehavior;
                 oldEditorBehavior = InputSystem.settings.editorInputBehaviorInPlayMode;
                 InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
                 InputSystem.settings.editorInputBehaviorInPlayMode = InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
+                // Set focus policy before creating the device: an unfocused Editor can disable it (#217).
+                keyboard = InputSystem.AddDevice<Keyboard>("PauseTestKeyboard");
+                InputSystem.EnableDevice(keyboard);
                 yield return null;
 
                 flow.Press();
@@ -93,7 +107,7 @@ namespace HockeyGame.Core.Tests
 
                 Vector3 pausedAt = puck.position;
                 log.AppendLine("puck at pause request " + Fmt(pausedAt) + " speed " + puck.linearVelocity.magnitude.ToString("F2", CultureInfo.InvariantCulture));
-                yield return PressEsc(keyboard);
+                yield return PressEsc(keyboard, flow);
                 Assert.IsTrue(flow.Paused, "Esc in a Round pauses it");
                 Assert.IsTrue(PauseSwitch.IsPaused);
                 Assert.AreEqual(0f, Time.timeScale, "game time stopped");
@@ -125,7 +139,7 @@ namespace HockeyGame.Core.Tests
 
                 float speedAtPause = puck.linearVelocity.magnitude; // a paused body keeps its velocity (the puck is only frozen by time)
                 float gameTimeAtResume = Time.time;
-                yield return PressEsc(keyboard);
+                yield return PressEsc(keyboard, flow);
                 Assert.IsFalse(flow.Paused, "Esc in the PAUSED box resumes");
                 Assert.IsFalse(PauseSwitch.IsPaused);
                 Assert.IsFalse(AudioListener.pause);
