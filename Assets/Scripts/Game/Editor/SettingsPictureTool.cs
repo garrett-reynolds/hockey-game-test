@@ -164,15 +164,23 @@ namespace HockeyGame.Editor
                     }
                     else if (_stage == 6)
                     {
-                        Shoot(Path.Combine(folder, "t199-top.png"), "tip on the top Dev row");
-                        _screen.ForceHoverRow = _screen.Menu.RowCount - 1; // and on the bottom row
+                        Shoot(Path.Combine(folder, "t202-left-top.png"), "tip under the top left Dev row");
+                        _screen.ForceHoverRow = LastLeftRow(); // #202: the bottom left row, near the bottom bar
                         _screen.Pointer(new Vector2(-1f, -1f), false, false);
                         _stage = 7;
                         _frames = 0;
                     }
                     else if (_stage == 7)
                     {
-                        Shoot(Path.Combine(folder, "t199-bottom.png"), "tip on the bottom Dev row");
+                        Shoot(Path.Combine(folder, "t202-left-bottom.png"), "tip for the bottom left Dev row (row " + LastLeftRow() + ")");
+                        _screen.ForceHoverRow = _screen.Menu.RowCount - 2; // a right column row
+                        _screen.Pointer(new Vector2(-1f, -1f), false, false);
+                        _stage = 8;
+                        _frames = 0;
+                    }
+                    else if (_stage == 8)
+                    {
+                        Shoot(Path.Combine(folder, "t202-right.png"), "tip for a right column Dev row");
                         Finish();
                     }
                 }
@@ -182,6 +190,19 @@ namespace HockeyGame.Editor
                 Debug.LogError("Settings pictures failed: " + e);
                 Finish();
             }
+        }
+
+        // The Dev part's last four cards go in the right column; the row before the first of them is the bottom left row.
+        static int LastLeftRow()
+        {
+            var menu = _screen.Menu;
+            int groups = 0, i = menu.RowCount - 1;
+            while (i > 0)
+            {
+                if (menu.Group(i - 1) != menu.Group(i) && ++groups == 4) return i - 1;
+                i--;
+            }
+            return 0;
         }
 
         // The page's private methods (it refreshes itself on a key or click, which this tool must not simulate); a rename fails here and is logged.

@@ -40,6 +40,7 @@ namespace HockeyGame
         const float StripeDegrees = -18f, TabSlant = 24f; // the header stripes' turn and the tabs' lean (tan 18 degrees x 76 px)
         readonly VisualElement _tabPlayer, _tabDev;
         readonly Label _reset, _hints, _saveButton, _escClose;
+        readonly VisualElement _bottomBar;
         double _savedUntil;                // Time.unscaledTimeAsDouble when "SAVED" goes away (SavedFade: solid, then fading out)
         static readonly Color SavedGreen = new Color32(40, 170, 80, 255), SavedWords = Color.white;       // the SAVED look, as .lc-save-done
         static readonly Color SaveDimGreen = new Color32(30, 40, 78, 255), SaveDimWords = new Color32(150, 160, 185, 255); // and what it fades to, as .lc-save-dim
@@ -102,11 +103,11 @@ namespace HockeyGame
             _tabDev = MakeTab(top, "lc-tab-dev", "DEV");
             _content = Add(_page, "lc-content");
             _content.style.position = Position.Absolute;
-            var bottom = Add(_page, "lc-bottombar");
+            var bottom = _bottomBar = Add(_page, "lc-bottombar");
             _reset = Add(bottom, "lc-reset", "");
             _saveButton = Add(bottom, "lc-save", "SAVE");
             _escClose = Add(bottom, "lc-esc", "ESC  CLOSE"); // a button: a click acts like Esc (CloseKey)
-            _hints = Add(bottom, "lc-hints", "TAB  PLAYER / DEV      R  RESET      S  SAVE"); // the old text, before ESC CLOSE became a button: ESC  CLOSE      TAB  PLAYER / DEV      R  RESET      S  SAVE");
+            _hints = Add(bottom, "lc-hints", "TAB  PLAYER / DEV      R  RESET      S  SAVE");
             _page.AddToClassList("lc-hidden");
             _tipBox = Add(_page, "lc-tipbox lc-hidden", ""); // last, so it draws over the cards (#199)
             _tipBox.style.width = TipBoxWidth;
@@ -374,7 +375,7 @@ namespace HockeyGame
             return -1;
         }
 
-        // Shows the tip box beside the hovered row, inside the page, off the row; hides it when the mouse is on no row (#199).
+        // Shows the tip box under the hovered row (above it near the bottom bar), in the row's column; hides it when the mouse is on no row (#199).
         void RefreshTip()
         {
             int hover = ForceHoverRow >= 0 ? ForceHoverRow : _hoverRow;
@@ -385,11 +386,14 @@ namespace HockeyGame
             if (!show) return;
             _tipBox.text = tip;
             Rect row = _rows[hover].Row.worldBound, page = _page.worldBound;
-            float textWidth = TipBoxWidth - 2 * TipPadX - TipBorderLeft - TipBorder;
+            float boxWidth = Mathf.Min(TipBoxWidth, row.width); // inside the row's column (#202)
+            _tipBox.style.width = boxWidth;
+            float textWidth = boxWidth - 2 * TipPadX - TipBorderLeft - TipBorder;
             float textHeight = _tipBox.MeasureTextSize(tip, textWidth, VisualElement.MeasureMode.Exactly,
                 0, VisualElement.MeasureMode.Undefined).y;
             float boxHeight = textHeight + 2 * TipPadY + 2 * TipBorder;
-            var at = TipPlacement.Place(row.x - page.x, row.y - page.y, row.width, row.height, page.width, page.height, TipBoxWidth, boxHeight);
+            var at = TipPlacement.Place(row.x - page.x, row.y - page.y, row.width, row.height, page.width, page.height, boxWidth, boxHeight,
+                _bottomBar.worldBound.y - page.y);
             _tipBox.style.left = (float)at.X;
             _tipBox.style.top = (float)at.Y;
         }

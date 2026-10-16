@@ -1,6 +1,6 @@
 namespace HockeyGame.Core
 {
-    /// <summary>Where the Settings tip box goes (#199): beside the hovered row, inside the page, never over the row.</summary>
+    /// <summary>Where the Settings tip box goes (#202): under the hovered row, left edge lined up with the row; above the row when there is no room under it.</summary>
     public static class TipPlacement
     {
         public struct Box
@@ -8,21 +8,17 @@ namespace HockeyGame.Core
             public double X, Y;
         }
 
-        public const double Gap = 20, Margin = 12;
+        public const double Gap = 8, Margin = 12;
 
-        /// <summary>Top-left of the tip box. Tries the right of the row, then under it, then over it.</summary>
+        /// <summary>Top-left of the tip box. Under the row, else above it. bottomY is the lowest y the box may reach (the top of the bottom bar).</summary>
         public static Box Place(double rowX, double rowY, double rowW, double rowH,
-            double pageW, double pageH, double boxW, double boxH)
+            double pageW, double pageH, double boxW, double boxH, double bottomY = double.MaxValue)
         {
-            double top = Clamp(rowY, Margin, pageH - Margin - boxH);
-            double right = rowX + rowW + Gap;
-            if (right + boxW <= pageW - Margin) return new Box { X = right, Y = top };
-
-            // No room beside the row: under it, else over it, lined up with the row's left edge.
             double x = Clamp(rowX, Margin, pageW - Margin - boxW);
+            double limit = System.Math.Min(pageH, bottomY) - Margin;
             double below = rowY + rowH + Gap;
-            if (below + boxH <= pageH - Margin) return new Box { X = x, Y = below };
-            return new Box { X = x, Y = Clamp(rowY - Gap - boxH, Margin, pageH - Margin - boxH) };
+            if (below + boxH <= limit) return new Box { X = x, Y = below };
+            return new Box { X = x, Y = Clamp(rowY - Gap - boxH, Margin, limit - boxH) };
         }
 
         private static double Clamp(double v, double min, double max) => v < min ? min : (v > max ? max : v);
