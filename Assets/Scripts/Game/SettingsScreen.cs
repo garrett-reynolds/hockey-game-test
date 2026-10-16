@@ -29,7 +29,7 @@ namespace HockeyGame
 
         sealed class RowView
         {
-            public VisualElement Row, Fill, Thumb, Track;
+            public VisualElement Row, Fill, Thumb, Track, Mark;
             public Label Value, OnCell, OffCell;
         }
 
@@ -39,7 +39,10 @@ namespace HockeyGame
         readonly VisualElement _page, _content, _startButton;
         const float StripeDegrees = -18f, TabSlant = 24f; // the header stripes' turn and the tabs' lean (tan 18 degrees x 76 px)
         readonly VisualElement _tabPlayer, _tabDev;
-        readonly Label _reset, _hints;
+        readonly Label _reset, _hints, _saveButton;
+        const float SavedSeconds = 1.5f;   // how long the green "SAVED" shows after SAVE
+        float _savedUntil;                 // Time.unscaledTime when "SAVED" goes away
+        bool _persist;                     // the SaveData changed (Save or Reset best score): UpdateInput says so once, the caller writes the file
         readonly List<SlantShape> _tabShapes = new List<SlantShape>();
         readonly List<RowView> _rows = new List<RowView>();
         readonly List<Hit> _hits = new List<Hit>();
@@ -90,7 +93,8 @@ namespace HockeyGame
             _content.style.position = Position.Absolute;
             var bottom = Add(_page, "lc-bottombar");
             _reset = Add(bottom, "lc-reset", "");
-            _hints = Add(bottom, "lc-hints", "ESC  CLOSE      TAB  PLAYER / DEV      R  RESET");
+            _saveButton = Add(bottom, "lc-save", "SAVE");
+            _hints = Add(bottom, "lc-hints", "ESC  CLOSE      TAB  PLAYER / DEV      R  RESET      S  SAVE");
             _page.AddToClassList("lc-hidden");
             _root.Add(_page);
 
@@ -141,6 +145,9 @@ namespace HockeyGame
         public void Open()
         {
             _menu = new SettingsMenu(_save, PortNames(), () => TestModeRequested?.Invoke());
+            _menu.SaveDataChanged += () => _persist = true;
+            _persist = false;
+            _savedUntil = 0f;
             _dragRow = -1;
             Rebuild();
             _page.RemoveFromClassList("lc-hidden");
@@ -182,10 +189,25 @@ namespace HockeyGame
                     changed = _menu.Press(SettingsKey.Enter);
                 else if (keyboard.tabKey.wasPressedThisFrame) _menu.Press(SettingsKey.Tab);
                 else if (keyboard.rKey.wasPressedThisFrame) changed = _menu.Press(SettingsKey.Reset);
+                else if (keyboard.sKey.wasPressedThisFrame) SaveNow();
             }
             if (mouse != null) changed |= UpdateMouse(mouse);
             Sync();
-            return changed;
+            return TakePersist();
+        }
+
+        // SAVE (the button or the S key): applies the waiting changes; the green "SAVED" shows for a moment.
+        void SaveNow()
+        {
+            if (_menu.Save()) _savedUntil = Time.unscaledTime + SavedSeconds;
+        }
+
+        // True once after the SaveData changed (SAVE, Reset best score): the caller writes the file. Row changes alone never do.
+        bool TakePersist()
+        {
+            bool persist = _persist;
+            _persist = false;
+            return persist;
         }
 
         bool UpdateMouse(Mouse mouse) =>
@@ -203,6 +225,7 @@ namespace HockeyGame
                 if (Over(_tabPlayer, at)) _menu.ShowPart(SettingsPart.Player);
                 else if (Over(_tabDev, at)) _menu.ShowPart(SettingsPart.Dev);
                 else if (Over(_reset, at)) changed = _menu.ResetPart();
+                else if (Over(_saveButton, at)) SaveNow();
                 else changed = Click(at);
             }
             if (_dragRow >= 0)
@@ -213,7 +236,7 @@ namespace HockeyGame
                     _dragRow = -1;
             }
             Sync();
-            return changed;
+            return TakePersist();
         }
 
         // A press on a row: the control under the pointer wins over the row itself.
@@ -318,6 +341,11 @@ namespace HockeyGame
         {
             var view = new RowView { Row = new VisualElement() };
             view.Row.AddToClassList("lc-row");
+            view.Mark = new VisualElement(); // the amber bar of an unsaved row (#197)
+            view.Mark.AddToClassList("lc-mark");
+            view.Mark.pickingMode = PickingMode.Ignore;
+            view.Mark.style.display = DisplayStyle.None;
+            view.Row.Add(view.Mark);
             // A slider's usual hint "(next Round)" is in its card's title; a different one (Result hold: "(no Replay)") goes after the label.
             string label = _menu.Label(i);
             if (_menu.Kind(i) == SettingsRowKind.Slider && _menu.Hint(i) != null && _menu.Hint(i) != "(next Round)" && _menu.Hint(i) != "(next Shot)")
@@ -365,10 +393,18 @@ namespace HockeyGame
         /// <summary>Shows the current values, slider places and the selected row.</summary>
         void Refresh()
         {
+            bool waiting = _menu.HasUnsavedChanges;
+            bool justSaved = !waiting && Time.unscaledTime < _savedUntil;
+            _saveButton.text = justSaved ? "SAVED" : "SAVE";
+            _saveButton.EnableInClassList("lc-save-done", justSaved);
+            _saveButton.EnableInClassList("lc-save-dim", !waiting && !justSaved);
             for (int i = 0; i < _rows.Count; i++)
             {
                 var v = _rows[i];
                 v.Row.EnableInClassList("lc-selected", i == _menu.Selected);
+                bool unsaved = _menu.IsRowUnsaved(i);
+                v.Row.EnableInClassList("lc-unsaved", unsaved);
+                v.Mark.style.display = unsaved ? DisplayStyle.Flex : DisplayStyle.None;
                 string value = _menu.Value(i);
                 switch (_menu.Kind(i))
                 {

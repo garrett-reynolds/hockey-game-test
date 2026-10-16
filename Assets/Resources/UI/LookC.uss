@@ -184,8 +184,36 @@
     -unity-text-align: middle-center;
 }
 
+/* SAVE (#197): lit gold when changes wait, dim when there is nothing to save, green "SAVED" for a moment after it. */
+.lc-save {
+    position: absolute; left: 660px; top: 8px; width: 260px; height: 46px;
+    background-color: rgb(232, 190, 40);
+    color: rgb(10, 16, 34);
+    font-size: 30px;
+    -unity-font-style: bold-and-italic;
+    -unity-text-align: middle-center;
+}
+
+.lc-save-dim {
+    background-color: rgb(30, 40, 78);
+    color: rgb(150, 160, 185);
+}
+
+.lc-save-done {
+    background-color: rgb(40, 170, 80);
+    color: rgb(255, 255, 255);
+}
+
+/* A row with a change that is not saved yet: an amber bar at its left edge and an amber label. */
+.lc-mark {
+    position: absolute; left: 0px; top: 6px; bottom: 6px; width: 8px;
+    background-color: rgb(255, 170, 0);
+}
+
+.lc-unsaved .lc-row-label { color: rgb(255, 190, 40); }
+
 .lc-hints {
-    position: absolute; right: 60px; top: 8px; width: 900px; height: 46px;
+    position: absolute; right: 60px; top: 8px; width: 920px; height: 46px;
     color: rgb(255, 255, 255);
     font-size: 26px;
     -unity-font-style: bold;

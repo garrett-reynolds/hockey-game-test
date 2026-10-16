@@ -20,7 +20,8 @@ namespace HockeyGame.Core
         Right,
         Enter,
         Tab,
-        Reset
+        Reset,
+        Save
     }
 
     /// <summary>How a row is drawn and worked: a slider (drag), an on/off toggle (click), a choice (click for the next), a button (click).</summary>
@@ -34,12 +35,15 @@ namespace HockeyGame.Core
 
     /// <summary>
     /// The Settings page as plain logic: two parts (Player, Dev), the rows of the current part grouped under headings, a
-    /// selected row per part, and changes made straight on the shared SaveData. Up/Down moves the selection (MoveSelection),
+    /// selected row per part, and changes made on a working copy of the SaveData (#197): nothing reaches the SaveData until
+    /// Save (the SAVE button); Discard drops the waiting changes; IsRowUnsaved / HasUnsavedChanges say what waits. The action
+    /// rows (Reset best score, Test Mode) act at once. Up/Down moves the selection (MoveSelection),
     /// Left/Right changes the selected value (Change), Enter flips an on/off row or presses "Reset best score" (Activate),
     /// Tab switches the part (SwitchPart), and ResetPart sets every value of the current part back to its default.
     /// Press(SettingsKey) maps the keys onto these. The mouse works on any row: Select(row), then Change / Activate, or
     /// SetFraction(row, f) for a slider.
-    /// Change, Activate, SetFraction, ResetPart and Press return true when SaveData changed, so the caller can save it.
+    /// Change, Activate, SetFraction, ResetPart and Press return true when the working copy changed (redraw). The file is
+    /// written when SaveDataChanged is raised, not on these.
     /// Numbers step and stay in the ranges SaveData defines (the same limits Load clamps to).
     /// The row index everywhere is the index within the current part.
     /// </summary>
@@ -59,7 +63,8 @@ namespace HockeyGame.Core
             public Func<double, bool> SetFraction;   // sliders: set from a 0..1 position (mouse)
         }
 
-        private readonly SaveData _save;
+        private readonly SaveData _live;   // the saved data: only Save and the action rows change it
+        private SaveData _save;            // the working copy every row reads and changes (swapped for _live only inside IsUnsaved)
         private readonly Action _openTestMode;
         private readonly List<string> _ports = new List<string>();
         private readonly List<Row> _all = new List<Row>();
@@ -70,7 +75,9 @@ namespace HockeyGame.Core
         /// <param name="openTestMode">What the Dev part's Test Mode button does (#156); null = nothing. It changes no setting.</param>
         public SettingsMenu(SaveData save, IList<string> ports, Action openTestMode = null)
         {
-            _save = save;
+            _live = save;
+            _save = new SaveData();
+            _save.CopyFrom(save);
             _openTestMode = openTestMode;
             _ports.Add(SaveData.AutoUsbPort);
             if (ports != null)
@@ -247,6 +254,58 @@ namespace HockeyGame.Core
             return true;
         }
 
+        /// <summary>True when any row, in either part, differs from the saved data.</summary>
+        public bool HasUnsavedChanges
+        {
+            get
+            {
+                foreach (var r in _all)
+                    if (IsUnsaved(r)) return true;
+                return false;
+            }
+        }
+
+        /// <summary>True when the row (of the current part) holds a change that Save has not applied yet. Button rows never do.</summary>
+        public bool IsRowUnsaved(int row) => IsUnsaved(_rows[row]);
+
+        /// <summary>
+        /// SAVE: applies every waiting change to the saved data at once (both parts). True when something was applied;
+        /// SaveDataChanged is raised so the caller writes the file.
+        /// </summary>
+        public bool Save()
+        {
+            if (!HasUnsavedChanges) return false;
+            _live.CopyFrom(_save);
+            SaveDataChanged?.Invoke();
+            return true;
+        }
+
+        /// <summary>Drops every waiting change: the working copy goes back to the saved data.</summary>
+        public void Discard() => _save.CopyFrom(_live);
+
+        /// <summary>
+        /// Raised when the saved data itself changed: by Save, and by "Reset best score" (an action row, it acts at once).
+        /// The caller writes the file then. Ordinary changes never raise it.
+        /// </summary>
+        public event Action SaveDataChanged;
+
+        private bool IsUnsaved(Row r)
+        {
+            if (r.Kind == SettingsRowKind.Button) return false; // action rows act at once; nothing waits
+            var working = _save;
+            string saved;
+            try
+            {
+                _save = _live; // the row's reader looks at _save: read it off the saved data for a moment
+                saved = r.Value();
+            }
+            finally
+            {
+                _save = working;
+            }
+            return saved != r.Value();
+        }
+
         /// <summary>A key on the page. True when a setting changed (save it).</summary>
         public bool Press(SettingsKey key)
         {
@@ -259,6 +318,7 @@ namespace HockeyGame.Core
                 case SettingsKey.Enter: return Activate();
                 case SettingsKey.Tab: SwitchPart(); return false;
                 case SettingsKey.Reset: return ResetPart();
+                case SettingsKey.Save: Save(); return false;
             }
             return false;
         }
@@ -333,9 +393,12 @@ namespace HockeyGame.Core
             return true;
         }
 
+        // An action row: it acts at once on the saved data (and the working copy), not on Save.
         private bool ResetBestScore()
         {
             _save.ClearBestScores();
+            _live.ClearBestScores();
+            SaveDataChanged?.Invoke();
             return true;
         }
 
