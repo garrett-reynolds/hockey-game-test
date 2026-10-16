@@ -1,0 +1,45 @@
+using UnityEngine;
+
+namespace HockeyGame
+{
+    /// <summary>
+    /// The one pause switch (#196). Set(true) stops game time (Time.timeScale 0: physics, animation, particles) and all sound
+    /// (AudioListener.pause). The parts that run on real time ask IsPaused and stand still: RoundDriver.Update, BreakawayView and ReplayView
+    /// (camera moves, the goalie's stance life, the Replay), and the Round clock itself (ScreenFlow.Paused ignores Tick).
+    /// Set(false) puts the time scale back to what it was.
+    /// </summary>
+    public static class PauseSwitch
+    {
+        static float _savedTimeScale = 1f;
+
+        static int _pausedFrame = -1;
+
+        public static bool IsPaused { get; private set; }
+
+        /// <summary>
+        /// True from the frame after Set(true). The views skip their LateUpdate on these frames only: the frame the pause began still
+        /// poses the goalie and camera (Update had already put last frame's live poses back), so the picture under the box is whole.
+        /// </summary>
+        public static bool StandStill => IsPaused && Time.frameCount != _pausedFrame;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetOnLoad() => IsPaused = false; // a Play with domain reload off must not start paused
+
+        public static void Set(bool paused)
+        {
+            if (paused == IsPaused) return;
+            IsPaused = paused;
+            if (paused)
+            {
+                _pausedFrame = Time.frameCount;
+                _savedTimeScale = Time.timeScale;
+                Time.timeScale = 0f;
+            }
+            else
+            {
+                Time.timeScale = _savedTimeScale > 0f ? _savedTimeScale : 1f;
+            }
+            AudioListener.pause = paused;
+        }
+    }
+}

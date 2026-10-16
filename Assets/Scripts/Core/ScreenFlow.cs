@@ -16,7 +16,7 @@ namespace HockeyGame.Core
     /// screen (settings, "Reset best score") apply to the next Round.
     /// <para>
     /// Start: a key, click (Press) or Shot starts a Round; that Shot does not count.
-    /// Playing: Shots go to the Round; keys and clicks do nothing (no pause). The Round ending shows End.
+    /// Playing: Shots go to the Round; keys and clicks do nothing. Esc pauses (Paused; #196): Tick, Shots and Press do nothing until Resume or Quit to start. The Round ending shows End.
     /// End: all input is ignored until InputIgnoreSeconds; from then a key, click or Shot goes to Start.
     /// At AutoReturnSeconds it goes to Start by itself.
     /// Settings: F2 or Esc (ToggleSettings) and the Settings button (OpenSettings) open the Settings page over the start screen only.
@@ -106,6 +106,39 @@ namespace HockeyGame.Core
             GoToStart();
         }
 
+        /// <summary>True while a Round is paused (#196): the screen stays Playing and the Round is untouched.</summary>
+        public bool Paused { get; private set; }
+
+        /// <summary>Pauses a Round (not Test Mode). Does nothing on other screens.</summary>
+        public void Pause()
+        {
+            if (Screen == FlowScreen.Playing && !Round.TestMode)
+                Paused = true;
+        }
+
+        /// <summary>Resume button: carries on from the same moment. Does nothing when not paused.</summary>
+        public void Resume() => Paused = false;
+
+        /// <summary>Quit to start button: ends the Round with no score and no best-score change, and shows the start screen. Does nothing when not paused.</summary>
+        public void QuitToStart()
+        {
+            if (!Paused) return;
+            Round.Abandon();
+            GoToStart();
+        }
+
+        /// <summary>
+        /// The Esc key during a Round or Test Mode: Test Mode goes straight to the start screen (#156); a Round pauses;
+        /// a paused Round resumes. Does nothing on the start and end screens (the caller handles Esc there).
+        /// </summary>
+        public void PressEscape()
+        {
+            if (Screen != FlowScreen.Playing) return;
+            if (Round.TestMode) LeaveTestMode();
+            else if (Paused) Resume();
+            else Pause();
+        }
+
         /// <summary>A key or a mouse click.</summary>
         public void Press()
         {
@@ -128,7 +161,7 @@ namespace HockeyGame.Core
         /// <summary>A real Shot or Test Shot. Counts only while Playing; on other screens it acts as a Press.</summary>
         public void SubmitShot(double x, double y, double speedKmh, bool isTestShot)
         {
-            if (SettingsOpen) return;
+            if (SettingsOpen || Paused) return;
             if (Screen == FlowScreen.Playing)
                 Round.SubmitShot(x, y, speedKmh, isTestShot);
             else
@@ -137,6 +170,7 @@ namespace HockeyGame.Core
 
         public void Tick(double realSeconds)
         {
+            if (Paused) return; // the whole Round stands still (#196)
             switch (Screen)
             {
                 case FlowScreen.Playing:
@@ -166,6 +200,7 @@ namespace HockeyGame.Core
         private void GoToStart()
         {
             Screen = FlowScreen.Start;
+            Paused = false;
             EndSecondsElapsed = 0;
         }
     }

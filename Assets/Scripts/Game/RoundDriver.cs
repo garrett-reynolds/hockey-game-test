@@ -113,8 +113,50 @@ namespace HockeyGame
             return false;
         }
 
+        int _pauseSelected; // the PAUSED box's chosen button: 0 Resume, 1 Quit to start (#196)
+        readonly PauseBoxView _pauseBox = new PauseBoxView();
+
+        /// <summary>Paused (#196): nothing in the Round ticks; only the PAUSED box takes keys and the mouse.</summary>
+        void UpdatePaused()
+        {
+            while (_usb.TryTakeShot(out _)) { } // a Shot from the electronics while paused is dropped, not kept for Resume
+            var keyboard = Keyboard.current;
+            var mouse = Mouse.current;
+            int activate = -1; // 0 Resume, 1 Quit to start
+            if (keyboard != null)
+            {
+                if (keyboard.escapeKey.wasPressedThisFrame) activate = 0;
+                else if (keyboard.upArrowKey.wasPressedThisFrame || keyboard.downArrowKey.wasPressedThisFrame
+                    || keyboard.wKey.wasPressedThisFrame || keyboard.sKey.wasPressedThisFrame || keyboard.tabKey.wasPressedThisFrame)
+                    _pauseSelected = 1 - _pauseSelected;
+                else if (keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame || keyboard.spaceKey.wasPressedThisFrame)
+                    activate = _pauseSelected;
+            }
+            if (mouse != null)
+            {
+                Vector2 point = mouse.position.ReadValue();
+                point.y = Screen.height - point.y; // the mouse counts from the bottom, the GUI from the top
+                int over = PauseLayout.ButtonAt(Screen.width, Screen.height, point);
+                if (over >= 0 && mouse.delta.ReadValue() != Vector2.zero) _pauseSelected = over;
+                if (mouse.leftButton.wasPressedThisFrame && over >= 0) activate = over;
+            }
+            if (activate == 0) _flow.Resume();
+            else if (activate == 1) _flow.QuitToStart();
+            else return;
+            ApplyPause();
+            _show = ArenaShow.From(_flow);
+        }
+
+        // The one place the flow's pause reaches the game: time, physics and sound stop together (PauseSwitch).
+        void ApplyPause()
+        {
+            PauseSwitch.Set(_flow.Paused);
+            _pauseSelected = 0;
+        }
+
         void Update()
         {
+            if (_flow.Paused) { UpdatePaused(); return; }
             _replay.RestoreLive(); // last frame's Replay poses go back before anything moves
             _flow.Tick(Time.unscaledDeltaTime);
 
@@ -159,9 +201,10 @@ namespace HockeyGame
             if (keyboard != null)
             {
                 // Esc is a Settings key on the start screen only; on the end screen it is "any key" again. F2 never starts anything.
-                if (_flow.TestMode && keyboard.escapeKey.wasPressedThisFrame)
+                if (playing && keyboard.escapeKey.wasPressedThisFrame)
                 {
-                    _flow.LeaveTestMode(); // Esc in Test Mode: back to the start screen (#156)
+                    _flow.PressEscape(); // Esc in Test Mode: back to the start screen (#156); in a Round: the PAUSED box (#196)
+                    ApplyPause();
                     _show = ArenaShow.From(_flow);
                     return;
                 }
@@ -316,6 +359,9 @@ namespace HockeyGame
                         GUI.Label(new Rect(0, h * 0.2f + 120, w, 40), "Shoot or press any key", _mid);
                     break;
             }
+
+            if (_flow.Paused) // last, over everything: the Round dimmed behind the box (#196)
+                _pauseBox.Draw(w, h, _pauseSelected);
         }
 
         void DrawDots(float width)
@@ -376,6 +422,7 @@ namespace HockeyGame
 
         void OnDestroy()
         {
+            PauseSwitch.Set(false); // a paused Round must not leave the next Play frozen
             _effects?.Dispose();
             _goalie?.Dispose();
             if (_scoreBoxBack != null) SceneObjects.DestroySafely(_scoreBoxBack);
