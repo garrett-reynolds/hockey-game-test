@@ -112,9 +112,30 @@ namespace HockeyGame.Editor
                     if (_stage == 1)
                     {
                         Shoot(Path.Combine(folder, "t159-settings-player.png"), "Player");
+                        // #197: two changed rows (Master volume down 3 steps, Easy mode on): amber marks, SAVE lit.
+                        var menu = _screen.Menu;
+                        menu.Select(0);
+                        for (int i = 0; i < 3; i++) menu.Change(-1);
+                        for (int i = 0; i < menu.RowCount; i++)
+                            if (menu.Label(i) == "Easy mode") { menu.Select(i); menu.Activate(); }
+                        Call("Refresh");
+                        _stage = 3;
+                        _frames = 0;
+                    }
+                    else if (_stage == 3)
+                    {
+                        Shoot(Path.Combine(folder, "t197-marks.png"), "two unsaved rows");
+                        Call("SaveNow");
+                        Call("Refresh");
+                        _stage = 4;
+                        _frames = 0;
+                    }
+                    else if (_stage == 4)
+                    {
+                        Shoot(Path.Combine(folder, "t197-saved.png"), "right after SAVE");
                         _screen.Menu.ShowPart(SettingsPart.Dev);
                         // Rebuild is private (the page rebuilds itself on a key or click, which this tool must not simulate); a rename fails here and is logged.
-                        typeof(SettingsScreen).GetMethod("Rebuild", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(_screen, null);
+                        Call("Rebuild");
                         _stage = 2;
                         _frames = 0;
                     }
@@ -130,6 +151,12 @@ namespace HockeyGame.Editor
                 Debug.LogError("Settings pictures failed: " + e);
                 Finish();
             }
+        }
+
+        // The page's private methods (it refreshes itself on a key or click, which this tool must not simulate); a rename fails here and is logged.
+        static void Call(string method)
+        {
+            typeof(SettingsScreen).GetMethod(method, BindingFlags.Instance | BindingFlags.NonPublic).Invoke(_screen, null);
         }
 
         static void Shoot(string path, string what)
