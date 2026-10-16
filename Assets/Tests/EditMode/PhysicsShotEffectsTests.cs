@@ -37,12 +37,24 @@ namespace HockeyGame.Core.Tests
         [TearDown]
         public void TearDown()
         {
-            _effects?.Dispose();
-            _effects = null;
-            foreach (GoalieView v in _views) v?.Dispose();
-            _views.Clear();
-            RinkTeardown.Destroy(_root);
-            Physics.simulationMode = _oldMode;
+            try
+            {
+                _effects?.Dispose();
+            }
+            finally
+            {
+                try
+                {
+                    _effects = null;
+                    foreach (GoalieView v in _views) v?.Dispose();
+                    _views.Clear();
+                    RinkTeardown.Destroy(_root);
+                }
+                finally
+                {
+                    Physics.simulationMode = _oldMode;
+                }
+            }
         }
 
         readonly List<GoalieView> _views = new List<GoalieView>(); // every view a test built outside a try/finally, disposed in TearDown
@@ -559,6 +571,18 @@ namespace HockeyGame.Core.Tests
             Assert.IsTrue(shot.HasWhistled);
             Assert.IsFalse(round.AwaitingWhistle);
             Assert.AreEqual(ShotResultKind.Miss, round.LastResult.Value.Kind);
+        }
+
+        [Test]
+        public void Disposing_a_live_Shot_after_its_puck_is_destroyed_releases_the_Shot()
+        {
+            var effects = Effects();
+            var round = InWindow(FakeReach.NeverReaches());
+            Shoot(round, effects, 50, 50, 100);
+            Object.DestroyImmediate(effects.Shot.Puck.gameObject);
+
+            Assert.DoesNotThrow(() => effects.Dispose(), "scene unload can destroy the puck before its driver");
+            Assert.IsNull(effects.Shot, "the disposed effects release their Shot");
         }
 
         // ---- The goalie's ease-in ----

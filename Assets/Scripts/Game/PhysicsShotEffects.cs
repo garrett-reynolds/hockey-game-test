@@ -193,7 +193,8 @@ namespace HockeyGame
         void Replace()
         {
             if (Shot == null) return;
-            Shot.WhistleNow();
+            // Scene unload can destroy the puck before the driver's OnDestroy disposes us (#218).
+            if (Shot.Puck != null) Shot.WhistleNow();
             Shot.Whistled -= OnWhistled;
             Shot.Hit -= OnHit;
             Shot.GearTouch -= OnGearTouch;
