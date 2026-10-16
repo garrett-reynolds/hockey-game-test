@@ -12,6 +12,9 @@ namespace HockeyGame
         /// <summary>The face-on puck the reach checks use (a fixed line-puck size). Not the physics puck (PhysicsPuck).</summary>
         public const float LinePuckDiameter = 0.15f, LinePuckThickness = 0.05f;
 
+        /// <summary>The real puck (7.6 cm across, 2.5 cm thick) flying face on: what the Race's "in the way" check uses (#192).</summary>
+        public const float RealPuckDiameter = 0.076f, RealPuckThickness = 0.025f;
+
         const int ChunkTriangles = 64; // triangles under one bounding box, so a cast only tests the parts it passes near
 
         sealed class Chunk
