@@ -205,8 +205,21 @@ def read_lock(slot):
         data = json.loads(f.read_text(encoding="utf-8"))
     except (ValueError, OSError):
         data = {}
-    data["live"] = pid_alive(data.get("pid"))
+    data["tool_live"] = pid_alive(data.get("pid"))
+    # The run_tests CLI child can outlive slot.py (a tool timeout kills slot.py only): its run goes on in the Editor.
+    data["cli_live"] = pid_alive(data.get("cli_pid"))
+    data["live"] = data["tool_live"] or data["cli_live"]
     return data
+
+
+def lock_set_cli_pid(slot, cli_pid):
+    """Record the run_tests CLI child's pid in our lock, so a later start can see the run is still going."""
+    try:
+        data = json.loads(lock_file(slot).read_text(encoding="utf-8"))
+        data["cli_pid"] = cli_pid
+        lock_file(slot).write_text(json.dumps(data), encoding="utf-8")
+    except (ValueError, OSError):
+        pass  # the lock only guards; a write error never fails the run
 
 
 def acquire_lock(slot, kind):

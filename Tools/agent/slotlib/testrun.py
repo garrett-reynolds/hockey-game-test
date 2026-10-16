@@ -39,8 +39,12 @@ def prepare(slot, kind, what="test"):
     Returns None with the lock held (the caller frees it), or an exit code with the lock freed."""
     lock = c.read_lock(slot)
     if lock and lock["live"]:
-        raise c.SlotError(f"{c.label(slot)}: a run is already running (pid {lock.get('pid')}, "
-                          f"{lock.get('kind', '?')}). Refusing a second one.")
+        if lock["tool_live"]:
+            raise c.SlotError(f"{c.label(slot)}: a run is already running (pid {lock.get('pid')}, "
+                              f"{lock.get('kind', '?')}). Refusing a second one.")
+        raise c.SlotError(f"{c.label(slot)}: a {lock.get('kind', '?')} run is still going: its slot tool (pid "
+                          f"{lock.get('pid')}) is gone but the run_tests CLI (pid {lock.get('cli_pid')}) still runs. "
+                          f"A second run would jam the Editor. Wait for it to end.")
     known, pid = editors.editor_pid(slot)
     if known and pid is None:
         raise c.SlotError(f"{c.label(slot)}: not open; run: slot.py open {slot}")
@@ -140,6 +144,7 @@ def execute(slot, kind, flt):
     out_path = c.results_dir() / f"{slot}-{kind}-{time.strftime('%Y%m%d-%H%M%S')}.json"
     with open(out_path, "wb") as out:
         proc = subprocess.Popen(argv, stdout=out, stderr=subprocess.STDOUT)
+        c.lock_set_cli_pid(slot, proc.pid)
         rc = watch.watch_run(slot, proc)
     if rc == watch.HANG:
         stop_cli(proc)  # the lock is released after this; no run_tests CLI may outlive it

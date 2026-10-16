@@ -19,7 +19,8 @@ from . import common, testrun
 # Limits. Fixed on purpose: a check that can be loosened per run stops meaning anything.
 FACING_LIMIT_DEG = 45.0
 SKATE_LIMIT_M = -0.03  # the plain idle pose already sits 1.6 cm in the ice (measured on w2)
-JUMP_LIMIT_M = 0.3
+JUMP_LIMIT_MPS = 6.0  # hips speed; the old 0.3 m per frame was 18 m/s at 60 fps, the goalie walks about 2 m/s
+MIN_FRAME_S = 1 / 60
 MIN_SAMPLES = 20
 CALL_TIMEOUT_S = 60
 PLAY_WAIT_S = common.env_float("SLOT_PLAY_WAIT_S", 60)
@@ -254,13 +255,15 @@ def measure(rows, before, after):
         yaw0 = rows[0][1]
         facing = max(abs((r[1] - yaw0 + 180.0) % 360.0 - 180.0) for r in rows)
         skate = min(r[5] for r in rows)
-        jump = max([math.dist(a[2:5], b[2:5]) for a, b in zip(rows, rows[1:])] or [0.0])
+        # Hips speed in m/s, not metres per frame: a slow frame (hitch) moves the time-based hips further,
+        # but the speed stays the same. dt is floored at one 60 fps frame so a tiny dt cannot inflate it.
+        jump = max([math.dist(a[2:5], b[2:5]) / max(b[0] - a[0], MIN_FRAME_S) for a, b in zip(rows, rows[1:])] or [0.0])
     else:
         facing = skate = jump = None
     return {
         "facing": {"value": facing, "limit": FACING_LIMIT_DEG, "pass": facing is not None and facing <= FACING_LIMIT_DEG},
         "skate": {"value": skate, "limit": SKATE_LIMIT_M, "pass": skate is not None and skate >= SKATE_LIMIT_M},
-        "jump": {"value": jump, "limit": JUMP_LIMIT_M, "pass": jump is not None and jump <= JUMP_LIMIT_M},
+        "jump": {"value": jump, "limit": JUMP_LIMIT_MPS, "pass": jump is not None and jump <= JUMP_LIMIT_MPS},
         "console": {"errors": max(0, after["error"] - before["error"]), "warnings": max(0, after["warn"] - before["warn"]),
                     "limit": 0, "pass": after["error"] - before["error"] <= 0},
     }
@@ -280,7 +283,7 @@ def block(slot, scene, action, m, picture, picture_error, results_path):
         f"PLAY CHECK {slot} {scene} {action}  {word(ok)}",
         fmt("facing", m["facing"], "deg", f"limit {FACING_LIMIT_DEG:g}", 1),
         fmt("skate", m["skate"], "m", f"limit >= {SKATE_LIMIT_M:g}", 3),
-        fmt("jump", m["jump"], "m", f"limit {JUMP_LIMIT_M:g}", 3),
+        fmt("jump", m["jump"], "m/s", f"limit {JUMP_LIMIT_MPS:g}", 3),
         f"{'console':<8} {word(con['pass'])}  {con['errors']} errors, {con['warnings']} warnings  (limit {con['limit']} errors)",
         f"{'picture':<8} " + (f"ERROR {picture_error}" if picture_error else picture or "NOT TAKEN"),
         f"{'detail':<8} {results_path}",
