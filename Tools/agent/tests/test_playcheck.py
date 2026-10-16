@@ -2,7 +2,6 @@ import base64
 import json
 import os
 import subprocess
-import time
 
 import pytest
 
@@ -418,16 +417,15 @@ def test_test_after_play_check_sends_no_refresh(h, repo):
     assert unity_names(h).count("menu") == 1
 
 
-def test_refuses_at_once_when_editor_not_open(h):
+def test_refuses_at_once_when_editor_not_open(h, monkeypatch):
     setup(h, GOOD)
     root = h.env["SLOT_ROOT"].replace("/", "\\")
     row = f"7800\tready\t{root}\\w3\t6000.6.5f1\t4242\n"  # only w3 is open
     h.set("_status", "status", {"out": row, "rc": 0})
-    start = time.time()
-    rc, out = check(h)
+    rc, out = h.run_with_clock(monkeypatch, "play-check", "w2", "--scene", SCENE)
     assert rc == 2
     assert "not open; run: slot.py open w2" in out
-    assert time.time() - start < 1.5  # SLOT_WAIT_S is 2: it must not wait that out
+    assert h.waits == []  # No ready-wait polling, regardless of host load.
     assert "editor_play" not in commands(h)
     assert not (h.locks / "w2.lock").exists()
 

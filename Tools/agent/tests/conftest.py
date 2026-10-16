@@ -1,12 +1,16 @@
 import json
+import io
 import os
 import subprocess
 import sys
 from pathlib import Path
+from contextlib import redirect_stderr, redirect_stdout
+from types import SimpleNamespace
 
 import pytest
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE.parent))
 SLOT_PY = HERE.parent / "slot.py"
 FAKE = HERE / "fake_unity.py"
 
@@ -59,6 +63,32 @@ class Harness:
         p = subprocess.run([sys.executable, str(SLOT_PY), *args], env=self.env, capture_output=True,
                            text=True, timeout=timeout)
         return p.returncode, (p.stdout + p.stderr)
+
+    def run_with_clock(self, monkeypatch, *args):
+        """Run the public CLI with a logical wait clock; fake CLI children stay real.
+
+        Only slotlib.common's clock changes. Process startup and host load cannot
+        consume the polling deadline. Recorded sleeps still expose unwanted waits.
+        """
+        import slot
+        from slotlib import common
+
+        self.waits = []
+        elapsed = 0.0
+
+        def sleep(seconds):
+            nonlocal elapsed
+            self.waits.append(seconds)
+            elapsed += seconds
+
+        output = io.StringIO()
+        with monkeypatch.context() as patch:
+            for key, value in self.env.items():
+                patch.setenv(key, value)
+            patch.setattr(common, "time", SimpleNamespace(time=lambda: elapsed, sleep=sleep))
+            with redirect_stdout(output), redirect_stderr(output):
+                rc = slot.main(list(args))
+        return rc, output.getvalue()
 
     def calls(self):
         f = self.dir / "calls.log"

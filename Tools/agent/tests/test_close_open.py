@@ -1,6 +1,5 @@
 """close, open and the 'not open' refusal of test (tickets #178 and the #174 gap). Command line against the fake CLI."""
 import os
-import time
 
 from conftest import COMPILING, PLAY, READY, SUMMARY_OK, reply
 
@@ -33,13 +32,12 @@ def actions(h, name):
 
 # ---- test refuses at once when the Editor is not open ---------------------------------------
 
-def test_test_refuses_at_once_when_editor_not_open(h):
+def test_test_refuses_at_once_when_editor_not_open(h, monkeypatch):
     status_says(h, ("w2",))  # w3 is not open
-    start = time.time()
-    rc, out = h.run("test", "w3")
+    rc, out = h.run_with_clock(monkeypatch, "test", "w3")
     assert rc == 2
     assert "not open; run: slot.py open w3" in out
-    assert time.time() - start < 1.5  # SLOT_WAIT_S is 2: it must not wait that out
+    assert h.waits == []  # No ready-wait polling, regardless of host load.
     assert h.run_tests_calls() == []
     assert not (h.locks / "w3.lock").exists()
 
@@ -125,14 +123,15 @@ def test_close_unknown_slot_rejected(h):
 
 # ---- open -----------------------------------------------------------------------------------
 
-def test_open_waits_for_a_slow_editor_then_reports_ready(h):
+def test_open_waits_for_a_slow_editor_then_reports_ready(h, monkeypatch):
     status_says(h, (), ("w2",))  # not open at first
     no = reply({}, rc=1)
     h.set("w2", "editor_status", no, no, reply(COMPILING), reply(READY))
     h.set("w2", "test_status", reply({"status": "no_tests"}))
-    rc, out = h.run("open", "w2")
+    rc, out = h.run_with_clock(monkeypatch, "open", "w2")
     assert rc == 0, out
     assert "w2: ready" in out
+    assert h.waits == [0.05, 0.05, 0.05]
     assert len(actions(h, "open")) == 1
     # the open command was given the slot folder
     assert actions(h, "open")[0][-1].replace("\\", "/").endswith("/w2")
@@ -166,14 +165,13 @@ def test_open_never_starts_a_second_editor_beside_an_open_one(h):
     assert actions(h, "open") == []
 
 
-def test_open_of_an_editor_in_play_reports_it_without_waiting(h):
+def test_open_of_an_editor_in_play_reports_it_without_waiting(h, monkeypatch):
     status_says(h, ("w2",))
     h.set("w2", "editor_status", reply(PLAY))
-    start = time.time()
-    rc, out = h.run("open", "w2")
+    rc, out = h.run_with_clock(monkeypatch, "open", "w2")
     assert rc == 0
     assert "Play" in out
-    assert time.time() - start < 1.5
+    assert h.waits == []
     assert actions(h, "open") == []
 
 
