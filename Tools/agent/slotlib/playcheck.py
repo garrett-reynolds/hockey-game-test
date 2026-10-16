@@ -46,7 +46,8 @@ float ice=0f;
 var rk=UnityEngine.GameObject.Find("Rink");
 if(rk!=null) foreach(var x in rk.GetComponentsInChildren<UnityEngine.Renderer>()) if(x.name.StartsWith("Ice")){ice=x.bounds.max.y;break;}
 foreach(var cr in UnityEngine.Object.FindObjectsByType<HockeyGame.Crowd>(UnityEngine.FindObjectsSortMode.None)) cr.Drawn=(crowd==1);
-UnityEditor.EditorUtility.audioMasterMute=(crowd==0);
+System.AppDomain.CurrentDomain.SetData("pc.mute",UnityEditor.EditorUtility.audioMasterMute);
+UnityEditor.EditorUtility.audioMasterMute=(UnityEditor.EditorUtility.audioMasterMute||crowd==0);
 var sb=new System.Text.StringBuilder();
 int last=-1;
 UnityEditor.EditorApplication.CallbackFunction cb=()=>{
@@ -74,7 +75,9 @@ var cb=System.AppDomain.CurrentDomain.GetData("pc.cb") as UnityEditor.EditorAppl
 if(cb!=null) UnityEditor.EditorApplication.update-=cb;
 System.AppDomain.CurrentDomain.SetData("pc.cb",null);
 System.AppDomain.CurrentDomain.SetData("pc.sb",null);
-UnityEditor.EditorUtility.audioMasterMute=false;
+var pm=System.AppDomain.CurrentDomain.GetData("pc.mute");
+UnityEditor.EditorUtility.audioMasterMute=(pm==null)?true:(bool)pm;
+System.AppDomain.CurrentDomain.SetData("pc.mute",null);
 return "ok";
 """
 

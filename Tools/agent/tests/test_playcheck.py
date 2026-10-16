@@ -377,3 +377,14 @@ def test_lock_released_when_refresh_fails(h, repo):
     assert rc != 0
     assert "editor_play" not in commands(h)
     assert not (h.locks / "w2.lock").exists()
+
+
+def test_cleanup_restores_the_saved_mute_and_never_unmutes():
+    from pathlib import Path
+    src = (Path(__file__).resolve().parent.parent / "slotlib" / "playcheck.py").read_text(encoding="utf-8")
+    assert "audioMasterMute=false" not in src.replace(" ", "")
+    assert 'SetData("pc.mute",UnityEditor.EditorUtility.audioMasterMute)' in src
+    cleanup = src.split("CLEANUP = ", 1)[1].split('"""', 2)[1]
+    assert 'GetData("pc.mute")' in cleanup
+    assert "(pm==null)?true:(bool)pm" in cleanup
+    assert 'SetData("pc.mute",null)' in cleanup
