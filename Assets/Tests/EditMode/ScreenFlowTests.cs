@@ -305,5 +305,138 @@ namespace HockeyGame.Core.Tests
             var flow = new ScreenFlow(ScriptedRandom.Halves(), new SaveData(), FakeReach.NeverReaches(), settings);
             Assert.AreSame(settings, flow.Round.Settings);
         }
+
+        // ---- Pause (#196) ----
+
+        [Test]
+        public void Esc_in_a_Round_pauses_it_and_the_Round_stays_where_it_was()
+        {
+            var flow = NewFlow();
+            flow.Press();
+            flow.Tick(1.0);
+            var phase = flow.Round.Phase;
+            double elapsed = flow.Round.PhaseSecondsElapsed;
+            flow.PressEscape();
+            Assert.IsTrue(flow.Paused);
+            Assert.AreEqual(FlowScreen.Playing, flow.Screen);
+            flow.Tick(5.0);
+            Assert.AreEqual(phase, flow.Round.Phase);
+            Assert.AreEqual(elapsed, flow.Round.PhaseSecondsElapsed, 1e-9, "the Round clock stops");
+        }
+
+        [Test]
+        public void Esc_in_Paused_and_Resume_both_go_back_to_the_same_Round_state()
+        {
+            var flow = NewFlow();
+            flow.Press();
+            flow.Tick(3.7);
+            var phase = flow.Round.Phase;
+            double elapsed = flow.Round.PhaseSecondsElapsed;
+            flow.PressEscape();
+            flow.PressEscape();
+            Assert.IsFalse(flow.Paused, "Esc again resumes");
+            Assert.AreEqual(phase, flow.Round.Phase);
+            Assert.AreEqual(elapsed, flow.Round.PhaseSecondsElapsed, 1e-9);
+            flow.Pause();
+            flow.Resume();
+            Assert.IsFalse(flow.Paused, "the Resume button");
+            Assert.AreEqual(phase, flow.Round.Phase);
+            flow.Tick(0.5);
+            Assert.Greater(flow.Round.PhaseSecondsElapsed, elapsed, "the Round goes on");
+        }
+
+        [Test]
+        public void A_Shot_a_key_and_a_click_do_nothing_while_paused()
+        {
+            var flow = NewFlow();
+            flow.Press();
+            flow.Tick(3.7);
+            Assert.AreEqual(RoundPhase.ShootingWindow, flow.Round.Phase);
+            flow.PressEscape();
+            flow.SubmitShot(50, 90, 100, false);
+            flow.Press();
+            Assert.AreEqual(RoundPhase.ShootingWindow, flow.Round.Phase, "the Shot was not taken");
+            Assert.AreEqual(FlowScreen.Playing, flow.Screen);
+        }
+
+        [Test]
+        public void Quit_to_start_shows_the_start_screen_and_keeps_no_score()
+        {
+            var save = new SaveData();
+            var flow = NewFlow(save);
+            flow.Press();
+            flow.Tick(3.7);
+            flow.SubmitShot(50, 90, 100, false);
+            flow.Round.WhistleNow();
+            flow.Tick(flow.Round.ResultHoldLength); // one Goal scored, now Shot 2
+            Assert.AreEqual(1, flow.Round.Goals);
+            int best = save.BestScore;
+            bool bestChanged = false;
+            flow.BestScoreChanged += () => bestChanged = true;
+            flow.PressEscape();
+            flow.QuitToStart();
+            Assert.AreEqual(FlowScreen.Start, flow.Screen);
+            Assert.IsFalse(flow.Paused);
+            Assert.AreEqual(RoundPhase.Idle, flow.Round.Phase);
+            Assert.AreEqual(0, flow.Round.Goals, "no score kept");
+            Assert.AreEqual(best, save.BestScore);
+            Assert.IsFalse(bestChanged);
+            flow.Press();
+            Assert.AreEqual(FlowScreen.Playing, flow.Screen, "a new Round can start");
+            Assert.AreEqual(RoundPhase.SkateIn, flow.Round.Phase);
+        }
+
+        [Test]
+        public void Quit_to_start_does_nothing_when_not_paused()
+        {
+            var flow = NewFlow();
+            flow.Press();
+            flow.QuitToStart();
+            Assert.AreEqual(FlowScreen.Playing, flow.Screen);
+        }
+
+        [Test]
+        public void Pause_does_nothing_on_the_start_and_end_screens()
+        {
+            var flow = NewFlow();
+            flow.PressEscape();
+            Assert.IsFalse(flow.Paused);
+            PlayRound(flow, 1);
+            Assert.AreEqual(FlowScreen.End, flow.Screen);
+            flow.PressEscape();
+            flow.Pause();
+            Assert.IsFalse(flow.Paused);
+            Assert.AreEqual(FlowScreen.End, flow.Screen);
+        }
+
+        [Test]
+        public void Esc_in_Test_Mode_still_goes_straight_to_the_start_screen()
+        {
+            var flow = NewFlow();
+            flow.StartTestMode();
+            flow.PressEscape();
+            Assert.AreEqual(FlowScreen.Start, flow.Screen);
+            Assert.IsFalse(flow.Paused);
+            Assert.IsFalse(flow.TestMode);
+        }
+
+        [Test]
+        public void Pause_works_in_every_part_of_a_Round()
+        {
+            var flow = NewFlow();
+            flow.Press();
+            Assert.AreEqual(RoundPhase.SkateIn, flow.Round.Phase);
+            flow.PressEscape();
+            Assert.IsTrue(flow.Paused, "skate-in");
+            flow.PressEscape();
+            flow.Tick(3.7);
+            flow.SubmitShot(50, 90, 100, false);
+            flow.PressEscape();
+            Assert.IsTrue(flow.Paused, "after the Shot");
+            flow.PressEscape();
+            flow.Round.WhistleNow();
+            flow.PressEscape();
+            Assert.IsTrue(flow.Paused, "result hold / Replay");
+        }
     }
 }

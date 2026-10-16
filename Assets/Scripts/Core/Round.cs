@@ -257,6 +257,27 @@ namespace HockeyGame.Core
             EnterPhase(RoundPhase.Idle);
         }
 
+        /// <summary>
+        /// Quit to start from the Pause box (#196): the Round goes back to Idle with nothing kept (no score, no Shots). The best score
+        /// is never touched here. Does nothing when the Round is already Idle or over.
+        /// </summary>
+        public void Abandon()
+        {
+            if (Phase == RoundPhase.Idle || Phase == RoundPhase.RoundOver) return;
+            _settings.TestMode = false;
+            _results.Clear();
+            _speeds.Clear();
+            Goals = 0;
+            IsNewBest = false;
+            LastResult = null;
+            LastShot = null;
+            LastRace = null;
+            ShotsSubmitted = 0;
+            LastShotSpeedKmh = null;
+            ShotNumber = 0;
+            EnterPhase(RoundPhase.Idle);
+        }
+
         private void DealDecks()
         {
             _setUps = RoundDecks.SetUps(_random, ShotCount, Settings.LateSettles);

@@ -59,7 +59,7 @@ namespace HockeyGame
 
         void LateUpdate()
         {
-            if (_round == null) return;
+            if (_round == null || PauseSwitch.StandStill) return; // paused (#196): the camera, goalie and clips stand still
             _frameSeconds = Time.unscaledTime;
             // PROTOTYPE: AI clips on the goalie. K flips them for comparing; Step is left as it was (tests call it directly).
             var keyboard = UnityEngine.InputSystem.Keyboard.current;
@@ -162,7 +162,7 @@ namespace HockeyGame
             // Time and look come from the phase every frame, so a Shot (window -> result hold) snaps both back at once.
             // Test Mode (#156): time scale 1 and look 0 at every phase.
             RoundSettings settings = _round.Settings;
-            Time.timeScale = (float)Breakaway.TimeScale(phase, phaseSeconds, settings);
+            if (!PauseSwitch.IsPaused) Time.timeScale = (float)Breakaway.TimeScale(phase, phaseSeconds, settings); // paused (#196): the switch holds it at 0
             _look.weight = (float)Breakaway.Look(phase, phaseSeconds, settings);
 
             // Before the Shot (#70): his head follows the puck (from the Shot on, where it started) and he gets set (BeforeTheShot).

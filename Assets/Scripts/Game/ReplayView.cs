@@ -121,7 +121,7 @@ namespace HockeyGame
 
         void LateUpdate()
         {
-            if (_round != null) Step();
+            if (_round != null && !PauseSwitch.StandStill) Step(); // paused (#196): the Replay stands still
         }
 
         /// <summary>One frame, after the views have posed the scene: records the Shot, and plays the Replay while the Arena Show says so.</summary>
