@@ -133,6 +133,20 @@ namespace HockeyGame.Editor
                     else if (_stage == 4)
                     {
                         Shoot(Path.Combine(folder, "t197-saved.png"), "right after SAVE");
+                        // #198: one unsaved change, then a close asks "Save changes?".
+                        _screen.Menu.Select(0);
+                        _screen.Menu.Change(-1);
+                        _screen.Menu.RequestClose();
+                        Call("Refresh");
+                        Call("SyncConfirm");
+                        _stage = 5;
+                        _frames = 0;
+                    }
+                    else if (_stage == 5)
+                    {
+                        Shoot(Path.Combine(folder, "t198-box.png"), "Save changes? box open");
+                        _screen.Menu.ConfirmDiscard();
+                        Call("SyncConfirm");
                         _screen.Menu.ShowPart(SettingsPart.Dev);
                         // Rebuild is private (the page rebuilds itself on a key or click, which this tool must not simulate); a rename fails here and is logged.
                         Call("Rebuild");

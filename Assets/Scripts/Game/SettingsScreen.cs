@@ -42,7 +42,10 @@ namespace HockeyGame
         readonly Label _reset, _hints, _saveButton;
         const float SavedSeconds = 1.5f;   // how long the green "SAVED" shows after SAVE
         float _savedUntil;                 // Time.unscaledTime when "SAVED" goes away
-        bool _persist;                     // the SaveData changed (Save or Reset best score): UpdateInput says so once, the caller writes the file
+        readonly VisualElement _confirm;   // the "Save changes?" box (#198) over the page
+        readonly Label _confirmSave, _confirmDiscard;
+        bool _closeApproved;               // the menu allowed leaving: the caller closes the page
+        bool _persist;                   // the SaveData changed (Save or Reset best score): UpdateInput says so once, the caller writes the file
         readonly List<SlantShape> _tabShapes = new List<SlantShape>();
         readonly List<RowView> _rows = new List<RowView>();
         readonly List<Hit> _hits = new List<Hit>();
@@ -98,12 +101,105 @@ namespace HockeyGame
             _page.AddToClassList("lc-hidden");
             _root.Add(_page);
 
+            BuildConfirmBox(out _confirm, out _confirmSave, out _confirmDiscard);
+            _root.Add(_confirm);
+
             _startButton = new VisualElement();
             _startButton.AddToClassList("lc-start-button");
             Add(_startButton, "lc-start-text", "SETTINGS");
             Add(_startButton, "lc-start-key", "ESC");
             _startButton.AddToClassList("lc-hidden");
             _root.Add(_startButton);
+        }
+
+        // The "Save changes?" box (#198, look C "TV graphic", as the PAUSED box): the page dimmed behind, a navy box with a gold stripe,
+        // a red header, a line of words, and two buttons (Save, Discard). Sizes are in the 1920 x 1080 panel; styled here, not in the sheet.
+        static void BuildConfirmBox(out VisualElement confirm, out Label save, out Label discard)
+        {
+            confirm = new VisualElement { pickingMode = PickingMode.Ignore };
+            Fill(confirm, 0, 0, 0, 0, new Color(0f, 0f, 0f, 0.6f));
+            confirm.style.right = 0;
+            confirm.style.bottom = 0;
+            confirm.style.display = DisplayStyle.None;
+
+            const float w = 760f, h = 360f;
+            var box = new VisualElement { pickingMode = PickingMode.Ignore };
+            Fill(box, (PanelWidth - w) / 2f, (PanelHeight - h) / 2f, w, h, LookC.Navy);
+            confirm.Add(box);
+            var stripe = new VisualElement { pickingMode = PickingMode.Ignore };
+            Fill(stripe, 0, 0, w, 8, LookC.Gold);
+            box.Add(stripe);
+            var header = new VisualElement { pickingMode = PickingMode.Ignore };
+            Fill(header, 0, 8, w, 100, LookC.Red);
+            box.Add(header);
+            header.Add(ConfirmWords("Save changes?", 0, 0, w, 100, 60, Color.white));
+            box.Add(ConfirmWords("Some settings are changed but not saved.", 0, 126, w, 50, 28, new Color(0.75f, 0.78f, 0.88f)));
+            save = ConfirmWords("Save", 50, 214, 300, 96, 44, Color.white);
+            discard = ConfirmWords("Discard", 410, 214, 300, 96, 44, Color.white);
+            box.Add(save);
+            box.Add(discard);
+        }
+
+        static void Fill(VisualElement el, float x, float y, float w, float h, Color colour)
+        {
+            el.style.position = Position.Absolute;
+            el.style.left = x;
+            el.style.top = y;
+            if (w > 0f) el.style.width = w;
+            if (h > 0f) el.style.height = h;
+            el.style.backgroundColor = colour;
+        }
+
+        static Label ConfirmWords(string text, float x, float y, float w, float h, int size, Color colour)
+        {
+            var label = new Label(text) { pickingMode = PickingMode.Ignore };
+            label.style.position = Position.Absolute;
+            label.style.left = x;
+            label.style.top = y;
+            label.style.width = w;
+            label.style.height = h;
+            label.style.fontSize = size;
+            label.style.color = colour;
+            label.style.unityFontStyleAndWeight = FontStyle.BoldAndItalic;
+            label.style.unityTextAlign = TextAnchor.MiddleCenter;
+            return label;
+        }
+
+        // Paints the box's two buttons: the chosen one gold with navy words, the other blue with white.
+        void SyncConfirm()
+        {
+            bool open = _menu != null && _menu.ConfirmOpen;
+            _confirm.style.display = open ? DisplayStyle.Flex : DisplayStyle.None;
+            if (!open) return;
+            PaintButton(_confirmSave, _menu.ConfirmChoice == 0);
+            PaintButton(_confirmDiscard, _menu.ConfirmChoice == 1);
+        }
+
+        static void PaintButton(Label button, bool chosen)
+        {
+            button.style.backgroundColor = chosen ? (Color)LookC.Gold : (Color)LookC.Blue;
+            button.style.color = chosen ? (Color)LookC.Navy : Color.white;
+        }
+
+        /// <summary>True when the "Save changes?" box is up (for tests and tools).</summary>
+        public bool ConfirmOpen => _menu != null && _menu.ConfirmOpen;
+
+        /// <summary>
+        /// Esc, F2 or a click on ESC CLOSE while the page is open: closes at once with nothing unsaved, else shows the box; with the box
+        /// up it goes back to the page. The caller then asks TakeCloseApproved.
+        /// </summary>
+        public void CloseKey()
+        {
+            _menu.Press(SettingsKey.Escape);
+            Sync();
+        }
+
+        /// <summary>True once when leaving the page was allowed (nothing unsaved, or Save / Discard picked in the box): the caller closes it.</summary>
+        public bool TakeCloseApproved()
+        {
+            bool approved = _closeApproved;
+            _closeApproved = false;
+            return approved;
         }
 
         // A tab: a slanted white outline (shown when the tab is on), a slanted fill, and upright text on top.
@@ -146,7 +242,9 @@ namespace HockeyGame
         {
             _menu = new SettingsMenu(_save, PortNames(), () => TestModeRequested?.Invoke());
             _menu.SaveDataChanged += () => _persist = true;
+            _menu.CloseApproved += () => _closeApproved = true;
             _persist = false;
+            _closeApproved = false;
             _savedUntil = 0f;
             _dragRow = -1;
             Rebuild();
@@ -157,6 +255,7 @@ namespace HockeyGame
         {
             _dragRow = -1;
             _page.AddToClassList("lc-hidden");
+            _confirm.style.display = DisplayStyle.None;
         }
 
         /// <summary>The start screen's Settings button shows only on the start screen with the page closed.</summary>
@@ -179,6 +278,20 @@ namespace HockeyGame
         public bool UpdateInput(Keyboard keyboard, Mouse mouse)
         {
             bool changed = false;
+            if (_menu.ConfirmOpen)
+            {
+                // The "Save changes?" box owns the keys and the mouse (Esc and F2 go back through CloseKey).
+                if (keyboard != null)
+                {
+                    if (keyboard.leftArrowKey.wasPressedThisFrame || keyboard.upArrowKey.wasPressedThisFrame) _menu.Press(SettingsKey.Left);
+                    else if (keyboard.rightArrowKey.wasPressedThisFrame || keyboard.downArrowKey.wasPressedThisFrame) _menu.Press(SettingsKey.Right);
+                    else if (keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame) _menu.Press(SettingsKey.Enter);
+                    else if (keyboard.sKey.wasPressedThisFrame) _menu.Press(SettingsKey.Save);
+                }
+                bool persisted = mouse != null && Pointer(mouse.position.ReadValue(), mouse.leftButton.wasPressedThisFrame, mouse.leftButton.isPressed);
+                Sync();
+                return TakePersist() || persisted;
+            }
             if (keyboard != null)
             {
                 if (keyboard.upArrowKey.wasPressedThisFrame) changed = _menu.Press(SettingsKey.Up);
@@ -220,6 +333,21 @@ namespace HockeyGame
         public bool Pointer(Vector2 at, bool pressed, bool down)
         {
             bool changed = false;
+            if (_menu.ConfirmOpen)
+            {
+                // The box takes the pointer: a button under it is chosen (and picked on a press); anything else does nothing.
+                if (Over(_confirmSave, at)) _menu.SetConfirmChoice(0);
+                else if (Over(_confirmDiscard, at)) _menu.SetConfirmChoice(1);
+                else pressed = false;
+                if (pressed)
+                {
+                    if (_menu.ConfirmChoice == 0) _menu.ConfirmSave();
+                    else _menu.ConfirmDiscard();
+                }
+                _dragRow = -1;
+                Sync();
+                return TakePersist();
+            }
             if (pressed)
             {
                 if (Over(_tabPlayer, at)) _menu.ShowPart(SettingsPart.Player);
@@ -288,6 +416,7 @@ namespace HockeyGame
         {
             if (_menu.Part != _shownPart) Rebuild();
             else Refresh();
+            SyncConfirm();
         }
 
         void Rebuild()

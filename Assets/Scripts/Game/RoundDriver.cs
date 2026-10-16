@@ -210,9 +210,14 @@ namespace HockeyGame
                 }
                 if (keyboard.f2Key.wasPressedThisFrame || (keyboard.escapeKey.wasPressedThisFrame && _flow.EscapeIsSettingsKey))
                 {
-                    _flow.ToggleSettings(); // does nothing during a Round or on the end screen
-                    openedNow = _flow.SettingsOpen;
-                    if (openedNow) _settingsScreen.Open(); else _settingsScreen.Close();
+                    if (_flow.SettingsOpen)
+                        _settingsScreen.CloseKey(); // closes at once, or asks "Save changes?", or (box up) goes back to the page (#198)
+                    else
+                    {
+                        _flow.ToggleSettings(); // does nothing during a Round or on the end screen
+                        openedNow = _flow.SettingsOpen;
+                        if (openedNow) _settingsScreen.Open(); else _settingsScreen.Close();
+                    }
                 }
                 else if (keyboard.f1Key.wasPressedThisFrame)
                     _testShotsOn = !_testShotsOn;
@@ -235,6 +240,11 @@ namespace HockeyGame
                 // The page takes the keys and the mouse; no clicks, wheel or Shots reach the Round.
                 if (!openedNow && _settingsScreen.UpdateInput(keyboard, mouse))
                     SaveStore.Save();
+                if (_flow.SettingsOpen && _settingsScreen.TakeCloseApproved())
+                {
+                    _flow.ToggleSettings(); // nothing was unsaved, or Save / Discard was picked in the box (#198)
+                    _settingsScreen.Close();
+                }
                 return;
             }
 

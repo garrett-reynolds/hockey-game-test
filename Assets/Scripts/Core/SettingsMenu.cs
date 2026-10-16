@@ -21,7 +21,8 @@ namespace HockeyGame.Core
         Enter,
         Tab,
         Reset,
-        Save
+        Save,
+        Escape
     }
 
     /// <summary>How a row is drawn and worked: a slider (drag), an on/off toggle (click), a choice (click for the next), a button (click).</summary>
@@ -133,7 +134,7 @@ namespace HockeyGame.Core
             _all[_all.Count - 1].Hint = "(next Shot)";
 
             // Test Mode (#156), kept the last Dev row: endless Shots from the shooter's spot. A button that opens it; it changes no setting, so Activate says false (nothing to save).
-            AddRow(SettingsPart.Dev, "TEST", SettingsRowKind.Button, "Test Mode", () => "open", null, () => { _openTestMode?.Invoke(); return false; });
+            AddRow(SettingsPart.Dev, "TEST", SettingsRowKind.Button, "Test Mode", () => "open", null, () => { RequestLeave(Leave.TestMode); return false; });
 
             FillRows();
         }
@@ -283,6 +284,64 @@ namespace HockeyGame.Core
         /// <summary>Drops every waiting change: the working copy goes back to the saved data.</summary>
         public void Discard() => _save.CopyFrom(_live);
 
+        private enum Leave { Close, TestMode }
+
+        private Leave _pendingLeave;
+
+        /// <summary>True while the "Save changes?" box is up (#198). The page keys then belong to the box.</summary>
+        public bool ConfirmOpen { get; private set; }
+
+        /// <summary>The box's chosen button: 0 = Save, 1 = Discard.</summary>
+        public int ConfirmChoice { get; private set; }
+
+        /// <summary>Raised when leaving the page is allowed: at once with nothing unsaved, else after Save or Discard in the box.</summary>
+        public event Action CloseApproved;
+
+        /// <summary>Esc, F2 or ESC CLOSE: closes at once with nothing unsaved, else opens the "Save changes?" box.</summary>
+        public void RequestClose() => RequestLeave(Leave.Close);
+
+        /// <summary>The box's Save: saves every waiting change, then goes on with what was asked (close or Test Mode).</summary>
+        public void ConfirmSave()
+        {
+            if (!ConfirmOpen) return;
+            Save();
+            Proceed();
+        }
+
+        /// <summary>The box's Discard: every row goes back to its saved value, then goes on with what was asked.</summary>
+        public void ConfirmDiscard()
+        {
+            if (!ConfirmOpen) return;
+            Discard();
+            Proceed();
+        }
+
+        /// <summary>Esc in the box: back to the page, nothing changed.</summary>
+        public void ConfirmBack() => ConfirmOpen = false;
+
+        /// <summary>The mouse moves over a box button, or a key moves between them.</summary>
+        public void SetConfirmChoice(int choice) => ConfirmChoice = choice <= 0 ? 0 : 1;
+
+        private void RequestLeave(Leave leave)
+        {
+            if (!HasUnsavedChanges)
+            {
+                _pendingLeave = leave;
+                Proceed();
+                return;
+            }
+            _pendingLeave = leave;
+            ConfirmChoice = 0;
+            ConfirmOpen = true;
+        }
+
+        private void Proceed()
+        {
+            ConfirmOpen = false;
+            if (_pendingLeave == Leave.TestMode) _openTestMode?.Invoke();
+            else CloseApproved?.Invoke();
+        }
+
         /// <summary>
         /// Raised when the saved data itself changed: by Save, and by "Reset best score" (an action row, it acts at once).
         /// The caller writes the file then. Ordinary changes never raise it.
@@ -309,6 +368,11 @@ namespace HockeyGame.Core
         /// <summary>A key on the page. True when a setting changed (save it).</summary>
         public bool Press(SettingsKey key)
         {
+            if (ConfirmOpen)
+            {
+                PressInBox(key);
+                return false;
+            }
             switch (key)
             {
                 case SettingsKey.Up: MoveSelection(-1); return false;
@@ -319,8 +383,27 @@ namespace HockeyGame.Core
                 case SettingsKey.Tab: SwitchPart(); return false;
                 case SettingsKey.Reset: return ResetPart();
                 case SettingsKey.Save: Save(); return false;
+                case SettingsKey.Escape: RequestClose(); return false;
             }
             return false;
+        }
+
+        // Keys while the "Save changes?" box is up: Left/Up and Right/Down move between Save and Discard, Enter picks, S saves, Esc goes back.
+        private void PressInBox(SettingsKey key)
+        {
+            switch (key)
+            {
+                case SettingsKey.Left:
+                case SettingsKey.Up: ConfirmChoice = 0; break;
+                case SettingsKey.Right:
+                case SettingsKey.Down: ConfirmChoice = 1; break;
+                case SettingsKey.Enter:
+                    if (ConfirmChoice == 0) ConfirmSave();
+                    else ConfirmDiscard();
+                    break;
+                case SettingsKey.Save: ConfirmSave(); break;
+                case SettingsKey.Escape: ConfirmBack(); break;
+            }
         }
 
         private void FillRows()
