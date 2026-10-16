@@ -149,6 +149,43 @@ def test_real_jump_in_a_slow_frame_still_fails_jump(h):
     assert "FAIL" in [x for x in out.splitlines() if x.startswith("jump")][0]
 
 
+def replay_rows(*rows):
+    """rows of (x, replay 0/1): 60 fps, hips along x, the 7th column is ReplayView.Showing."""
+    return ";".join(f"{i / 60:.4f},0.0,{x},1.0,0.0,0.002,{rp}" for i, (x, rp) in enumerate(rows))
+
+
+def jump_line(out):
+    return [x for x in out.splitlines() if x.startswith("jump")][0]
+
+
+# 30 calm frames (3.2 m/s), 5 Replay frames where the hips pop 0.4 m in and 0.4 m out, then calm again.
+REPLAY_CUT = replay_rows(*[(i * 0.053, 0) for i in range(30)], *[(1.6 + 0.4, 1)] * 5,
+                         *[(1.6 + 0.053 * i, 0) for i in range(1, 10)])
+REAL_POP = replay_rows(*[(i * 0.053, 0) for i in range(30)], *[(1.6 + 1.5 + i * 0.053, 0) for i in range(10)])
+
+
+def test_replay_cut_is_not_a_jump_and_skips_are_printed(h):
+    setup(h, REPLAY_CUT)
+    rc, out = check(h)
+    assert rc == 0, out
+    line = jump_line(out)
+    assert "PASS" in line and "Replay" in line
+    assert "skipped 6 " in line  # the pair into the Replay, 4 inside it, the pair out of it
+
+
+def test_no_replay_means_zero_skipped(h):
+    setup(h, GOOD)
+    rc, out = check(h)
+    assert "skipped 0 " in jump_line(out)
+
+
+def test_real_one_frame_pop_without_replay_still_fails(h):
+    setup(h, REAL_POP)
+    rc, out = check(h)
+    assert rc == 1
+    assert "FAIL" in jump_line(out) and "skipped 0 " in jump_line(out)
+
+
 def test_play_check_refused_while_a_run_is_going(h):
     setup(h, GOOD)
     h.write_lock("w2", dead_pid(), cli_pid=os.getpid())
