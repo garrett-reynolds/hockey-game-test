@@ -241,6 +241,23 @@ def test_shot_action_presses_waits_for_the_window_and_shoots(h):
     assert "Press" in code and "SubmitShot" in code
 
 
+def test_shot_wait_polls_faster_than_the_window_is_open(h):
+    # #214: the Shooting Window is open 3 s; a 3 s poll plus the eval time can step over it for a whole Round
+    import sys
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+    from slotlib import playcheck
+    assert playcheck.SHOT_POLL_S <= 1.0
+
+
+def test_shot_wait_failure_names_the_phases_seen(h):
+    setup(h, GOOD, extra_evals=(ev("ok"),) + (ev("SkateIn"),) * 40 + (ev("screen=Playing phase=SkateIn"),))
+    h.env["SLOT_SHOT_WAIT_S"] = "0.5"
+    rc, out = check(h, "--action", "shot")
+    assert rc == 1
+    assert "never reached the Shooting Window" in out
+    assert "phases seen" in out and "SkateIn" in out
+
+
 def test_too_few_frames_is_not_trusted(h):
     setup(h, samples((0, 0.0, 1.0, 0.0, 0.0)))
     rc, out = check(h)

@@ -25,6 +25,7 @@ MIN_SAMPLES = 20
 CALL_TIMEOUT_S = 60
 PLAY_WAIT_S = common.env_float("SLOT_PLAY_WAIT_S", 60)
 SHOT_WAIT_S = common.env_float("SLOT_SHOT_WAIT_S", 30)
+SHOT_POLL_S = common.env_float("SLOT_SHOT_POLL_S", 0.5)  # the Shooting Window is open 3 s; the general 3 s poll can step over it (#214)
 
 BINDING_FLAGS = "System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Public"
 
@@ -113,6 +114,13 @@ SHOT_PHASE = FIND_DRIVER + """
 var flow=typeof(HockeyGame.RoundDriver).GetField("_flow",bf).GetValue(drv);
 var round=flow.GetType().GetProperty("Round").GetValue(flow);
 return round.GetType().GetProperty("Phase").GetValue(round).ToString();
+"""
+
+SHOT_STATE = FIND_DRIVER + """
+var flow=typeof(HockeyGame.RoundDriver).GetField("_flow",bf).GetValue(drv);
+var ft=flow.GetType();
+var round=ft.GetProperty("Round").GetValue(flow);
+return "screen="+ft.GetProperty("Screen").GetValue(flow)+" settingsOpen="+ft.GetProperty("SettingsOpen").GetValue(flow)+" paused="+ft.GetProperty("Paused").GetValue(flow)+" phase="+round.GetType().GetProperty("Phase").GetValue(round)+" timeScale="+UnityEngine.Time.timeScale;
 """
 
 SHOT_SUBMIT = FIND_DRIVER + """
@@ -321,10 +329,17 @@ def run(args):
                 run_eval(slot, build_code(CLIP, NAME=name))
             elif kind == "shot":
                 run_eval(slot, build_code(SHOT_PRESS))
-                in_window, _ = common.poll_until(
-                    lambda: (run_eval(slot, build_code(SHOT_PHASE)) == "ShootingWindow", None), SHOT_WAIT_S)
+                trace, t0 = [], time.time()
+
+                def seen():
+                    phase = run_eval(slot, build_code(SHOT_PHASE))
+                    if not trace or trace[-1][1] != phase:
+                        trace.append((round(time.time() - t0, 1), phase))
+                    return phase == "ShootingWindow", None
+
+                in_window, _ = common.poll_until(seen, SHOT_WAIT_S, SHOT_POLL_S)
                 if not in_window:
-                    raise common.SlotError(f"the Round never reached the Shooting Window in {SHOT_WAIT_S:g} s")
+                    raise common.SlotError(f"the Round never reached the Shooting Window in {SHOT_WAIT_S:g} s ({run_eval(slot, build_code(SHOT_STATE))}; phases seen: {trace})")
                 run_eval(slot, build_code(SHOT_SUBMIT))
             time.sleep(args.seconds)
             picture, picture_error = take_picture(slot, name)
