@@ -119,6 +119,40 @@ namespace HockeyGame
                 _bones[i].localRotation = Quaternion.Slerp(_ready.Rotations[i], _reaction.Rotations[i], set);
             _model.localPosition = Vector3.Lerp(_ready.ModelPosition, _reaction.ModelPosition, set);
             PlaceRoot(facing);
+            // #204: halfway between two poses (the pad save's butterfly most of all) the turning legs swing a skate under the ice, because
+            // the bones blend by angle and the feet do not blend along a line. Between the poses the goalie is lifted until his lowest
+            // pad or skate is no lower than in the Ready Stance. Set 0 and 1 are the poses themselves and are left exactly as built.
+            if (set > 0f && set < 1f && _gearShapes != null)
+            {
+                float under = SinkBelowReady();
+                if (under > 0f) _model.position += Vector3.up * under;
+            }
+        }
+
+        readonly Dictionary<string, float> _readyFloor = new Dictionary<string, float>(); // each pad's and skate's lowest bound in the Ready Stance, above the Root (Prepare)
+
+        /// <summary>How far the lowest of any pad or skate now sits below where that same piece sits in the Ready Stance (metres; 0 or less: none does).</summary>
+        float SinkBelowReady()
+        {
+            float most = 0f;
+            foreach (MeshRenderer r in _gear)
+            {
+                string piece = GearPiece.PieceOf(r.name);
+                if (_readyFloor.TryGetValue(piece, out float floor))
+                    most = Mathf.Max(most, floor - (r.bounds.min.y - Root.transform.position.y));
+            }
+            return most;
+        }
+
+        void RememberReadyFloor()
+        {
+            _readyFloor.Clear();
+            foreach (MeshRenderer r in _gear)
+            {
+                string piece = GearPiece.PieceOf(r.name);
+                if (piece == GearPiece.LeftPad || piece == GearPiece.RightPad || piece == GearPiece.LeftSkate || piece == GearPiece.RightSkate)
+                    _readyFloor[piece] = r.bounds.min.y - Root.transform.position.y;
+            }
         }
 
         /// <summary>Turns the Root about the hips' vertical: the hips stay on their spot in the crease.</summary>
@@ -336,6 +370,7 @@ namespace HockeyGame
                 _gearShapes[piece] = gear;
             }
             if (_gearShapes.ContainsKey(GearPiece.Stick)) _bladeY = Lowest(GearPiece.Stick);
+            RememberReadyFloor();
             _readyBody = BakeBody(_ready);
             _butterflyBody = BakeBody(_butterfly);
             Put(shown);
