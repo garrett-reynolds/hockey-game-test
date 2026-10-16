@@ -115,6 +115,39 @@ namespace HockeyGame.Core.Tests
             Assert.IsTrue(answer.InTheWay, answer.ToString());
         }
 
+        /// <summary>The Race's "in the way" for a puck flying straight in along z through (x, y), standing at the Ready spot.</summary>
+        static bool RaceInTheWay(GoalieCharacter character, float x, float y)
+        {
+            var from = new Vector3(x, y, GoalieCharacter.StandZ - 5f);
+            var to = new Vector3(x, y, GoalieCharacter.StandZ + 0.3f);
+            character.MeasureReach(SaveReaction.Pads, new Vector3(0f, 0f, GoalieCharacter.StandZ), from, to, 0f, out _, out _, out bool inTheWay);
+            return inTheWay;
+        }
+
+        [Test]
+        public void The_Race_uses_the_real_puck_so_a_line_5_to_10_cm_clear_of_the_gear_is_not_in_the_way()
+        {
+            Port(out GoalieCharacter character);
+            Vector3 chest = character.Bone(HumanBodyBones.Chest).position;
+
+            // Slide the line sideways in 5 mm steps to the first one that clears: the real puck (7.6 cm across) first clears
+            // 3.7 cm sooner than the 15 cm test puck (the line-puck the Gap room and Beaten checks keep). The test puck is
+            // swept first: a Race measure leaves the goalie's gear unplaced for Touches.
+            float real = float.NaN, test = float.NaN;
+            for (float s = 0f; s < 1.5f && float.IsNaN(test); s += 0.005f)
+            {
+                var from = new Vector3(chest.x + s, chest.y, GoalieCharacter.StandZ - 5f);
+                bool touches = character.MeasureTouches(new Vector3(0f, 0f, GoalieCharacter.StandZ), 0f, from, from + new Vector3(0f, 0f, 5.3f), false);
+                if (s == 0f) Assert.IsTrue(touches, "a line through the gear touches the test puck");
+                if (!touches) test = s;
+            }
+            Assert.IsTrue(RaceInTheWay(character, chest.x, chest.y), "a line through the gear is in the way");
+            for (float s = 0f; s < 1.5f && float.IsNaN(real); s += 0.005f)
+                if (!RaceInTheWay(character, chest.x + s, chest.y)) real = s;
+            Assert.IsFalse(float.IsNaN(real) || float.IsNaN(test), "the sweep finds a clear line");
+            Assert.That(test - real, Is.InRange(0.03f, 0.045f), "real clears " + real + " m out, the test puck " + test + " m out");
+        }
+
         [Test]
         public void A_high_glove_side_corner_is_won_by_the_glove()
         {
@@ -221,7 +254,9 @@ namespace HockeyGame.Core.Tests
             }
             // ... but not too many away: a measure that shrank the Gaps to a few cells would still pass the lines above. The room takes
             // away about a fifth to a half of the free cells in these three cases (78, 52 and 86 % stay); a third or less is too far.
-            Assert.GreaterOrEqual(gaps.Count, free * 0.4,gaps.Count + " Gaps of " + free + " cells with nothing in the way");
+            // #192: the race's real puck (7.6 cm, not 15) frees the cells just past the gear while the Gaps keep their room, so the
+            // share left fell (one case 34 %: 11 Gaps of 32): the bar is 30 %, still far above "a few cells".
+            Assert.GreaterOrEqual(gaps.Count, free * 0.3,gaps.Count + " Gaps of " + free + " cells with nothing in the way");
         }
 
         [Test]

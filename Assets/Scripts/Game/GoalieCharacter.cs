@@ -551,7 +551,7 @@ namespace HockeyGame
             bool blocked = false;
             bool reaches = InReadyStanceAt(spot, facing, () =>
             {
-                blocked = Touches(from, to); // the race keeps the plain puck: only the Gaps ask for room (#134)
+                blocked = Touches(from, to, null, true); // the race's puck is the real size (#192); only the Gaps ask for room (#134) and keep the 15 cm test puck
                 Vector3 readyHips = Bone(HumanBodyBones.Hips).position;
                 var start = new Dictionary<string, Vector3>();
                 foreach (var kv in _gearShapes) start[kv.Key] = GearPoint(kv.Key);
@@ -776,6 +776,13 @@ namespace HockeyGame
             Vector3.up * (GoalieShape.LinePuckDiameter / 2f), Vector3.down * (GoalieShape.LinePuckDiameter / 2f),
         };
 
+        /// <summary>The real puck's middle and edges as it flies face on (#192).</summary>
+        static readonly Vector3[] RealPuckEdges =
+        {
+            Vector3.zero, Vector3.left * (GoalieShape.RealPuckDiameter / 2f), Vector3.right * (GoalieShape.RealPuckDiameter / 2f),
+            Vector3.up * (GoalieShape.RealPuckDiameter / 2f), Vector3.down * (GoalieShape.RealPuckDiameter / 2f),
+        };
+
         /// <summary>
         /// A Gap leaves this much room (metres) all round the puck's edges (#134). The physics puck meets the goalie's hit shapes (a
         /// box round each piece of gear, a fat capsule on each limb), not the meshes this measure casts at, and his gear starts
@@ -884,13 +891,30 @@ namespace HockeyGame
         public bool Touches(Vector3 from, Vector3 to) => Touches(from, to, null);
 
         /// <summary>As Touches, only for these pieces (GearPiece; the body and clothes are GearPiece.Body); null: everything.</summary>
-        bool Touches(Vector3 from, Vector3 to, string[] pieces)
+        bool Touches(Vector3 from, Vector3 to, string[] pieces) => Touches(from, to, pieces, false);
+
+        /// <summary>As Touches; realPuck: the real puck's size (7.6 by 2.5 cm) instead of the 15 by 5 cm test puck (#192).</summary>
+        bool Touches(Vector3 from, Vector3 to, string[] pieces, bool realPuck)
         {
             GoalieShape obstacles = Placed();
             from = NearGoalie(from, to);
-            foreach (Vector3 edge in PuckEdges)
-                if (obstacles.Cast(from + edge, to + edge, GoalieShape.LinePuckThickness / 2f, out _, out _, pieces)) return true;
+            Vector3[] edges = realPuck ? RealPuckEdges : PuckEdges;
+            float half = (realPuck ? GoalieShape.RealPuckThickness : GoalieShape.LinePuckThickness) / 2f;
+            foreach (Vector3 edge in edges)
+                if (obstacles.Cast(from + edge, to + edge, half, out _, out _, pieces)) return true;
             return false;
+        }
+
+        /// <summary>
+        /// Whether the real puck (7.6 by 2.5 cm), flying from `from` to `to`, meets his gear or body in the Ready Stance standing at
+        /// spot at this facing: the Race's "in the way". realPuck false: the 15 by 5 cm test puck, for comparing the two.
+        /// </summary>
+        public bool MeasureTouches(Vector3 spot, float facing, Vector3 from, Vector3 to, bool realPuck)
+        {
+            if (!Present) return false;
+            bool touches = false;
+            InReadyStanceAt(spot, facing, () => { touches = Touches(from, to, null, realPuck); return true; });
+            return touches;
         }
 
         void Finish(string piece, List<(Transform bone, GoalieShape shape)> body)
