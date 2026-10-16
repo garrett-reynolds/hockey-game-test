@@ -75,12 +75,14 @@ namespace HockeyGame.Core
         /// <summary>
         /// Seconds a gear move takes: the push across (pushMetres) takes the skate-push model's time (SkatePush), then the rest of
         /// the gear's travel (gearMetres, measured from the Ready Stance, the push included) at the gear's own speed. The body's
-        /// whole travel is a push. Infinity past the push limit.
+        /// whole travel is a push. Infinity past the push limit, and past the Reach Limit (#194): no gear moves further than
+        /// RoundSettings.ReachLimitMetres from its Set-up place in one Shot, whatever the Flight Time.
         /// </summary>
         public static double MoveSeconds(SaveReaction gear, double gearMetres, double pushMetres, RoundSettings settings)
         {
             pushMetres = Math.Abs(pushMetres);
             if (pushMetres > settings.MaxPushMetres + 1e-6) return double.PositiveInfinity;
+            if (Math.Max(gearMetres, pushMetres) > settings.ReachLimitMetres + 1e-6) return double.PositiveInfinity;
             if (gear == SaveReaction.Body) return SkatePush.SecondsFor(Math.Max(gearMetres, pushMetres), settings);
             return SkatePush.SecondsFor(pushMetres, settings) + Math.Max(0, gearMetres - pushMetres) / MetresPerSecond(gear, settings);
         }

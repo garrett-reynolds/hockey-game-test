@@ -10,6 +10,9 @@ namespace HockeyGame.Core.Tests
         const double Tol = 1e-9;
         static readonly RoundSettings Defaults = new RoundSettings();
 
+        /// <summary>The default settings with the Reach Limit out of the way, for the tests of the speeds themselves (#194).</summary>
+        static readonly RoundSettings NoReachLimit = new RoundSettings { ReachLimitMetres = 10 };
+
         GameObject _parent;
 
         [SetUp]
@@ -53,12 +56,12 @@ namespace HockeyGame.Core.Tests
         {
             Assert.AreEqual(0.05, GearSpeeds.MoveSeconds(SaveReaction.Glove, 0.4, 0, Defaults), Tol);
             Assert.AreEqual(0.05, GearSpeeds.MoveSeconds(SaveReaction.Blocker, 0.4, 0, Defaults), Tol);
-            Assert.AreEqual(0.1, GearSpeeds.MoveSeconds(SaveReaction.Pads, 0.6, 0, Defaults), Tol);
-            Assert.AreEqual(0.1, GearSpeeds.MoveSeconds(SaveReaction.Stick, 0.6, 0, Defaults), Tol);
+            Assert.AreEqual(0.1, GearSpeeds.MoveSeconds(SaveReaction.Pads, 0.6, 0, NoReachLimit), Tol); // (the default Reach Limit is a little under 0.6 m, #194)
+            Assert.AreEqual(0.1, GearSpeeds.MoveSeconds(SaveReaction.Stick, 0.6, 0, NoReachLimit), Tol);
             Assert.AreEqual(SkatePush.SecondsFor(0.4, Defaults), GearSpeeds.MoveSeconds(SaveReaction.Body, 0.4, 0, Defaults), Tol);
             // A push across first (the skate-push model's time), then the rest of the glove's travel at hand speed.
             Assert.AreEqual(SkatePush.SecondsFor(0.3, Defaults) + 0.2 / 8, GearSpeeds.MoveSeconds(SaveReaction.Glove, 0.5, 0.3, Defaults), Tol);
-            Assert.AreEqual(SkatePush.SecondsFor(0.6, Defaults), GearSpeeds.MoveSeconds(SaveReaction.Glove, 0.6, 0.6, Defaults), Tol);
+            Assert.AreEqual(SkatePush.SecondsFor(0.6, Defaults), GearSpeeds.MoveSeconds(SaveReaction.Glove, 0.6, 0.6, NoReachLimit), Tol);
             Assert.IsTrue(double.IsPositiveInfinity(GearSpeeds.MoveSeconds(SaveReaction.Glove, 0.8, 0.7, Defaults)), "past the push limit");
         }
 
@@ -66,14 +69,42 @@ namespace HockeyGame.Core.Tests
         public void The_push_across_time_is_the_skate_push_time_for_that_distance()
         {
             foreach (double d in new[] { 0.1, 0.3, 0.45, 0.6 })
-                Assert.AreEqual(new SkatePush(d, Defaults).TotalSeconds, GearSpeeds.MoveSeconds(SaveReaction.Glove, d, d, Defaults), Tol, $"{d} m");
+                Assert.AreEqual(new SkatePush(d, Defaults).TotalSeconds, GearSpeeds.MoveSeconds(SaveReaction.Glove, d, d, NoReachLimit), Tol, $"{d} m");
         }
 
         [Test]
         public void A_push_is_slower_than_the_old_steady_speed()
         {
             // Was 0.6 / 4 = 0.15 s; the skate-push model takes 0.30 s.
-            Assert.Greater(GearSpeeds.MoveSeconds(SaveReaction.Glove, 0.6, 0.6, Defaults), 0.6 / 4);
+            Assert.Greater(GearSpeeds.MoveSeconds(SaveReaction.Glove, 0.6, 0.6, NoReachLimit), 0.6 / 4);
+        }
+
+        // ---- The Reach Limit (#194) ----
+
+        [Test]
+        public void A_puck_line_beyond_the_Reach_Limit_is_not_reached_in_time_and_one_inside_it_is()
+        {
+            var settings = new RoundSettings { ReachLimitMetres = 0.5 };
+            double flight = 0.57; // a 30 km/h Shot: far longer than any gear needs on the way
+            foreach (SaveReaction gear in new[] { SaveReaction.Glove, SaveReaction.Blocker, SaveReaction.Pads, SaveReaction.Stick })
+            {
+                double inside = GearSpeeds.MoveSeconds(gear, 0.5, 0, settings);
+                Assert.IsFalse(double.IsInfinity(inside), gear + " 0.5 m is inside the limit");
+                Assert.LessOrEqual(settings.ReactionSeconds + inside, flight, gear + " reaches in time inside the limit");
+                double beyond = GearSpeeds.MoveSeconds(gear, 0.55, 0, settings);
+                Assert.IsTrue(double.IsPositiveInfinity(beyond), gear + " 0.55 m is beyond the limit: not reached, however long the Flight Time");
+            }
+            Assert.IsFalse(double.IsInfinity(GearSpeeds.MoveSeconds(SaveReaction.Body, 0.5, 0.5, settings)), "the push across is inside the limit at 0.5 m");
+            Assert.IsTrue(double.IsPositiveInfinity(GearSpeeds.MoveSeconds(SaveReaction.Body, 0.55, 0.55, settings)), "and beyond it at 0.55 m");
+            Assert.IsTrue(double.IsPositiveInfinity(GearSpeeds.MoveSeconds(SaveReaction.Glove, 0.55, 0.3, settings)), "a hand that travels 0.55 m, push included, is beyond it");
+        }
+
+        [Test]
+        public void The_Reach_Limit_default_is_the_code_default_and_a_larger_limit_reaches_further()
+        {
+            var wide = new RoundSettings { ReachLimitMetres = 1.0 };
+            Assert.IsTrue(double.IsPositiveInfinity(GearSpeeds.MoveSeconds(SaveReaction.Pads, Defaults.ReachLimitMetres + 0.05, 0, Defaults)));
+            Assert.IsFalse(double.IsInfinity(GearSpeeds.MoveSeconds(SaveReaction.Pads, Defaults.ReachLimitMetres + 0.05, 0, wide)));
         }
 
         // ---- The real port (Game) ----

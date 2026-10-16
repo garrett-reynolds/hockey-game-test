@@ -67,6 +67,10 @@ _Avoid_: Travel time
 The goalie's race against the puck: he is expected to get there when the Reach Time is no longer than the Flight Time. It drives how he moves and the hints (Easy mode, the Annoyed Gesture), but it does not decide the Shot: the puck's real path does, and the puck can still beat a gear that arrives in time, or hit one that does not.
 _Avoid_: Save chance
 
+**Reach Limit**:
+The most distance each piece of the goalie's gear (hands, legs/pads, stick, and the push across) can move from its Set-up place during one Shot. A puck line that needs more is not reachable, whatever the Flight Time, so the goalie is seen to stretch toward it and miss. It is a Dev setting. At normal Shot speeds (30 to 50 km/h, where the Flight Time is 3 to 5 times the Reaction Time) the Reach Limit, not the Flight Time, leaves Gaps open: aim decides.
+_Avoid_: Reach distance, goalie range
+
 **Skate-push model**:
 How the goalie moves across the crease on his skates: from rest the skate on the far side from the move pushes (he speeds up at the push setting, 40 m/s squared), then he glides (slows at the glide setting, 20 m/s squared) and stops exactly on his spot, with no steady-speed stretch. So a move is a Push then a Glide, and the push is about a third of its time. It times the Late Settle, the Shuffle and the Save Reaction slide, and so the Reach Time.
 _Avoid_: Skating speed, run

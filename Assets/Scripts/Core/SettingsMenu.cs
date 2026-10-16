@@ -134,6 +134,9 @@ namespace HockeyGame.Core
             AddDevRound("SET-UP MISTAKES", "Late Settle size", "How far short of his spot the goalie is when the window opens. Next Round, after SAVE.", () => _save.LateSettleMetres, v => _save.LateSettleMetres = v, SaveData.LateSettleMetresRange, Metres, () => _save.LateSettleMetresAllowed);
             AddDevRound("SET-UP MISTAKES", "Late Settle time", "How long the goalie takes to close onto his spot after the window opens. Next Round, after SAVE.", () => _save.LateSettleSeconds, v => _save.LateSettleSeconds = v, SaveData.LateSettleSecondsRange, Seconds, () => _save.LateSettleSecondsAllowed);
 
+            // Reach Limit (#194): the most any gear moves from its Set-up place in one Shot; the race reads it from the Round's settings.
+            AddDevRound("GOALIE REACH", "Reach limit", "The most any piece of the goalie's gear moves from its Set-up place during one Shot. Next Round, after SAVE.", () => _save.ReachLimitMetres, v => _save.ReachLimitMetres = v, SaveData.ReachLimitRange, Metres, null);
+
             // Gaps (#160): how near thin gear must be to block a Gap; the Gap measure reads it from the Round's settings.
             AddDevRound("GAPS", "Gap thin-gear reach", "How near thin gear must be to block a Gap. Next Round, after SAVE.", () => _save.GapThinGearReachMetres, v => _save.GapThinGearReachMetres = v, SaveData.GapThinGearReachRange, Metres, null);
 
@@ -265,6 +268,7 @@ namespace HockeyGame.Core
                 _save.LateSettleMetres = defaults.LateSettleMetres;
                 _save.LateSettleSeconds = defaults.LateSettleSeconds;
                 _save.GapThinGearReachMetres = defaults.GapThinGearReachMetres;
+                _save.ReachLimitMetres = defaults.ReachLimitMetres;
                 _save.BottleKnockSpeedKmh = defaults.BottleKnockSpeedKmh;
                 _save.BottleJumpPercent = defaults.BottleJumpPercent;
             }

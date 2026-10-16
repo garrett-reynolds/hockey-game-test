@@ -40,6 +40,9 @@ namespace HockeyGame.Core
         public static readonly NumberRange MaxPushRange = new NumberRange(0.1, 0.9, 0.05);
         public static readonly NumberRange ShuffleMaxRange = new NumberRange(0.1, 0.9, 0.05);
 
+        /// <summary>Dev part, goalie Reach Limit (#194): the most any gear moves from its Set-up place during one Shot (metres).</summary>
+        public static readonly NumberRange ReachLimitRange = new NumberRange(0.2, 1.5, 0.005);
+
         // Dev part, Round timing and Set-up Mistakes (#148), same source. Linked limits: Late Settle time <= min(2.0, window - 1.0)
         // (so it settles inside the window), Late Settle size <= Max push.
         public static readonly NumberRange SkateInRange = new NumberRange(1.5, 5.0, 0.5);
@@ -110,6 +113,7 @@ namespace HockeyGame.Core
         private const string LateSettleMetresKey = "setUpLateSettleMetres";
         private const string LateSettleSecondsKey = "setUpLateSettleSeconds";
         private const string GapThinGearReachKey = "gapThinGearReachMetres";
+        private const string ReachLimitKey = "goalieReachLimitMetres";
         private const string BottleKnockSpeedKey = "bottleKnockSpeedKmh";
         private const string BottleJumpKey = "bottleJumpPercent";
 
@@ -191,6 +195,7 @@ namespace HockeyGame.Core
             LateSettleMetres = other.LateSettleMetres;
             LateSettleSeconds = other.LateSettleSeconds;
             GapThinGearReachMetres = other.GapThinGearReachMetres;
+            ReachLimitMetres = other.ReachLimitMetres;
             BottleKnockSpeedKmh = other.BottleKnockSpeedKmh;
             BottleJumpPercent = other.BottleJumpPercent;
         }
@@ -270,6 +275,9 @@ namespace HockeyGame.Core
         /// <summary>Dev part, Gaps (#160). The default is the code default of RoundSettings (a test pins that); an old file with no value loads it.</summary>
         public double GapThinGearReachMetres = 0.04;
 
+        /// <summary>Dev part, goalie Reach Limit (#194). The default is the code default of RoundSettings (a test pins that); an old file with no value loads it.</summary>
+        public double ReachLimitMetres = 0.595;
+
         /// <summary>Dev part, Water Bottle (#164): the Shot speed (km/h) a Goal must beat to knock the bottle. The game reads it on each Shot, not at the Round's start.</summary>
         public double BottleKnockSpeedKmh = BottleKnock.KnockSpeedKmh;
 
@@ -292,6 +300,7 @@ namespace HockeyGame.Core
             settings.LateSettleMetres = LateSettleMetres;
             settings.LateSettleSeconds = LateSettleSeconds;
             settings.GapThinGearReachMetres = GapThinGearReachMetres;
+            settings.ReachLimitMetres = ReachLimitMetres;
         }
 
         /// <summary>Holds Late Settle size down to Max push (used when Max push is lowered on the page).</summary>
@@ -307,6 +316,7 @@ namespace HockeyGame.Core
             LateSettleSeconds = Math.Min(LateSettleSecondsRange.Clamp(LateSettleSeconds), ShootingWindowSeconds - 1.0);
             LateSettleMetres = Math.Min(LateSettleMetresRange.Clamp(LateSettleMetres), MaxPushMetres);
             GapThinGearReachMetres = GapThinGearReachRange.Clamp(GapThinGearReachMetres);
+            ReachLimitMetres = ReachLimitRange.Clamp(ReachLimitMetres);
         }
         /// <summary>
         /// The Team Skin picked before play: its asset name in Assets/Resources/Skins (TeamSkin). Not on the settings
@@ -368,6 +378,7 @@ namespace HockeyGame.Core
             data.LateSettleMetres = ReadDouble(values, LateSettleMetresKey, data.LateSettleMetres, LateSettleMetresRange);
             data.LateSettleSeconds = ReadDouble(values, LateSettleSecondsKey, data.LateSettleSeconds, LateSettleSecondsRange);
             data.GapThinGearReachMetres = ReadDouble(values, GapThinGearReachKey, data.GapThinGearReachMetres, GapThinGearReachRange);
+            data.ReachLimitMetres = ReadDouble(values, ReachLimitKey, data.ReachLimitMetres, ReachLimitRange);
             data.BottleKnockSpeedKmh = ReadDouble(values, BottleKnockSpeedKey, data.BottleKnockSpeedKmh, BottleKnockSpeedRange);
             data.BottleJumpPercent = ReadDouble(values, BottleJumpKey, data.BottleJumpPercent, BottleJumpRange);
             data.KeepRoundLimits();
@@ -416,6 +427,7 @@ namespace HockeyGame.Core
                 sb.Append(LateSettleMetresKey).Append('=').Append(LateSettleMetres.ToString("R", inv)).Append('\n');
                 sb.Append(LateSettleSecondsKey).Append('=').Append(LateSettleSeconds.ToString("R", inv)).Append('\n');
                 sb.Append(GapThinGearReachKey).Append('=').Append(GapThinGearReachMetres.ToString("R", inv)).Append('\n');
+                sb.Append(ReachLimitKey).Append('=').Append(ReachLimitMetres.ToString("R", inv)).Append('\n');
                 sb.Append(BottleKnockSpeedKey).Append('=').Append(BottleKnockSpeedKmh.ToString("R", inv)).Append('\n');
                 sb.Append(BottleJumpKey).Append('=').Append(BottleJumpPercent.ToString("R", inv)).Append('\n');
                 sb.Append(TeamSkinKey).Append('=').Append(TeamSkin).Append('\n');
