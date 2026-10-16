@@ -134,6 +134,18 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void The_logo_picture_is_still_there_after_Unity_unloads_unused_assets_so_the_start_screen_never_draws_a_null_texture()
+        {
+            Texture2D logo = StartLogoArt.Make(); // held only by managed code, like the one RoundDriver keeps (#201)
+            try
+            {
+                UnityEditor.EditorUtility.UnloadUnusedAssetsImmediate();
+                Assert.IsTrue(logo != null, "Unity unloaded the logo texture as unused (#201)");
+            }
+            finally { if (logo != null) Object.DestroyImmediate(logo); }
+        }
+
+        [Test]
         public void The_logo_picture_has_every_League_colour()
         {
             Texture2D logo = StartLogoArt.Make();

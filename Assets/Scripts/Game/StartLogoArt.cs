@@ -103,7 +103,8 @@ namespace HockeyGame
 
         public static Texture2D Make()
         {
-            var t = new Texture2D(Width, Height, TextureFormat.RGBA32, false) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
+            var t = new Texture2D(Width, Height, TextureFormat.RGBA32, false) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp,
+                hideFlags = HideFlags.DontUnloadUnusedAsset }; // #201: only managed code holds it, so Unity would unload it as unused and the draw would get null
             t.SetPixels32(Pixels());
             t.Apply();
             return t;
