@@ -35,9 +35,10 @@ namespace HockeyGame.Core.Tests
         public void The_Dev_part_lists_the_Round_values_and_the_Gap_reach_before_the_Test_Mode_button()
         {
             var menu = DevMenu(new SaveData());
-            Assert.AreEqual(17, menu.RowCount, "the six values, the Gap reach (#160) and the two bottle rows (#164) sit before the Test Mode button (#156), which stays last");
-            Assert.AreEqual("Gap thin-gear reach", menu.Label(13));
-            Assert.AreEqual("Test Mode", menu.Label(16));
+            Assert.AreEqual(18, menu.RowCount, "the six values, the Reach limit (#194), the Gap reach (#160) and the two bottle rows (#164) sit before the Test Mode button (#156), which stays last");
+            Assert.AreEqual("Reach limit", menu.Label(13));
+            Assert.AreEqual("Gap thin-gear reach", menu.Label(14));
+            Assert.AreEqual("Test Mode", menu.Label(17));
             Assert.AreEqual("Show the block goalie", menu.Label(0));
             Assert.AreEqual("Reaction time", menu.Label(1));
             Assert.AreEqual("Shuffle max", menu.Label(6));
@@ -390,6 +391,62 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(0.04, save.GapThinGearReachMetres, 1e-9);
         }
 
+        // ---- Reach Limit (#194) ----
+
+        [Test]
+        public void The_Reach_Limit_row_is_a_slider_from_0_2_to_1_5_m_defaulting_to_the_code_default()
+        {
+            Assert.AreEqual(0.2, SaveData.ReachLimitRange.Min, 1e-9);
+            Assert.AreEqual(1.5, SaveData.ReachLimitRange.Max, 1e-9);
+            Assert.AreEqual(new RoundSettings().ReachLimitMetres, new SaveData().ReachLimitMetres, "the saved default is the code default");
+            var save = new SaveData();
+            var menu = DevMenu(save);
+            int row = RowOf(menu, "Reach limit");
+            Assert.AreEqual(SettingsRowKind.Slider, menu.Kind(row));
+            Assert.AreEqual("GOALIE REACH", menu.Group(row));
+            Step(menu, "Reach limit", +1, 400);
+            Assert.AreEqual(1.5, save.ReachLimitMetres, 1e-9);
+            Step(menu, "Reach limit", -1, 400);
+            Assert.AreEqual(0.2, save.ReachLimitMetres, 1e-9);
+        }
+
+        [Test]
+        public void The_Reach_Limit_saves_and_loads_and_an_old_file_without_it_loads_the_default_and_a_wild_one_is_clamped()
+        {
+            double normal = new RoundSettings().ReachLimitMetres;
+            string path = TempFile("");
+            try
+            {
+                Assert.IsTrue(new SaveData { ReachLimitMetres = 0.45 }.Save(path));
+                Assert.AreEqual(0.45, SaveData.Load(path).ReachLimitMetres, 1e-9);
+            }
+            finally { File.Delete(path); }
+            string old = TempFile("roundSkateInSeconds=4\n");
+            try { Assert.AreEqual(normal, SaveData.Load(old).ReachLimitMetres, 1e-9); }
+            finally { File.Delete(old); }
+            string wild = TempFile("goalieReachLimitMetres=9\n");
+            try { Assert.AreEqual(1.5, SaveData.Load(wild).ReachLimitMetres, 1e-9, "clamped to the range"); }
+            finally { File.Delete(wild); }
+            string tiny = TempFile("goalieReachLimitMetres=0\n");
+            try { Assert.AreEqual(0.2, SaveData.Load(tiny).ReachLimitMetres, 1e-9, "clamped up to the range"); }
+            finally { File.Delete(tiny); }
+        }
+
+        [Test]
+        public void A_Round_takes_the_Reach_Limit_and_Reset_brings_back_the_default()
+        {
+            double normal = new RoundSettings().ReachLimitMetres;
+            var save = new SaveData { ReachLimitMetres = 0.35 };
+            var settings = new RoundSettings();
+            new ScreenFlow(ScriptedRandom.Halves(), save, FakeReach.NeverReaches(), settings).Press();
+            Assert.AreEqual(0.35, settings.ReachLimitMetres, 1e-9, "the race reads it from the Round's settings");
+
+            var menu = DevMenu(save);
+            menu.Press(SettingsKey.Reset);
+            menu.Save();
+            Assert.AreEqual(normal, save.ReachLimitMetres, 1e-9);
+        }
+
         // ---- Water Bottle (#164) ----
 
         [Test]
@@ -406,10 +463,10 @@ namespace HockeyGame.Core.Tests
 
             var save = new SaveData();
             var menu = DevMenu(save);
-            Assert.AreEqual(17, menu.RowCount);
-            Assert.AreEqual("Bottle knock speed", menu.Label(14));
-            Assert.AreEqual("Bottle jump", menu.Label(15));
-            Assert.AreEqual("Test Mode", menu.Label(16), "the Test Mode button stays last");
+            Assert.AreEqual(18, menu.RowCount);
+            Assert.AreEqual("Bottle knock speed", menu.Label(15));
+            Assert.AreEqual("Bottle jump", menu.Label(16));
+            Assert.AreEqual("Test Mode", menu.Label(17), "the Test Mode button stays last");
             foreach (var label in new[] { "Bottle knock speed", "Bottle jump" })
             {
                 int row = RowOf(menu, label);

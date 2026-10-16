@@ -56,6 +56,11 @@ namespace HockeyGame.Core
         public double HandMetresPerSecond = 8;
         public double LegMetresPerSecond = 6;
         public double MaxPushMetres = 0.6;
+        /// <summary>
+        /// The Reach Limit (#194): the most distance any piece of gear (hands, legs/pads, stick, or the body's push) can move from
+        /// its Set-up place during one Shot (metres). A puck line that needs more is not reachable (GearSpeeds.MoveSeconds).
+        /// </summary>
+        public double ReachLimitMetres = 0.595;
         /// <summary>A move across up to this far is a shuffle (he stays square); a longer one is a T-push (metres).</summary>
         public double ShuffleMaxMetres = 0.3;
         /// <summary>How hard the pushing skate speeds him up from rest (m/s squared).</summary>
