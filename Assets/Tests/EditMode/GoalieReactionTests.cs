@@ -150,6 +150,7 @@ namespace HockeyGame.Core.Tests
                 values.AddRange(new[] { q.x, q.y, q.z, q.w });
                 if (c is BoxCollider box) { values.AddRange(new[] { box.size.x, box.size.y, box.size.z, box.center.x, box.center.y, box.center.z }); }
                 else if (c is SphereCollider s) { values.AddRange(new[] { s.radius, s.center.x, s.center.y, s.center.z }); }
+                else if (c is MeshCollider hull) { values.AddRange(new[] { hull.sharedMesh.vertexCount, hull.bounds.size.x, hull.bounds.size.y, hull.bounds.size.z }); }
                 else if (c is CapsuleCollider cap) { values.AddRange(new[] { cap.radius, cap.height, cap.center.x, cap.center.y, cap.center.z }); }
             }
             var shape = new GoalieShape();

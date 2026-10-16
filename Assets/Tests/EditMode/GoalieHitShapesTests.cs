@@ -245,7 +245,17 @@ namespace HockeyGame.Core.Tests
 
         static string Describe(Collider c) => c.attachedRigidbody.name + " (" + c.GetType().Name + ")";
 
-        /// <summary>The point is inside a box or capsule by at least depth (metres) from every surface.</summary>
+        static readonly Vector3[] SinkDirections =
+        {
+            Vector3.right, Vector3.left, Vector3.up, Vector3.down, Vector3.forward, Vector3.back,
+            new Vector3(1, 1, 1).normalized, new Vector3(-1, 1, 1).normalized, new Vector3(1, -1, 1).normalized, new Vector3(1, 1, -1).normalized,
+            new Vector3(-1, -1, 1).normalized, new Vector3(-1, 1, -1).normalized, new Vector3(1, -1, -1).normalized, new Vector3(-1, -1, -1).normalized,
+        };
+
+        /// <summary>A convex collider contains the point when its closest point to it is the point itself.</summary>
+        static bool Inside(Collider c, Vector3 world) => (c.ClosestPoint(world) - world).sqrMagnitude < 1e-8f;
+
+        /// <summary>The point is inside a box, capsule or hull by at least depth (metres) from every surface.</summary>
         static bool SunkIn(Collider c, Vector3 world, float depth)
         {
             Vector3 local = c.transform.InverseTransformPoint(world);
@@ -254,6 +264,14 @@ namespace HockeyGame.Core.Tests
                 Vector3 inset = box.size / 2f - Vector3.one * depth;
                 Vector3 d = local - box.center;
                 return inset.x > 0f && inset.y > 0f && inset.z > 0f && Mathf.Abs(d.x) < inset.x && Mathf.Abs(d.y) < inset.y && Mathf.Abs(d.z) < inset.z;
+            }
+            if (c is MeshCollider hull)
+            {
+                // A convex hull: the point is sunk when it and a ring of points `depth` away all lie inside it.
+                if (!Inside(hull, world)) return false;
+                foreach (Vector3 d in SinkDirections)
+                    if (!Inside(hull, world + d * depth)) return false;
+                return true;
             }
             var capsule = (CapsuleCollider)c; // built along its own y
             float along = Mathf.Clamp(local.y - capsule.center.y, -(capsule.height / 2f - capsule.radius), capsule.height / 2f - capsule.radius);
@@ -457,7 +475,11 @@ namespace HockeyGame.Core.Tests
                 float moved = Vector3.Distance(ready[c], c.bounds.center);
                 bool onLegs = piece == GearPiece.LeftSkate || piece == GearPiece.RightSkate || piece == GearPiece.LeftPad || piece == GearPiece.RightPad;
                 if (onLegs)
-                    Assert.Less(Vector3.Distance(c.bounds.center, GearMiddle(piece)), 0.02f, piece + "'s hit shape is on its gear");
+                {
+                    // The gear's middle is in (or within 2 cm of) its hull; a hull's bounds middle is not the mesh's, so it is not compared.
+                    Vector3 middle = GearMiddle(piece);
+                    Assert.Less(Vector3.Distance(c.ClosestPoint(middle), middle), 0.02f, piece + "'s hit shape is on its gear");
+                }
                 else if (piece == GearPiece.Catcher || piece == GearPiece.Blocker || piece == GearPiece.Stick || piece == GearPiece.Mask)
                     // (#130) the body lowers 6 cm and leans 10 cm into the move with the push: the upper gear goes with it, no further.
                     Assert.Less(moved, 0.13f, piece + " is moved by the push no more than the hips' lean and drop");
@@ -475,8 +497,8 @@ namespace HockeyGame.Core.Tests
             Assert.Greater(tally.Through, 0, "no tunnel seen in " + tally.Shots + " Shots: the test cannot see one");
         }
 
-        /// <summary>Where the glove's hit shape is.</summary>
-        static Vector3 Glove(Transform hitRoot) => hitRoot.Find("Hit " + GearPiece.Catcher).GetComponent<Collider>().bounds.center;
+        /// <summary>Where the glove's hit shape is (its body's origin, which sits on the gear and turns with it; a hull's bounds middle swings with its shape).</summary>
+        static Vector3 Glove(Transform hitRoot) => hitRoot.Find("Hit " + GearPiece.Catcher).position;
 
         [Test]
         public void The_view_keeps_the_hit_shapes_on_his_pose_while_he_is_shown_and_off_while_he_is_hidden()
@@ -556,6 +578,60 @@ namespace HockeyGame.Core.Tests
                 Object.DestroyImmediate(cameraObject);
                 Time.timeScale = 1f;
             }
+        }
+
+        /// <summary>Every gear piece's mesh points in the world, by piece name (not the Visor, not the Stick).</summary>
+        Dictionary<string, List<Vector3>> MeshPoints()
+        {
+            var all = new Dictionary<string, List<Vector3>>();
+            foreach (MeshRenderer renderer in _goalie.Root.GetComponentsInChildren<MeshRenderer>(true))
+            {
+                string piece = GearPiece.PieceOf(renderer.name);
+                if (piece == null || piece == GearPiece.Visor || piece == GearPiece.Stick) continue;
+                if (!all.TryGetValue(piece, out var list)) all[piece] = list = new List<Vector3>();
+                foreach (Vector3 v in renderer.GetComponent<MeshFilter>().sharedMesh.vertices) list.Add(renderer.transform.TransformPoint(v));
+            }
+            return all;
+        }
+
+        [Test]
+        public void Gear_pieces_have_convex_hull_hit_shapes_not_boxes_and_the_hull_is_the_gear_not_its_box()
+        {
+            var hits = MakeHits();
+            _goalie.ShowReaction(0f);
+            hits.Snap();
+            Physics.SyncTransforms();
+
+            int hulls = 0, tighterThanBox = 0;
+            foreach (var pair in MeshPoints())
+            {
+                var shapes = new List<MeshCollider>();
+                foreach (Collider c in hits.Colliders)
+                    if (c.attachedRigidbody.name == GoalieHitShapes.BodyName(pair.Key) && c is MeshCollider m) shapes.Add(m);
+                Assert.AreEqual(1, shapes.Count, pair.Key + " has one convex hull hit shape");
+                MeshCollider hull = shapes[0];
+                Assert.IsTrue(hull.convex, pair.Key);
+                Assert.LessOrEqual(hull.sharedMesh.triangles.Length / 3, 255, pair.Key + " stays under Unity's convex limit");
+                hulls++;
+
+                // Every point of the gear's mesh is in (or within 2 cm of) its hull: no gear sticks out of its hit shape.
+                var box = new Bounds(pair.Value[0], Vector3.zero);
+                foreach (Vector3 p in pair.Value)
+                {
+                    box.Encapsulate(p);
+                    Assert.Less(Vector3.Distance(hull.ClosestPoint(p), p), 0.03f, pair.Key + ": a mesh point is outside its hit shape");
+                }
+                // And the hull is tighter than the box: one of the box's corners is well outside it.
+                float farthest = 0f;
+                for (int i = 0; i < 8; i++)
+                {
+                    var corner = box.center + Vector3.Scale(box.extents, new Vector3(i & 1, (i >> 1) & 1, (i >> 2) & 1) * 2f - Vector3.one);
+                    farthest = Mathf.Max(farthest, Vector3.Distance(hull.ClosestPoint(corner), corner));
+                }
+                if (farthest > 0.03f) tighterThanBox++;
+            }
+            Assert.Greater(hulls, 5, "the gear pieces were found");
+            Assert.GreaterOrEqual(tighterThanBox, 3, "at least three pieces are round or slanted enough that the hull cuts a corner a box would hold");
         }
 
         [Test]

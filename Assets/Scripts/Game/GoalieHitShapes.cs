@@ -5,7 +5,7 @@ using UnityEngine;
 namespace HockeyGame
 {
     /// <summary>
-    /// The goalie's hit shapes for the physics puck (#111, spec #107): a box for each piece of gear, two turned boxes for the
+    /// The goalie's hit shapes for the physics puck (#111, spec #107; hulls #193): a convex hull of each piece of gear's mesh, two turned boxes for the
     /// stick, and capsules on the body's bones. Each is on its own unparented kinematic Rigidbody (ContinuousSpeculative), not
     /// on the bone, so physics sees the gear move. The owner of the physics step poses the goalie for the end of the step, calls
     /// Move, and then simulates: the hit shapes then reach the gear's pose with a true speed over the step. The look never
@@ -71,7 +71,8 @@ namespace HockeyGame
                 else
                 {
                     Bounds bounds = BoundsOf(points);
-                    Box(piece, renderer.transform, bounds.center, Quaternion.identity, Vector3.Max(bounds.size, Vector3.one * minDepth), material);
+                    if (!Hull(piece, renderer.transform, points, bounds, minDepth, material))
+                        Box(piece, renderer.transform, bounds.center, Quaternion.identity, Vector3.Max(bounds.size, Vector3.one * minDepth), material);
                 }
             }
             foreach (var (from, to, radius) in Bones)
@@ -147,6 +148,58 @@ namespace HockeyGame
             go.transform.SetPositionAndRotation(f.Position, f.Rotation);
             _followers.Add(f);
             return go;
+        }
+
+        const int HullDirections = 96;
+        static Vector3[] _directions;
+
+        /// <summary>
+        /// A convex MeshCollider of the piece's own mesh (#193, from the #169 prototype). The point cloud is cut to the extreme
+        /// point in each of 96 spread directions (a hull of those has at most 188 triangles, under Unity's 255); a flat axis is
+        /// stretched to minDepth. False (the caller keeps a box) when there are too few points. The Stick keeps its two turned boxes.
+        /// </summary>
+        bool Hull(string piece, Transform follow, Vector3[] points, Bounds bounds, float minDepth, PhysicsMaterial material)
+        {
+            if (_directions == null)
+            {
+                _directions = new Vector3[HullDirections];
+                float golden = Mathf.PI * (3f - Mathf.Sqrt(5f));
+                for (int i = 0; i < HullDirections; i++)
+                {
+                    float y = 1f - 2f * (i + 0.5f) / HullDirections, r = Mathf.Sqrt(1f - y * y);
+                    _directions[i] = new Vector3(Mathf.Cos(golden * i) * r, y, Mathf.Sin(golden * i) * r);
+                }
+            }
+            var chosen = new HashSet<int>();
+            foreach (Vector3 d in _directions)
+            {
+                int best = 0;
+                float top = float.MinValue;
+                for (int i = 0; i < points.Length; i++)
+                {
+                    float v = Vector3.Dot(points[i], d);
+                    if (v > top) { top = v; best = i; }
+                }
+                chosen.Add(best);
+            }
+            if (chosen.Count < 6) return false;
+            var scale = new Vector3(
+                Mathf.Max(1f, minDepth / Mathf.Max(bounds.size.x, 1e-4f)),
+                Mathf.Max(1f, minDepth / Mathf.Max(bounds.size.y, 1e-4f)),
+                Mathf.Max(1f, minDepth / Mathf.Max(bounds.size.z, 1e-4f)));
+            var verts = new List<Vector3>();
+            foreach (int i in chosen) verts.Add(Vector3.Scale(points[i] - bounds.center, scale));
+            // Convex cooking reads the points; a fan of triangles over them gives it a valid mesh and it builds the hull itself.
+            var tris = new List<int>();
+            for (int i = 1; i + 1 < verts.Count; i++) { tris.Add(0); tris.Add(i); tris.Add(i + 1); }
+            var mesh = new Mesh { name = "Hit hull " + piece };
+            mesh.SetVertices(verts);
+            mesh.SetTriangles(tris, 0);
+            var collider = NewBody(piece, follow, bounds.center, Quaternion.identity).AddComponent<MeshCollider>();
+            collider.convex = true;
+            collider.sharedMesh = mesh;
+            Add(collider, material);
+            return true;
         }
 
         void Box(string piece, Transform follow, Vector3 offset, Quaternion turn, Vector3 size, PhysicsMaterial material)
