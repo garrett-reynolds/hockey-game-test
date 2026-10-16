@@ -26,11 +26,11 @@ namespace HockeyGame.Core.Tests
         const double GapTargetMin = 0.25, GapTargetMax = 0.45, GoalieTargetMax = 0.05;
 
         /// <summary>
-        /// The bar the goalie set must meet today (#194): 5-13 % of Shots at a cell the race finds gear in the way of still score (8/62 to
-        /// 5/62, the same before the Reach Limit), so the 5 % target is not met yet. The Reach Limit does not touch these: the gear is already in
-        /// the line, so the cause is in the hit shapes or the Save Reaction pose, not the Reach Limit. Lower this toward GoalieTargetMax when that is fixed.
+        /// The bar the goalie set must meet today (#211): after the body soak fix 4/62 (6 %), 0/62, 1/62 of the Shots at a cell the race finds
+        /// gear in the way of score. The 4 at 30 km/h are 3 where the gear moved away before the puck came (15-35 cm) and 1 stick hit; the
+        /// 5 % target is not met at 30 km/h yet. Lower this to GoalieTargetMax when that is fixed.
         /// </summary>
-        const double GoalieBarNow = 0.15;
+        const double GoalieBarNow = 0.07;
 
         /// <summary>The goalie set plays a Shot on every seed, so 62 seeds are enough for the 60 Shots.</summary>
         const int MeasureSeedsGoalie = 62;
@@ -98,11 +98,96 @@ namespace HockeyGame.Core.Tests
             public int GapCount;
             public SetUpKind SetUpKind;
             public int Cell, ShotFrame, EndFrame;
+            public string Diag; // #211: the goalie set's per-Shot record (what the race found in the way, what the puck did)
             public override string ToString() => Played ? Side + "/" + SetUpKind + "/gaps" + GapCount + "/cell" + Cell + "/shot@" + ShotFrame + "/end@" + EndFrame + "/" + Kind : "not played";
         }
 
         /// <summary>Where the Shot is aimed: the centre of a shown Gap, of a cell that is not one, or of a cell the race finds gear in the way of (the cells that were not Gaps before #134).</summary>
         public enum Aim { Gap, NotGap, GearInTheWay }
+
+        /// <summary>
+        /// The per-Shot record of the goalie set (#211): the pieces the race found in the way (Ready Stance) and, step by step, how close the
+        /// physics puck's centre came to those pieces' hit shapes, and which hit shapes it touched.
+        /// </summary>
+        sealed class ShotRecord
+        {
+            public string Pieces = "";
+            public readonly List<string> Hits = new List<string>();
+            readonly HashSet<string> _way = new HashSet<string>();
+            readonly List<Collider> _hulls = new List<Collider>();
+            readonly Dictionary<Collider, Vector3> _first = new Dictionary<Collider, Vector3>();
+            public float MinGap = float.PositiveInfinity, MinGapAt, MinShift, MinGapZ;
+            public string MinGapPiece = "-";
+            public bool Subscribed, TouchedWay, TouchedOther;
+
+            public ShotRecord(string pieces, Transform root)
+            {
+                Pieces = pieces;
+                foreach (string piece in pieces.Split(new[] { '+' }, System.StringSplitOptions.RemoveEmptyEntries)) _way.Add(GoalieHitShapes.BodyName(piece));
+                foreach (Collider c in root.GetComponentsInChildren<Collider>(true))
+                    if (_way.Contains(c.gameObject.name)) _hulls.Add(c);
+            }
+
+            public void Subscribe(PhysicsShot shot)
+            {
+                Subscribed = true;
+                shot.Hit += (collider, impulse) =>
+                {
+                    string name = collider.gameObject.name;
+                    if (_firstHit == null && name.StartsWith("Hit ")) _firstHit = collider;
+                    Hits.Add(name + "@" + shot.SecondsSinceShot.ToString("F3") + " z" + shot.Puck.position.z.ToString("F2") + " imp" + impulse.magnitude.ToString("F3"));
+                    if (_way.Contains(name)) TouchedWay = true;
+                    else if (name.StartsWith("Hit ")) TouchedOther = true;
+                };
+            }
+
+            Collider _firstHit;
+            Vector3 _prevPosition, _prevVelocity;
+            bool _noted;
+            public string Contact = "";
+
+            public void Step(PhysicsShot shot)
+            {
+                if (shot == null || !shot.Launched || shot.HasWhistled) return;
+                Vector3 p = shot.Puck.position;
+                if (_firstHit != null && !_noted)
+                {
+                    // The first touch happened in this step: the angle between the puck's line and the way to the surface (0: square on, 90: glancing),
+                    // its speed before and after (m/s) and its forward (z) speed after.
+                    _noted = true;
+                    Vector3 toSurface = _firstHit.ClosestPoint(_prevPosition) - _prevPosition;
+                    Vector3 now = shot.Puck.linearVelocity;
+                    Contact = " angle=" + Vector3.Angle(_prevVelocity, toSurface).ToString("F0") + " speed=" + _prevVelocity.magnitude.ToString("F1") + ">"
+                        + now.magnitude.ToString("F1") + " vz=" + _prevVelocity.z.ToString("F1") + ">" + now.z.ToString("F1") + " vx=" + _prevVelocity.x.ToString("F1") + ">" + now.x.ToString("F1");
+                }
+                _prevPosition = p;
+                _prevVelocity = shot.Puck.linearVelocity;
+                foreach (Collider c in _hulls)
+                {
+                    if (!_first.ContainsKey(c)) _first[c] = c.bounds.center;
+                    float gap = Vector3.Distance(c.ClosestPoint(p), p);
+                    if (gap >= MinGap) continue;
+                    MinGap = gap;
+                    MinGapAt = (float)shot.SecondsSinceShot;
+                    MinGapPiece = c.gameObject.name;
+                    MinShift = Vector3.Distance(c.bounds.center, _first[c]);
+                    MinGapZ = p.z;
+                }
+            }
+
+            public string Class()
+            {
+                if (TouchedWay) return "touched-way-piece";
+                if (TouchedOther) return "touched-other-gear";
+                if (_hulls.Count == 0) return "no-hull-for-way-piece";
+                if (MinGap < 0.005f) return "inside-hull-no-contact";
+                if (MinShift > 0.08f) return "gear-moved-away";
+                return "missed-hull";
+            }
+
+            public override string ToString() => "way=[" + Pieces + "] class=" + Class() + " minGap=" + (float.IsInfinity(MinGap) ? "n/a" : MinGap.ToString("F3"))
+                + "@" + MinGapAt.ToString("F3") + " " + MinGapPiece + " z" + MinGapZ.ToString("F2") + " shift=" + MinShift.ToString("F3") + Contact + " hits=[" + string.Join("; ", Hits) + "]";
+        }
 
         /// <summary>The cell picked at the Shot's moment (Pick -1: nothing to aim at) with the Gap count shown then.</summary>
         struct Choice
@@ -133,6 +218,7 @@ namespace HockeyGame.Core.Tests
             var driver = new GameObject("Breakaway (test)");
             PhysicsShotEffects effects = null;
             GoalieView view = null;
+            ShotRecord record = null;
             try
             {
                 var rng = new System.Random(seed * 7919 + 13);
@@ -160,6 +246,7 @@ namespace HockeyGame.Core.Tests
                         breakaway.PoseForPhysics((step + 1) * PhysicsShot.StepSeconds);
                         _physics.Simulate(PhysicsShot.StepSeconds);
                         effects.AfterPhysicsStep(PhysicsShot.StepSeconds);
+                        record?.Step(effects.Shot);
                     }
                     round.Tick(Frame);
                     view.Show(true);
@@ -180,16 +267,23 @@ namespace HockeyGame.Core.Tests
                         sample.Cell = pick;
                         sample.ShotFrame = frame;
                         sample.SetUpKind = round.SetUp.Kind;
+                        if (aim == Aim.GearInTheWay)
+                        {
+                            RinkPoint shotFrom = Breakaway.ShotStart(round.AttackSide, round.PhaseSecondsElapsed, settings);
+                            record = new ShotRecord(port.InTheWayPieces(round.SetUp, round.AttackSide, round.PhaseSecondsElapsed, shotFrom,RinkPoint.OnNetFace(x, y)), _parent.transform);
+                        }
                         round.SubmitShot(x, y, speedKmh, false);
                         shot = true;
                     }
                     effects.Update(round, Frame);
+                    if (record != null && !record.Subscribed && effects.Shot != null) record.Subscribe(effects.Shot);
                     breakaway.Step(Frame * Time.timeScale, Frame);
                     if (shot && !round.AwaitingWhistle && round.LastResult.HasValue)
                     {
                         sample.Kind = round.LastResult.Value.Kind;
                         sample.Played = true;
                         sample.EndFrame = frame;
+                        if (record != null) sample.Diag = "seed " + seed + " cell " + sample.Cell + " " + sample.Side + "/" + sample.SetUpKind + " " + sample.Kind + " " + record;
                         break;
                     }
                 }
@@ -274,6 +368,12 @@ namespace HockeyGame.Core.Tests
                     Sample s = Play(seed, aim, speedKmh, choices);
                     if (!s.Played) continue;
                     rates.Add(s);
+                    if (s.Diag != null) // #211: one record per goalie-set Shot, kept beside the notes when there is a notes folder
+                    {
+                        string notesDir = System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, "../../_notes"));
+                        if (System.IO.Directory.Exists(notesDir))
+                            System.IO.File.AppendAllText(System.IO.Path.Combine(notesDir, "t211-goals.txt"), speedKmh + " km/h " + s.Diag + "\n");
+                    }
                     kindShots[(int)s.SetUpKind]++;
                     if (s.Kind == ShotResultKind.Goal) kindGoals[(int)s.SetUpKind]++;
                 }

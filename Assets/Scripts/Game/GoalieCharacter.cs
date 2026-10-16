@@ -991,6 +991,24 @@ namespace HockeyGame
             return touches;
         }
 
+        /// <summary>
+        /// Diagnostic (#211): which pieces (GearPiece names, "+" between) the real puck, flying from `from` to `to`, meets in the Ready
+        /// Stance standing at spot at this facing: the pieces the race's "in the way" is made of. Empty when none or no model.
+        /// </summary>
+        public string MeasureTouchedPieces(Vector3 spot, float facing, Vector3 from, Vector3 to)
+        {
+            if (!Present) return "";
+            string found = "";
+            InReadyStanceAt(spot, facing, () =>
+            {
+                foreach (string piece in GearPiece.Gear)
+                    if (Touches(from, to, OnePiece(piece), true)) found += (found.Length == 0 ? "" : "+") + piece;
+                if (Touches(from, to, OnePiece(GearPiece.Body), true)) found += (found.Length == 0 ? "" : "+") + GearPiece.Body;
+                return true;
+            });
+            return found;
+        }
+
         void Finish(string piece, List<(Transform bone, GoalieShape shape)> body)
         {
             _reaction = Take();

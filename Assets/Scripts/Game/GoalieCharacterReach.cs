@@ -50,6 +50,14 @@ namespace HockeyGame
             return quickest.HasValue ? GoalieReachAnswer.Reaches(quickest.Value, quickestSeconds) : GoalieReachAnswer.NoGearReaches;
         }
 
+        /// <summary>Diagnostic (#211): the pieces of gear the race finds in the way at this Net Face point ("Left Pad+Body"), empty when none.</summary>
+        public string InTheWayPieces(SetUp setUp, AttackSide side, double secondsSinceWindowOpened, RinkPoint shotStart, RinkPoint netPoint)
+        {
+            if (_character == null || !_character.Present) return "";
+            RinkPoint spot = SetUps.Spot(setUp, side, secondsSinceWindowOpened, shotStart, _settings);
+            return _character.MeasureTouchedPieces(ToVector(spot), (float)SetUps.Facing(spot, shotStart), ToVector(shotStart), ToVector(netPoint));
+        }
+
         /// <summary>Whether gear or body is in the way of a puck with a Gap's room all round it, at this one Net Face point (what makes a Gap, cell by cell).</summary>
         public bool InTheWayWithRoom(SetUp setUp, AttackSide side, double secondsSinceWindowOpened, RinkPoint shotStart, RinkPoint netPoint)
         {
