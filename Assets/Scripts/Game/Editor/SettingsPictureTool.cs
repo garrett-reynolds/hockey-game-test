@@ -118,9 +118,25 @@ namespace HockeyGame.Editor
                         _stage = 2;
                         _frames = 0;
                     }
-                    else
+                    else if (_stage == 2)
                     {
                         Shoot(Path.Combine(folder, "t159-settings-dev.png"), "Dev (" + _screen.Menu.RowCount + " rows)");
+                        _screen.ForceHoverRow = 0; // #199: a tip on the top row (no mouse; Pointer refreshes the page)
+                        _screen.Pointer(new Vector2(-1f, -1f), false, false);
+                        _stage = 3;
+                        _frames = 0;
+                    }
+                    else if (_stage == 3)
+                    {
+                        Shoot(Path.Combine(folder, "t199-top.png"), "tip on the top Dev row");
+                        _screen.ForceHoverRow = _screen.Menu.RowCount - 1; // and on the bottom row
+                        _screen.Pointer(new Vector2(-1f, -1f), false, false);
+                        _stage = 4;
+                        _frames = 0;
+                    }
+                    else if (_stage == 4)
+                    {
+                        Shoot(Path.Combine(folder, "t199-bottom.png"), "tip on the bottom Dev row");
                         Finish();
                     }
                 }
