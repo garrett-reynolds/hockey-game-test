@@ -65,6 +65,19 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void The_crowd_keeps_its_materials_and_card_pictures_after_Unity_unloads_unused_assets()
+        {
+            Crowd crowd = Crowd.Build(_rink.transform);
+            Assert.IsNotNull(crowd);
+            int materials = crowd.Materials.Count();
+            Assert.That(materials, Is.GreaterThan(0));
+            UnityEditor.EditorUtility.UnloadUnusedAssetsImmediate();
+            Assert.AreEqual(materials, crowd.Materials.Count(), "Unity unloaded a crowd material as unused (#203)");
+            Assert.IsTrue(crowd.BodyOf(0, 1).Cards != null, "Unity unloaded the far body's card picture as unused (#203)");
+            Assert.IsTrue(crowd.BodyOf(0, 0).Vat != null, "Unity unloaded a VAT picture as unused (#203)");
+        }
+
+        [Test]
         public void A_fan_sits_in_every_seat_of_the_bowl()
         {
             Crowd crowd = Crowd.Build(_rink.transform);

@@ -425,14 +425,21 @@ namespace HockeyGame
             _mid = new GUIStyle(GUI.skin.label) { fontSize = 26, alignment = TextAnchor.MiddleCenter };
             _small = new GUIStyle(GUI.skin.label) { fontSize = 18 };
             _big.normal.textColor = _mid.normal.textColor = _small.normal.textColor = Color.white;
-            var back = _scoreBoxBack = new Texture2D(1, 1);
             (Color boxBack, Color boxText) = ScoreBoxColours(_skin);
-            back.SetPixel(0, 0, boxBack);
-            back.Apply();
+            var back = _scoreBoxBack = MakeScoreBoxBack(boxBack);
             _scoreBox = new GUIStyle(GUI.skin.label) { fontSize = 22, alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
             _scoreBox.normal.background = back;
             _scoreBox.normal.textColor = boxText;
             _logo = StartLogoArt.Make(); // about 0.35 s once, with the styles, not in the middle of play
+        }
+
+        /// <summary>The Score Box's one-pixel background picture.</summary>
+        public static Texture2D MakeScoreBoxBack(Color colour)
+        {
+            var back = new Texture2D(1, 1) { hideFlags = HideFlags.DontUnloadUnusedAsset }; // #203: only managed code holds it, so Unity would unload it as unused
+            back.SetPixel(0, 0, colour);
+            back.Apply();
+            return back;
         }
 
         void OnDestroy()

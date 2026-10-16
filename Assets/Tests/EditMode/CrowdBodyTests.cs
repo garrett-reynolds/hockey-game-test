@@ -45,6 +45,19 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void A_body_keeps_its_mesh_and_VAT_picture_after_Unity_unloads_unused_assets_so_the_crowd_never_draws_nothing()
+        {
+            CrowdBody body = CrowdBody.Read(TinyBody(), "tiny"); // held only by managed code, like the crowd's (#203)
+            try
+            {
+                UnityEditor.EditorUtility.UnloadUnusedAssetsImmediate();
+                Assert.IsTrue(body.Mesh != null, "Unity unloaded the body mesh as unused (#203)");
+                Assert.IsTrue(body.Vat != null, "Unity unloaded the VAT picture as unused (#203)");
+            }
+            finally { body.Destroy(); }
+        }
+
+        [Test]
         public void A_version_2_body_is_refused()
         {
             Assert.Throws<InvalidDataException>(() => CrowdBody.Read(TinyBody(2), "old"));

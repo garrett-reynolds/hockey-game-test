@@ -99,7 +99,7 @@ namespace HockeyGame
                 var triangles = new int[triangleCount * 3];
                 for (int i = 0; i < triangles.Length; i++) triangles[i] = r.ReadUInt16();
 
-                var mesh = new Mesh { name = name };
+                var mesh = new Mesh { name = name, hideFlags = HideFlags.DontUnloadUnusedAsset }; // #203: only managed code holds it, so Unity would unload it as unused
                 mesh.SetVertices(vertices);
                 mesh.SetNormals(normals);
                 mesh.SetUVs(0, uv);
@@ -119,7 +119,7 @@ namespace HockeyGame
                 }
                 var vat = new Texture2D(vertexCount, rows * shapes, TextureFormat.RGBAHalf, false, true)
                 {
-                    name = name + " VAT", filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp
+                    name = name + " VAT", hideFlags = HideFlags.DontUnloadUnusedAsset, filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp
                 };
                 vat.SetPixelData(r.ReadBytes(vertexCount * rows * shapes * 8), 0);
                 vat.Apply(false, true);
@@ -136,7 +136,7 @@ namespace HockeyGame
                             Array.Copy(r.ReadBytes(w), 0, pixels, y * w * cards + k * w, w);
                     body.Cards = new Texture2D(w * cards, h, TextureFormat.R8, false, true)
                     {
-                        name = name + " cards", filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp
+                        name = name + " cards", hideFlags = HideFlags.DontUnloadUnusedAsset, filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp
                     };
                     int top = 0;
                     for (int y = 0; y < h; y++)

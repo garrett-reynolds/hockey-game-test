@@ -339,6 +339,9 @@ namespace HockeyGame
             }
         }
 
+        /// <summary>The body and card materials the crowd draws with (those still alive).</summary>
+        public IEnumerable<Material> Materials => AllMaterials();
+
         IEnumerable<Material> AllMaterials()
         {
             foreach (Material m in _materials) if (m != null) yield return m;

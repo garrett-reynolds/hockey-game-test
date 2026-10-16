@@ -146,6 +146,18 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void The_score_box_back_picture_is_still_there_after_Unity_unloads_unused_assets_so_the_box_never_draws_a_null_texture()
+        {
+            Texture2D back = RoundDriver.MakeScoreBoxBack(Color.red); // held only by managed code (#203)
+            try
+            {
+                UnityEditor.EditorUtility.UnloadUnusedAssetsImmediate();
+                Assert.IsTrue(back != null, "Unity unloaded the score box back as unused (#203)");
+            }
+            finally { if (back != null) Object.DestroyImmediate(back); }
+        }
+
+        [Test]
         public void The_logo_picture_has_every_League_colour()
         {
             Texture2D logo = StartLogoArt.Make();
