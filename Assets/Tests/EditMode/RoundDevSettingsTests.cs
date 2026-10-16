@@ -28,6 +28,7 @@ namespace HockeyGame.Core.Tests
         {
             menu.Select(RowOf(menu, label));
             for (int i = 0; i < times; i++) menu.Change(dir);
+            menu.Save(); // #197: changes wait for Save; the tests read the saved data
         }
 
         [Test]
@@ -107,12 +108,16 @@ namespace HockeyGame.Core.Tests
             var save = new SaveData();
             var menu = DevMenu(save);
             menu.SetFraction(RowOf(menu, "Skate-in time"), 1);
+            menu.Save(); // #197: changes wait for Save
             Assert.AreEqual(5.0, save.SkateInSeconds, 1e-9);
             menu.SetFraction(RowOf(menu, "Result hold"), 0);
+            menu.Save();
             Assert.AreEqual(2.4, save.ResultHoldSeconds, 1e-9);
             menu.SetFraction(RowOf(menu, "Cheat size"), 0.5); // 0.1 + 0.5 * 0.5 = 0.35
+            menu.Save();
             Assert.AreEqual(0.35, save.CheatMetres, 1e-9);
             menu.SetFraction(RowOf(menu, "Shooting window"), 0); // 1.5, but the Late Settle time (1.0) holds the window at 2.0
+            menu.Save();
             Assert.AreEqual(2.0, save.ShootingWindowSeconds, 1e-9);
         }
 
@@ -180,6 +185,7 @@ namespace HockeyGame.Core.Tests
                 Step(menu, "Late Settle size", -1, 100);
                 Assert.AreEqual(0.1, save.LateSettleMetres, 1e-9);
                 menu.SetFraction(row, 1);
+                menu.Save(); // #197
                 Assert.AreEqual(0.1, save.LateSettleMetres, 1e-9);
                 Assert.GreaterOrEqual(menu.Fraction(row), 0);
                 Assert.LessOrEqual(menu.Fraction(row), 1);
@@ -254,6 +260,7 @@ namespace HockeyGame.Core.Tests
             };
             var menu = DevMenu(save);
             Assert.IsTrue(menu.ResetPart());
+            menu.Save(); // #197: Reset to default waits for Save
             var defaults = new SaveData();
             Assert.AreEqual(defaults.SkateInSeconds, save.SkateInSeconds);
             Assert.AreEqual(defaults.ShootingWindowSeconds, save.ShootingWindowSeconds);
@@ -271,6 +278,7 @@ namespace HockeyGame.Core.Tests
             var save = new SaveData { SkateInSeconds = 4, CheatMetres = 0.5, MasterVolume = 0.3 };
             var menu = new SettingsMenu(save, new string[0]);
             Assert.IsTrue(menu.ResetPart());
+            menu.Save(); // #197
             Assert.AreEqual(1.0, save.MasterVolume, 1e-9);
             Assert.AreEqual(4, save.SkateInSeconds, 1e-9);
             Assert.AreEqual(0.5, save.CheatMetres, 1e-9);
@@ -378,6 +386,7 @@ namespace HockeyGame.Core.Tests
 
             var menu = DevMenu(save);
             menu.Press(SettingsKey.Reset);
+            menu.Save(); // #197: Reset to default waits for Save
             Assert.AreEqual(0.04, save.GapThinGearReachMetres, 1e-9);
         }
 
@@ -460,7 +469,9 @@ namespace HockeyGame.Core.Tests
             finally { File.Delete(wild); }
 
             var save = new SaveData { BottleKnockSpeedKmh = 140, BottleJumpPercent = 60 };
-            DevMenu(save).Press(SettingsKey.Reset);
+            var resetMenu = DevMenu(save);
+            resetMenu.Press(SettingsKey.Reset);
+            resetMenu.Save(); // #197: Reset to default waits for Save
             Assert.AreEqual(80, save.BottleKnockSpeedKmh, 1e-9);
             Assert.AreEqual(100, save.BottleJumpPercent, 1e-9);
         }

@@ -312,14 +312,18 @@ namespace HockeyGame.Core.Tests
             int row = menu.Selected;
             Assert.AreEqual("6", menu.Value(row));
             Assert.IsTrue(menu.Change(1));
+            menu.Save(); // #197: a change waits for Save
             Assert.AreEqual(7, save.ShotsPerRound);
             for (int i = 0; i < 6; i++) menu.Change(1);
+            menu.Save();
             Assert.AreEqual(10, save.ShotsPerRound);
             Assert.IsFalse(menu.Change(1), "stays at 10");
             for (int i = 0; i < 9; i++) menu.Change(-1);
+            menu.Save();
             Assert.AreEqual(3, save.ShotsPerRound);
             Assert.IsFalse(menu.Change(-1), "stays at 3");
             Assert.IsTrue(menu.SetFraction(row, 1.0));
+            menu.Save();
             Assert.AreEqual(10, save.ShotsPerRound);
         }
 
@@ -331,6 +335,7 @@ namespace HockeyGame.Core.Tests
             save.SetBest(6, 2);
             var menu = new SettingsMenu(save, new string[0]);
             Assert.IsTrue(menu.Press(SettingsKey.Reset));
+            menu.Save(); // #197: Reset to default waits for Save
             Assert.AreEqual(6, save.ShotsPerRound);
             Assert.AreEqual(7, save.BestFor(9));
             Assert.AreEqual(2, save.BestFor(6));
