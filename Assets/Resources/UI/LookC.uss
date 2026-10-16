@@ -18,6 +18,18 @@
     background-color: rgba(10, 16, 34, 0.80);
 }
 
+/* Hover tip box (#199): beside the row under the mouse. */
+.lc-tipbox {
+    position: absolute; width: 640px;
+    padding: 10px 18px;
+    background-color: rgb(10, 16, 34);
+    border-width: 3px; border-color: rgb(232, 190, 40);
+    border-left-width: 12px; border-left-color: rgb(20, 60, 150);
+    color: rgb(255, 255, 255);
+    font-size: 24px;
+    white-space: normal;
+}
+
 .lc-topbar {
     /* Fully opaque, and 150 px tall (down to the cards): the arena's Video Board text no longer shows through under the header. */
     position: absolute; left: 0; top: 0; right: 0; height: 150px;

@@ -52,6 +52,7 @@ namespace HockeyGame.Core
             public SettingsRowKind Kind;
             public string Label;
             public string Hint;                      // null, or a note such as "(next launch)"
+            public string Tip;                       // the hover tip box text (#199)
             public Func<string> Value;
             public Func<int, bool> Change;           // Left/Right; null = does nothing
             public Func<bool> Activate;              // Enter; null = does nothing
@@ -128,8 +129,46 @@ namespace HockeyGame.Core
             // Test Mode (#156), kept the last Dev row: endless Shots from the shooter's spot. A button that opens it; it changes no setting, so Activate says false (nothing to save).
             AddRow(SettingsPart.Dev, "TEST", SettingsRowKind.Button, "Test Mode", () => "open", null, () => { _openTestMode?.Invoke(); return false; });
 
+            foreach (var r in _all)
+                if (Tips.TryGetValue(r.Label, out var tip)) r.Tip = tip;
             FillRows();
         }
+
+        // Hover tips (#199), by row label: what the row does, then when a change takes effect.
+        private static readonly Dictionary<string, string> Tips = new Dictionary<string, string>
+        {
+            { "Master volume", "The loudness of everything. Changes at once." },
+            { "Crowd", "How loud the crowd is. Changes at once." },
+            { "Game sounds", "How loud the puck, posts, whistle and goal horn are. Changes at once." },
+            { "Music", "How loud the music is. Changes at once." },
+            { "Mute", "Turns every sound off; the volumes stay as they are. Changes at once." },
+            { "Tick", "Plays a tick each second of the Shooting window. Changes at once." },
+            { "Shots per Round", "How many Shots one Round has. The next Round uses it." },
+            { "Easy mode", "Glows the Gaps the goalie leaves open, as a hint to aim at. Changes at once." },
+            { "Test Shots on at start", "Starts the game with Test Shots on. Takes effect next launch." },
+            { "Replay", "Shows a short slow-motion Replay after a Goal, Save or Frame Hit. Changes at once." },
+            { "USB port", "The port the shot sensor is read from. Auto picks one. Takes effect next launch." },
+            { "End screen input-ignore time", "How long the end screen ignores presses, so a late Shot does not skip it. Next end screen." },
+            { "End screen auto-return time", "How long the end screen waits before it goes back to the start. Next end screen." },
+            { "Reset best score", "Clears the best score for every Shots per Round number. Changes at once." },
+            { "Show the block goalie", "Uses the plain block goalie instead of the player model. Takes effect next launch." },
+            { "Reaction time", "How long the goalie waits after the Shot before he moves. Next Round." },
+            { "Reaction wobble", "How much the goalie's reaction time varies from Shot to Shot. Next Round." },
+            { "Hand speed", "How fast the goalie's hands move, in metres per second. Next Round." },
+            { "Leg speed", "How fast the goalie's legs move, in metres per second. Next Round." },
+            { "Max push", "The furthest the goalie moves across to reach a Shot. Next Round." },
+            { "Shuffle max", "A move across up to this far is a shuffle; a longer one is a T-push. Next Round." },
+            { "Skate-in time", "How long the shooter skates in before the Shooting window. Next Round." },
+            { "Shooting window", "How long the player has to take the Shot. Next Round." },
+            { "Result hold", "How long a result with no Replay stays on screen. Next Round." },
+            { "Cheat size", "How far toward a post the goalie sets when he cheats. Next Round." },
+            { "Late Settle size", "How far short of his spot the goalie is when the window opens. Next Round." },
+            { "Late Settle time", "How long the goalie takes to close onto his spot after the window opens. Next Round." },
+            { "Gap thin-gear reach", "How near thin gear must be to block a Gap. Next Round." },
+            { "Bottle knock speed", "A Goal at least this fast knocks the water bottle off the net. Next Shot." },
+            { "Bottle jump", "How high the water bottle jumps when the puck hits it. Next Shot." },
+            { "Test Mode", "Opens endless Shots from the shooter's spot. It changes no setting." },
+        };
 
         /// <summary>The part showing now.</summary>
         public SettingsPart Part { get; private set; }
@@ -152,6 +191,9 @@ namespace HockeyGame.Core
 
         /// <summary>A short note after the row's label (for example "(next launch)"), or null.</summary>
         public string Hint(int row) => _rows[row].Hint;
+
+        /// <summary>One or two short lines for the tip box (#199): what the row does and when a change takes effect.</summary>
+        public string Tip(int row) => _rows[row].Tip;
 
         public SettingsRowKind Kind(int row) => _rows[row].Kind;
 

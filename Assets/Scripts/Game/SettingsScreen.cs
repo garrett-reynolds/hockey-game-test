@@ -45,6 +45,11 @@ namespace HockeyGame
         readonly List<Hit> _hits = new List<Hit>();
         SettingsMenu _menu;
         int _dragRow = -1;
+        // Hover tip box (#199): the row under the mouse, or -1. A tool may set ForceHoverRow to show a tip without a mouse.
+        const float TipBoxWidth = 640f, TipPadding = 18f;
+        readonly Label _tipBox;
+        int _hoverRow = -1;
+        public int ForceHoverRow = -1;
         SettingsPart _shownPart;
 
         public SettingsScreen(SaveData save)
@@ -91,6 +96,7 @@ namespace HockeyGame
             var bottom = Add(_page, "lc-bottombar");
             _reset = Add(bottom, "lc-reset", "");
             _hints = Add(bottom, "lc-hints", "ESC  CLOSE      TAB  PLAYER / DEV      R  RESET");
+            _tipBox = Add(_page, "lc-tipbox lc-hidden", ""); // last, so it draws over the cards (#199)
             _page.AddToClassList("lc-hidden");
             _root.Add(_page);
 
@@ -212,6 +218,7 @@ namespace HockeyGame
                 else
                     _dragRow = -1;
             }
+            _hoverRow = RowAt(at);
             Sync();
             return changed;
         }
@@ -239,6 +246,33 @@ namespace HockeyGame
                 return false; // the row itself: selected
             }
             return false;
+        }
+
+        // The row under the pointer, or -1 (#199).
+        int RowAt(Vector2 at)
+        {
+            for (int i = _hits.Count - 1; i >= 0; i--)
+                if (Over(_hits[i].El, at)) return _hits[i].Row;
+            return -1;
+        }
+
+        // Shows the tip box beside the hovered row, inside the page, off the row; hides it when the mouse is on no row (#199).
+        void RefreshTip()
+        {
+            int hover = ForceHoverRow >= 0 ? ForceHoverRow : _hoverRow;
+            bool show = hover >= 0 && hover < _rows.Count && _page.resolvedStyle.display != DisplayStyle.None;
+            string tip = show ? _menu.Tip(hover) : null;
+            show = !string.IsNullOrEmpty(tip);
+            _tipBox.EnableInClassList("lc-hidden", !show);
+            if (!show) return;
+            _tipBox.text = tip;
+            Rect row = _rows[hover].Row.worldBound, page = _page.worldBound;
+            float textHeight = _tipBox.MeasureTextSize(tip, TipBoxWidth - 2 * TipPadding - 15f,VisualElement.MeasureMode.Exactly,
+                0, VisualElement.MeasureMode.Undefined).y;
+            float boxHeight = textHeight + 2 * 10f + 6f; // padding and border, as LookC.uss
+            var at = TipPlacement.Place(row.x - page.x, row.y - page.y, row.width, row.height, page.width, page.height, TipBoxWidth, boxHeight);
+            _tipBox.style.left = (float)at.X;
+            _tipBox.style.top = (float)at.Y;
         }
 
         bool DragTo(int row, Vector2 at)
@@ -270,6 +304,7 @@ namespace HockeyGame
         void Rebuild()
         {
             _shownPart = _menu.Part;
+            _hoverRow = -1; // row numbers belong to the part shown
             _content.Clear();
             _rows.Clear();
             _hits.Clear();
@@ -391,6 +426,7 @@ namespace HockeyGame
                         break;
                 }
             }
+            RefreshTip();
         }
 
         /// <summary>Serial ports on this PC now, sorted. Empty if they cannot be listed.</summary>

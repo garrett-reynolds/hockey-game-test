@@ -35,6 +35,22 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void Every_row_in_both_parts_has_a_tip()
+        {
+            var menu = NewMenu(new SaveData());
+            foreach (var part in new[] { SettingsPart.Player, SettingsPart.Dev })
+            {
+                menu.ShowPart(part);
+                for (int i = 0; i < menu.RowCount; i++)
+                {
+                    string tip = menu.Tip(i);
+                    Assert.IsFalse(string.IsNullOrWhiteSpace(tip), part + " row " + menu.Label(i) + " has no tip");
+                    Assert.LessOrEqual(tip.Length, 140, menu.Label(i) + " tip is too long");
+                }
+            }
+        }
+
+        [Test]
         public void Rows_show_their_current_values()
         {
             var menu = NewMenu(new SaveData { BestScore = 3 }, "COM3");
