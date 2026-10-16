@@ -70,6 +70,53 @@ def test_second_run_refused_while_lock_is_live(h):
     assert (h.locks / "w2.lock").exists()
 
 
+def test_run_still_going_after_slot_tool_was_killed_is_refused(h):
+    # The tool timeout killed slot.py (its pid is gone) but the run_tests CLI child (cli_pid) still runs.
+    h.ready("w2")
+    h.write_lock("w2", dead_pid(), cli_pid=os.getpid())
+    rc, out = h.run("test", "w2")
+    assert rc == 2
+    assert "still going" in out
+    assert h.run_tests_calls() == []
+    assert (h.locks / "w2.lock").exists()
+
+
+def test_lock_with_both_pids_gone_does_not_block(h):
+    h.ready("w2")
+    h.set("w2", "run_tests", reply(SUMMARY_OK))
+    h.write_lock("w2", dead_pid(), cli_pid=dead_pid())
+    rc, out = h.run("test", "w2")
+    assert rc == 0, out
+    assert "stale lock" in out
+
+
+def test_running_test_records_the_cli_pid_and_blocks_a_second_run(h):
+    import subprocess
+    import sys
+    import time
+    from conftest import SLOT_PY
+    h.ready("w2")
+    h.set("w2", "run_tests", reply(SUMMARY_OK, sleep=3))
+    first = subprocess.Popen([sys.executable, str(SLOT_PY), "test", "w2"], env=h.env,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        lock = h.locks / "w2.lock"
+        data = {}
+        end = time.time() + 20
+        while time.time() < end and "cli_pid" not in data:
+            time.sleep(0.1)
+            try:
+                data = json.loads(lock.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                data = {}
+        assert isinstance(data.get("cli_pid"), int)
+        rc, out = h.run("test", "w2")
+        assert rc == 2 and "already running" in out
+    finally:
+        first.wait(timeout=30)
+    assert not (h.locks / "w2.lock").exists()
+
+
 def test_waits_out_a_recompile_then_runs(h):
     h.set("w2", "editor_status", reply(COMPILING), reply(COMPILING), reply(READY))
     h.set("w2", "test_status", reply({"status": "no_tests"}))

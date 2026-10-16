@@ -120,6 +120,44 @@ def test_big_jump_fails_jump(h):
     assert "FAIL" in [x for x in out.splitlines() if x.startswith("jump")][0]
 
 
+def timed(*rows):
+    """rows of (time s, x): hips only move along x."""
+    return ";".join(f"{t:.4f},0.0,{x},1.0,0.0,0.002" for t, x in rows)
+
+
+# 3.2 m/s all the way, but one frame takes 0.126 s (an Editor hitch): that frame steps 0.403 m (the old per-frame
+# check failed at 0.3 m).
+HITCH = timed((0.0, 0.0), (0.0167, 0.053), (0.0333, 0.107), (0.1593, 0.510),
+              *[(0.1593 + i * 0.0167, 0.510 + i * 0.053) for i in range(1, 25)])
+# The same slow frame, but the hips really snap 1.5 m.
+HITCH_JUMP = timed((0.0, 0.0), (0.0167, 0.053), (0.0333, 0.107), (0.1593, 1.607),
+                   *[(0.1593 + i * 0.0167, 1.607 + i * 0.053) for i in range(1, 25)])
+
+
+def test_one_slow_frame_does_not_fail_jump(h):
+    setup(h, HITCH)
+    rc, out = check(h)
+    assert rc == 0, out
+    line = [x for x in out.splitlines() if x.startswith("jump")][0]
+    assert "PASS" in line and "m/s" in line
+
+
+def test_real_jump_in_a_slow_frame_still_fails_jump(h):
+    setup(h, HITCH_JUMP)
+    rc, out = check(h)
+    assert rc == 1
+    assert "FAIL" in [x for x in out.splitlines() if x.startswith("jump")][0]
+
+
+def test_play_check_refused_while_a_run_is_going(h):
+    setup(h, GOOD)
+    h.write_lock("w2", dead_pid(), cli_pid=os.getpid())
+    rc, out = check_raw(h)
+    assert rc == 2
+    assert "still going" in out
+    assert "editor_play" not in commands(h)
+
+
 def test_console_errors_fail(h):
     setup(h, GOOD, console_after=CONSOLE_ERR)
     rc, out = check(h)

@@ -68,9 +68,12 @@ class Harness:
     def run_tests_calls(self):
         return [c for c in self.calls() if "run_tests" in c]
 
-    def write_lock(self, slot, pid):
+    def write_lock(self, slot, pid, cli_pid=None):
         self.locks.mkdir(exist_ok=True)
-        (self.locks / f"{slot}.lock").write_text(json.dumps({"pid": pid, "kind": "fast"}), encoding="utf-8")
+        data = {"pid": pid, "kind": "fast"}
+        if cli_pid is not None:
+            data["cli_pid"] = cli_pid
+        (self.locks / f"{slot}.lock").write_text(json.dumps(data), encoding="utf-8")
 
 
 @pytest.fixture
