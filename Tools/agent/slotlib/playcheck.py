@@ -52,6 +52,8 @@ UnityEditor.EditorUtility.audioMasterMute=(UnityEditor.EditorUtility.audioMaster
 var sb=new System.Text.StringBuilder();
 int last=-1;
 UnityEditor.EditorApplication.CallbackFunction cb=()=>{
+ if(hips==null||l==null||r==null){ var me=System.AppDomain.CurrentDomain.GetData("pc.cb") as UnityEditor.EditorApplication.CallbackFunction; if(me!=null) UnityEditor.EditorApplication.update-=me; return; } /* the goalie was destroyed (scene change, Play stopping): stop, do not throw every frame (#211). Block comment only: build_code joins the lines into one. */
+ try{
  if(!UnityEditor.EditorApplication.isPlaying) return; UnityEditor.EditorApplication.QueuePlayerLoopUpdate();
  int f=UnityEngine.Time.frameCount; if(f==last) return; last=f;
  var d=r.position-l.position; float yaw=UnityEngine.Mathf.Atan2(d.x,d.z)*UnityEngine.Mathf.Rad2Deg;
@@ -59,6 +61,7 @@ UnityEditor.EditorApplication.CallbackFunction cb=()=>{
  var p=hips.position; var ci=System.Globalization.CultureInfo.InvariantCulture;
  if(sb.Length>0) sb.Append(';');
  sb.Append(UnityEngine.Time.realtimeSinceStartup.ToString("F4",ci)).Append(',').Append(yaw.ToString("F2",ci)).Append(',').Append(p.x.ToString("F4",ci)).Append(',').Append(p.y.ToString("F4",ci)).Append(',').Append(p.z.ToString("F4",ci)).Append(',').Append((low-ice).ToString("F4",ci));
+ }catch(System.Exception){ var me2=System.AppDomain.CurrentDomain.GetData("pc.cb") as UnityEditor.EditorApplication.CallbackFunction; if(me2!=null) UnityEditor.EditorApplication.update-=me2; } /* any read of a destroyed object ends the sampler quietly; game errors are not touched */
 };
 UnityEditor.EditorApplication.update+=cb;
 System.AppDomain.CurrentDomain.SetData("pc.cb",cb);

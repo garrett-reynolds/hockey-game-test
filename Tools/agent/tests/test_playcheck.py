@@ -426,3 +426,44 @@ def test_cleanup_restores_the_saved_mute_and_never_unmutes():
     assert 'GetData("pc.mute")' in cleanup
     assert "(pm==null)?true:(bool)pm" in cleanup
     assert 'SetData("pc.mute",null)' in cleanup
+
+
+def sampler_body():
+    from slotlib import playcheck
+    text = playcheck.PREPARE
+    return text[text.index("cb=()=>{"):text.index("EditorApplication.update+=cb;")]
+
+
+def test_sampler_stops_when_a_bone_is_destroyed():
+    body = sampler_body()
+    assert "hips==null" in body and "l==null" in body and "r==null" in body
+
+
+def test_sampler_removes_itself_when_a_bone_is_destroyed():
+    body = sampler_body()
+    assert 'GetData("pc.cb")' in body and "EditorApplication.update-=me" in body
+
+
+def test_eval_snippets_have_no_double_slash_comments():
+    from slotlib import playcheck
+    for name in ("PREPARE", "READ", "CLEANUP"):
+        code = getattr(playcheck, name)
+        assert "//" not in code.replace("http://", ""), name
+
+
+def test_sampler_ends_quietly_on_any_exception_of_its_own():
+    body = sampler_body()
+    assert "try{" in body and "catch(System.Exception)" in body
+
+
+def test_deliberate_game_error_still_fails_the_check(h):
+    setup(h, GOOD, console_after={"cursor": 20, "counts": {"error": 1, "warn": 0, "log": 0}, "entries": []})
+    rc, out = check(h)
+    assert rc == 1
+    line = [x for x in out.splitlines() if x.startswith("console")][0]
+    assert "FAIL" in line and "1 errors" in line
+
+
+def test_sampler_checks_every_object_it_reads_for_destroyed():
+    body = sampler_body()
+    assert "s!=null" in body
