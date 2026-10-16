@@ -28,7 +28,7 @@ namespace HockeyGame
         readonly PuckReach _reach;
         // The physics step (AfterStep count) of the latest contact with any gear: a touch episode is one run of steps in contact.
         int _gearContactStep = -100;
-        bool _episodeGlove; // the glove is among the pieces of this episode, and the puck is soaked as that
+        float _episodeKeep = 1f; // the lowest share kept by the pieces of this episode (glove, body, else gear): the puck is soaked as that
         int _steps;
         bool _touched, _gearTouched;
 
@@ -62,8 +62,8 @@ namespace HockeyGame
         public double SecondsSinceShot { get; private set; }
         /// <summary>The puck's centre has passed the Net Face plane (z = 0), at any time this Shot.</summary>
         public bool CrossedNetFace { get; private set; }
-        /// <summary>After a gear hit the puck keeps this share of its speed, and after a hit on the glove GloveKeep (once per hit).</summary>
-        public const float GearKeep = 0.7f, GloveKeep = 0.3f;
+        /// <summary>After a gear hit the puck keeps this share of its speed, and after a hit on the glove GloveKeep, on the body BodyKeep (#211; once per hit).</summary>
+        public const float GearKeep = 0.7f, GloveKeep = 0.3f, BodyKeep = 0.1f;
 
         /// <summary>The puck has pushed off the goalie's gear (a hit shape), at any time this Shot: the Whistle rule's gear touched.</summary>
         public bool GearTouched => _gearTouched;
@@ -211,17 +211,17 @@ namespace HockeyGame
             // Contacts come during step _steps + 1: gear touched in the step before this one (or in this one) is the same touch.
             bool sameTouch = _steps - _gearContactStep < 2;
             _gearContactStep = _steps;
-            bool glove = gear.sharedMaterial == ShotColliders.GearGlove;
+            float keep = gear.sharedMaterial == ShotColliders.GearGlove ? GloveKeep : gear.sharedMaterial == ShotColliders.GearBody ? BodyKeep : GearKeep;
             if (sameTouch)
             {
-                if (!glove || _episodeGlove) return;
-                _episodeGlove = true; // the glove came after a pad: soak the rest of the way to the glove's share
-                Puck.linearVelocity *= GloveKeep / GearKeep;
-                Puck.angularVelocity *= GloveKeep / GearKeep;
+                if (keep >= _episodeKeep) return;
+                // a glove or the body came after a pad: soak the rest of the way to its share
+                Puck.linearVelocity *= keep / _episodeKeep;
+                Puck.angularVelocity *= keep / _episodeKeep;
+                _episodeKeep = keep;
                 return;
             }
-            _episodeGlove = glove;
-            float keep = glove ? GloveKeep : GearKeep;
+            _episodeKeep = keep;
             Puck.linearVelocity *= keep;
             Puck.angularVelocity *= keep;
             GearTouch?.Invoke(gear);

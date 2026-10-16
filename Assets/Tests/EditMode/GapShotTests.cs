@@ -26,11 +26,11 @@ namespace HockeyGame.Core.Tests
         const double GapTargetMin = 0.25, GapTargetMax = 0.45, GoalieTargetMax = 0.05;
 
         /// <summary>
-        /// The bar the goalie set must meet today (#194): 5-13 % of Shots at a cell the race finds gear in the way of still score (8/62 to
-        /// 5/62, the same before the Reach Limit), so the 5 % target is not met yet. The Reach Limit does not touch these: the gear is already in
-        /// the line, so the cause is in the hit shapes or the Save Reaction pose, not the Reach Limit. Lower this toward GoalieTargetMax when that is fixed.
+        /// The bar the goalie set must meet today (#211): after the body soak fix 4/62 (6 %), 0/62, 1/62 of the Shots at a cell the race finds
+        /// gear in the way of score. The 4 at 30 km/h are 3 where the gear moved away before the puck came (15-35 cm) and 1 stick hit; the
+        /// 5 % target is not met at 30 km/h yet. Lower this to GoalieTargetMax when that is fixed.
         /// </summary>
-        const double GoalieBarNow = 0.15;
+        const double GoalieBarNow = 0.07;
 
         /// <summary>The goalie set plays a Shot on every seed, so 62 seeds are enough for the 60 Shots.</summary>
         const int MeasureSeedsGoalie = 62;

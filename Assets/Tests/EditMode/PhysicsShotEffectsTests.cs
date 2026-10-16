@@ -306,7 +306,7 @@ namespace HockeyGame.Core.Tests
             GoalieView goalie = ShownGoalie();
             var effects = Effects(goalie);
             var round = InWindow(FakeReach.InTheWay());
-            Shoot(round, effects, 50, 50, 100);
+            Shoot(round, effects, 96, 50, 100); // #211: a body hit no longer slides on in, so aim past the goalie
             Assert.AreEqual(AfterShotGesture.None, goalie.Gesture, "the race's Save: no gesture");
             UntilWhistle(round, effects);
             Assert.AreEqual(ShotResultKind.Goal, round.LastResult.Value.Kind);

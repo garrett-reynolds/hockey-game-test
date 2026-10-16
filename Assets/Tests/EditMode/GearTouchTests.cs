@@ -119,6 +119,19 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(keep, soaked.speed / plain.speed, 0.08f, $"soaked {soaked.speed:F2} m/s, unsoaked {plain.speed:F2} m/s");
         }
 
+        /// <summary>#211: 16 of the 21 goalie-set Goals hit the body, kept 70 % of the speed and slid on over the line; the body keeps as little as the glove.</summary>
+        [Test]
+        public void A_hit_on_the_goalies_body_keeps_10_percent_of_the_speed_once()
+        {
+            var soaked = HeadOn(ShotColliders.GearBody);
+            var plain = HeadOn(NotGear(ShotColliders.GearBody));
+
+            Assert.AreEqual(plain.hitStep, soaked.hitStep, "same Shot, same hit");
+            Assert.AreEqual(1, soaked.touches, "one touch told");
+            Assert.Greater(plain.speed, 0.5f, "the control keeps some speed to compare with");
+            Assert.AreEqual(PhysicsShot.BodyKeep, soaked.speed / plain.speed, 0.08f, $"soaked {soaked.speed:F2} m/s, unsoaked {plain.speed:F2} m/s");
+        }
+
         [Test]
         public void A_hit_on_two_overlapping_pieces_soaks_once_not_once_per_piece()
         {
