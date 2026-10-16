@@ -570,7 +570,7 @@ namespace HockeyGame
                         v.OffCell.EnableInClassList("lc-cell-off", !on);
                         break;
                     case SettingsRowKind.Button:
-                        v.Value.text = "RESET  (" + value + ")";
+                        v.Value.text = _menu.ButtonText(i);
                         break;
                     default:
                         v.Value.text = value;

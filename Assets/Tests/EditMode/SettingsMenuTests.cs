@@ -19,6 +19,26 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void The_Test_Mode_row_says_it_opens_Test_Mode_and_the_reset_rows_still_say_reset()
+        {
+            var menu = NewMenu(new SaveData());
+            int best = -1;
+            for (int i = 0; i < menu.RowCount; i++)
+                if (menu.Label(i) == "Reset best score") best = i;
+            Assert.GreaterOrEqual(best, 0);
+            StringAssert.StartsWith("RESET", menu.ButtonText(best), "Reset best score keeps its words (#200)");
+            StringAssert.Contains("best", menu.ButtonText(best));
+
+            menu.SwitchPart();
+            int test = -1;
+            for (int i = 0; i < menu.RowCount; i++)
+                if (menu.Label(i) == "Test Mode") test = i;
+            Assert.GreaterOrEqual(test, 0);
+            StringAssert.Contains("OPEN", menu.ButtonText(test));
+            StringAssert.DoesNotContain("RESET", menu.ButtonText(test));
+        }
+
+        [Test]
         public void There_is_one_row_per_setting_plus_reset_best_score()
         {
             var menu = NewMenu(new SaveData());

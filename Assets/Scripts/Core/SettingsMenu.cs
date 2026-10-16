@@ -165,6 +165,9 @@ namespace HockeyGame.Core
 
         public string Value(int row) => _rows[row].Value();
 
+        /// <summary>The words an action row's button shows (#200).</summary>
+        public string ButtonText(int row) => _rows[row].Label == "Test Mode" ? "OPEN TEST MODE" : "RESET  (" + _rows[row].Value() + ")";
+
         /// <summary>The heading the row sits under (consecutive rows with one heading make one card).</summary>
         public string Group(int row) => _rows[row].Group;
 
