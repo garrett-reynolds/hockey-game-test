@@ -94,6 +94,8 @@ namespace HockeyGame
         readonly bool _hasBones;
         readonly Transform _hips, _leftLeg, _rightLeg;
         readonly Transform[] _feet;        // feet and toes: the lowest one stands on the ice
+        readonly Renderer[] _skates;       // #206: the skate meshes hang below the foot bones by a clip's ankle tilt, so they are kept on the ice too
+        float _snapSkateY;                 // the code pose's lowest skate bound when the clip began
 
         // The AI clips keep the facing and height they were made with (Root "Based upon Original"): half of them faced away
         // and all put the skates under the ice. Each clip is turned and lifted once, at its first frame, onto the code pose.
@@ -268,6 +270,9 @@ namespace HockeyGame
                 }
             }
             _feet = feet.ToArray();
+            _skates = animator != null
+                ? Array.FindAll(animator.GetComponentsInChildren<Renderer>(true), r => r.name == GearPiece.ObjectName(GearPiece.LeftSkate) || r.name == GearPiece.ObjectName(GearPiece.RightSkate))
+                : new Renderer[0];
             _snapRot = new Quaternion[_bones.Length]; _codeRot = new Quaternion[_bones.Length]; _animRot = new Quaternion[_bones.Length];
             _snapPos = new Vector3[_bones.Length]; _codePos = new Vector3[_bones.Length]; _animPos = new Vector3[_bones.Length];
         }
@@ -400,6 +405,7 @@ namespace HockeyGame
                 _snapHipsWorld = _hips.position;
                 _snapYaw = BodyYaw();
                 _snapFootY = LowestFootY();
+                _snapSkateY = LowestSkateY();
             }
             _aligned = false;
             LastMaxFacingOffDegrees = 0f;
@@ -504,7 +510,7 @@ namespace HockeyGame
             // shooter; the spine, head and arms still turn as the clip has them.
             Quaternion square = Quaternion.AngleAxis(Mathf.DeltaAngle(BodyYaw(), _snapYaw), Vector3.up);
             _hips.SetPositionAndRotation(new Vector3(_snapHipsWorld.x + off.x, p.y + _dy, _snapHipsWorld.z + off.z), square * _hips.rotation);
-            float under = _snapFootY - LowestFootY(); // a weight shift (stick slap) put a skate 2 cm into the ice: lift it out
+            float under = Under(); // a weight shift (stick slap) put a skate 2 cm into the ice: lift it out
             if (under > 0f) _hips.position += Vector3.up * under;
             if (_scanning) return;
             _hips.position += _netPush; // out of the net (ScanNet)
@@ -565,8 +571,23 @@ namespace HockeyGame
         void KeepOnIce()
         {
             if (_hips == null) return;
-            float under = _snapFootY - LowestFootY();
+            float under = Under();
             if (under > 0f) _hips.position += Vector3.up * under;
+        }
+
+        /// <summary>How far the lowest foot bone, or the lowest skate mesh (#206: the Idle clip's ankles dipped the skates 4 cm with the bones level), is under where the code pose had it.</summary>
+        float Under()
+        {
+            float under = _snapFootY - LowestFootY();
+            if (_skates.Length > 0) under = Mathf.Max(under, _snapSkateY - LowestSkateY());
+            return under;
+        }
+
+        float LowestSkateY()
+        {
+            float y = float.MaxValue;
+            foreach (Renderer r in _skates) if (r != null && r.enabled) y = Mathf.Min(y, r.bounds.min.y);
+            return y;
         }
 
         /// <summary>The way the body faces, in degrees about up: square to the line between the upper legs (any rig's bone axes).</summary>
