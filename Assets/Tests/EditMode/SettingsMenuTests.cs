@@ -469,5 +469,31 @@ namespace HockeyGame.Core.Tests
             Assert.IsFalse(menu.Change(1));
             Assert.AreEqual(SaveData.AutoUsbPort, save.UsbPort);
         }
+
+        [Test]
+        public void Tips_say_changes_act_when_SAVE_is_pressed_not_at_once_and_the_USB_port_acts_on_SAVE()
+        {
+            var menu = NewMenu(new SaveData());
+            foreach (var part in new[] { SettingsPart.Player, SettingsPart.Dev })
+            {
+                menu.ShowPart(part);
+                for (int i = 0; i < menu.RowCount; i++)
+                {
+                    string tip = menu.Tip(i);
+                    if (menu.Kind(i) == SettingsRowKind.Button) continue; // action rows may say "at once"
+                    StringAssert.DoesNotContain("at once", tip, menu.Label(i));
+                }
+            }
+            menu.ShowPart(SettingsPart.Player);
+            int usb = 0;
+            while (menu.Label(usb) != "USB port") usb++;
+            StringAssert.DoesNotContain("next launch", menu.Tip(usb));
+            foreach (var label in new[] { "Master volume", "Crowd", "Game sounds", "Music", "Mute", "Tick", "Easy mode", "Replay", "USB port" })
+            {
+                int row = 0;
+                while (menu.Label(row) != label) row++;
+                StringAssert.Contains("SAVE", menu.Tip(row), label);
+            }
+        }
     }
 }

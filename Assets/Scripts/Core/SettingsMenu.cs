@@ -25,6 +25,13 @@ namespace HockeyGame.Core
         Escape
     }
 
+    /// <summary>The two buttons of the "Save changes?" box.</summary>
+    public enum ConfirmButton
+    {
+        Save,
+        Discard
+    }
+
     /// <summary>How a row is drawn and worked: a slider (drag), an on/off toggle (click), a choice (click for the next), a button (click).</summary>
     public enum SettingsRowKind
     {
@@ -88,95 +95,59 @@ namespace HockeyGame.Core
             if (!_ports.Contains(save.UsbPort)) _ports.Add(save.UsbPort); // keep a saved port that is unplugged
 
             const SettingsPart player = SettingsPart.Player;
-            AddNumber(player, "SOUND", "Master volume", () => _save.MasterVolume, v => _save.MasterVolume = v, SaveData.VolumeRange, Percent);
-            AddNumber(player, "SOUND", "Crowd", () => _save.CrowdVolume, v => _save.CrowdVolume = v, SaveData.VolumeRange, Percent);
-            AddNumber(player, "SOUND", "Game sounds", () => _save.GameVolume, v => _save.GameVolume = v, SaveData.VolumeRange, Percent);
-            AddNumber(player, "SOUND", "Music", () => _save.MusicVolume, v => _save.MusicVolume = v, SaveData.VolumeRange, Percent);
-            AddToggle(player, "SOUND", "Mute", () => _save.Mute, v => _save.Mute = v);
-            AddToggle(player, "SOUND", "Tick", () => _save.TickOn, v => _save.TickOn = v);
-            AddNumber(player, "ROUND", "Shots per Round", () => _save.ShotsPerRound, v => _save.ShotsPerRound = (int)v, SaveData.ShotsPerRoundRange, v => Format("0", v));
-            AddToggle(player, "ROUND", "Easy mode", () => _save.EasyMode, v => _save.EasyMode = v);
-            AddToggle(player, "ROUND", "Test Shots on at start", () => _save.TestShotOnAtStart, v => _save.TestShotOnAtStart = v);
-            AddToggle(player, "ROUND", "Replay", () => _save.ReplayOn, v => _save.ReplayOn = v);
-            AddRow(player, "OPERATOR", SettingsRowKind.Choice, "USB port", () => _save.UsbPort, ChangePort, null);
-            AddNumber(player, "OPERATOR", "End screen input-ignore time", () => _save.InputIgnoreSeconds, v => _save.InputIgnoreSeconds = v, SaveData.InputIgnoreRange, Seconds);
-            AddNumber(player, "OPERATOR", "End screen auto-return time", () => _save.AutoReturnSeconds, v => _save.AutoReturnSeconds = v, SaveData.AutoReturnRange, Seconds);
-            AddRow(player, "OPERATOR", SettingsRowKind.Button, "Reset best score", () => "best " + _save.BestScore.ToString(CultureInfo.InvariantCulture), null, ResetBestScore);
+            // Each row's last text is its hover tip (#199): what the row does, then when a change takes effect. Every row but the two
+            // action rows acts when you press SAVE.
+            AddNumber(player, "SOUND", "Master volume", "The loudness of everything. Acts when you press SAVE.", () => _save.MasterVolume, v => _save.MasterVolume = v, SaveData.VolumeRange, Percent);
+            AddNumber(player, "SOUND", "Crowd", "How loud the crowd is. Acts when you press SAVE.", () => _save.CrowdVolume, v => _save.CrowdVolume = v, SaveData.VolumeRange, Percent);
+            AddNumber(player, "SOUND", "Game sounds", "How loud the puck, posts, whistle and goal horn are. Acts when you press SAVE.", () => _save.GameVolume, v => _save.GameVolume = v, SaveData.VolumeRange, Percent);
+            AddNumber(player, "SOUND", "Music", "How loud the music is. Acts when you press SAVE.", () => _save.MusicVolume, v => _save.MusicVolume = v, SaveData.VolumeRange, Percent);
+            AddToggle(player, "SOUND", "Mute", "Turns every sound off; the volumes stay as they are. Acts when you press SAVE.", () => _save.Mute, v => _save.Mute = v);
+            AddToggle(player, "SOUND", "Tick", "Plays a tick each second of the Shooting window. Acts when you press SAVE.", () => _save.TickOn, v => _save.TickOn = v);
+            AddNumber(player, "ROUND", "Shots per Round", "How many Shots one Round has. The next Round uses it, after SAVE.", () => _save.ShotsPerRound, v => _save.ShotsPerRound = (int)v, SaveData.ShotsPerRoundRange, v => Format("0", v));
+            AddToggle(player, "ROUND", "Easy mode", "Glows the Gaps the goalie leaves open, as a hint to aim at. Acts when you press SAVE.", () => _save.EasyMode, v => _save.EasyMode = v);
+            AddToggle(player, "ROUND", "Test Shots on at start", "Starts the game with Test Shots on. Takes effect next launch.", () => _save.TestShotOnAtStart, v => _save.TestShotOnAtStart = v);
+            AddToggle(player, "ROUND", "Replay", "Shows a short slow-motion Replay after a Goal, Save or Frame Hit. Acts when you press SAVE.", () => _save.ReplayOn, v => _save.ReplayOn = v);
+            AddRow(player, "OPERATOR", SettingsRowKind.Choice, "USB port", "The port the shot sensor is read from. Auto picks one. The sensor reconnects when you press SAVE.", () => _save.UsbPort, ChangePort, null);
+            AddNumber(player, "OPERATOR", "End screen input-ignore time", "How long the end screen ignores presses, so a late Shot does not skip it. Next end screen, after SAVE.", () => _save.InputIgnoreSeconds, v => _save.InputIgnoreSeconds = v, SaveData.InputIgnoreRange, Seconds);
+            AddNumber(player, "OPERATOR", "End screen auto-return time", "How long the end screen waits before it goes back to the start. Next end screen, after SAVE.", () => _save.AutoReturnSeconds, v => _save.AutoReturnSeconds = v, SaveData.AutoReturnRange, Seconds);
+            AddRow(player, "OPERATOR", SettingsRowKind.Button, "Reset best score", "Clears the best score for every Shots per Round number. Changes at once.", () => "best " + _save.BestScore.ToString(CultureInfo.InvariantCulture), null, ResetBestScore);
             _all[_all.Count - 1].Hint = "(all numbers)"; // the best of every Shots per Round number; short, as the hint box is narrow
 
-            AddToggle(SettingsPart.Dev, "SHOW", "Show the block goalie", () => _save.ForceGoalieBlocks, v => _save.ForceGoalieBlocks = v);
+            AddToggle(SettingsPart.Dev, "SHOW", "Show the block goalie", "Uses the plain block goalie instead of the player model. Takes effect next launch.", () => _save.ForceGoalieBlocks, v => _save.ForceGoalieBlocks = v);
             _all[_all.Count - 1].Hint = "(next launch)"; // RoundDriver builds the goalie when the game starts
 
             // The goalie's values (#147): they act from the next Round (ScreenFlow applies them when a Round starts).
-            AddGoalie("Reaction time", () => _save.ReactionSeconds, v => _save.ReactionSeconds = v, SaveData.ReactionRange, Seconds2, () => _save.ReactionAllowed);
-            AddGoalie("Reaction wobble", () => _save.ReactionWobbleSeconds, v => _save.ReactionWobbleSeconds = v, SaveData.WobbleRange, Seconds2, () => _save.WobbleAllowed);
-            AddGoalie("Hand speed", () => _save.HandMetresPerSecond, v => _save.HandMetresPerSecond = v, SaveData.HandRange, Speed, () => _save.HandAllowed);
-            AddGoalie("Leg speed", () => _save.LegMetresPerSecond, v => _save.LegMetresPerSecond = v, SaveData.LegRange, Speed, () => _save.LegAllowed);
+            AddGoalie("Reaction time", "How long the goalie waits after the Shot before he moves. Next Round, after SAVE.", () => _save.ReactionSeconds, v => _save.ReactionSeconds = v, SaveData.ReactionRange, Seconds2, () => _save.ReactionAllowed);
+            AddGoalie("Reaction wobble", "How much the goalie's reaction time varies from Shot to Shot. Next Round, after SAVE.", () => _save.ReactionWobbleSeconds, v => _save.ReactionWobbleSeconds = v, SaveData.WobbleRange, Seconds2, () => _save.WobbleAllowed);
+            AddGoalie("Hand speed", "How fast the goalie's hands move, in metres per second. Next Round, after SAVE.", () => _save.HandMetresPerSecond, v => _save.HandMetresPerSecond = v, SaveData.HandRange, Speed, () => _save.HandAllowed);
+            AddGoalie("Leg speed", "How fast the goalie's legs move, in metres per second. Next Round, after SAVE.", () => _save.LegMetresPerSecond, v => _save.LegMetresPerSecond = v, SaveData.LegRange, Speed, () => _save.LegAllowed);
             // Lowering Max push also brings the Late Settle size down with it (the size never goes above the push).
-            AddGoalie("Max push", () => _save.MaxPushMetres, v => { _save.MaxPushMetres = v; _save.HoldLateSettleToMaxPush(); }, SaveData.MaxPushRange, Metres, () => _save.MaxPushAllowed);
-            AddGoalie("Shuffle max", () => _save.ShuffleMaxMetres, v => _save.ShuffleMaxMetres = v, SaveData.ShuffleMaxRange, Metres, () => _save.ShuffleMaxAllowed);
+            AddGoalie("Max push", "The furthest the goalie moves across to reach a Shot. Next Round, after SAVE.", () => _save.MaxPushMetres, v => { _save.MaxPushMetres = v; _save.HoldLateSettleToMaxPush(); }, SaveData.MaxPushRange, Metres, () => _save.MaxPushAllowed);
+            AddGoalie("Shuffle max", "A move across up to this far is a shuffle; a longer one is a T-push. Next Round, after SAVE.", () => _save.ShuffleMaxMetres, v => _save.ShuffleMaxMetres = v, SaveData.ShuffleMaxRange, Metres, () => _save.ShuffleMaxAllowed);
 
             // Round timing and Set-up Mistakes (#148): they also act from the next Round.
-            AddDevRound("ROUND TIMING", "Skate-in time", () => _save.SkateInSeconds, v => _save.SkateInSeconds = v, SaveData.SkateInRange, Seconds, null);
-            AddDevRound("ROUND TIMING", "Shooting window", () => _save.ShootingWindowSeconds, v => _save.ShootingWindowSeconds = v, SaveData.ShootingWindowRange, Seconds, () => _save.ShootingWindowAllowed);
-            AddDevRound("ROUND TIMING", "Result hold", () => _save.ResultHoldSeconds, v => _save.ResultHoldSeconds = v, SaveData.ResultHoldRange, Seconds, null);
+            AddDevRound("ROUND TIMING", "Skate-in time", "How long the shooter skates in before the Shooting window. Next Round, after SAVE.", () => _save.SkateInSeconds, v => _save.SkateInSeconds = v, SaveData.SkateInRange, Seconds, null);
+            AddDevRound("ROUND TIMING", "Shooting window", "How long the player has to take the Shot. Next Round, after SAVE.", () => _save.ShootingWindowSeconds, v => _save.ShootingWindowSeconds = v, SaveData.ShootingWindowRange, Seconds, () => _save.ShootingWindowAllowed);
+            AddDevRound("ROUND TIMING", "Result hold", "How long a result with no Replay stays on screen. Next Round, after SAVE.", () => _save.ResultHoldSeconds, v => _save.ResultHoldSeconds = v, SaveData.ResultHoldRange, Seconds, null);
             _all[_all.Count - 1].Hint = "(no Replay)"; // a Goal, Save or Frame Hit holds the fixed Replay time; only results with no Replay use this
-            AddDevRound("SET-UP MISTAKES", "Cheat size", () => _save.CheatMetres, v => _save.CheatMetres = v, SaveData.CheatRange, Metres, null);
-            AddDevRound("SET-UP MISTAKES", "Late Settle size", () => _save.LateSettleMetres, v => _save.LateSettleMetres = v, SaveData.LateSettleMetresRange, Metres, () => _save.LateSettleMetresAllowed);
-            AddDevRound("SET-UP MISTAKES", "Late Settle time", () => _save.LateSettleSeconds, v => _save.LateSettleSeconds = v, SaveData.LateSettleSecondsRange, Seconds, () => _save.LateSettleSecondsAllowed);
+            AddDevRound("SET-UP MISTAKES", "Cheat size", "How far toward a post the goalie sets when he cheats. Next Round, after SAVE.", () => _save.CheatMetres, v => _save.CheatMetres = v, SaveData.CheatRange, Metres, null);
+            AddDevRound("SET-UP MISTAKES", "Late Settle size", "How far short of his spot the goalie is when the window opens. Next Round, after SAVE.", () => _save.LateSettleMetres, v => _save.LateSettleMetres = v, SaveData.LateSettleMetresRange, Metres, () => _save.LateSettleMetresAllowed);
+            AddDevRound("SET-UP MISTAKES", "Late Settle time", "How long the goalie takes to close onto his spot after the window opens. Next Round, after SAVE.", () => _save.LateSettleSeconds, v => _save.LateSettleSeconds = v, SaveData.LateSettleSecondsRange, Seconds, () => _save.LateSettleSecondsAllowed);
 
             // Gaps (#160): how near thin gear must be to block a Gap; the Gap measure reads it from the Round's settings.
-            AddDevRound("GAPS", "Gap thin-gear reach", () => _save.GapThinGearReachMetres, v => _save.GapThinGearReachMetres = v, SaveData.GapThinGearReachRange, Metres, null);
+            AddDevRound("GAPS", "Gap thin-gear reach", "How near thin gear must be to block a Gap. Next Round, after SAVE.", () => _save.GapThinGearReachMetres, v => _save.GapThinGearReachMetres = v, SaveData.GapThinGearReachRange, Metres, null);
 
             // Water Bottle (#164): the game reads both on each Shot (RoundDriver), so a change acts from the next Shot, no restart.
-            AddDevRound("WATER BOTTLE", "Bottle knock speed", () => _save.BottleKnockSpeedKmh, v => _save.BottleKnockSpeedKmh = v, SaveData.BottleKnockSpeedRange, v => Format("0", v) + " km/h", null);
+            AddDevRound("WATER BOTTLE", "Bottle knock speed", "A Goal at least this fast knocks the water bottle off the net. Next Shot, after SAVE.", () => _save.BottleKnockSpeedKmh, v => _save.BottleKnockSpeedKmh = v, SaveData.BottleKnockSpeedRange, v => Format("0", v) + " km/h", null);
             _all[_all.Count - 1].Hint = "(next Shot)";
-            AddDevRound("WATER BOTTLE", "Bottle jump", () => _save.BottleJumpPercent, v => _save.BottleJumpPercent = v, SaveData.BottleJumpRange, v => Format("0", v) + "%", null);
+            AddDevRound("WATER BOTTLE", "Bottle jump", "How high the water bottle jumps when the puck hits it. Next Shot, after SAVE.", () => _save.BottleJumpPercent, v => _save.BottleJumpPercent = v, SaveData.BottleJumpRange, v => Format("0", v) + "%", null);
             _all[_all.Count - 1].Hint = "(next Shot)";
 
             // Test Mode (#156), kept the last Dev row: endless Shots from the shooter's spot. A button that opens it; it changes no setting, so Activate says false (nothing to save).
-            AddRow(SettingsPart.Dev, "TEST", SettingsRowKind.Button, "Test Mode", () => "open", null, () => { RequestLeave(Leave.TestMode); return false; });
+            AddRow(SettingsPart.Dev, "TEST", SettingsRowKind.Button, "Test Mode", "Opens endless Shots from the shooter's spot. It changes no setting.", () => "open", null, () => { RequestLeave(Leave.TestMode); return false; });
 
-            foreach (var r in _all)
-                if (Tips.TryGetValue(r.Label, out var tip)) r.Tip = tip;
             FillRows();
         }
-
-        // Hover tips (#199), by row label: what the row does, then when a change takes effect.
-        private static readonly Dictionary<string, string> Tips = new Dictionary<string, string>
-        {
-            { "Master volume", "The loudness of everything. Changes at once." },
-            { "Crowd", "How loud the crowd is. Changes at once." },
-            { "Game sounds", "How loud the puck, posts, whistle and goal horn are. Changes at once." },
-            { "Music", "How loud the music is. Changes at once." },
-            { "Mute", "Turns every sound off; the volumes stay as they are. Changes at once." },
-            { "Tick", "Plays a tick each second of the Shooting window. Changes at once." },
-            { "Shots per Round", "How many Shots one Round has. The next Round uses it." },
-            { "Easy mode", "Glows the Gaps the goalie leaves open, as a hint to aim at. Changes at once." },
-            { "Test Shots on at start", "Starts the game with Test Shots on. Takes effect next launch." },
-            { "Replay", "Shows a short slow-motion Replay after a Goal, Save or Frame Hit. Changes at once." },
-            { "USB port", "The port the shot sensor is read from. Auto picks one. Takes effect next launch." },
-            { "End screen input-ignore time", "How long the end screen ignores presses, so a late Shot does not skip it. Next end screen." },
-            { "End screen auto-return time", "How long the end screen waits before it goes back to the start. Next end screen." },
-            { "Reset best score", "Clears the best score for every Shots per Round number. Changes at once." },
-            { "Show the block goalie", "Uses the plain block goalie instead of the player model. Takes effect next launch." },
-            { "Reaction time", "How long the goalie waits after the Shot before he moves. Next Round." },
-            { "Reaction wobble", "How much the goalie's reaction time varies from Shot to Shot. Next Round." },
-            { "Hand speed", "How fast the goalie's hands move, in metres per second. Next Round." },
-            { "Leg speed", "How fast the goalie's legs move, in metres per second. Next Round." },
-            { "Max push", "The furthest the goalie moves across to reach a Shot. Next Round." },
-            { "Shuffle max", "A move across up to this far is a shuffle; a longer one is a T-push. Next Round." },
-            { "Skate-in time", "How long the shooter skates in before the Shooting window. Next Round." },
-            { "Shooting window", "How long the player has to take the Shot. Next Round." },
-            { "Result hold", "How long a result with no Replay stays on screen. Next Round." },
-            { "Cheat size", "How far toward a post the goalie sets when he cheats. Next Round." },
-            { "Late Settle size", "How far short of his spot the goalie is when the window opens. Next Round." },
-            { "Late Settle time", "How long the goalie takes to close onto his spot after the window opens. Next Round." },
-            { "Gap thin-gear reach", "How near thin gear must be to block a Gap. Next Round." },
-            { "Bottle knock speed", "A Goal at least this fast knocks the water bottle off the net. Next Shot." },
-            { "Bottle jump", "How high the water bottle jumps when the puck hits it. Next Shot." },
-            { "Test Mode", "Opens endless Shots from the shooter's spot. It changes no setting." },
-        };
 
         /// <summary>The part showing now.</summary>
         public SettingsPart Part { get; private set; }
@@ -318,7 +289,8 @@ namespace HockeyGame.Core
         public bool Save()
         {
             if (!HasUnsavedChanges) return false;
-            _live.CopyFrom(_save);
+            _live.CopySettingsFrom(_save); // only the values with a row: the port the sensor found, the bests and the skin stay as they are now
+            _save.CopyFrom(_live);         // and the working copy takes those back
             SaveDataChanged?.Invoke();
             return true;
         }
@@ -333,8 +305,8 @@ namespace HockeyGame.Core
         /// <summary>True while the "Save changes?" box is up (#198). The page keys then belong to the box.</summary>
         public bool ConfirmOpen { get; private set; }
 
-        /// <summary>The box's chosen button: 0 = Save, 1 = Discard.</summary>
-        public int ConfirmChoice { get; private set; }
+        /// <summary>The box's chosen button.</summary>
+        public ConfirmButton ConfirmChoice { get; private set; }
 
         /// <summary>Raised when leaving the page is allowed: at once with nothing unsaved, else after Save or Discard in the box.</summary>
         public event Action CloseApproved;
@@ -362,18 +334,24 @@ namespace HockeyGame.Core
         public void ConfirmBack() => ConfirmOpen = false;
 
         /// <summary>The mouse moves over a box button, or a key moves between them.</summary>
-        public void SetConfirmChoice(int choice) => ConfirmChoice = choice <= 0 ? 0 : 1;
+        public void SetConfirmChoice(ConfirmButton choice) => ConfirmChoice = choice;
+
+        /// <summary>Presses the chosen button of the box (Enter, or a click on a button the pointer chose).</summary>
+        public void ConfirmPress()
+        {
+            if (ConfirmChoice == ConfirmButton.Save) ConfirmSave();
+            else ConfirmDiscard();
+        }
 
         private void RequestLeave(Leave leave)
         {
+            _pendingLeave = leave;
             if (!HasUnsavedChanges)
             {
-                _pendingLeave = leave;
                 Proceed();
                 return;
             }
-            _pendingLeave = leave;
-            ConfirmChoice = 0;
+            ConfirmChoice = ConfirmButton.Save;
             ConfirmOpen = true;
         }
 
@@ -436,13 +414,10 @@ namespace HockeyGame.Core
             switch (key)
             {
                 case SettingsKey.Left:
-                case SettingsKey.Up: ConfirmChoice = 0; break;
+                case SettingsKey.Up: ConfirmChoice = ConfirmButton.Save; break;
                 case SettingsKey.Right:
-                case SettingsKey.Down: ConfirmChoice = 1; break;
-                case SettingsKey.Enter:
-                    if (ConfirmChoice == 0) ConfirmSave();
-                    else ConfirmDiscard();
-                    break;
+                case SettingsKey.Down: ConfirmChoice = ConfirmButton.Discard; break;
+                case SettingsKey.Enter: ConfirmPress(); break;
                 case SettingsKey.Save: ConfirmSave(); break;
                 case SettingsKey.Escape: ConfirmBack(); break;
             }
@@ -455,23 +430,23 @@ namespace HockeyGame.Core
                 if (r.Part == Part) _rows.Add(r);
         }
 
-        private void AddRow(SettingsPart part, string group, SettingsRowKind kind, string label, Func<string> value,
+        private void AddRow(SettingsPart part, string group, SettingsRowKind kind, string label, string tip, Func<string> value,
             Func<int, bool> change, Func<bool> activate)
         {
-            _all.Add(new Row { Part = part, Group = group, Kind = kind, Label = label, Value = value, Change = change, Activate = activate });
+            _all.Add(new Row { Part = part, Group = group, Kind = kind, Label = label, Tip = tip, Value = value, Change = change, Activate = activate });
         }
 
-        private void AddToggle(SettingsPart part, string group, string label, Func<bool> get, Action<bool> set)
+        private void AddToggle(SettingsPart part, string group, string label, string tip, Func<bool> get, Action<bool> set)
         {
             Func<bool> flip = () => { set(!get()); return true; };
-            AddRow(part, group, SettingsRowKind.Toggle, label, () => get() ? "ON" : "OFF", step => flip(), flip);
+            AddRow(part, group, SettingsRowKind.Toggle, label, tip, () => get() ? "ON" : "OFF", step => flip(), flip);
         }
 
         // range: the slider's track. allowed (optional): what a linked partner allows now, inside the track (#147); values clamp to it.
-        private void AddNumber(SettingsPart part, string group, string label, Func<double> get, Action<double> set,
+        private void AddNumber(SettingsPart part, string group, string label, string tip, Func<double> get, Action<double> set,
             SaveData.NumberRange range, Func<double, string> format, Func<SaveData.NumberRange> allowed = null)
         {
-            AddRow(part, group, SettingsRowKind.Slider, label, () => format(get()), dir =>
+            AddRow(part, group, SettingsRowKind.Slider, label, tip, () => format(get()), dir =>
             {
                 double old = get();
                 // Snap to the step grid so repeated steps do not drift (0.1 + 0.2 ...).
@@ -487,16 +462,16 @@ namespace HockeyGame.Core
             };
         }
 
-        private void AddGoalie(string label, Func<double> get, Action<double> set, SaveData.NumberRange range,
+        private void AddGoalie(string label, string tip, Func<double> get, Action<double> set, SaveData.NumberRange range,
             Func<double, string> format, Func<SaveData.NumberRange> allowed)
         {
-            AddDevRound("GOALIE", label, get, set, range, format, allowed);
+            AddDevRound("GOALIE", label, tip, get, set, range, format, allowed);
         }
 
-        private void AddDevRound(string group, string label, Func<double> get, Action<double> set, SaveData.NumberRange range,
+        private void AddDevRound(string group, string label, string tip, Func<double> get, Action<double> set, SaveData.NumberRange range,
             Func<double, string> format, Func<SaveData.NumberRange> allowed)
         {
-            AddNumber(SettingsPart.Dev, group, label, get, set, range, format, allowed);
+            AddNumber(SettingsPart.Dev, group, label, tip, get, set, range, format, allowed);
             _all[_all.Count - 1].Hint = "(next Round)";
         }
 

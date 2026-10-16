@@ -151,11 +151,21 @@ namespace HockeyGame.Core
         /// </summary>
         public void CopyFrom(SaveData other)
         {
-            _shotsPerRound = other._shotsPerRound;
+            CopySettingsFrom(other);
             _bests.Clear();
             foreach (var pair in other._bests) _bests[pair.Key] = pair.Value;
-            UsbPort = other.UsbPort;
             LastUsbPort = other.LastUsbPort;
+            TeamSkin = other.TeamSkin;
+        }
+
+        /// <summary>
+        /// Takes the values that have a row on the Settings page and leaves LastUsbPort, the bests and TeamSkin alone: the game changes
+        /// those itself, so SAVE must not overwrite them with the page's older copy (#195 review).
+        /// </summary>
+        public void CopySettingsFrom(SaveData other)
+        {
+            _shotsPerRound = other._shotsPerRound;
+            UsbPort = other.UsbPort;
             EasyMode = other.EasyMode;
             TestShotOnAtStart = other.TestShotOnAtStart;
             InputIgnoreSeconds = other.InputIgnoreSeconds;
@@ -183,7 +193,6 @@ namespace HockeyGame.Core
             GapThinGearReachMetres = other.GapThinGearReachMetres;
             BottleKnockSpeedKmh = other.BottleKnockSpeedKmh;
             BottleJumpPercent = other.BottleJumpPercent;
-            TeamSkin = other.TeamSkin;
         }
 
         /// <summary>"Reset best score": clears the best of every Shots-per-Round number.</summary>

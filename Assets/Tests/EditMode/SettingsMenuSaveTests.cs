@@ -196,5 +196,26 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(0, to.BestFor(7), "bests are replaced, not merged");
             Assert.IsTrue(typeof(SaveData).GetFields(BindingFlags.Public | BindingFlags.Instance).Any(), "the loop ran");
         }
+
+        [Test]
+        public void Save_keeps_the_values_that_have_no_row_when_they_changed_while_the_page_was_open()
+        {
+            var save = new SaveData { LastUsbPort = "COM3", TeamSkin = "old" };
+            save.SetBest(6, 2);
+            var menu = NewMenu(save);
+            menu.Select(RowOf(menu, "Master volume"));
+            menu.Change(-1);
+            // The sensor finds a new port, and a Round elsewhere sets a new best, while the page is open.
+            save.LastUsbPort = "COM9";
+            save.TeamSkin = "new";
+            save.SetBest(6, 5);
+            Assert.IsTrue(menu.Save());
+            Assert.AreEqual(0.9, save.MasterVolume, 1e-9, "the row's change is saved");
+            Assert.AreEqual("COM9", save.LastUsbPort, "the new port stays");
+            Assert.AreEqual("new", save.TeamSkin);
+            Assert.AreEqual(5, save.BestFor(6));
+            menu.Discard();
+            Assert.AreEqual("COM9", save.LastUsbPort, "Discard leaves it too");
+        }
     }
 }

@@ -59,7 +59,7 @@ namespace HockeyGame.Core.Tests
             f.Menu.RequestClose();
             Assert.IsTrue(f.Menu.ConfirmOpen);
             Assert.AreEqual(0, f.Closed);
-            Assert.AreEqual(0, f.Menu.ConfirmChoice, "Save is the first choice");
+            Assert.AreEqual(ConfirmButton.Save, f.Menu.ConfirmChoice, "Save is the first choice");
         }
 
         [Test]
@@ -113,9 +113,9 @@ namespace HockeyGame.Core.Tests
             f.ChangeVolume();
             f.Menu.RequestClose();
             f.Menu.Press(SettingsKey.Right);
-            Assert.AreEqual(1, f.Menu.ConfirmChoice, "Right goes to Discard");
+            Assert.AreEqual(ConfirmButton.Discard, f.Menu.ConfirmChoice, "Right goes to Discard");
             f.Menu.Press(SettingsKey.Left);
-            Assert.AreEqual(0, f.Menu.ConfirmChoice);
+            Assert.AreEqual(ConfirmButton.Save, f.Menu.ConfirmChoice);
             f.Menu.Press(SettingsKey.Right);
             f.Menu.Press(SettingsKey.Enter);
             Assert.IsFalse(f.Menu.ConfirmOpen);

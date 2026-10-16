@@ -112,6 +112,7 @@ namespace HockeyGame.Editor
                     if (_stage == 1)
                     {
                         Shoot(Path.Combine(folder, "t159-settings-player.png"), "Player");
+                        Shoot(Path.Combine(folder, "t195-fix-bar.png"), "bottom bar with the ESC CLOSE button"); // #195 review
                         // #197: two changed rows (Master volume down 3 steps, Easy mode on): amber marks, SAVE lit.
                         var menu = _screen.Menu;
                         menu.Select(0);

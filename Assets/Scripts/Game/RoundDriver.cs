@@ -113,7 +113,7 @@ namespace HockeyGame
             return false;
         }
 
-        int _pauseSelected; // the PAUSED box's chosen button: 0 Resume, 1 Quit to start (#196)
+        PauseButton _pauseSelected; // the PAUSED box's chosen button (#196)
         readonly PauseBoxView _pauseBox = new PauseBoxView();
 
         /// <summary>Paused (#196): nothing in the Round ticks; only the PAUSED box takes keys and the mouse.</summary>
@@ -122,27 +122,32 @@ namespace HockeyGame
             while (_usb.TryTakeShot(out _)) { } // a Shot from the electronics while paused is dropped, not kept for Resume
             var keyboard = Keyboard.current;
             var mouse = Mouse.current;
-            int activate = -1; // 0 Resume, 1 Quit to start
+            PauseButton? pressed = null;
             if (keyboard != null)
             {
-                if (keyboard.escapeKey.wasPressedThisFrame) activate = 0;
+                if (keyboard.escapeKey.wasPressedThisFrame) pressed = PauseButton.Resume;
                 else if (keyboard.upArrowKey.wasPressedThisFrame || keyboard.downArrowKey.wasPressedThisFrame
                     || keyboard.wKey.wasPressedThisFrame || keyboard.sKey.wasPressedThisFrame || keyboard.tabKey.wasPressedThisFrame)
-                    _pauseSelected = 1 - _pauseSelected;
+                    _pauseSelected = _pauseSelected == PauseButton.Resume ? PauseButton.QuitToStart : PauseButton.Resume;
                 else if (keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame || keyboard.spaceKey.wasPressedThisFrame)
-                    activate = _pauseSelected;
+                    pressed = _pauseSelected;
             }
             if (mouse != null)
             {
                 Vector2 point = mouse.position.ReadValue();
                 point.y = Screen.height - point.y; // the mouse counts from the bottom, the GUI from the top
                 int over = PauseLayout.ButtonAt(Screen.width, Screen.height, point);
-                if (over >= 0 && mouse.delta.ReadValue() != Vector2.zero) _pauseSelected = over;
-                if (mouse.leftButton.wasPressedThisFrame && over >= 0) activate = over;
+                if (over >= 0 && mouse.delta.ReadValue() != Vector2.zero) _pauseSelected = (PauseButton)over;
+                if (mouse.leftButton.wasPressedThisFrame && over >= 0) pressed = (PauseButton)over;
             }
-            if (activate == 0) _flow.Resume();
-            else if (activate == 1) _flow.QuitToStart();
-            else return;
+            if (pressed.HasValue) PressPauseButton(pressed.Value);
+        }
+
+        // A key or a click picked a button of the PAUSED box: Resume carries on, Quit to start leaves the Round.
+        void PressPauseButton(PauseButton button)
+        {
+            if (button == PauseButton.Resume) _flow.Resume();
+            else _flow.QuitToStart();
             ApplyPause();
             _show = ArenaShow.From(_flow);
         }
@@ -151,7 +156,7 @@ namespace HockeyGame
         void ApplyPause()
         {
             PauseSwitch.Set(_flow.Paused);
-            _pauseSelected = 0;
+            _pauseSelected = PauseButton.Resume;
         }
 
         void Update()
@@ -179,11 +184,11 @@ namespace HockeyGame
             _show = ArenaShow.From(_flow); // the arena follows the Arena Show: once a frame, for every part
             ArenaState show = _show;
             _sound.Update(_flow, Time.unscaledDeltaTime, _effects.HitSound);
-            _ribbons.Show(show, Time.unscaledTimeAsDouble);
-            _boards.Show(show, Time.unscaledTimeAsDouble);
+            _ribbons.Show(show, PauseSwitch.Seconds);
+            _boards.Show(show, PauseSwitch.Seconds);
             _effects.GoalLight.SetOn(show.GoalShow.GoalLight); // the goal light's one driver: the Goal Show, from a GOAL!'s Whistle
             _roofLights.Show(show.GoalShow);
-            if (_crowd != null) _crowd.Show(show, Time.unscaledTimeAsDouble);
+            if (_crowd != null) _crowd.Show(show, PauseSwitch.Seconds);
             _breakaway.LookUp(show.CameraLookUp);
             _effects.CameraLookUp = show.CameraLookUp; // no hiding the puck while the camera looks up (the next physics steps see this look)
             _replay.Show(show);

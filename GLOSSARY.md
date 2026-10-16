@@ -173,7 +173,7 @@ The generic look, and the first Team Skin: no real team, with the "All-Star Hock
 _Avoid_: Default skin, generic theme
 
 **Settings page**:
-The broadcast-style page, in the TV graphic look, where the settings are changed. A Settings button on the start screen, Esc and F2 open and close it, and it opens on the start screen only, so every change reaches the next Round. The mouse and the keys both work, and every value is saved between runs. It has two parts.
+The broadcast-style page, in the TV graphic look, where the settings are changed. A Settings button on the start screen, Esc and F2 open and close it, and it opens on the start screen only. The mouse and the keys both work (ESC CLOSE in the bottom bar is a button too). A change waits until SAVE (the SAVE button or S): only then does it take effect and reach the save file, so it reaches the next Round or Shot after SAVE. Rows with a change that is not saved are marked amber. Leaving the page (Esc, F2, ESC CLOSE, or the Test Mode button) with unsaved changes asks "Save changes?" with Save and Discard. The action rows (Reset best score, Test Mode) act at once. It has two parts.
 _Avoid_: Operator screen, options menu, settings screen
 
 **Player part**:

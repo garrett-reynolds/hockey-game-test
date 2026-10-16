@@ -8,6 +8,8 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.TestTools;
 
 namespace HockeyGame.Core.Tests
@@ -32,6 +34,15 @@ namespace HockeyGame.Core.Tests
         static string Fmt(Vector3 v) => v.x.ToString("F4", CultureInfo.InvariantCulture) + "," + v.y.ToString("F4", CultureInfo.InvariantCulture)
             + "," + v.z.ToString("F4", CultureInfo.InvariantCulture);
 
+        // Esc down for one frame, then up: the driver's wasPressedThisFrame sees one press.
+        static IEnumerator PressEsc(Keyboard keyboard)
+        {
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.Escape));
+            yield return null;
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+            yield return null;
+        }
+
         [UnityTest, Category("Slow"), Explicit("Slow: enters Play (runs only in the full run)")]
         public IEnumerator A_puck_in_flight_and_the_goalie_stand_still_while_paused_and_go_on_after_Resume()
         {
@@ -40,6 +51,9 @@ namespace HockeyGame.Core.Tests
             var hidden = new System.Collections.Generic.List<Crowd>();
             var log = new StringBuilder();
             bool finished = false;
+            Keyboard keyboard = null;
+            InputSettings.BackgroundBehavior? oldBackgroundBehavior = null;
+            InputSettings.EditorInputBehaviorInPlayMode oldEditorBehavior = default;
             string notes = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", "_notes"));
             try
             {
@@ -60,7 +74,13 @@ namespace HockeyGame.Core.Tests
                 var flow = (ScreenFlow)typeof(RoundDriver).GetField("_flow", Any).GetValue(driver);
                 var effects = (PhysicsShotEffects)typeof(RoundDriver).GetField("_effects", Any).GetValue(driver);
                 var goalie = (GoalieView)typeof(RoundDriver).GetField("_goalie", Any).GetValue(driver);
-                MethodInfo applyPause = typeof(RoundDriver).GetMethod("ApplyPause", Any);
+                // Esc goes through the real path (RoundDriver.Update and UpdatePaused read Keyboard.current); the key comes from a fake
+                // keyboard device made in code. No OS input is sent.
+                keyboard = InputSystem.AddDevice<Keyboard>("PauseTestKeyboard");
+                oldBackgroundBehavior = InputSystem.settings.backgroundBehavior;
+                oldEditorBehavior = InputSystem.settings.editorInputBehaviorInPlayMode;
+                InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
+                InputSystem.settings.editorInputBehaviorInPlayMode = InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
                 yield return null;
 
                 flow.Press();
@@ -73,9 +93,8 @@ namespace HockeyGame.Core.Tests
 
                 Vector3 pausedAt = puck.position;
                 log.AppendLine("puck at pause request " + Fmt(pausedAt) + " speed " + puck.linearVelocity.magnitude.ToString("F2", CultureInfo.InvariantCulture));
-                flow.PressEscape();
-                applyPause.Invoke(driver, null);
-                Assert.IsTrue(flow.Paused);
+                yield return PressEsc(keyboard);
+                Assert.IsTrue(flow.Paused, "Esc in a Round pauses it");
                 Assert.IsTrue(PauseSwitch.IsPaused);
                 Assert.AreEqual(0f, Time.timeScale, "game time stopped");
                 Assert.IsTrue(AudioListener.pause, "sound paused");
@@ -85,6 +104,7 @@ namespace HockeyGame.Core.Tests
                 Vector3 puckBefore = puck.position;
                 Vector3 goalieBefore = GoalieSignature(goalie.Body);
                 double elapsedBefore = flow.Round.PhaseSecondsElapsed;
+                double clockBefore = PauseSwitch.Seconds;
                 double secondsBefore = effects.Shot.SecondsSinceShot;
                 log.AppendLine("puck paused (baseline) " + Fmt(puckBefore));
                 yield return new WaitForSecondsRealtime(2f);
@@ -100,14 +120,16 @@ namespace HockeyGame.Core.Tests
                 Assert.AreEqual(puckBefore, puckAfter, "the puck does not move while paused");
                 Assert.AreEqual(goalieBefore, GoalieSignature(goalie.Body), "the goalie does not move while paused");
                 Assert.AreEqual(elapsedBefore, flow.Round.PhaseSecondsElapsed, 1e-9, "the Round clock stands still");
+                Assert.AreEqual(clockBefore, PauseSwitch.Seconds, 1e-6, "the clock of the ribbons, boards and crowd stands still");
                 Assert.AreEqual(secondsBefore, effects.Shot.SecondsSinceShot, 1e-9, "the puck's flight clock stands still");
 
                 float speedAtPause = puck.linearVelocity.magnitude; // a paused body keeps its velocity (the puck is only frozen by time)
                 float gameTimeAtResume = Time.time;
-                flow.Resume();
-                applyPause.Invoke(driver, null);
+                yield return PressEsc(keyboard);
+                Assert.IsFalse(flow.Paused, "Esc in the PAUSED box resumes");
                 Assert.IsFalse(PauseSwitch.IsPaused);
                 Assert.IsFalse(AudioListener.pause);
+                Assert.Less(PauseSwitch.Seconds - clockBefore, 0.5, "after Resume the clock carries on from the same moment, not 2 s later");
                 yield return null;
                 yield return new WaitForEndOfFrame();
                 Vector3 puckResumed = puck.position;
@@ -136,6 +158,12 @@ namespace HockeyGame.Core.Tests
                 if (Directory.Exists(notes)) File.WriteAllText(Path.Combine(notes, "t196-puck.log"), log.ToString());
                 Debug.Log("[PauseInPlay] " + log);
                 PauseSwitch.Set(false);
+                if (keyboard != null) InputSystem.RemoveDevice(keyboard);
+                if (oldBackgroundBehavior.HasValue)
+                {
+                    InputSystem.settings.backgroundBehavior = oldBackgroundBehavior.Value;
+                    InputSystem.settings.editorInputBehaviorInPlayMode = oldEditorBehavior;
+                }
                 foreach (var c in hidden) if (c != null) c.Drawn = true;
                 EditorUtility.audioMasterMute = oldMute;
                 Application.runInBackground = oldBackground;

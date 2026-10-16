@@ -2,6 +2,13 @@ using UnityEngine;
 
 namespace HockeyGame
 {
+    /// <summary>The PAUSED box's two buttons, in the order they sit (PauseLayout.Button takes the number).</summary>
+    public enum PauseButton
+    {
+        Resume,
+        QuitToStart
+    }
+
     /// <summary>
     /// Where the PAUSED box (#196, look C "TV graphic") and its two buttons sit on any screen size (no drawing here, so a test can check it).
     /// Sizes are for a 1280 x 720 screen, times LowerThirdLayout.Scale. The box is centred; it stays clear of the Score Box (top right) and the
@@ -9,6 +16,9 @@ namespace HockeyGame
     /// </summary>
     public static class PauseLayout
     {
+        /// <summary>Resume and Quit to start: the PauseButton values.</summary>
+        public const int ButtonCount = 2;
+
         public const float BoxWidth = 460f, BoxHeight = 260f, HeaderHeight = 72f, StripeHeight = 5f;
         public const float ButtonWidth = 380f, ButtonHeight = 58f, ButtonGap = 16f;
 
@@ -46,7 +56,7 @@ namespace HockeyGame
         /// <summary>The button under this point (GUI coordinates, y down), or -1 for none.</summary>
         public static int ButtonAt(float w, float h, Vector2 point)
         {
-            for (int i = 0; i < 2; i++)
+            for (int i = 0; i < ButtonCount; i++)
                 if (Button(w, h, i).Contains(point)) return i;
             return -1;
         }

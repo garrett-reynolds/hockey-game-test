@@ -16,6 +16,11 @@ namespace HockeyGame
 
         public static bool IsPaused { get; private set; }
 
+        static HockeyGame.Core.PauseClock _clock = new HockeyGame.Core.PauseClock();
+
+        /// <summary>Real-time seconds that stand still while paused (for the ribbons, boards and crowd): Resume carries on from the same moment.</summary>
+        public static double Seconds => _clock.Now(Time.unscaledTimeAsDouble);
+
         /// <summary>
         /// True from the frame after Set(true). The views skip their LateUpdate on these frames only: the frame the pause began still
         /// poses the goalie and camera (Update had already put last frame's live poses back), so the picture under the box is whole.
@@ -23,12 +28,18 @@ namespace HockeyGame
         public static bool StandStill => IsPaused && Time.frameCount != _pausedFrame;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetOnLoad() => IsPaused = false; // a Play with domain reload off must not start paused
+        static void ResetOnLoad()
+        {
+            IsPaused = false; // a Play with domain reload off must not start paused
+            _clock = new HockeyGame.Core.PauseClock();
+        }
 
         public static void Set(bool paused)
         {
             if (paused == IsPaused) return;
             IsPaused = paused;
+            if (paused) _clock.Pause(Time.unscaledTimeAsDouble);
+            else _clock.Resume(Time.unscaledTimeAsDouble);
             if (paused)
             {
                 _pausedFrame = Time.frameCount;

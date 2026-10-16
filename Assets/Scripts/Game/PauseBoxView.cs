@@ -15,7 +15,7 @@ namespace HockeyGame
 
         GUIStyle _style;
 
-        public void Draw(float w, float h, int selected)
+        public void Draw(float w, float h, PauseButton selected)
         {
             if (_style == null)
                 _style = new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.BoldAndItalic, alignment = TextAnchor.MiddleCenter, wordWrap = false, clipping = TextClipping.Clip };
@@ -26,10 +26,10 @@ namespace HockeyGame
             Rect header = PauseLayout.Header(w, h);
             Fill(header, LookC.Red);
             Word(header, Title, Color.white, (int)(44 * s));
-            for (int i = 0; i < ButtonWords.Length; i++)
+            for (int i = 0; i < PauseLayout.ButtonCount; i++)
             {
                 Rect button = PauseLayout.Button(w, h, i);
-                bool on = i == selected;
+                bool on = i == (int)selected;
                 Fill(button, on ? LookC.Gold : LookC.Blue);
                 Word(button, ButtonWords[i], on ? (Color)LookC.Navy : Color.white, (int)(28 * s));
             }
