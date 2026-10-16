@@ -42,7 +42,7 @@ python C:/Users/garrett.reynolds/Projects/Personal/hockey-wt/_notes/slot.py play
 ```
 
 - Refuses a slot with a live run, a compiling or busy Editor, or one already in Play. Holds the slot lock (kind `play-check`). Always runs `editor_stop` at the end, also on failure.
-- Opens the scene, enters Play, hides the crowd and mutes sound (unless `--crowd`), runs the action, samples every frame (Editor-side sampler registered by one eval, removed by the last eval), saves one picture to `<project>/Logs/playcheck-<slot>-<time>.png`.
+- Opens the scene, enters Play, hides the crowd and mutes sound (unless `--crowd`; it never turns sound on, and afterwards restores the Editor's earlier mute, or mutes if unknown), runs the action, samples every frame (Editor-side sampler registered by one eval, removed by the last eval), saves one picture to `<project>/Logs/playcheck-<slot>-<time>.png`.
 - Prints a fixed block: facing (limit 45 deg), skate (lowest blade vs ice, limit >= -0.03 m), jump (largest per-frame hips move, limit 0.3 m), console (errors during Play, limit 0), picture path, detail file. Exit 0 = PASS, 1 = FAIL, 2 = refused. Detail (all samples) in `_notes/results/<slot>-playcheck-<time>.json`.
 - `clip:<name>` needs the AI clip branch (`GoalieView.Clips`); `shot` presses, waits for the Shooting Window and submits one Shot.
 
