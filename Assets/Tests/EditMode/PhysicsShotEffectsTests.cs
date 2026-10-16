@@ -581,8 +581,23 @@ namespace HockeyGame.Core.Tests
             Shoot(round, effects, 50, 50, 100);
             Object.DestroyImmediate(effects.Shot.Puck.gameObject);
 
-            Assert.DoesNotThrow(() => effects.Dispose(), "scene unload can destroy the puck before its driver");
+            Assert.DoesNotThrow(() => effects.Dispose(finishShot: false), "scene unload can destroy the puck before its driver");
             Assert.IsNull(effects.Shot, "the disposed effects release their Shot");
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void Scene_unload_releases_a_live_Shot_without_a_Whistle(bool destroyWholeRink)
+        {
+            var effects = Effects();
+            var round = InWindow(FakeReach.NeverReaches());
+            Shoot(round, effects, 50, 50, 100);
+            PhysicsShot shot = effects.Shot;
+            if (destroyWholeRink) Object.DestroyImmediate(_root);
+
+            Assert.DoesNotThrow(() => effects.Dispose(finishShot: false));
+            Assert.IsNull(effects.Shot);
+            Assert.IsFalse(shot.HasWhistled, "an unloaded scene needs no result or goalie callback");
         }
 
         // ---- The goalie's ease-in ----

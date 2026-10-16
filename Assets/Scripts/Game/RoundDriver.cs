@@ -445,7 +445,7 @@ namespace HockeyGame
         void OnDestroy()
         {
             PauseSwitch.Set(false); // a paused Round must not leave the next Play frozen
-            _effects?.Dispose();
+            _effects?.Dispose(finishShot: false);
             _goalie?.Dispose();
             if (_scoreBoxBack != null) SceneObjects.DestroySafely(_scoreBoxBack);
             if (_logo != null) SceneObjects.DestroySafely(_logo);

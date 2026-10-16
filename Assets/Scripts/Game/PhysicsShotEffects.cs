@@ -190,11 +190,10 @@ namespace HockeyGame
         }
 
         /// <summary>The last Shot goes: its Whistle first if it never had one (the Round ignores it unless it is still waiting for that Shot).</summary>
-        void Replace()
+        void Replace(bool finishShot = true)
         {
             if (Shot == null) return;
-            // Scene unload can destroy the puck before the driver's OnDestroy disposes us (#218).
-            if (Shot.Puck != null) Shot.WhistleNow();
+            if (finishShot) Shot.WhistleNow();
             Shot.Whistled -= OnWhistled;
             Shot.Hit -= OnHit;
             Shot.GearTouch -= OnGearTouch;
@@ -244,9 +243,12 @@ namespace HockeyGame
         }
 
         /// <summary>Removes the puck and stops listening for its contacts (the Shot colliders and the goal light stay with the rink).</summary>
-        public void Dispose()
+        public void Dispose() => Dispose(finishShot: true);
+
+        /// <summary>Scene unload skips the final result: its puck, camera and goalie can already be gone (#218).</summary>
+        public void Dispose(bool finishShot)
         {
-            Replace();
+            Replace(finishShot);
             _netCloth.Dispose();
         }
     }
