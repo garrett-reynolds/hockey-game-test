@@ -118,6 +118,7 @@ namespace HockeyGame
 
         Vector3 _snapHipsWorld, _animHips0;
         float _snapYaw, _snapFootY, _dy;
+        Vector3 _alignRoot; // the character root's position when the lift was found (the code moves the root during a Save)
         Quaternion _yawFix = Quaternion.identity;
         bool _aligned;
 
@@ -500,11 +501,16 @@ namespace HockeyGame
                 _yawFix = Quaternion.AngleAxis(Mathf.DeltaAngle(BodyYaw(), _snapYaw), Vector3.up);
                 _animHips0 = _hips.position;
                 _dy = _snapFootY - LowestFootY();
+                _alignRoot = _animator.transform.position;
                 _aligned = true;
                 LastYawFixDegrees = Mathf.DeltaAngle(BodyYaw(), _snapYaw);
                 LastLiftMetres = _dy;
             }
-            Vector3 p = _hips.position;
+            // The code moves the character root too (a Save Pads pose slides it 0.3 m and lowers it 0.5 m, then puts it back in one
+            // frame at the blend out, #212). The clip is evaluated relative to that root, so the root's move since the lift was
+            // found is taken back out: the clip stays where the code pose had the body.
+            Vector3 rootShift = _animator.transform.position - _alignRoot;
+            Vector3 p = _hips.position - rootShift;
             Vector3 off = _yawFix * (p - _animHips0);
             // The facing is locked every frame (the AI idle turned the hips up to 102 deg): the goalie stays square to the
             // shooter; the spine, head and arms still turn as the clip has them.
