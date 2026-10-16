@@ -70,6 +70,8 @@ namespace HockeyGame
             _model = model.transform;
             FaceTheShooter(model.transform);
             ScaleGear();
+            if (_leftPad != null) _leftPadRest = _leftPad.localPosition;
+            if (_rightPad != null) _rightPadRest = _rightPad.localPosition;
             CaptureRest();
             ReadyStance();
             StandOnIce(model.transform);
@@ -115,6 +117,7 @@ namespace HockeyGame
         {
             if (!Present) return;
             set = Mathf.Clamp01(set);
+            DropPadLift();
             for (int i = 0; i < _bones.Length; i++)
                 _bones[i].localRotation = Quaternion.Slerp(_ready.Rotations[i], _reaction.Rotations[i], set);
             _model.localPosition = Vector3.Lerp(_ready.ModelPosition, _reaction.ModelPosition, set);
@@ -142,6 +145,41 @@ namespace HockeyGame
                     most = Mathf.Max(most, floor - (r.bounds.min.y - Root.transform.position.y));
             }
             return most;
+        }
+
+        Vector3 _leftPadRest, _rightPadRest; // each pad's local position on its shin as imported and scaled (DropPadLift puts it back)
+        bool _padsLifted;
+
+        /// <summary>Puts both pads back on their shins where they were built.</summary>
+        void DropPadLift()
+        {
+            if (!_padsLifted) return;
+            _padsLifted = false;
+            if (_leftPad != null) _leftPad.localPosition = _leftPadRest;
+            if (_rightPad != null) _rightPad.localPosition = _rightPadRest;
+        }
+
+        /// <summary>
+        /// #208: the push, SitLower and Stance Life plant the feet again with the knees bent more, which tilts a shin and sinks its pad
+        /// 1 to 3 cm under the ice. Each pad that sits lower than in the Ready Stance is slid up its shin by that much (never a whole-body
+        /// lift: the body, the skates and the hit-shape set-up stay as they are). Works from the pads' built place each time, so
+        /// calling it twice is the same as once.
+        /// </summary>
+        void KeepPadsOnIce()
+        {
+            if (!Present || _leftPad == null || _rightPad == null) return;
+            Prepare();
+            DropPadLift();
+            foreach (MeshRenderer r in _gear)
+            {
+                string piece = GearPiece.PieceOf(r.name);
+                if (piece != GearPiece.LeftPad && piece != GearPiece.RightPad) continue;
+                if (!_readyFloor.TryGetValue(piece, out float floor)) continue;
+                float under = floor - (r.bounds.min.y - Root.transform.position.y);
+                if (under <= 0f) continue;
+                r.transform.position += Vector3.up * under;
+                _padsLifted = true;
+            }
         }
 
         void RememberReadyFloor()
@@ -200,6 +238,7 @@ namespace HockeyGame
 
         void Put(Snapshot snap)
         {
+            DropPadLift();
             for (int i = 0; i < _bones.Length; i++) _bones[i].localRotation = snap.Rotations[i];
             _model.localPosition = snap.ModelPosition;
         }
@@ -1269,7 +1308,9 @@ namespace HockeyGame
         /// </summary>
         public void Live(StanceLifeMoment life, float weight)
         {
-            if (Present) GoalieStanceLife.Apply(this, _model, life, weight);
+            if (!Present) return;
+            GoalieStanceLife.Apply(this, _model, life, weight);
+            KeepPadsOnIce();
         }
 
         // ---- Skate push (#126) -------------------------------------------------------------------------------------------
@@ -1286,6 +1327,7 @@ namespace HockeyGame
             Vector3 before = _model.position;
             GoalieSkatePush.Apply(this, _model, shown, moment, bodyShare);
             if (_model.position != before) { Prepare(); KeepBladeUp(true); } // keep the elbow bend: a fixed pole swung the arm, and SitLower in the same frame kept that swing
+            KeepPadsOnIce();
         }
 
         /// <summary>How far the last React slid the body across (metres, + toward the goalie's left in model space): the move the push shows. 0 before any React or without a model.</summary>
@@ -1304,6 +1346,7 @@ namespace HockeyGame
             Prepare();
             GoalieStanceLife.SitLower(this, _model, metres);
             KeepBladeUp(true); // keep the elbow bend (as ShowPush does). Only the bigger GOAL! lift keeps the fixed pole
+            KeepPadsOnIce();
         }
 
         /// <summary>Turns the head toward the puck at `point`, `weight` of the way (at most WatchDegrees), the shoulders taking shoulderShare of the turn.</summary>
