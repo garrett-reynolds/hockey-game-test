@@ -196,6 +196,35 @@ def pid_alive(pid):
     return bool(ok) and code.value == 259  # STILL_ACTIVE
 
 
+def process_name(pid):
+    """The executable's file name for a live pid ('' when the pid is dead or unreadable)."""
+    if not pid_alive(pid):
+        return ""
+    if os.name != "nt":
+        try:
+            return Path(f"/proc/{pid}/exe").resolve().name
+        except OSError:
+            return ""
+    k32 = ctypes.windll.kernel32
+    k32.OpenProcess.restype = ctypes.c_void_p
+    h = k32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+    if not h:
+        return ""
+    try:
+        buf = ctypes.create_unicode_buffer(1024)
+        size = ctypes.c_ulong(len(buf))
+        if not k32.QueryFullProcessImageNameW(ctypes.c_void_p(h), 0, buf, ctypes.byref(size)):
+            return ""
+        return Path(buf.value).name
+    finally:
+        k32.CloseHandle(ctypes.c_void_p(h))
+
+
+def is_slot_process(pid):
+    """#209: Windows reuses pids. A lock pid counts only if it is alive AND a python/py (slot tool) or unity (CLI)."""
+    return process_name(pid).lower().startswith(("python", "py.", "unity"))
+
+
 def read_lock(slot):
     """None (no lock), or dict with the lock data plus 'live' (bool)."""
     f = lock_file(slot)
@@ -205,9 +234,9 @@ def read_lock(slot):
         data = json.loads(f.read_text(encoding="utf-8"))
     except (ValueError, OSError):
         data = {}
-    data["tool_live"] = pid_alive(data.get("pid"))
+    data["tool_live"] = is_slot_process(data.get("pid"))
     # The run_tests CLI child can outlive slot.py (a tool timeout kills slot.py only): its run goes on in the Editor.
-    data["cli_live"] = pid_alive(data.get("cli_pid"))
+    data["cli_live"] = is_slot_process(data.get("cli_pid"))
     data["live"] = data["tool_live"] or data["cli_live"]
     return data
 
