@@ -101,14 +101,10 @@ namespace HockeyGame
             _content.style.position = Position.Absolute;
             var bottom = Add(_page, "lc-bottombar");
             _reset = Add(bottom, "lc-reset", "");
-<<<<<<< HEAD
-            _hints = Add(bottom, "lc-hints", "ESC  CLOSE      TAB  PLAYER / DEV      R  RESET");
-            _tipBox = Add(_page, "lc-tipbox lc-hidden", ""); // last, so it draws over the cards (#199)
-=======
             _saveButton = Add(bottom, "lc-save", "SAVE");
             _hints = Add(bottom, "lc-hints", "ESC  CLOSE      TAB  PLAYER / DEV      R  RESET      S  SAVE");
->>>>>>> feat/195
             _page.AddToClassList("lc-hidden");
+            _tipBox = Add(_page, "lc-tipbox lc-hidden", ""); // last, so it draws over the cards (#199)
             _root.Add(_page);
 
             BuildConfirmBox(out _confirm, out _confirmSave, out _confirmDiscard);
@@ -366,6 +362,7 @@ namespace HockeyGame
                 else if (Over(_saveButton, at)) SaveNow();
                 else changed = Click(at);
             }
+            _hoverRow = RowAt(at);
             if (_dragRow >= 0)
             {
                 if (down)
@@ -373,7 +370,6 @@ namespace HockeyGame
                 else
                     _dragRow = -1;
             }
-            _hoverRow = RowAt(at);
             Sync();
             return TakePersist();
         }
@@ -415,14 +411,14 @@ namespace HockeyGame
         void RefreshTip()
         {
             int hover = ForceHoverRow >= 0 ? ForceHoverRow : _hoverRow;
-            bool show = hover >= 0 && hover < _rows.Count && _page.resolvedStyle.display != DisplayStyle.None;
+            bool show = hover >= 0 && hover < _rows.Count && !_menu.ConfirmOpen && _page.resolvedStyle.display != DisplayStyle.None;
             string tip = show ? _menu.Tip(hover) : null;
             show = !string.IsNullOrEmpty(tip);
             _tipBox.EnableInClassList("lc-hidden", !show);
             if (!show) return;
             _tipBox.text = tip;
             Rect row = _rows[hover].Row.worldBound, page = _page.worldBound;
-            float textHeight = _tipBox.MeasureTextSize(tip, TipBoxWidth - 2 * TipPadding - 15f,VisualElement.MeasureMode.Exactly,
+            float textHeight = _tipBox.MeasureTextSize(tip, TipBoxWidth - 2 * TipPadding - 15f, VisualElement.MeasureMode.Exactly,
                 0, VisualElement.MeasureMode.Undefined).y;
             float boxHeight = textHeight + 2 * 10f + 6f; // padding and border, as LookC.uss
             var at = TipPlacement.Place(row.x - page.x, row.y - page.y, row.width, row.height, page.width, page.height, TipBoxWidth, boxHeight);
@@ -561,6 +557,7 @@ namespace HockeyGame
         /// <summary>Shows the current values, slider places and the selected row.</summary>
         void Refresh()
         {
+            RefreshTip();
             bool waiting = _menu.HasUnsavedChanges;
             bool justSaved = !waiting && Time.unscaledTime < _savedUntil;
             _saveButton.text = justSaved ? "SAVED" : "SAVE";
@@ -595,7 +592,6 @@ namespace HockeyGame
                         break;
                 }
             }
-            RefreshTip();
         }
 
         /// <summary>Serial ports on this PC now, sorted. Empty if they cannot be listed.</summary>
