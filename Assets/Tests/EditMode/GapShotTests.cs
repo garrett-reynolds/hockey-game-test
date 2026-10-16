@@ -58,13 +58,14 @@ namespace HockeyGame.Core.Tests
             public ShotResultKind Kind;
             public bool Played;
             public int GapCount;
+            public SetUpKind SetUpKind;
         }
 
         /// <summary>Where the Shot is aimed: the centre of a shown Gap, of a cell that is not one, or of a cell the race finds gear in the way of (the cells that were not Gaps before #134).</summary>
         enum Aim { Gap, NotGap, GearInTheWay }
 
         /// <summary>Plays the Round of this seed to a seeded moment in its window and shoots at the centre of a cell picked by aim.</summary>
-        Sample Play(int seed, Aim aim)
+        Sample Play(int seed, Aim aim, double speedKmh = 100)
         {
             var sample = new Sample();
             var cameraObject = new GameObject("Camera (test)", typeof(Camera));
@@ -113,7 +114,8 @@ namespace HockeyGame.Core.Tests
                         NetFaceGaps.CellCentre(pick % NetFaceGaps.Columns, pick / NetFaceGaps.Columns, out double x, out double y);
                         sample.Side = round.AttackSide;
                         sample.GapCount = gaps.Count;
-                        round.SubmitShot(x, y, 100, false);
+                        sample.SetUpKind = round.SetUp.Kind;
+                        round.SubmitShot(x, y, speedKmh, false);
                         shot = true;
                     }
                     effects.Update(round, Frame);
@@ -182,6 +184,46 @@ namespace HockeyGame.Core.Tests
             if (System.IO.Directory.Exists(notes))
                 System.IO.File.AppendAllText(System.IO.Path.Combine(notes, "t134-rates.txt"), name + " (seeds from " + firstSeed + "): " + rates + "\n");
             return rates;
+        }
+
+        /// <summary>
+        /// The scoring measure (#191, spec #190): the same seeded Rounds at one speed, once aimed at the centre of a shown Gap (whatever
+        /// Set-up the seed brings: Clean, Cheat, Depth, Late Settle) and once at a cell with goalie gear in the way (the goalie set).
+        /// One table line per set; it asserts only that Shots were played and the counts add up. Same seeds every run, so the same counts.
+        /// </summary>
+        [Test, Timeout(1200000), Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
+        public void Scoring_measure_goal_rate_at_one_speed([Values(30, 40, 50)] int speedKmh)
+        {
+            foreach (Aim aim in new[] { Aim.Gap, Aim.GearInTheWay })
+            {
+                var rates = new Rates();
+                var kindShots = new int[4];
+                var kindGoals = new int[4];
+                for (int seed = 1; seed < 1 + Seeds; seed++)
+                {
+                    Sample s = Play(seed, aim, speedKmh);
+                    if (!s.Played) continue;
+                    rates.Add(s);
+                    kindShots[(int)s.SetUpKind]++;
+                    if (s.Kind == ShotResultKind.Goal) kindGoals[(int)s.SetUpKind]++;
+                }
+                var line = new StringBuilder("SCORING MEASURE " + speedKmh + " km/h, " + (aim == Aim.Gap ? "Gap set" : "goalie set") + ": Goals/Shots "
+                    + rates.Goals + "/" + rates.Shots + " (" + rates.Goal.ToString("P0") + "), Saves " + rates.Saves + "; by Set-up:");
+                int sumShots = 0;
+                for (int k = 0; k < kindShots.Length; k++)
+                {
+                    line.Append(" " + (SetUpKind)k + " " + kindGoals[k] + "/" + kindShots[k]);
+                    sumShots += kindShots[k];
+                }
+                Debug.Log(line.ToString());
+                TestContext.Progress.WriteLine(line.ToString());
+                string notes = System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, "../../_notes"));
+                if (System.IO.Directory.Exists(notes))
+                    System.IO.File.AppendAllText(System.IO.Path.Combine(notes, "t191-measure.txt"), line + "\n");
+                Assert.GreaterOrEqual(rates.Shots, 60, "enough Shots were played: " + line);
+                Assert.AreEqual(rates.Shots, sumShots, "the Set-up counts add up: " + line);
+                Assert.LessOrEqual(rates.Goals + rates.Saves, rates.Shots, "Goals and Saves add up: " + line);
+            }
         }
 
         [Test, Timeout(600000), Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
