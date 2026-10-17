@@ -63,7 +63,7 @@ namespace HockeyGame
         sealed class Slice
         {
             public int Group, Start, Count;
-            public Bounds Bounds;
+            public Bounds Bounds, WorldBounds;
             public MaterialPropertyBlock Props;
         }
 
@@ -88,6 +88,8 @@ namespace HockeyGame
         FanSeat[] _seats;
         FanLook[] _looks;
         Bounds _bounds;
+        Matrix4x4 _boundsToWorld;
+        bool _worldBoundsValid;
         readonly CrowdMotion[] _motion = new CrowdMotion[3];
         readonly float[] _light = { 1f, 1f, 1f }, _contrast = { 1f, 1f, 1f };
         readonly Vector4[] _zones = new Vector4[3];
@@ -155,6 +157,7 @@ namespace HockeyGame
 
         void Fill(CrowdBody[] bodies, Shader shader, Shader cardShader, System.Random random, ArenaColour homeJersey)
         {
+            _worldBoundsValid = false;
             var seconds = new double[ClipNames.Length];
             for (int i = 0; i < seconds.Length; i++) seconds[i] = bodies[0].Clips[i].Seconds;
             for (int z = 0; z < 3; z++) _motion[z] = new CrowdMotion(seconds);
@@ -350,6 +353,7 @@ namespace HockeyGame
 
         void OnEnable()
         {
+            _worldBoundsValid = false;
             MakeBuffer();
             RenderPipelineManager.beginCameraRendering += Draw;
         }
@@ -369,11 +373,11 @@ namespace HockeyGame
             if (!Drawn || _fans == null || double.IsNaN(_lastSeconds)
                 || camera.cameraType == CameraType.Preview || camera.cameraType == CameraType.Reflection) return;
             Matrix4x4 toWorld = transform.localToWorldMatrix;
-            foreach (Material m in AllMaterials()) m.SetMatrix(CrowdToWorldId, toWorld);
+            RefreshWorldBounds(toWorld);
             GeometryUtility.CalculateFrustumPlanes(camera, _planes);
             foreach (Slice s in _slices)
             {
-                Bounds world = WorldBounds(s.Bounds);
+                Bounds world = s.WorldBounds;
                 if (!GeometryUtility.TestPlanesAABB(_planes, world)) continue;
                 bool card = FarCards && s.Group % 2 == 1;
                 var rp = new RenderParams(card ? _cardMaterials[s.Group] : _materials[s.Group])
@@ -390,11 +394,22 @@ namespace HockeyGame
             }
         }
 
-        Bounds WorldBounds(Bounds local)
+        void RefreshWorldBounds(Matrix4x4 toWorld)
         {
-            var world = new Bounds(transform.TransformPoint(local.center), Vector3.zero);
+            // Equals compares every matrix element exactly; operator == uses a tolerance.
+            if (_worldBoundsValid && _boundsToWorld.Equals(toWorld)) return;
+            foreach (Material m in AllMaterials()) m.SetMatrix(CrowdToWorldId, toWorld);
+            foreach (Slice s in _slices) s.WorldBounds = WorldBounds(s.Bounds, toWorld);
+            _boundsToWorld = toWorld;
+            _worldBoundsValid = true;
+        }
+
+        static Bounds WorldBounds(Bounds local, Matrix4x4 toWorld)
+        {
+            // Keep all eight corners conservative under shear and negative or unequal scale.
+            var world = new Bounds(toWorld.MultiplyPoint3x4(local.center), Vector3.zero);
             for (int i = 0; i < 8; i++)
-                world.Encapsulate(transform.TransformPoint(new Vector3(
+                world.Encapsulate(toWorld.MultiplyPoint3x4(new Vector3(
                     (i & 1) == 0 ? local.min.x : local.max.x,
                     (i & 2) == 0 ? local.min.y : local.max.y,
                     (i & 4) == 0 ? local.min.z : local.max.z)));

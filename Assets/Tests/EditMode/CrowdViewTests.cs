@@ -174,6 +174,67 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void Moving_the_parent_and_camera_together_keeps_the_same_visible_fans()
+        {
+            CheckMovedCrowd(false);
+        }
+
+        [Test]
+        public void Changed_parent_scale_and_sheared_crowd_match_a_fresh_crowd_after_enable()
+        {
+            CheckMovedCrowd(true);
+        }
+
+        void CheckMovedCrowd(bool scaleAndShear)
+        {
+            Crowd crowd = Crowd.Build(_rink.transform);
+            crowd.Show(In(RoundPhase.SkateIn), 0.0);
+            var target = new RenderTexture(320, 180, 24);
+            var cam = new GameObject("Camera").AddComponent<Camera>();
+            cam.transform.SetParent(_rink.transform, false);
+            cam.transform.localPosition = new Vector3(0, 1.5f, -10f);
+            try
+            {
+                cam.targetTexture = target;
+                cam.Render(); // Warm the original bounds before changing the parent.
+                int before = crowd.LastDrawnFans;
+                Assert.That(before, Is.GreaterThan(1000).And.LessThan(crowd.FanCount));
+                _rink.transform.SetPositionAndRotation(new Vector3(5000, 20, -4000),
+                    Quaternion.Euler(0, scaleAndShear ? 37 : 180, 0));
+                if (scaleAndShear)
+                {
+                    _rink.transform.localScale = new Vector3(-1.5f, 0.75f, 2f);
+                    crowd.transform.localRotation = Quaternion.Euler(0, 23, 0);
+                    crowd.transform.localScale = new Vector3(0.8f, 1.3f, 1.1f);
+                }
+                cam.Render();
+                int moved = crowd.LastDrawnFans;
+                if (!scaleAndShear) Assert.AreEqual(before, moved, "a rigid move with the camera keeps the visible fans");
+
+                // A new crowd at the same transform supplies a cold-cache reference.
+                Crowd reference = Crowd.Build(_rink.transform);
+                reference.transform.localPosition = crowd.transform.localPosition;
+                reference.transform.localRotation = crowd.transform.localRotation;
+                reference.transform.localScale = crowd.transform.localScale;
+                reference.Show(In(RoundPhase.SkateIn), 0.0);
+                cam.Render();
+                Assert.That(reference.LastDrawnFans, Is.GreaterThan(0).And.LessThan(reference.FanCount));
+                Assert.AreEqual(reference.LastDrawnFans, moved, "changed transforms must match fresh bounds");
+                crowd.gameObject.SetActive(false);
+                crowd.gameObject.SetActive(true);
+                cam.Render();
+                Assert.AreEqual(reference.LastDrawnFans, crowd.LastDrawnFans, "enable must retain correct bounds");
+            }
+            finally
+            {
+                cam.targetTexture = null;
+                Object.DestroyImmediate(cam.gameObject);
+                target.Release();
+                Object.DestroyImmediate(target);
+            }
+        }
+
+        [Test]
         public void The_arena_model_has_no_flat_crowd_picture_left()
         {
             GameObject arena = ArenaStands.Build(_rink.transform);
