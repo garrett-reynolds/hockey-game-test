@@ -30,6 +30,9 @@ namespace HockeyGame
         Transform[] _bones = new Transform[0];   // every mapped humanoid bone
         Snapshot _rest, _ready, _butterfly;      // T-pose as imported; the Ready Stance; the butterfly the Pads reaction drops into
         Snapshot _reaction;                      // what ShowReaction(1, facing) shows: the last React, or the Ready Stance before any
+        DrawnPose _lastDrawn, _drawnFrom;
+        double _lastDrawnWall, _drawnStartWall;
+        bool _hasDrawn, _blendDrawn;
         MeshRenderer[] _gear = new MeshRenderer[0];    // every gear piece, in model order
 
         /// <summary>The object that holds the character; the parent of the model. Inactive while hidden.</summary>
@@ -222,6 +225,71 @@ namespace HockeyGame
         /// the shooter at -z), seen from where the goalie stands: centred on the net, StandZ out.
         /// </summary>
         public static float FacingToward(Vector3 shooter) => (float)GoalieTurn.Facing(shooter.x, StandZ - shooter.z);
+
+        // The picture has its own short transition. Physics never reads or writes these final-draw buffers (#216).
+        sealed class DrawnPose
+        {
+            public Vector3[] Positions;
+            public Quaternion[] Rotations;
+            public Vector3 RootPosition, ModelPosition;
+            public Quaternion RootRotation, ModelRotation;
+        }
+
+        DrawnPose NewDrawnPose() => new DrawnPose
+        {
+            Positions = new Vector3[_bones.Length], Rotations = new Quaternion[_bones.Length]
+        };
+
+        /// <summary>Keep the actual final picture, after procedural poses and clips, for the next reaction.</summary>
+        public void RecordDrawnPose(double wallSeconds)
+        {
+            if (!Present) return;
+            if (_lastDrawn == null) { _lastDrawn = NewDrawnPose(); _drawnFrom = NewDrawnPose(); }
+            for (int i = 0; i < _bones.Length; i++)
+            {
+                _lastDrawn.Positions[i] = _bones[i].localPosition;
+                _lastDrawn.Rotations[i] = _bones[i].localRotation;
+            }
+            _lastDrawn.RootPosition = Root.transform.position;
+            _lastDrawn.RootRotation = Root.transform.rotation;
+            _lastDrawn.ModelPosition = _model.localPosition;
+            _lastDrawn.ModelRotation = _model.localRotation;
+            _lastDrawnWall = wallSeconds;
+            _hasDrawn = true;
+        }
+
+        /// <summary>Start from the last final picture, even when physics has already posed ahead.</summary>
+        public void BeginDrawnReaction()
+        {
+            _blendDrawn = _hasDrawn;
+            if (!_blendDrawn) return;
+            Array.Copy(_lastDrawn.Positions, _drawnFrom.Positions, _bones.Length);
+            Array.Copy(_lastDrawn.Rotations, _drawnFrom.Rotations, _bones.Length);
+            _drawnFrom.RootPosition = _lastDrawn.RootPosition;
+            _drawnFrom.RootRotation = _lastDrawn.RootRotation;
+            _drawnFrom.ModelPosition = _lastDrawn.ModelPosition;
+            _drawnFrom.ModelRotation = _lastDrawn.ModelRotation;
+            _drawnStartWall = _lastDrawnWall;
+        }
+
+        /// <summary>Blend only the picture over 0.2 wall seconds. Clips and Replay cancel this procedural transition.</summary>
+        public void ShowDrawnReaction(double wallSeconds, bool allowProcedural)
+        {
+            if (!Present) return;
+            if (!allowProcedural) _blendDrawn = false;
+            if (!_blendDrawn) return;
+            float share = Mathf.Clamp01((float)((wallSeconds - _drawnStartWall) / 0.2));
+            for (int i = 0; i < _bones.Length; i++)
+            {
+                _bones[i].localPosition = Vector3.Lerp(_drawnFrom.Positions[i], _bones[i].localPosition, share);
+                _bones[i].localRotation = Quaternion.Slerp(_drawnFrom.Rotations[i], _bones[i].localRotation, share);
+            }
+            _model.localPosition = Vector3.Lerp(_drawnFrom.ModelPosition, _model.localPosition, share);
+            _model.localRotation = Quaternion.Slerp(_drawnFrom.ModelRotation, _model.localRotation, share);
+            Root.transform.SetPositionAndRotation(Vector3.Lerp(_drawnFrom.RootPosition, Root.transform.position, share),
+                Quaternion.Slerp(_drawnFrom.RootRotation, Root.transform.rotation, share));
+            if (share >= 1f) _blendDrawn = false;
+        }
 
         sealed class Snapshot
         {
