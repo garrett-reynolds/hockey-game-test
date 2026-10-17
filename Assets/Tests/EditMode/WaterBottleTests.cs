@@ -13,6 +13,8 @@ namespace HockeyGame.Core.Tests
         // top of the catch roof the bottle stands on, are 1.30 m up.
         const float FlatTopBack = 0.37f, FrameTop = 1.30f;
         const float Step = PhysicsShot.StepSeconds;
+        // Keep the existing controlled-drop contact tolerance (5 mm), independent of the failing seeds.
+        const float IceContactTolerance = 0.005f;
 
         SimulationMode _oldMode;
         GameObject _rink;
@@ -170,14 +172,18 @@ namespace HockeyGame.Core.Tests
         {
             ShotColliders.Build(_rink.transform);
             WaterBottle bottle = WaterBottle.Build(_rink.transform);
-            bottle.Knock();
+            int seed = System.Environment.TickCount;
+            bottle.Knock(new System.Random(seed));
+            TestContext.WriteLine("Bottle seed=" + seed + " push=" + bottle.Body.linearVelocity.ToString("F6")
+                + " spin=" + bottle.Body.angularVelocity.ToString("F6"));
             Assert.That(bottle.Knocked, "let go");
 
             Run(5f);
+            LogLanding(bottle, seed);
 
             Vector3 p = bottle.Root.transform.position - Origin;
             Assert.That(p.z, Is.LessThan(0f), "forward of the goal line, toward the shooter");
-            Assert.That(p.y, Is.InRange(0.02f, 0.3f), "on the ice: above its surface, not through it");
+            Assert.That(IsOnIce(bottle), Is.True, "collider center height and lower face on the ice; " + LandingPose(bottle, seed));
             Assert.That(Mathf.Abs(p.x), Is.LessThan(RinkIce.Size / 2f), "inside the rink (side to side)");
             Assert.That(Mathf.Abs(p.z - RinkIce.CentreZ), Is.LessThan(RinkIce.Size / 2f), "inside the rink (end to end)");
 
@@ -187,6 +193,99 @@ namespace HockeyGame.Core.Tests
             Assert.That(Vector3.Distance(bottle.RestPosition, bottle.Root.transform.position), Is.LessThan(0.001f), "back in place");
             Assert.That(bottle.Body.isKinematic, "still, held again");
             Assert.That(bottle.Body.linearVelocity.magnitude, Is.LessThan(0.001f));
+        }
+
+        static System.Collections.Generic.IEnumerable<int> LandingSeeds()
+        {
+            for (int seed = 0; seed < 256; seed++) yield return seed;
+        }
+
+        [TestCaseSource(nameof(LandingSeeds))]
+        [Category("Slow"), Explicit("Slow: recorded 256-seed real-knock diagnosis; approved focused run only")]
+        public void A_recorded_seed_knock_keeps_the_original_landing_bounds(int seed)
+        {
+            ShotColliders.Build(_rink.transform);
+            WaterBottle bottle = WaterBottle.Build(_rink.transform);
+            try
+            {
+                bottle.Knock(new System.Random(seed));
+                Assert.That(bottle.Knocked, "let go; " + LandingPose(bottle, seed));
+                Run(5f);
+                LogLanding(bottle, seed);
+                Vector3 p = bottle.Root.transform.position - Origin;
+                string pose = LandingPose(bottle, seed);
+                Assert.That(p.z, Is.LessThan(0f), "forward of goal; " + pose);
+                Assert.That(IsOnIce(bottle), Is.True, "collider center height and lower face on the ice; " + pose);
+                Assert.That(Mathf.Abs(p.x), Is.LessThan(RinkIce.Size / 2f), "inside sides; " + pose);
+                Assert.That(Mathf.Abs(p.z - RinkIce.CentreZ), Is.LessThan(RinkIce.Size / 2f), "inside ends; " + pose);
+            }
+            finally { RinkTeardown.Destroy(bottle.Root); }
+        }
+
+        [TestCase(47), TestCase(62), TestCase(105), TestCase(210), TestCase(222)]
+        public void Captured_failed_seed_lands_on_the_ice(int seed)
+        {
+            A_recorded_seed_knock_keeps_the_original_landing_bounds(seed);
+        }
+
+        [Test]
+        [Category("Slow"), Explicit("Slow: controlled pose diagnostic only; does not prove a knock landing")]
+        public void A_recorded_pose_control_shows_an_upright_root_below_the_existing_height_bound()
+        {
+            ShotColliders.Build(_rink.transform);
+            WaterBottle bottle = WaterBottle.Build(_rink.transform);
+            const int seed = 207;
+            bottle.Knock(new System.Random(seed));
+            // A controlled drop tests the root-height claim without a lucky knock or a global physics change.
+            bottle.Body.position = Origin + new Vector3(0f, 0.2f, -1f);
+            bottle.Body.rotation = Quaternion.identity;
+            bottle.Body.linearVelocity = Vector3.zero;
+            bottle.Body.angularVelocity = Vector3.zero;
+            Physics.SyncTransforms();
+            Run(2f);
+            LogLanding(bottle, seed);
+
+            Bounds bounds = bottle.Root.GetComponent<BoxCollider>().bounds;
+            string uprightPose = LandingPose(bottle, seed);
+            Assert.That(IsOnIce(bottle), Is.True, "the upright box passes the landing check; " + uprightPose);
+            Assert.That(bottle.Body.linearVelocity.magnitude, Is.LessThan(0.01f), "the drop has settled; " + uprightPose);
+            Assert.That(Quaternion.Angle(Quaternion.identity, bottle.Body.rotation), Is.LessThan(1f), "still upright; " + uprightPose);
+            Assert.That(bottle.Root.transform.position.y, Is.LessThan(0.02f), "a valid upright root violates the old lower bound; " + uprightPose);
+
+            // Negative control uses the same landing predicate as both real-knock tests.
+            bottle.Body.position = Origin + new Vector3(0f, -2f, -1f);
+            Physics.SyncTransforms();
+            bounds = bottle.Root.GetComponent<BoxCollider>().bounds;
+            string belowIcePose = LandingPose(bottle, seed);
+            Assert.That(bounds.max.y, Is.LessThan(-1f), "control is below the entire ice slab; " + belowIcePose);
+            Assert.That(IsOnIce(bottle), Is.False, "landing check rejects a fallen-through bottle; " + belowIcePose);
+        }
+
+        bool IsOnIce(WaterBottle bottle)
+        {
+            Bounds bounds = bottle.Root.GetComponent<BoxCollider>().bounds;
+            float iceY = _rink.GetComponentsInChildren<BoxCollider>()
+                .Single(collider => collider.name == ShotColliders.IceName).bounds.max.y;
+            float centerHeight = bounds.center.y - iceY;
+            return centerHeight >= 0.02f && centerHeight <= 0.3f
+                && Mathf.Abs(bounds.min.y - iceY) <= IceContactTolerance;
+        }
+
+        static void LogLanding(WaterBottle bottle, int seed)
+        {
+            TestContext.WriteLine(LandingPose(bottle, seed));
+        }
+
+        static string LandingPose(WaterBottle bottle, int seed)
+        {
+            Bounds bounds = bottle.Root.GetComponent<BoxCollider>().bounds;
+            return "Bottle seed=" + seed + " root=" + bottle.Root.transform.position.ToString("F6")
+                + " body=" + bottle.Body.position.ToString("F6")
+                + " rotation=" + bottle.Body.rotation.ToString("F6") + " center=" + bounds.center.ToString("F6")
+                + " min=" + bounds.min.ToString("F6") + " max=" + bounds.max.ToString("F6")
+                + " bottom=" + bounds.min.y.ToString("F6")
+                + " speed=" + bottle.Body.linearVelocity.magnitude.ToString("F6")
+                + " velocity=" + bottle.Body.linearVelocity.ToString("F6");
         }
 
         [Test]
