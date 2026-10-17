@@ -32,7 +32,7 @@ namespace HockeyGame.Editor
     /// [-pictureResult file] -logFile ... exits 0 on pass, 2 on fail, 1 on an error.
     /// TakeBaselineFromCommandLine re-takes the baseline: only when a ticket says so.
     /// </summary>
-    public static class PictureTestTool
+    public static partial class PictureTestTool
     {
         public const int Width = 1280, Height = 720;
         /// <summary>Seconds into the shooting window of every view: after a Late Settle has settled (RoundSettings.LateSettleSeconds).</summary>
@@ -301,6 +301,7 @@ namespace HockeyGame.Editor
             readonly RibbonBoards _ribbons;
             readonly Crowd _crowd;
             readonly VideoBoards _boards;
+            public bool CrowdDrawn => _crowd.Drawn;
 
             public Rig(RenderTexture target)
             {
@@ -507,21 +508,9 @@ namespace HockeyGame.Editor
 
         static ViewMeasures Measure(Rig rig, RenderTexture target, Texture2D texture, string view, NetFaceGaps gaps, string folder)
         {
-            Color32[] picture = Capture(rig.Camera, target, texture, ~0, true);
-            Color32[] again = Capture(rig.Camera, target, texture, ~0, true);
-            if (PictureMeasures.ChangedShare(picture, again) > 0)
-                throw new InvalidOperationException("View " + view + " rendered differently twice in a row: the picture test cannot compare it.");
-            bool[] goalie = PictureMeasures.Differs(Capture(rig.Camera, target, texture, 1 << GoalieLayer, false), ClearColour);
-            bool[] glow = PictureMeasures.Differs(Capture(rig.Camera, target, texture, 1 << GlowLayer, false), ClearColour);
-
-            // The glow draws over the goalie (GoalieView: no depth test while he is set), so the gear seen is the goalie less the glow.
-            bool[] gearSeen = PictureMeasures.Without(goalie, glow);
-            bool[] inFront = (bool[])goalie.Clone();
-            PictureMeasures.AddTo(inFront, glow);
-            bool[] calm = PictureMeasures.Without(CalmArea(rig.Camera, view), inFront);
-            bool[] gear = PictureMeasures.And(gearSeen, PictureMeasures.Polygon(NetFaceCorners(rig.Camera, 0, 0, 100, 100), Width, Height));
-            if (PictureMeasures.InnerPixels(calm, Width, Height) == 0)
-                throw new InvalidOperationException("View " + view + " shows no Calm Area: its contrast and edges cannot be measured.");
+            ViewSample sample = SampleView(rig, target, texture, view, gaps);
+            Color32[] picture = sample.Picture;
+            bool[] calm = sample.Calm, gear = sample.Gear;
 
             float[] luma = PictureMeasures.Luma(picture);
             var measures = new ViewMeasures
@@ -532,25 +521,15 @@ namespace HockeyGame.Editor
             };
 
             // Each Gap on its own: its cells' pixels (less the gear seen) against the gear's pixels on the Net Face.
-            var isGap = new bool[NetFaceGaps.Cells];
-            for (int column = 0; column < NetFaceGaps.Columns; column++)
-            for (int row = 0; row < NetFaceGaps.Rows; row++)
-                isGap[NetFaceGaps.Index(column, row)] = gaps.IsGap(column, row);
             var allGapPixels = new bool[Width * Height];
-            foreach (List<int> cells in PictureMeasures.Groups(isGap, NetFaceGaps.Columns, NetFaceGaps.Rows))
+            foreach (GapSample gap in sample.Gaps)
             {
-                string name = PictureMeasures.GapName(cells, NetFaceGaps.Columns);
-                var gapCells = new bool[Width * Height];
-                foreach (int cell in cells)
-                {
-                    NetFaceGaps.Cell(cell % NetFaceGaps.Columns, cell / NetFaceGaps.Columns, out double minX, out double minY, out double maxX, out double maxY);
-                    PictureMeasures.AddTo(gapCells, PictureMeasures.Polygon(NetFaceCorners(rig.Camera, minX, minY, maxX, maxY), Width, Height));
-                }
-                bool[] gapPixels = PictureMeasures.Without(gapCells, gearSeen);
+                string name = gap.Name;
+                bool[] gapPixels = gap.Excluded;
                 double standOut = PictureMeasures.GapStandOut(luma, gapPixels, gear);
                 if (double.IsNaN(standOut))
                     throw new InvalidOperationException("View " + view + ": " + name + " shows no pixels, or there are no gear pixels: its stand-out cannot be measured.");
-                measures.Gaps.Add(new GapMeasure { Gap = name, Cells = cells.Count, StandOut = standOut });
+                measures.Gaps.Add(new GapMeasure { Gap = name, Cells = gap.Cells.Count, StandOut = standOut });
                 PictureMeasures.AddTo(allGapPixels, gapPixels);
             }
             if (measures.Gaps.Count == 0)
@@ -559,41 +538,6 @@ namespace HockeyGame.Editor
             WritePng(texture, picture, Path.Combine(folder, view + ".png"));
             WritePng(texture, Overlay(picture, calm, gear, allGapPixels), Path.Combine(folder, view + "-masks.png"));
             return measures;
-        }
-
-        /// <summary>Renders the camera into the target and reads it back (rows from the bottom). Only the layers in cullingMask
-        /// draw; with post-processing off on the clear colour, so a mask render shows exactly what those layers drew.</summary>
-        static Color32[] Capture(Camera camera, RenderTexture target, Texture2D texture, int cullingMask, bool asSeen)
-        {
-            int mask = camera.cullingMask;
-            CameraClearFlags flags = camera.clearFlags;
-            Color background = camera.backgroundColor;
-            UniversalAdditionalCameraData data = camera.GetUniversalAdditionalCameraData();
-            bool post = data.renderPostProcessing;
-            try
-            {
-                camera.cullingMask = cullingMask;
-                if (!asSeen)
-                {
-                    camera.clearFlags = CameraClearFlags.SolidColor;
-                    camera.backgroundColor = ClearColour;
-                    data.renderPostProcessing = false;
-                }
-                camera.targetTexture = target;
-                camera.Render();
-                RenderTexture.active = target;
-                texture.ReadPixels(new Rect(0, 0, Width, Height), 0, 0);
-                texture.Apply();
-                return texture.GetPixels32();
-            }
-            finally
-            {
-                RenderTexture.active = null;
-                camera.cullingMask = mask;
-                camera.clearFlags = flags;
-                camera.backgroundColor = background;
-                data.renderPostProcessing = post;
-            }
         }
 
         /// <summary>
