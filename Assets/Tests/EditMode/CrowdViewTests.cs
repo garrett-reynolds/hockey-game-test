@@ -197,6 +197,7 @@ namespace HockeyGame.Core.Tests
             {
                 cam.targetTexture = target;
                 cam.Render(); // Warm the original bounds before changing the parent.
+                AssertCrowdMaterialMatrices(crowd);
                 int before = crowd.LastDrawnFans;
                 Assert.That(before, Is.GreaterThan(1000).And.LessThan(crowd.FanCount));
                 _rink.transform.SetPositionAndRotation(new Vector3(5000, 20, -4000),
@@ -208,6 +209,7 @@ namespace HockeyGame.Core.Tests
                     crowd.transform.localScale = new Vector3(0.8f, 1.3f, 1.1f);
                 }
                 cam.Render();
+                AssertCrowdMaterialMatrices(crowd);
                 int moved = crowd.LastDrawnFans;
                 if (!scaleAndShear) Assert.AreEqual(before, moved, "a rigid move with the camera keeps the visible fans");
 
@@ -224,6 +226,7 @@ namespace HockeyGame.Core.Tests
                 crowd.gameObject.SetActive(true);
                 cam.Render();
                 Assert.AreEqual(reference.LastDrawnFans, crowd.LastDrawnFans, "enable must retain correct bounds");
+                AssertCrowdMaterialMatrices(crowd);
             }
             finally
             {
@@ -232,6 +235,19 @@ namespace HockeyGame.Core.Tests
                 target.Release();
                 Object.DestroyImmediate(target);
             }
+        }
+
+        static void AssertCrowdMaterialMatrices(Crowd crowd)
+        {
+            Matrix4x4 expected = crowd.transform.localToWorldMatrix;
+            int checkedMaterials = 0;
+            foreach (Material material in crowd.Materials)
+            {
+                Assert.That(material.GetMatrix("_CrowdToWorld").Equals(expected), Is.True,
+                    material.name + " must draw at the current crowd transform");
+                checkedMaterials++;
+            }
+            Assert.That(checkedMaterials, Is.GreaterThan(0));
         }
 
         [Test]
