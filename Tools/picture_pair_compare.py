@@ -1,10 +1,12 @@
 """Compare saved same-frame captures without Unity. No third-party packages."""
+import argparse
 import hashlib
 import json
 import math
 from pathlib import Path
 import re
 import struct
+import sys
 
 VIEWS = tuple(f"{pose}-easy-{hint}" for pose in ("left-cheat", "middle-depth", "right-late-settle") for hint in ("on", "off"))
 MASKS = ("goalie", "glow", "gearSeen", "calm", "gear")
@@ -163,3 +165,26 @@ def _compare_pair(old_manifest_path, new_manifest_path):
     except (KeyError, ValueError, TypeError, OSError, StopIteration) as error:
         report["problems"].append(str(error))
     return report
+
+
+def main(argv=None):
+    """Read the frozen pair and emit its report without replacing saved files."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("old_manifest", type=Path)
+    parser.add_argument("new_manifest", type=Path)
+    parser.add_argument("--output", type=Path, help="new report path; existing files are never replaced")
+    args = parser.parse_args(argv)
+    report = compare_pair(args.old_manifest, args.new_manifest)
+    text = json.dumps(report, indent=2, allow_nan=False) + "\n"
+    if args.output is not None:
+        try:
+            with args.output.open("x", encoding="utf-8", newline="\n") as stream:
+                stream.write(text)
+        except OSError as error:
+            parser.error(str(error))
+    sys.stdout.write(text)
+    return 0 if report["pass"] else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
