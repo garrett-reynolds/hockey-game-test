@@ -1,0 +1,10 @@
+PASS ChangedTrueAndFalseCellsCopyOnlySelectedRun
+PASS ClampedRangesRetainValuesAndCounts
+PASS ConstructorCopiesInput
+FAIL EmptyAndOutsideRangesKeepReference:   Expected: same as <HockeyGame.Core.NetFaceGaps>
+  But was:  <HockeyGame.Core.NetFaceGaps>
+
+FAIL UnchangedSelectedCellsKeepReferenceDespiteOutsideDifferences:   Expected: same as <HockeyGame.Core.NetFaceGaps>
+  But was:  <HockeyGame.Core.NetFaceGaps>
+
+Passed: 3; Failed: 2; Worker count: 1
