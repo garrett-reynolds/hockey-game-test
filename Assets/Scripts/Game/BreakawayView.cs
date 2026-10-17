@@ -71,6 +71,9 @@ namespace HockeyGame
             clips?.Pre();
             Step(Time.deltaTime, Time.unscaledDeltaTime);
             clips?.Post(_round, UseAiClips, Time.unscaledDeltaTime);
+            bool replay = _round.Phase == RoundPhase.ResultHold && _round.ReplayFollows &&
+                ReplayTiming.CameraAt(_round.PhaseSecondsElapsed - _round.ResultDelaySeconds) == CameraMode.Replay;
+            _goalie.ShowDrawnPose(PauseSwitch.DrawnSeconds, replay);
         }
 
         /// <summary>PROTOTYPE: the goalie plays AI clips after a Goal, after a Save and when idle. K flips it in Play.</summary>

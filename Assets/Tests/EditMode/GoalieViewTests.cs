@@ -218,6 +218,164 @@ namespace HockeyGame.Core.Tests
             Object.DestroyImmediate(reference.Root.transform.parent.gameObject);
         }
 
+        // #216: a374060ef43e4d5e899a5067c2d0d3c8-trace.json.shot.json, accepted live Save.
+        [Test]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
+        public void The_recorded_depth_pad_save_keeps_the_immediate_React_hip_step_below_the_play_check_jump_limit()
+        {
+            const double phaseSeconds = 0.054803489893674895;
+            const double reactionSeconds = 0.29455858679700575;
+            const double x = 20.833333333333332, y = 31.25, speedKmh = 100.0;
+            // All fields from the shot fixture, including live settings that differ from defaults.
+            var settings = new RoundSettings
+            {
+                SkateInSeconds = 2.5, SlowDownSeconds = 1.2, ShootingWindowSeconds = 3.0,
+                ResultHoldSeconds = 2.5, ClipHoldSeconds = 1.5, ReplayOn = true, TestMode = false,
+                TestModeHoldSeconds = 1.0, WhistleDeadSeconds = 0.3, WhistleCapSeconds = 3.0,
+                WhistleVerySlowMetresPerSecond = 0.3, ViewFieldOfViewDegrees = 60.0, ShotStartMarginMetres = 0.05,
+                ReactionSeconds = 0.3, ReactionWobbleSeconds = 0.03, HandMetresPerSecond = 3.0,
+                LegMetresPerSecond = 3.0, MaxPushMetres = 0.3, ReachLimitMetres = 0.595,
+                ShuffleMaxMetres = 0.3, PushAccelMetresPerSecondSquared = 40.0, GlideDecelMetresPerSecondSquared = 20.0,
+                NormalDepthMetres = 0.2, CheatMetres = 0.3, LateSettleMetres = 0.3, LateSettleSeconds = 1.0,
+                LateSettles = false, GapThinGearReachMetres = 0.01, LateMarginLimitSeconds = 0.05,
+                HeadOnPuck = true, HeadShoulderShare = 0.15, SkateInShuffles = true, ShuffleStartMetres = 0.08,
+                ShuffleSeconds = 0.3, StillOnceSet = true, SetStillness = 0.85, SetDropMetres = 0.03
+            };
+            var character = new GoalieCharacter(_parent.transform);
+            Assert.IsTrue(character.Present, "the real goalie rig must load");
+            var view = new GoalieView(_parent.transform, character);
+            _views.Add(view);
+            view.Show(true);
+            var reach = new GoalieCharacterReach(character, settings);
+            ShotRace race = ShotRace.At(HockeyGame.Core.SetUp.Depth, AttackSide.Middle, phaseSeconds,
+                x, y, speedKmh, reactionSeconds, reach, settings);
+            Assert.IsTrue(race.IsSave, "the recorded race was a Save");
+            Assert.IsTrue(race.InTheWay, "the recorded race already blocked the puck");
+            Assert.AreEqual(SaveReaction.Pads, race.SaveReaction, "the recorded race selected Pads");
+            Assert.AreEqual(0.0, race.MoveSeconds, "the recorded race had no timed move");
+            Assert.AreEqual(0.0, race.ReachSeconds, "the recorded reach was immediate");
+            Assert.AreEqual(0.17695650388636722, race.FlightSeconds, 1e-8, "match the recorded flight");
+            Assert.AreEqual(-0.17695650388636722, race.LateMarginSeconds, 1e-8, "match the recorded margin");
+            Assert.AreEqual(0.0, race.ShotStart.X);
+            Assert.AreEqual(0.0125, race.ShotStart.Y, 1e-8);
+            Assert.AreEqual(-4.8724599601258136, race.ShotStart.Z, 1e-8);
+            Assert.AreEqual(0.0, race.Spot.X);
+            Assert.AreEqual(0.0, race.Spot.Y);
+            Assert.AreEqual(0.0, race.Spot.Z);
+            var from = new Vector3((float)race.ShotStart.X, (float)race.ShotStart.Y, (float)race.ShotStart.Z);
+            view.StandFor(race);
+            view.Face(0f, view.PosedFacing());
+            view.ShowBeforeTheShot(from,
+                (float)BeforeTheShot.Watching(RoundPhase.ShootingWindow, phaseSeconds, settings),
+                (float)BeforeTheShot.Settled(RoundPhase.ShootingWindow, phaseSeconds, settings), settings);
+            view.SetProgress(1f); // candidate retained progress from the preceding frame; the private live value is unproved
+            Transform hips = character.Bone(HumanBodyBones.Hips);
+            Vector3 before = hips.position, beforeRoot = character.Root.transform.position;
+            view.React(new ShotResult(ShotResultKind.Save, true, x, y, speedKmh, false), from,
+                race.SaveReaction, race.LateMarginSeconds, settings.LateMarginLimitSeconds);
+            float step = Vector3.Distance(before, hips.position);
+            TestContext.WriteLine($"#216 recorded React hips {before.ToString("F6")} -> {hips.position.ToString("F6")}; root {beforeRoot.ToString("F6")} -> {character.Root.transform.position.ToString("F6")}; immediate step={step:F6} m");
+            Assert.LessOrEqual(step, 6f / 60f,
+                "#216: the recorded Save React step must fit the existing 6 m/s hip limit at 60 frames/s");
+        }
+
+        [Test]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
+        public void A_long_game_frame_blends_the_final_drawn_pose_on_wall_time_without_moving_physics_targets()
+        {
+            const double wallStep = 0.0535354614, gameStep = 0.4082098007;
+            var character = new GoalieCharacter(_parent.transform);
+            Assert.IsTrue(character.Present);
+            var view = new GoalieView(_parent.transform, character);
+            _views.Add(view);
+            view.Show(true);
+            var from = new Vector3(1.500582626f, 0.0125f, -5.001942087f);
+            view.Stand(new Vector3(0.36f, 0f, -0.2f));
+            view.Face(0f, GoalieCharacter.FacingToward(from));
+            view.SetProgress(0f);
+            view.ShowDrawnPose(10.0);
+            Vector3 previous = character.Bone(HumanBodyBones.Hips).position;
+            view.SetProgress(0.7990120649f); // physics ahead must not replace the last drawn pose
+            view.React(new ShotResult(ShotResultKind.Save, true, 29.166666666666668, 6.25, 100, false),
+                from, SaveReaction.Pads, -0.18471247276657579, LateMarginLimit);
+            float target = (float)Breakaway.GoalieSet(RoundPhase.ResultHold, gameStep, true, 0.1940816343);
+            Assert.AreEqual(1f, target, "the long game frame reaches the full reaction target");
+            view.SetProgress(target);
+            view.MoveHitShapes();
+            Assert.Greater(Vector3.Distance(previous, character.Bone(HumanBodyBones.Hips).position) / wallStep, 6.0,
+                "the full long-frame target must expose the captured jump before the drawn blend");
+            Transform[] bones = character.Root.GetComponentsInChildren<Transform>();
+            var positions = new Vector3[bones.Length];
+            var rotations = new Quaternion[bones.Length];
+            for (int i = 0; i < bones.Length; i++) { positions[i] = bones[i].position; rotations[i] = bones[i].rotation; }
+            Collider[] hits = _parent.transform.Find(GoalieHitShapes.RootName).GetComponentsInChildren<Collider>();
+            Assert.Greater(hits.Length, 0);
+            var hitPositions = new Vector3[hits.Length];
+            var hitRotations = new Quaternion[hits.Length];
+            for (int i = 0; i < hits.Length; i++) { hitPositions[i] = hits[i].transform.position; hitRotations[i] = hits[i].transform.rotation; }
+            view.ShowDrawnPose(10.0 + wallStep);
+            double speed = Vector3.Distance(previous, character.Bone(HumanBodyBones.Hips).position) / wallStep;
+            Assert.LessOrEqual(speed, 6.0, "the original final-drawn wall-time limit applies");
+            for (int i = 0; i < hits.Length; i++)
+            {
+                Assert.AreEqual(hitPositions[i], hits[i].transform.position, "drawn blend must not move a hit shape");
+                Assert.AreEqual(hitRotations[i], hits[i].transform.rotation);
+            }
+            view.SetProgress(target);
+            view.MoveHitShapes();
+            for (int i = 0; i < bones.Length; i++)
+            {
+                Assert.AreEqual(positions[i], bones[i].position, bones[i].name);
+                Assert.AreEqual(rotations[i], bones[i].rotation, bones[i].name);
+            }
+            for (int i = 0; i < hits.Length; i++)
+            {
+                Assert.AreEqual(hitPositions[i], hits[i].transform.position, hits[i].name);
+                Assert.AreEqual(hitRotations[i], hits[i].transform.rotation, hits[i].name);
+            }
+        }
+
+        [Test]
+        [Category("Slow"), Explicit("Slow: runs only in the full run (--include_explicit true)")]
+        public void A_paused_drawn_clock_keeps_the_reaction_at_the_same_pose()
+        {
+            bool wasPaused = PauseSwitch.IsPaused;
+            float oldScale = Time.timeScale;
+            bool oldAudioPause = AudioListener.pause;
+            try
+            {
+                PauseSwitch.Set(true);
+                double stopped = PauseSwitch.DrawnSeconds;
+                var character = new GoalieCharacter(_parent.transform);
+                var view = new GoalieView(_parent.transform, character);
+                _views.Add(view);
+                view.Show(true);
+                view.SetProgress(0f);
+                view.ShowDrawnPose(stopped);
+                Vector3 before = character.Bone(HumanBodyBones.Hips).position;
+                view.React(Result(ShotResultKind.Save, 15, 8), new Vector3(0f, 0.0125f, -5f),
+                    SaveReaction.Pads, double.PositiveInfinity, LateMarginLimit);
+                view.SetProgress(1f);
+                Assert.AreEqual(stopped, PauseSwitch.DrawnSeconds, "wall time must stop for the full pause");
+                view.ShowDrawnPose(PauseSwitch.DrawnSeconds);
+                Assert.AreEqual(before, character.Bone(HumanBodyBones.Hips).position);
+
+                // A long paused span adds no time to the same public drawn-pose seam after Resume.
+                var clock = new PauseClock();
+                clock.Pause(stopped);
+                clock.Resume(stopped + 30.0);
+                view.SetProgress(1f);
+                view.ShowDrawnPose(clock.Now(stopped + 30.05));
+                Assert.LessOrEqual(Vector3.Distance(before, character.Bone(HumanBodyBones.Hips).position) / 0.05, 6.0);
+            }
+            finally
+            {
+                PauseSwitch.Set(wasPaused);
+                Time.timeScale = oldScale;
+                AudioListener.pause = oldAudioPause;
+            }
+        }
+
         static IEnumerable<(string, Vector3)> AllEyes()
         {
             foreach (AttackSide side in new[] { AttackSide.Left, AttackSide.Middle, AttackSide.Right })

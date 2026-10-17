@@ -282,6 +282,14 @@ namespace HockeyGame
         /// </summary>
         public void MoveHitShapes() => _hits?.Move();
 
+        /// <summary>Finish the picture with a wall-time reaction blend, then keep the final pose for the next frame.</summary>
+        public void ShowDrawnPose(double wallSeconds, bool replay = false)
+        {
+            if (_character == null || !_visible) return;
+            _character.ShowDrawnReaction(wallSeconds, !replay && !(Clips?.Active ?? false));
+            _character.RecordDrawnPose(wallSeconds);
+        }
+
         /// <summary>The goalie as drawn: the character's root, or the block goalie (the Replay records it).</summary>
         public Transform Body => _character != null ? _character.Root.transform : _block.transform;
 
@@ -351,6 +359,7 @@ namespace HockeyGame
         {
             _reacted = false;
             if (_character == null || !_visible || !result.HasShot) return;
+            _character.BeginDrawnReaction();
             NetFaceMapping.ToMetres(result.X, result.Y, out double right, out double up);
             var netPoint = new Vector3((float)right, (float)up, 0f);
             bool lateReach = result.Kind == ShotResultKind.Goal && reaction.HasValue && !double.IsInfinity(lateMarginSeconds);
@@ -364,7 +373,8 @@ namespace HockeyGame
             _followAtWhistle = 0;
             _watchAtWhistle = netPoint;
             _post =new Vector3((netPoint.x >= 0f ? 1f : -1f) * (float)NetFaceMapping.WidthMetres / 2f, PostGlanceHeight, 0f);
-            PoseCharacter();
+            // React builds the endpoint and keeps the shown pose. The next SetProgress applies the race's blend;
+            // the retained progress belongs to the previous pose and must not show the new endpoint here (#216).
         }
 
         /// <summary>
