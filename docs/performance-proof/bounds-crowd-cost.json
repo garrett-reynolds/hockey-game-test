@@ -1,0 +1,76 @@
+{
+    "Gpu": "NVIDIA GeForce RTX 4070 Laptop GPU (Direct3D11)",
+    "Width": 1920,
+    "Height": 1080,
+    "Fans": 14185,
+    "NearFans": 3481,
+    "FarFans": 10704,
+    "NearTriangles": 1499,
+    "FarTriangles": 399,
+    "Views": [
+        {
+            "View": "shooter",
+            "FansDrawn": 3657,
+            "NoCrowdMs": 6.3560066666666675,
+            "BodiesMs": 11.20842,
+            "FarCardsMs": 10.869853333333333,
+            "BodiesCostMs": 4.621836666666667,
+            "FarCardsCostMs": 4.282781666666667,
+            "NoCrowdSlowest1PctMs": 10.618225000000002,
+            "BodiesSlowest1PctMs": 16.645775000000008,
+            "FarCardsSlowest1PctMs": 16.594875,
+            "BodiesCostSlowest1PctMs": 6.027550000000005,
+            "FarCardsCostSlowest1PctMs": 5.976649999999996,
+            "BodiesCostRounds": [
+                5.325071666666668,
+                4.833210000000001,
+                4.621836666666667,
+                4.575973333333334,
+                5.001186666666669,
+                4.5350416666666655,
+                4.028793333333334
+            ],
+            "FarCardsCostRounds": [
+                4.8351083333333325,
+                4.282781666666667,
+                4.28327,
+                3.6514283333333317,
+                5.3050049999999995,
+                3.5952849999999996,
+                3.8359450000000015
+            ]
+        },
+        {
+            "View": "up-ice",
+            "FansDrawn": 9588,
+            "NoCrowdMs": 7.945785000000001,
+            "BodiesMs": 19.356071666666665,
+            "FarCardsMs": 19.522313333333333,
+            "BodiesCostMs": 10.968530000000001,
+            "FarCardsCostMs": 11.576528333333332,
+            "NoCrowdSlowest1PctMs": 15.517124999999975,
+            "BodiesSlowest1PctMs": 128.06967500000002,
+            "FarCardsSlowest1PctMs": 100.73445000000001,
+            "BodiesCostSlowest1PctMs": 112.55255000000004,
+            "FarCardsCostSlowest1PctMs": 85.21732500000003,
+            "BodiesCostRounds": [
+                9.679036666666667,
+                10.016365,
+                10.968530000000001,
+                8.382783333333334,
+                20.125226666666666,
+                11.036281666666664,
+                13.060456666666665
+            ],
+            "FarCardsCostRounds": [
+                8.126343333333333,
+                13.435081666666669,
+                6.593898333333332,
+                8.049933333333334,
+                11.576528333333332,
+                11.848970000000001,
+                11.820471666666668
+            ]
+        }
+    ]
+}

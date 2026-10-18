@@ -1,0 +1,517 @@
+{
+    "CompilerExit":  0,
+    "ErrorLines":  0,
+    "FreshDll":  true,
+    "StartedUtc":  "2026-10-18T00:18:41.6785423Z",
+    "OutputDll":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\slice-compile-831ae513da1945c1ab5922f26fb520ff.dll",
+    "ResponseFile":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\slice-compile-831ae513da1945c1ab5922f26fb520ff.rsp",
+    "CompilerLog":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\slice-compile-831ae513da1945c1ab5922f26fb520ff.log",
+    "Defines":  "UNITY_EDITOR,UNITY_EDITOR_WIN,UNITY_STANDALONE_WIN",
+    "SourceHashes":  [
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\AfterShot.cs",
+                             "Hash":  "71AB901CAA0BBE5B708DAF5CD33F140EA7E04D3E49D8ABC639282590BC2E3690"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\ArenaShow.cs",
+                             "Hash":  "FD7BA8F956410D9E2EC19BE7CBBBABA573162DAA9EA6A88425197821BE837E83"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\AttackSide.cs",
+                             "Hash":  "7F0B401A4AC18077DEE493523937759AD12D32AAB9D302E4A720F5C87E89E1E5"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\BeforeTheShot.cs",
+                             "Hash":  "9DB8D81B39CEF9C670B60BDE869A21A58B73FA36064407993555E0B5993DFCA2"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\Brands.cs",
+                             "Hash":  "334F2FF34922FF24DF480543321A235F96BC5852C765C47E6535B151BE5AE736"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\Breakaway.cs",
+                             "Hash":  "C8E65CA687928DB6A9BD8A8D3BE4AC8AE2014922992262A8664C4D8805680F9A"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\CrowdLooks.cs",
+                             "Hash":  "871112F5BECFEE734593645D2EB6F635FA7879D2ABCDF786C533CFA7DEB0E78D"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\CrowdMotion.cs",
+                             "Hash":  "DF972CEF74FED7AE90B90DB1B10DE4B14EA62F00EACAFE1C800D07042B4F66BA"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\CrowdSeats.cs",
+                             "Hash":  "7D6A58D44575A49AC1E0BBB333AC5B134CDF808D6C36DA036B7F01E56A7D72C1"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\CrowdSliceOrder.cs",
+                             "Hash":  "B9572D423B6C779893B88BC54073DC6F6AF5A524BA9FB47969ABB9C462C3FE45"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\EasyGlow.cs",
+                             "Hash":  "962F9A5D787E10442429F86C6958A4E67563EAF7B78E26D1F511004F6FEA7395"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\FrameBudget.cs",
+                             "Hash":  "CC0D8CF9A2F3D1186D2B688C32514522B0B2DC0EA4469AD6C9CD04665B5815C2"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\FrameTrace.cs",
+                             "Hash":  "8746DB30346AFAC54E7C026AD8CF110642535C50BBD23F2B9D1245044DC2EEFA"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\GoalieShuffle.cs",
+                             "Hash":  "03BE3928457A29AA709DAD78F73C8873C36661ED9B58E4C3F5BDCFF615CF664D"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\GoalieTurn.cs",
+                             "Hash":  "B4A142AB60FB4E904882E231AE97FC41218115CEEF20D32801B8C3A98D2FA7AD"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\IGoalieReach.cs",
+                             "Hash":  "C4969ED7A8E1F5E8DDF23FB6D3847C561DF12B465A61CB89FD48A28F6E4CEC39"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\IRandomSource.cs",
+                             "Hash":  "DC51622BFABA9D2FD31221E7C7821A5775AF111BC9DBDB82B7655E4609930EF3"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\LedFont.cs",
+                             "Hash":  "65DF906FE4D90662712AED5B0E48F2F21B3088488E642F88F9359FF4241DDFB2"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\LedWords.cs",
+                             "Hash":  "650CC7A048C5B1F92B27C0DFA7A9A303293A32BF6A37F2B09F514A7D9F393345"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\LowerThird.cs",
+                             "Hash":  "207EFB26017467D7630EC14B6B847A448D3351247E1526509407357668C00A2B"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\NetFaceGaps.cs",
+                             "Hash":  "75CB27AC90F3A48A930D8154EA53043D5CD296F3C2AD95DBD05454079CA7A8D6"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\NetFrame.cs",
+                             "Hash":  "4537BAD77ACCCBD607FE83AEFEF33EF5A9493A2E0672AA421BD566D64B3DDA81"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\NoRepeatPicker.cs",
+                             "Hash":  "DEDCAA57D370EB504B0A206884901A454E582B5FF28FFA47B8F5DD6A3CF9B3F8"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\Numbers.cs",
+                             "Hash":  "0E61F0D5FF601E139233FC7E98267972FF278B688261A2E30AEEF1C9EF88FD76"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\PauseClock.cs",
+                             "Hash":  "FDE9C1D5FF76EEF92FAED5D0B819141CDA81BCA83F3B7305FE69AB538CB02462"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\PushPose.cs",
+                             "Hash":  "27CCF19DA8FABC5F2223FF9E300540C0C9B43D6DB641883E696E5C64A8484DF5"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\ReplayTiming.cs",
+                             "Hash":  "1F3502094B545EE17354F3B0C381BD7A410514DCB8D020D3A7DDD1CE51BE075F"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\ReservedColours.cs",
+                             "Hash":  "BE90DFDA26643B8FBBCD8E1FC9955F04891ECD0E40946D6B5484E6FF5D0B72C0"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\RinkLayout.cs",
+                             "Hash":  "DBFFA35D50D1DE509C485546D7FDDF087A19BD5B6B3E7C06C7AD17966DB5BD4C"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\RinkPoint.cs",
+                             "Hash":  "6CC0FA2B97E770FD923CCE8DAAF1E174952438C59DA0AB5482757779C43B3771"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\Round.cs",
+                             "Hash":  "548DCE4639F0FF7851D477FCC6E27EFB59350A1FC03A1DF59BD17C299D81CF88"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\RoundDecks.cs",
+                             "Hash":  "9DC454B7491DB519398DD2D5C022E332D58801BBE58FDAD7FB432B15C0C24E5B"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\RoundSettings.cs",
+                             "Hash":  "4464C96A6FB94A3D5B62A61034CC45A74D8C71E72A600B33D641914071792283"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\RoundSoundCues.cs",
+                             "Hash":  "E09253DB5608C423BF5BF3441004A9D1D5BE0B317C04F1843CF347624D4CA7ED"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\RoundTypes.cs",
+                             "Hash":  "489588C2810986118DA28E88306E3D37F18A71F8CA0C4A56CA2EE56B2BB54036"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\SaveData.cs",
+                             "Hash":  "3432A89FE6D432E907466A7B1071ACB3E122E4087B1D5BBC79FA9802BB95A9D9"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\SavedFade.cs",
+                             "Hash":  "3A84A65433C2FDD99792D9CA05704FE69F9726134508CEC2D97BDFE0BD2DBFBF"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\SaveReaction.cs",
+                             "Hash":  "95409CA8E85B3D1366CF0EE3163509BCC6282C4C516310349B3219D5FC693091"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\ScreenFlow.cs",
+                             "Hash":  "E81D363DF2FC86F1EB4518F1495EEBBAB0EE2802EC61F014F04FABF41FCC9163"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\ScriptedShot.cs",
+                             "Hash":  "8C63A551B69029BEDF07B36BCF4C63BD039619ED8E83D32A4BD668F76516B934"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\SettingsMenu.cs",
+                             "Hash":  "D601F9FC2FEBB6D7B7875A119B684662DD9827E23E908DC331BB12369E74D9E5"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\SetUp.cs",
+                             "Hash":  "210604BB8C9705583533B1A7D0468C0AE15C214EE71810A7F6BC60FA40FBA7E9"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\ShotFade.cs",
+                             "Hash":  "19A19FA608546F3B03DFF14458EC38905020460238B3E1CCFD48BFD1B9E91A01"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\ShotFlight.cs",
+                             "Hash":  "9F537E475B9488F9F324832D2ACC453AA511B79915701F8FAACB1F6EDD267018"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\ShotRace.cs",
+                             "Hash":  "D652EEDB42825B15E60DB287196052CCC538587E8674BF2A1EC4CB1F3623AAAD"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\ShotResultText.cs",
+                             "Hash":  "5A0156BCCA7BC9FF79D338B78B897C920F9EB14DC75FB85AB84CDB20975CE104"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\ShotResultWatch.cs",
+                             "Hash":  "34DE4909ED5EF9142F673AB98CCDDAA34312C26E1B5B51CC98B31B4AC5B5F060"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\SkateInShuffles.cs",
+                             "Hash":  "DBF73811F9C0AA5172DE70DF178D3ED4CED4C07D0ABA821299750B64C2C54930"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\SkatePush.cs",
+                             "Hash":  "0F958ADAC0908775247A5B6A9543A3DB2E7FB1A1DC3B45CEDCCD8ADD1F43DCB5"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\StanceLife.cs",
+                             "Hash":  "B6368E9C30B51FEA3ABC9562EA267875E04785FA051E2BDCA8C374EFEC576FFC"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\StartLogo.cs",
+                             "Hash":  "0AF6B11B64A0C2F06A16472E4079533F1215CC2C1DDDAD4225C3F8E08AC88750"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\StartShots.cs",
+                             "Hash":  "FAC92584C1309DA059A316D99C286E143F07DD46C22A3E24BF9E1542B17F91F1"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\TestModeHud.cs",
+                             "Hash":  "71007C4C1D3C686D2C197840BB61A2A6477CFDD03FDBD9048055FF523B84B5D6"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\TipPlacement.cs",
+                             "Hash":  "F9C8EB1032C61AFE4D097F2D605EEF2A7DF3FBA55DB39486A4D25D3653255221"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\UsbLine.cs",
+                             "Hash":  "AF476D554EA10E452085BA29CF055C39736B49A10759E3C40B20E583E21AF5EB"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\UsbPorts.cs",
+                             "Hash":  "F735BD6622C0FDA51A7D113BE5A2805E1A63AA97BFC4E7879B878073C9C68248"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\VideoBoardCover.cs",
+                             "Hash":  "73CE6447C54276756E7CB9439DAED47846F4DBFB7FDF910FC4694EF2F108936A"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Core\\WhistleRule.cs",
+                             "Hash":  "DD35DF5202471E655CBA4CE9CD3B9445324DC5F6F07B5ED18AC62FF45071C873"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\ArenaLighting.cs",
+                             "Hash":  "690456204E4AA41C2534143E2E0F3946D5BD4F474E79250D5C7C54D86B91B0CA"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\ArenaStands.cs",
+                             "Hash":  "4C03CFB10BA833141FE197AC1F7CB0A0E3FA997DC3ADF62EB24EDC1E279C58CE"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\BannerArt.cs",
+                             "Hash":  "47C28AF37A7F7AB53892C0DD9CB383DB0757A0253DCBCD9A6CD2434A0177FE2D"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\BreakawayView.cs",
+                             "Hash":  "E4F12A4C1D6C140A11A7AC6BF81C9E55908C8B4EEFC51CBC12C356B292613C6C"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\Crowd.cs",
+                             "Hash":  "9D438344F05DB85BAE6F47DF05778FAE058A5A916C4C418797D55422CB0546FA"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\CrowdBody.cs",
+                             "Hash":  "72F9709FEA5E0AEC5FAC373FD9B641A4FDECA62B6F0C2D73EF88053869E387A1"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\FrameRate.cs",
+                             "Hash":  "9D1396B040D1AE8BF38B85007F0AC9548F2655CAB863A895230C77A7022053BE"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\FrameReadout.cs",
+                             "Hash":  "C6866F97901B8F9D25EC258E8208100DCBF9C2644EE8F1EA4A94B268F2CC541F"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\GearPiece.cs",
+                             "Hash":  "ED8756EC6708730E9837D70F5B029EFEB6E08A3C5AC7B241127B6BE4C8633572"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\GoalieButterfly.cs",
+                             "Hash":  "A66C004561F08E3217E25448F1B84386A7FBC445D21C7EA13237764C17BF4814"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\GoalieCharacter.cs",
+                             "Hash":  "9BDE1B903AE55E6F45059205EDBAA67B0E77740BD42ABBC6F7B38863827A70EC"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\GoalieCharacterReach.cs",
+                             "Hash":  "9959AD5B8EDFC2B0549247C8698CDAD2B63F5A87C2205A0341B3822C88551656"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\GoalieClipReactions.cs",
+                             "Hash":  "2D0F22F804C4A1BA09214182ED3F030D97E2FA3B4B6FBD7A5412C5139CEEC76F"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\GoalieGestures.cs",
+                             "Hash":  "963E59BF71AE71689DAF5BA142649E8C90C51A1790B2E7671AB90FFA12804D7C"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\GoalieHitShapes.cs",
+                             "Hash":  "62975175F5D1876AD1EE9D7A427AB781E4F454B501E0A9747184A7A8CDDA143B"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\GoalieShape.cs",
+                             "Hash":  "2BC5F162A407E2288FD4E2E4DCA6966A39E30479FFB95F810F1FC6E60AE23200"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\GoalieSkatePush.cs",
+                             "Hash":  "9E00A04DE4B218D8D0C161995D0146F6387430E26D844404071E9B44089F84AF"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\GoalieStanceLife.cs",
+                             "Hash":  "07D200E9BC5B9FA3F47CCBDB2905DBCAC7E4FE26F855A7988F623CA6F812224F"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\GoalieView.cs",
+                             "Hash":  "E2DD17B833E2527FE09C62D5202F4097804446CDEBCEFB3E1F2075A6A23847A7"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\GoalLight.cs",
+                             "Hash":  "F8F415C9259DE92DB2FE2BB3A9DD83EE6B4DD27BC9429BD96998549A1100DA50"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\LedBoardMaterial.cs",
+                             "Hash":  "82271F5B1AE61092F449E956CC3240B9B733833DC191919C3BD03222F7F0C5DD"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\LookC.cs",
+                             "Hash":  "5FB768F4CDCA6AB9BA4B6D448BFA17F2697521AB75F9AEC97CD4AC2519C2850E"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\LowerThirdLayout.cs",
+                             "Hash":  "56A53990D21695793E641BBA80DCF6ED6B5F1BC8F0676DA45371D1BA37BF628C"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\LowerThirdView.cs",
+                             "Hash":  "9E3990809587307EC81600EC758AA15B62204805F8E3617FF294B2A52C6DF462"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\ModelFiles.cs",
+                             "Hash":  "F021C26E13393787A42927C74F425D2A02A4BDAA00137E3E8A9A554AAB24F733"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\NetBuilder.cs",
+                             "Hash":  "0723AA4B955E0419AE8E493E43C695B418E8D6A27F91A37FA2A19A27B5C20136"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\NetCloth.cs",
+                             "Hash":  "146E76E2C58CA92A4165AA7E435089CF88E7DE477C8C4719048F0E0721F45D50"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\NetFaceMapping.cs",
+                             "Hash":  "A0701F496684E1E5D9C2E20900A90970C0A931ABA7EC73E77136CD78663760C4"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\PauseBoxView.cs",
+                             "Hash":  "B8FAC0FFCA318B9349ACC5EE4A533E375362555086C160DC734395CA2AF88C42"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\PauseLayout.cs",
+                             "Hash":  "10CDCB662FA684485A3C1E55AF735945FEAD74861E3E215AF12CEDB289152897"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\PauseSwitch.cs",
+                             "Hash":  "AED34787E86453BE1A38FBE4BC2BA2D552D24FE33FFF91B357F537C4BC6B8FB8"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\PhysicsPuck.cs",
+                             "Hash":  "F76A097FA54FB7FD82185459BFE9991E054C3C58B057AB1CD5DB2065CC52CA4A"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\PhysicsShot.cs",
+                             "Hash":  "44766BB7776CEB636412E9AB1900E5972D593F9F63F820F706A03B27EB520575"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\PhysicsShotEffects.cs",
+                             "Hash":  "E3BDD9793B19269B8BFB274BC1837B8F83907376D609E9C27B067362D6DE13A5"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\PlaceholderSounds.cs",
+                             "Hash":  "174D9B955ABA953643776659E27CF7B8272223FFAE11ABB521C0B6AA12D0BFAD"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\PuckReach.cs",
+                             "Hash":  "3928125F265947625B716EF06A5243502A9963FA5C9AD4011AB4226AE79CFB30"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\ReplayTrack.cs",
+                             "Hash":  "C8626CB54D1D3EC0869684D65FBAD6CE665265ECECCF6603EED5C26F7E23C587"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\ReplayView.cs",
+                             "Hash":  "0E235AB2A979CBB8F80961E360BB2921B5A757673A66DA8EB914F77BD398B378"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\RibbonBoards.cs",
+                             "Hash":  "ACC1CF85E8C8257A66314997D1BA92B28B5118DD0FAD9A6421C1349B78C7B5BF"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\RinkAds.cs",
+                             "Hash":  "AA4991380C5AEC30ADD379193A27508725DD4242C2A820A1C1C06A7493CC5EAC"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\RinkBoards.cs",
+                             "Hash":  "8B44DB13C6D90FEEE55E71117A18713754A3C0086CCFF0943E4BCA76ACDCB6AB"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\RinkBuilder.cs",
+                             "Hash":  "B1BC3A102164E30381A0573332F1A0CB1D87213AA2186D2030DA19980E0148D2"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\RinkIce.cs",
+                             "Hash":  "DC52149969106E981F5418800258493F83AD1A072FD991C27FB32DCC1E46980D"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\RoofBanners.cs",
+                             "Hash":  "E08045B09099790AF5C46CE731F8EC1F0C814E032594D75110CB3AFCEF19319F"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\RoofLights.cs",
+                             "Hash":  "E126F6715BFF68C32913F1993E193B9ED73A841FA3500D44170E1D31A4D2D637"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\RoundDriver.cs",
+                             "Hash":  "0320917EAD6779FA884F783B535C91358A89C309C1B81121B3CAC4544F1848A4"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\RoundSound.cs",
+                             "Hash":  "2201D27BB1894A4DB0687ADAF2D808BE6165C7FBCD9664EB73AD4D214029D95B"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\SaveStore.cs",
+                             "Hash":  "ADA1023F5CAF8204826608D61C67772E1EF11634EA52FF102C0C7D4EC14428A4"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\SceneObjects.cs",
+                             "Hash":  "2C4F5C6A3DB32EB0D35333EB768E07DE46AFF961CF0A596F46CE061F71F523F9"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\SettingsScreen.cs",
+                             "Hash":  "D2088A9D73B89A97EC9738542E907A8A91A161078F7B79BA2F01AA4276868EDD"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\ShotColliders.cs",
+                             "Hash":  "EEEACB79FA35912558F846E42369383A5EA8705D0F09221249C6CEE48B8179C4"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\SlantShape.cs",
+                             "Hash":  "F27F6332478DC3E2E2281F0528F7D9EA88A0BC291EA869A04BFDBA5F3014551A"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\SoundFiles.cs",
+                             "Hash":  "6F2A9C6F420A981CA0675C34A5E371816F4403A279AB34A305F1DD7A85F3CF99"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\StartCardArt.cs",
+                             "Hash":  "C2459B8FA04DEB0BAD4FD86B4A0919A3E92BE636E8FD50C4CA1BC3B72E42061C"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\StartLogoArt.cs",
+                             "Hash":  "8A0D16E2CA6E109C613F069FE7414E61A964906089D051372B6A1908BBB52292"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\StartScreenLayout.cs",
+                             "Hash":  "DBD33A5323BF76A6A8409A0C5AD4E5ACC13384E9BC4305D5182B3797DE374E81"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\StartShotsView.cs",
+                             "Hash":  "4B7DC4118ED3FACA58FAF53EC2733668683AA0A83455A4E5A7C6D704C373F41E"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\TeamSkin.cs",
+                             "Hash":  "33673B98EE890BCB1B91DA25DAABB3093D12D37FF93ADFBE9DF04CE8F370B767"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\TestShotSpeed.cs",
+                             "Hash":  "73AC20607BCFB4466776E5709837839FE75B2FADA7DE022E6BAF56DD1ED70738"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\UsbShotSource.cs",
+                             "Hash":  "8D62C6C8404AC46B5FB977158FB28C898C32449C6F130401E61E85AD9455B29A"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\VideoBoards.cs",
+                             "Hash":  "9D50B84EA58520CCA8D77E18E2EEDB9BF984D1D0DEBACF161DCE305399D18FCB"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\WaterBottle.cs",
+                             "Hash":  "595D58E9DDEC137639EABC340BE5A5F6C1F9374D89D5D3A6CFA42EC2F0F1C72A"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\Editor\\CrowdSliceCostTool.cs",
+                             "Hash":  "A57D6D04B155FD9B45E46ABF90A27089C6252225A10E5CA7DCAC8E6EACCDCD5E"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\Editor\\FrameBudgetTool.cs",
+                             "Hash":  "232CE29F8E42597CD9F33B159A76BECD14B0DE6E712E40136E685DD57520BA72"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Scripts\\Game\\Editor\\GoalRateTool.cs",
+                             "Hash":  "BCB1F893B4EB1453A455140CC8166D136568E2F31D3E7E9D5208D63CD4A45914"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Tests\\EditMode\\CrowdViewTests.cs",
+                             "Hash":  "86C06D08FA5B84BCAC65BCEF7F02671DD31411AFADE31577AA5F7A29931FDD70"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Tests\\EditMode\\RinkTeardown.cs",
+                             "Hash":  "D9D31FAC76AD9B9A550EDB8CBA36EC57EBEFE69A2A2052166366A3AB22F72ACE"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\slices-worker\\Assets\\Tests\\EditMode\\CrowdSliceOrderTests.cs",
+                             "Hash":  "DDD50AF87B1839B3A1AECDC50E51742E0B2271577ACA932A69041968F52ABCD2"
+                         }
+                     ],
+    "OutputHash":  "FCC07909B85FBCE83B806BE0A5EF324A4B7FDF7AAF084A71248E400F8E8DE619"
+}

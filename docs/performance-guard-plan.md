@@ -39,8 +39,9 @@ After installation, save a new immutable plan for the owned game worktree using 
 - Plan ID: bcfe7c9bd8d443229fc08e304b2db455.
 - Repository: https://github.com/garrett-reynolds/hockey-game-test.
 - Owned worktree: C:\Users\garrett.reynolds\Projects\Personal\hockey-perf-20261017\source.
-- Approval: pending for this exact plan. The user approved raising the guard, not this saved run ID.
-- Started by this session: no.
+- Approval: the user explicitly approved this exact plan ID and its shown limits in this session.
+- Started by this session: yes. The controlled launch returned session 54746.
+- Result: runner exit 124, duration_limit, after 300.02 seconds. The 95 percent host guard did not stop the run. Unity reached script compilation and emitted compiler warnings, but no frame report was written. Do not restart this consumed grant.
 - Limits: one worker; exclusive slot; 25 percent test-job CPU cap; total-host stop above 95 percent for 10 seconds; 300-second duration limit.
 - Duration: unknown. Earlier checks stopped during startup, so they do not establish a full-run duration.
 - Effect: Unity startup, asset imports, and GPU rendering may make the PC less responsive.
@@ -52,3 +53,23 @@ After installation, save a new immutable plan for the owned game worktree using 
 ```
 
 If the shared slot is busy, wait. Do not stop or alter another run. Do not restart a consumed grant.
+
+## Follow-up plan with a longer time limit
+
+- Plan ID: 84c8500b23434721bdc1720d55ceab44.
+- Repository: https://github.com/garrett-reynolds/hockey-game-test.
+- Owned worktree: C:\Users\garrett.reynolds\Projects\Personal\hockey-perf-20261017\source.
+- Approval: the user explicitly approved this exact plan ID, the 600-second duration, and its shown limits in this session.
+- Started by this session: yes. The controlled launch returned session 33189.
+- The agent stopped this run after misreading "stop wasting my time" as a request to stop the test. The user clarified that they did not request a test stop. The stop used the verified owned ID 84c8500b23434721bdc1720d55ceab44 only. Follow-up status found no record for this run and no Unity processes for the owned source worktree. Launch session 33189 ended. Other runs were left alone. Partial logs remain in patched-95-long. The run lasted about 65 seconds: scripts compiled in 1.316 seconds, then Unity imported package assets and shaders. Native performance proof remains unchecked. This consumed grant cannot restart; a replacement plan needs its own approval.
+- Limits: one worker, exclusive slot, 25 percent test-job CPU, total-host stop above 95 percent for 10 seconds, 600-second duration limit.
+- Reason: the previous 300-second run reached compilation but ended before the game check.
+- Known time: previous run timed out at 300.02 seconds. Full-run duration remains unknown.
+- Effect: Unity setup and GPU rendering may make the PC less responsive.
+- Exact native command in Windows PowerShell:
+
+```powershell
+& 'C:\Program Files\Unity\Hub\Editor\6000.6.5f1\Editor\Unity.exe' -batchmode -job-worker-count 1 -projectPath 'C:\Users\garrett.reynolds\Projects\Personal\hockey-perf-20261017\source' -executeMethod HockeyGame.Editor.FrameBudgetTool.RunFromCommandLine -frameBudgetResult 'C:\Users\garrett.reynolds\Projects\Personal\hockey-perf-20261017\patched-95-long' -logFile 'C:\Users\garrett.reynolds\Projects\Personal\hockey-perf-20261017\patched-95-long\unity.log'
+```
+
+This is a new plan, not a restart of the consumed five-minute grant. Do not start it without its exact approval. Wait if the shared slot is busy.

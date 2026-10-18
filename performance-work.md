@@ -36,9 +36,13 @@ Use the existing whole-game FrameBudgetTool before any whole-game performance cl
 
 ## Current status
 
-The whole-game check is blocked by the host CPU guard. The narrow Easy mode gap-merge change is implemented on branch work/perf-crowd-20261017 in commits 240eb87 and 8126356. Its five pure checks passed after two deliberate no-change failures before the fix. The four reviewed code/test/harness files exactly match the worker's tested tip f53c12a0235bcfe2243c0c0b9adf286869008a36 (git diff exit 0). The open Unity project's NetFaceGaps source still matches c0493e5. No whole-game speed gain is proved. No change was pushed or applied to the open game.
+The checked runtime performance changes are applied to C:\Users\garrett.reynolds\Projects\Personal\hockey-wt\111. The final approved run completed in 146.24 seconds: 15 native tests passed; pictures and fan counts stayed identical; paired crowd cost fell 44.6% in the shooter view and 6.9% up-ice. Full-game frame times improved, but some limits remain unmet. The human play check and overall frame-budget acceptance remain open. See docs/performance-result.md for exact proof, paths, backups, and limits.
+
+The delivered runtime changes include immutable gap reuse, cached world bounds, and visible-pair crowd merging. The grouping stays at 16 sectors; no graphics quality cut was made. Flat cards and a global 8-sector change were rejected by measurements. The guard supports an approved plan-scoped 95 percent cutoff; defaults stay at 80. A prior trace run coincided with a graphics crash; causation is not proved. The final approved run recorded no new system crash/display event. No remote write occurred.
 
 ## Focused review
+
+Latest diagnosis: the first optional trace run was active during a Windows graphics crash (0x116); the cause is not proved. The user approved retry 4bd143298e894fa8836abe8e335f3bba. It completed in 172.83 seconds without a new system crash/display event and saved the full trace. Crowd-on/off median combined wall time was 11.2109/6.6829 ms in skate-in and 13.0608/7.8634 ms in replay. Rendering accounts for much of the cost. No completed collection overlapped the selected slowest frames, but incremental work is not ruled out. Coarse thread CPU timing cannot identify an external wait's cause. The next narrow experiment compares sector grouping while keeping all fan data and appearance. No default grouping change or game speed gain is claimed.
 
 - Spec review found no merge correctness issue. It checked range clamping, empty/null/overflow behavior, counts, immutability, and the existing view early return.
 - Standards review found fixed machine/worktree paths in the test harness and missing Unity test metadata. Both were corrected and cleared by the reviewer.

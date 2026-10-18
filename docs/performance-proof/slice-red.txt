@@ -1,0 +1,8 @@
+PASS Copies_retain_exact_payload_and_round_trip_original_order
+FAIL Grouping_sorts_by_slice_then_original_fan_id:   Expected and actual are both <System.Int32[4]>
+  Values differ at index [0]
+  Expected: 3
+  But was:  0
+
+PASS Sector_keys_keep_outfit_and_tier_and_accept_only_the_experiment_counts
+Passed: 2; Failed: 1; Worker count: 1

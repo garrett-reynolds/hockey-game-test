@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="12" result="Passed" total="12" passed="12" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-10-17 23:45:24Z" end-time="2026-10-17 23:45:30Z" duration="5.3661601">
+  <test-suite type="TestSuite" id="1000" name="com.unity.template.urp-blank" fullname="com.unity.template.urp-blank" runstate="Runnable" testcasecount="1782" result="Passed" start-time="2026-10-17 23:45:24Z" end-time="2026-10-17 23:45:30Z" duration="5.366160" total="12" passed="12" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="3013" name="HockeyGame.Tests.dll" fullname="C:/Users/garrett.reynolds/Projects/Personal/hockey-perf-20261017/source/Library/ScriptAssemblies/HockeyGame.Tests.dll" runstate="Runnable" testcasecount="1782" result="Passed" start-time="2026-10-17 23:45:24Z" end-time="2026-10-17 23:45:30Z" duration="5.323418" total="12" passed="12" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="21308" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="3014" name="HockeyGame" fullname="HockeyGame" runstate="Runnable" testcasecount="1782" result="Passed" start-time="2026-10-17 23:45:24Z" end-time="2026-10-17 23:45:30Z" duration="5.281309" total="12" passed="12" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="3016" name="Core" fullname="HockeyGame.Core" runstate="Runnable" testcasecount="1768" result="Passed" start-time="2026-10-17 23:45:24Z" end-time="2026-10-17 23:45:30Z" duration="5.259375" total="12" passed="12" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="3017" name="Tests" fullname="HockeyGame.Core.Tests" runstate="Runnable" testcasecount="1768" result="Passed" start-time="2026-10-17 23:45:24Z" end-time="2026-10-17 23:45:30Z" duration="5.219548" total="12" passed="12" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1257" name="CrowdViewTests" fullname="HockeyGame.Core.Tests.CrowdViewTests" classname="HockeyGame.Core.Tests.CrowdViewTests" runstate="Runnable" testcasecount="12" result="Passed" start-time="2026-10-17 23:45:24Z" end-time="2026-10-17 23:45:30Z" duration="5.158457" total="12" passed="12" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1266" name="A_camera_draws_only_the_fans_it_can_see_with_bodies_or_far_cards_and_again_after_a_disable" fullname="HockeyGame.Core.Tests.CrowdViewTests.A_camera_draws_only_the_fans_it_can_see_with_bodies_or_far_cards_and_again_after_a_disable" methodname="A_camera_draws_only_the_fans_it_can_see_with_bodies_or_far_cards_and_again_after_a_disable" classname="HockeyGame.Core.Tests.CrowdViewTests" runstate="Runnable" seed="576571617" result="Passed" start-time="2026-10-17 23:45:25Z" end-time="2026-10-17 23:45:27Z" duration="2.301125" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1261" name="A_fan_sits_in_every_seat_of_the_bowl" fullname="HockeyGame.Core.Tests.CrowdViewTests.A_fan_sits_in_every_seat_of_the_bowl" methodname="A_fan_sits_in_every_seat_of_the_bowl" classname="HockeyGame.Core.Tests.CrowdViewTests" runstate="Runnable" seed="1309922820" result="Passed" start-time="2026-10-17 23:45:27Z" end-time="2026-10-17 23:45:27Z" duration="0.249008" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1265" name="A_long_pause_does_not_jump_the_fans" fullname="HockeyGame.Core.Tests.CrowdViewTests.A_long_pause_does_not_jump_the_fans" methodname="A_long_pause_does_not_jump_the_fans" classname="HockeyGame.Core.Tests.CrowdViewTests" runstate="Runnable" seed="343245656" result="Passed" start-time="2026-10-17 23:45:27Z" end-time="2026-10-17 23:45:27Z" duration="0.268073" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1262" name="Calm_Area_fans_are_still_and_dim_from_goalie_set_to_the_Shot" fullname="HockeyGame.Core.Tests.CrowdViewTests.Calm_Area_fans_are_still_and_dim_from_goalie_set_to_the_Shot" methodname="Calm_Area_fans_are_still_and_dim_from_goalie_set_to_the_Shot" classname="HockeyGame.Core.Tests.CrowdViewTests" runstate="Runnable" seed="992460272" result="Passed" start-time="2026-10-17 23:45:27Z" end-time="2026-10-17 23:45:28Z" duration="0.237451" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1268" name="Changed_parent_scale_and_sheared_crowd_match_a_fresh_crowd_after_enable" fullname="HockeyGame.Core.Tests.CrowdViewTests.Changed_parent_scale_and_sheared_crowd_match_a_fresh_crowd_after_enable" methodname="Changed_parent_scale_and_sheared_crowd_match_a_fresh_crowd_after_enable" classname="HockeyGame.Core.Tests.CrowdViewTests" runstate="Runnable" seed="194851549" result="Passed" start-time="2026-10-17 23:45:28Z" end-time="2026-10-17 23:45:28Z" duration="0.527268" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1258" name="Every_outfit_has_a_near_body_of_about_1500_triangles_and_a_far_one_of_about_400_with_all_eight_clips" fullname="HockeyGame.Core.Tests.CrowdViewTests.Every_outfit_has_a_near_body_of_about_1500_triangles_and_a_far_one_of_about_400_with_all_eight_clips" methodname="Every_outfit_has_a_near_body_of_about_1500_triangles_and_a_far_one_of_about_400_with_all_eight_clips" classname="HockeyGame.Core.Tests.CrowdViewTests" runstate="Explicit" seed="2068492238" result="Passed" start-time="2026-10-17 23:45:28Z" end-time="2026-10-17 23:45:28Z" duration="0.140936" asserts="0">
+                <properties>
+                  <property name="Category" value="Slow" />
+                  <property name="_SKIPREASON" value="Slow: runs only in the full run (--include_explicit true)" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1267" name="Moving_the_parent_and_camera_together_keeps_the_same_visible_fans" fullname="HockeyGame.Core.Tests.CrowdViewTests.Moving_the_parent_and_camera_together_keeps_the_same_visible_fans" methodname="Moving_the_parent_and_camera_together_keeps_the_same_visible_fans" classname="HockeyGame.Core.Tests.CrowdViewTests" runstate="Runnable" seed="527971025" result="Passed" start-time="2026-10-17 23:45:28Z" end-time="2026-10-17 23:45:29Z" duration="0.529901" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1264" name="On_a_Goal_every_zone_stands_and_cheers" fullname="HockeyGame.Core.Tests.CrowdViewTests.On_a_Goal_every_zone_stands_and_cheers" methodname="On_a_Goal_every_zone_stands_and_cheers" classname="HockeyGame.Core.Tests.CrowdViewTests" runstate="Runnable" seed="1314528936" result="Passed" start-time="2026-10-17 23:45:29Z" end-time="2026-10-17 23:45:29Z" duration="0.246571" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1263" name="Outside_the_shooting_window_the_Calm_Area_fans_move_at_full_light" fullname="HockeyGame.Core.Tests.CrowdViewTests.Outside_the_shooting_window_the_Calm_Area_fans_move_at_full_light" methodname="Outside_the_shooting_window_the_Calm_Area_fans_move_at_full_light" classname="HockeyGame.Core.Tests.CrowdViewTests" runstate="Runnable" seed="927738401" result="Passed" start-time="2026-10-17 23:45:29Z" end-time="2026-10-17 23:45:29Z" duration="0.227105" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1269" name="The_arena_model_has_no_flat_crowd_picture_left" fullname="HockeyGame.Core.Tests.CrowdViewTests.The_arena_model_has_no_flat_crowd_picture_left" methodname="The_arena_model_has_no_flat_crowd_picture_left" classname="HockeyGame.Core.Tests.CrowdViewTests" runstate="Runnable" seed="171741232" result="Passed" start-time="2026-10-17 23:45:29Z" end-time="2026-10-17 23:45:29Z" duration="0.040898" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1260" name="The_crowd_keeps_its_materials_and_card_pictures_after_Unity_unloads_unused_assets" fullname="HockeyGame.Core.Tests.CrowdViewTests.The_crowd_keeps_its_materials_and_card_pictures_after_Unity_unloads_unused_assets" methodname="The_crowd_keeps_its_materials_and_card_pictures_after_Unity_unloads_unused_assets" classname="HockeyGame.Core.Tests.CrowdViewTests" runstate="Runnable" seed="24747698" result="Passed" start-time="2026-10-17 23:45:29Z" end-time="2026-10-17 23:45:30Z" duration="0.270891" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1259" name="The_seated_bodies_are_seated_adults_on_the_floor_facing_plus_z" fullname="HockeyGame.Core.Tests.CrowdViewTests.The_seated_bodies_are_seated_adults_on_the_floor_facing_plus_z" methodname="The_seated_bodies_are_seated_adults_on_the_floor_facing_plus_z" classname="HockeyGame.Core.Tests.CrowdViewTests" runstate="Runnable" seed="564621818" result="Passed" start-time="2026-10-17 23:45:30Z" end-time="2026-10-17 23:45:30Z" duration="0.076835" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Saving results to: C:/Users/garrett.reynolds/AppData/LocalLow/Unity Technologies/com_unity_template_urp-blank\TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>
