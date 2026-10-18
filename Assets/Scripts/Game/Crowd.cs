@@ -44,12 +44,12 @@ namespace HockeyGame
         /// <summary>Each fan turns a little off straight ahead (radians, either way).</summary>
         const float YawSpread = 0.15f;
         /// <summary>The bowl is cut into this many slices round its middle (per tier) so a camera draws only what it sees.</summary>
-        const int Sectors = 16;
+        public const int DefaultSectors = 16;
         /// <summary>A fan reaches this far round its seat (metres) and this high, standing with its arms up.</summary>
         const float Reach = 0.8f, Top = 2.5f;
 
         [StructLayout(LayoutKind.Sequential)]
-        struct FanData
+        public struct FanData
         {
             public Vector4 Place; // x, y, z (crowd space), yaw
             public Vector4 Shirt; // the team top: rgb (linear), phase 0..1
@@ -84,6 +84,7 @@ namespace HockeyGame
         Mesh _card;
         readonly List<Slice> _slices = new List<Slice>();
         FanData[] _data;
+        int[] _fanIds;
         GraphicsBuffer _fans;
         FanSeat[] _seats;
         FanLook[] _looks;
@@ -97,6 +98,12 @@ namespace HockeyGame
         double _lastSeconds = double.NaN;
 
         public int FanCount => _seats?.Length ?? 0;
+        /// <summary>Diagnostic grouping; changes draw calls, never fan appearance or animation.</summary>
+        public int SectorCount { get; private set; } = DefaultSectors;
+        public int SliceCount => _slices.Count;
+        public int LastDrawCalls { get; private set; }
+        public int FanIdOf(int fan) => _fanIds[fan];
+        public FanData DataOf(int fan) => _data[fan];
         /// <summary>Fan i's seat and look (in the crowd's own order).</summary>
         public FanSeat SeatOf(int fan) => _seats[fan];
         public FanLook LookOf(int fan) => _looks[fan];
@@ -205,6 +212,7 @@ namespace HockeyGame
             _seats = new FanSeat[seats.Length];
             _looks = new FanLook[seats.Length];
             _data = new FanData[seats.Length];
+            _fanIds = new int[seats.Length];
             var min = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
             Vector3 max = -min;
             Slice slice = null;
@@ -212,6 +220,7 @@ namespace HockeyGame
             for (int k = 0; k < order.Length; k++)
             {
                 int i = order[k];
+                _fanIds[k] = i;
                 FanSeat s = _seats[k] = seats[i];
                 FanLook l = _looks[k] = looks[i];
                 BodyType type = CrowdLooks.BodyTypes[l.Body];
@@ -247,12 +256,48 @@ namespace HockeyGame
 
         static int Group(FanSeat s, FanLook l) => CrowdLooks.BodyTypes[l.Body].Base * 2 + (CrowdSeats.IsNearFan(s) ? 0 : 1);
 
-        static int SliceKey(FanSeat s, FanLook l)
+        int SliceKey(FanSeat s, FanLook l) => CrowdSliceOrder.Key(Group(s, l),
+            s.Row < RinkLayout.LowerRows ? 0 : 1, s.X, s.Z - RinkLayout.CentreLineZ, SectorCount);
+
+        /// <summary>Regroups existing fans for diagnostics. No random values, bodies, or motion states are recreated.</summary>
+        public void Regroup(int sectors)
         {
-            double angle = Math.Atan2(s.Z - RinkLayout.CentreLineZ, s.X) + Math.PI;
-            int sector = Math.Min(Sectors - 1, (int)(angle / (2 * Math.PI) * Sectors));
-            int tier = s.Row < RinkLayout.LowerRows ? 0 : 1;
-            return (Group(s, l) * 2 + tier) * Sectors + sector;
+            CrowdSliceOrder.Validate(sectors); // Reject before any state changes.
+            if (sectors == SectorCount) return;
+            var keys = new int[FanCount];
+            for (int i = 0; i < keys.Length; i++)
+                keys[i] = CrowdSliceOrder.Key(Group(_seats[i], _looks[i]),
+                    _seats[i].Row < RinkLayout.LowerRows ? 0 : 1, _seats[i].X,
+                    _seats[i].Z - RinkLayout.CentreLineZ, sectors);
+            int[] order = CrowdSliceOrder.Order(keys, _fanIds);
+            _seats = CrowdSliceOrder.Copy(_seats, order);
+            _looks = CrowdSliceOrder.Copy(_looks, order);
+            _data = CrowdSliceOrder.Copy(_data, order);
+            _fanIds = CrowdSliceOrder.Copy(_fanIds, order);
+            SectorCount = sectors;
+            _slices.Clear();
+            Slice slice = null;
+            int lastKey = -1;
+            for (int i = 0; i < FanCount; i++)
+            {
+                int key = SliceKey(_seats[i], _looks[i]);
+                Vector4 p = _data[i].Place;
+                var place = new Vector3(p.x, p.y, p.z);
+                if (key != lastKey)
+                {
+                    slice = new Slice { Group = Group(_seats[i], _looks[i]), Start = i,
+                        Props = new MaterialPropertyBlock(), Bounds = new Bounds(place, Vector3.zero) };
+                    slice.Props.SetFloat(FanStartId, i);
+                    _slices.Add(slice);
+                    lastKey = key;
+                }
+                slice.Count++;
+                slice.Bounds.Encapsulate(place);
+            }
+            foreach (Slice sl in _slices)
+                sl.Bounds.SetMinMax(sl.Bounds.min - new Vector3(Reach, 0, Reach), sl.Bounds.max + new Vector3(Reach, Top, Reach));
+            _worldBoundsValid = false;
+            _fans?.SetData(_data);
         }
 
         /// <summary>The body's palette for the shaders: per entry the linear rgb (Own and TeamTop colours moved off any
@@ -370,6 +415,7 @@ namespace HockeyGame
         void Draw(ScriptableRenderContext context, Camera camera)
         {
             LastDrawnFans = 0;
+            LastDrawCalls = 0;
             if (!Drawn || _fans == null || double.IsNaN(_lastSeconds)
                 || camera.cameraType == CameraType.Preview || camera.cameraType == CameraType.Reflection) return;
             Matrix4x4 toWorld = transform.localToWorldMatrix;
@@ -391,6 +437,7 @@ namespace HockeyGame
                 };
                 Graphics.RenderMeshPrimitives(rp, card ? _card : _bodies[s.Group].Mesh, 0, s.Count);
                 LastDrawnFans += s.Count;
+                LastDrawCalls++;
             }
         }
 

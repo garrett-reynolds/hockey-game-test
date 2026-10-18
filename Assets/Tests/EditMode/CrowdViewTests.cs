@@ -237,6 +237,103 @@ namespace HockeyGame.Core.Tests
             }
         }
 
+        [Test]
+        public void Regrouping_keeps_exact_fan_data_and_rejects_invalid_counts_before_changes()
+        {
+            Crowd crowd = Crowd.Build(_rink.transform);
+            Assert.AreEqual(16, crowd.SectorCount);
+            var seats = new FanSeat[crowd.FanCount];
+            var looks = new FanLook[crowd.FanCount];
+            var data = new Crowd.FanData[crowd.FanCount];
+            for (int i = 0; i < crowd.FanCount; i++)
+            {
+                int id = crowd.FanIdOf(i);
+                seats[id] = crowd.SeatOf(i); looks[id] = crowd.LookOf(i); data[id] = crowd.DataOf(i);
+            }
+            Material[] materials = crowd.Materials.ToArray();
+            CrowdBody body = crowd.BodyOf(0, 0);
+            crowd.Show(In(RoundPhase.ResultHold, ArenaResult.Goal), 2.0);
+            double clock = crowd.ClockIn(ArenaZone.Near);
+            foreach (int sectors in new[] { 4, 8, 32, 16, 4, 16 })
+            {
+                crowd.Regroup(sectors);
+                Assert.AreEqual(sectors, crowd.SectorCount);
+                Assert.AreSame(body, crowd.BodyOf(0, 0));
+                Assert.That(crowd.Materials, Is.EqualTo(materials));
+                Assert.AreEqual(clock, crowd.ClockIn(ArenaZone.Near));
+                var seen = new bool[crowd.FanCount];
+                for (int i = 0; i < crowd.FanCount; i++)
+                {
+                    int id = crowd.FanIdOf(i);
+                    Assert.IsFalse(seen[id], "each original fan occurs once");
+                    seen[id] = true;
+                    Assert.AreEqual(seats[id], crowd.SeatOf(i));
+                    Assert.AreEqual(looks[id], crowd.LookOf(i));
+                    Assert.AreEqual(data[id], crowd.DataOf(i), "all six GPU vectors, including yaw and phase");
+                }
+                int first = crowd.FanIdOf(0), slices = crowd.SliceCount;
+                Assert.Throws<System.ArgumentOutOfRangeException>(() => crowd.Regroup(3));
+                Assert.AreEqual(sectors, crowd.SectorCount);
+                Assert.AreEqual(first, crowd.FanIdOf(0));
+                Assert.AreEqual(slices, crowd.SliceCount);
+            }
+        }
+
+        [Test]
+        public void Regrouping_after_warm_bounds_and_parent_changes_matches_fresh_grouping()
+        {
+            Crowd crowd = Crowd.Build(_rink.transform);
+            crowd.Show(In(RoundPhase.SkateIn), 0.0);
+            var target = new RenderTexture(320, 180, 24);
+            var cam = new GameObject("Camera").AddComponent<Camera>();
+            cam.transform.SetParent(_rink.transform, false);
+            cam.transform.localPosition = new Vector3(0, 1.5f, -10f);
+            try
+            {
+                cam.targetTexture = target;
+                cam.Render();
+                Assert.That(crowd.LastDrawCalls, Is.GreaterThan(0));
+                foreach (int sectors in new[] { 4, 8, 32, 16 })
+                {
+                    _rink.transform.SetPositionAndRotation(new Vector3(2000 + sectors, 10, -1000), Quaternion.Euler(0, 180, 0));
+                    cam.Render(); // Warm moved bounds before regrouping with the same transform.
+                    crowd.Regroup(sectors);
+                    Crowd reference = Crowd.Build(_rink.transform);
+                    try
+                    {
+                        reference.Regroup(sectors);
+                        reference.Show(In(RoundPhase.SkateIn), 0.0);
+                        cam.Render();
+                        Assert.That(reference.LastDrawnFans, Is.GreaterThan(0));
+                        Assert.AreEqual(reference.LastDrawnFans, crowd.LastDrawnFans);
+                        Assert.AreEqual(reference.LastDrawCalls, crowd.LastDrawCalls);
+                        Assert.That(crowd.LastDrawCalls, Is.InRange(1, crowd.SliceCount));
+                        AssertCrowdMaterialMatrices(crowd);
+                        crowd.gameObject.SetActive(false);
+                        crowd.Regroup(sectors == 4 ? 8 : 4);
+                        crowd.Regroup(sectors);
+                        crowd.gameObject.SetActive(true);
+                        cam.Render();
+                        Assert.AreEqual(reference.LastDrawnFans, crowd.LastDrawnFans);
+                        Assert.AreEqual(reference.LastDrawCalls, crowd.LastDrawCalls);
+                        AssertCrowdMaterialMatrices(crowd);
+                    }
+                    finally { Object.DestroyImmediate(reference.gameObject); }
+                }
+                crowd.Drawn = false;
+                cam.Render();
+                Assert.AreEqual(0, crowd.LastDrawCalls);
+                Assert.AreEqual(0, crowd.LastDrawnFans);
+            }
+            finally
+            {
+                cam.targetTexture = null;
+                Object.DestroyImmediate(cam.gameObject);
+                target.Release();
+                Object.DestroyImmediate(target);
+            }
+        }
+
         static void AssertCrowdMaterialMatrices(Crowd crowd)
         {
             Matrix4x4 expected = crowd.transform.localToWorldMatrix;
