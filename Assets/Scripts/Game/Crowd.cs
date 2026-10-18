@@ -62,7 +62,7 @@ namespace HockeyGame
         /// <summary>A slice of the fan buffer drawn in one call: one body at one level, one part of the bowl.</summary>
         sealed class Slice
         {
-            public int Group, Start, Count;
+            public int Group, Start, Count, Key;
             public Bounds Bounds, WorldBounds;
             public MaterialPropertyBlock Props;
         }
@@ -124,6 +124,8 @@ namespace HockeyGame
         /// <summary>On: far fans are flat camera-facing cards instead of the light body (the first cut if the crowd goes
         /// over its 2 ms GPU limit).</summary>
         public bool FarCards { get; set; }
+        /// <summary>Combines visible neighbor pairs without drawing any extra fans. False retains the old submission path.</summary>
+        public bool MergeVisiblePairs { get; set; } = true;
         /// <summary>Fans drawn for the last camera (the slices it could see).</summary>
         public int LastDrawnFans { get; private set; }
 
@@ -237,7 +239,7 @@ namespace HockeyGame
                 int key = SliceKey(s, l);
                 if (key != lastKey)
                 {
-                    slice = new Slice { Group = Group(s, l), Start = k, Props = new MaterialPropertyBlock() };
+                    slice = new Slice { Group = Group(s, l), Start = k, Key = key, Props = new MaterialPropertyBlock() };
                     slice.Props.SetFloat(FanStartId, k);
                     slice.Bounds = new Bounds(place, Vector3.zero);
                     _slices.Add(slice);
@@ -285,7 +287,7 @@ namespace HockeyGame
                 var place = new Vector3(p.x, p.y, p.z);
                 if (key != lastKey)
                 {
-                    slice = new Slice { Group = Group(_seats[i], _looks[i]), Start = i,
+                    slice = new Slice { Group = Group(_seats[i], _looks[i]), Start = i, Key = key,
                         Props = new MaterialPropertyBlock(), Bounds = new Bounds(place, Vector3.zero) };
                     slice.Props.SetFloat(FanStartId, i);
                     _slices.Add(slice);
@@ -421,10 +423,24 @@ namespace HockeyGame
             Matrix4x4 toWorld = transform.localToWorldMatrix;
             RefreshWorldBounds(toWorld);
             GeometryUtility.CalculateFrustumPlanes(camera, _planes);
-            foreach (Slice s in _slices)
+            for (int i = 0; i < _slices.Count; i++)
             {
+                Slice s = _slices[i];
                 Bounds world = s.WorldBounds;
                 if (!GeometryUtility.TestPlanesAABB(_planes, world)) continue;
+                int count = s.Count;
+                if (MergeVisiblePairs && i + 1 < _slices.Count)
+                {
+                    Slice next = _slices[i + 1];
+                    if (VisibleCrowdPair.CanMerge(s.Key, s.Group, s.Start, s.Count,
+                        next.Key, next.Group, next.Start, true, true) &&
+                        GeometryUtility.TestPlanesAABB(_planes, next.WorldBounds))
+                    {
+                        count += next.Count;
+                        world.Encapsulate(next.WorldBounds);
+                        i++;
+                    }
+                }
                 bool card = FarCards && s.Group % 2 == 1;
                 var rp = new RenderParams(card ? _cardMaterials[s.Group] : _materials[s.Group])
                 {
@@ -435,8 +451,8 @@ namespace HockeyGame
                     layer = gameObject.layer,
                     matProps = s.Props
                 };
-                Graphics.RenderMeshPrimitives(rp, card ? _card : _bodies[s.Group].Mesh, 0, s.Count);
-                LastDrawnFans += s.Count;
+                Graphics.RenderMeshPrimitives(rp, card ? _card : _bodies[s.Group].Mesh, 0, count);
+                LastDrawnFans += count;
                 LastDrawCalls++;
             }
         }

@@ -334,6 +334,71 @@ namespace HockeyGame.Core.Tests
             }
         }
 
+        [Test]
+        public void Visible_pair_merging_keeps_exact_pixels_and_fans_after_warm_bounds_parent_moves_and_enable()
+        {
+            Crowd crowd = Crowd.Build(_rink.transform);
+            Assert.IsTrue(crowd.MergeVisiblePairs);
+            Assert.AreEqual(16, crowd.SectorCount);
+            crowd.Show(In(RoundPhase.ResultHold, ArenaResult.Goal), 0.0);
+            var target = new RenderTexture(320, 180, 24);
+            var cam = new GameObject("Camera").AddComponent<Camera>();
+            Breakaway.SkatePoint(AttackSide.Middle, 1.0, out double x, out double distance);
+            BreakawayView.PlaceShooterCamera(cam.transform, (float)x, (float)distance, 0f, 0f);
+            cam.transform.SetParent(_rink.transform, true);
+            try
+            {
+                cam.targetTexture = target;
+                for (int state = 0; state < 3; state++)
+                {
+                    if (state == 1)
+                        _rink.transform.SetPositionAndRotation(new Vector3(2000, 20, -1000), Quaternion.Euler(0, 180, 0));
+                    if (state == 2)
+                    {
+                        crowd.gameObject.SetActive(false);
+                        crowd.gameObject.SetActive(true);
+                    }
+                    crowd.MergeVisiblePairs = false;
+                    cam.Render(); // Warm the current bounds and material transform.
+                    Color32[] baseline = CrowdPixels(cam, target);
+                    int fans = crowd.LastDrawnFans, calls = crowd.LastDrawCalls;
+                    Assert.That(fans, Is.GreaterThan(0).And.LessThan(crowd.FanCount));
+                    crowd.MergeVisiblePairs = true;
+                    Color32[] merged = CrowdPixels(cam, target);
+                    Assert.AreEqual(fans, crowd.LastDrawnFans, "the exact same fine slices must contribute fans");
+                    Assert.That(crowd.LastDrawCalls, Is.LessThan(calls), "the shooter view must submit fewer calls");
+                    Assert.That(merged, Is.EqualTo(baseline), "every rendered channel must match at state " + state);
+                    AssertCrowdMaterialMatrices(crowd);
+                }
+            }
+            finally
+            {
+                cam.targetTexture = null;
+                Object.DestroyImmediate(cam.gameObject);
+                target.Release();
+                Object.DestroyImmediate(target);
+            }
+        }
+
+        static Color32[] CrowdPixels(Camera camera, RenderTexture target)
+        {
+            camera.Render();
+            RenderTexture previous = RenderTexture.active;
+            var texture = new Texture2D(target.width, target.height, TextureFormat.RGBA32, false);
+            try
+            {
+                RenderTexture.active = target;
+                texture.ReadPixels(new Rect(0, 0, target.width, target.height), 0, 0);
+                texture.Apply(false);
+                return texture.GetPixels32();
+            }
+            finally
+            {
+                RenderTexture.active = previous;
+                Object.DestroyImmediate(texture);
+            }
+        }
+
         static void AssertCrowdMaterialMatrices(Crowd crowd)
         {
             Matrix4x4 expected = crowd.transform.localToWorldMatrix;

@@ -23,7 +23,7 @@ namespace HockeyGame.Editor
         [Serializable] public sealed class Variant
         {
             public int Sectors, TotalSlices, DrawCalls, Fans, DifferentPixels, MaxChannelError;
-            public bool ImageMatches;
+            public bool ImageMatches, MergeVisiblePairs;
             public double MedianCostMs;
             public string Image;
             public List<RoundCost> Rounds = new List<RoundCost>();
@@ -39,9 +39,12 @@ namespace HockeyGame.Editor
             public string Timing = "Editor wall upper bounds: render call plus checked GPU readback. Not GPU-only time or live FPS. DrawCalls counts submitted slices, not hardware draws.";
             public int Width = CrowdSliceCostTool.Width, Height = CrowdSliceCostTool.Height,
                 Rounds = CrowdSliceCostTool.Rounds, Frames = CrowdSliceCostTool.Frames, SettleFrames = CrowdSliceCostTool.SettleFrames;
+            public bool CompareVisiblePairs;
             public List<View> Views = new List<View>();
         }
-        public static void RunFromCommandLine()
+        public static void RunFromCommandLine() => Run(false);
+        public static void RunVisiblePairsFromCommandLine() => Run(true);
+        static void Run(bool comparePairs)
         {
             try
             {
@@ -52,12 +55,12 @@ namespace HockeyGame.Editor
                 Directory.CreateDirectory(Path.GetDirectoryName(file));
                 string images = Path.Combine(Path.GetDirectoryName(file), Path.GetFileNameWithoutExtension(file) + "-images");
                 Directory.CreateDirectory(images);
-                File.WriteAllText(file, JsonUtility.ToJson(Measure(images), true));
+                File.WriteAllText(file, JsonUtility.ToJson(Measure(images, comparePairs), true));
                 EditorApplication.Exit(0);
             }
             catch (Exception error) { UnityEngine.Debug.LogException(error); EditorApplication.Exit(1); }
         }
-        public static Result Measure(string images)
+        public static Result Measure(string images, bool comparePairs = false)
         {
             bool asyncShaders = ShaderUtil.allowAsyncCompilation;
             ShaderUtil.allowAsyncCompilation = false;
@@ -73,41 +76,45 @@ namespace HockeyGame.Editor
                 if (crowd == null) throw new InvalidOperationException("Crowd bodies or shaders are missing.");
                 camera.targetTexture = target;
                 crowd.FarCards = false;
+                crowd.MergeVisiblePairs = false; // Keep the original sector sweep reproducible.
                 crowd.Show(ArenaShow.At(new ArenaShowInput { Phase = RoundPhase.ResultHold, Result = ArenaResult.Goal, ShotNumber = 1 }), 0.0);
-                var result = new Result();
+                var result = new Result { CompareVisiblePairs = comparePairs };
                 Breakaway.SkatePoint(AttackSide.Middle, 1.0, out double x, out double distance);
                 BreakawayView.PlaceShooterCamera(camera.transform, (float)x, (float)distance, 0f, 0f);
-                result.Views.Add(MeasureView("shooter", camera, target, crowd, images));
+                result.Views.Add(MeasureView("shooter", camera, target, crowd, images, comparePairs));
                 camera.transform.SetPositionAndRotation(new Vector3(0, 4, 1), Quaternion.Euler(8, 180, 0));
-                result.Views.Add(MeasureView("up-ice", camera, target, crowd, images));
+                result.Views.Add(MeasureView("up-ice", camera, target, crowd, images, comparePairs));
                 return result;
             }
             finally
             {
                 ShaderUtil.allowAsyncCompilation = asyncShaders;
-                if (crowd != null) { crowd.Regroup(Crowd.DefaultSectors); crowd.Drawn = true; crowd.FarCards = false; }
+                if (crowd != null) { crowd.Regroup(Crowd.DefaultSectors); crowd.Drawn = true; crowd.FarCards = false; crowd.MergeVisiblePairs = true; }
                 if (camera != null) camera.targetTexture = null;
                 if (target != null) { target.Release(); UnityEngine.Object.DestroyImmediate(target); }
             }
         }
-        static View MeasureView(string name, Camera camera, RenderTexture target, Crowd crowd, string images)
+        static View MeasureView(string name, Camera camera, RenderTexture target, Crowd crowd, string images, bool comparePairs)
         {
             var view = new View { Name = name, ReferenceImage = Path.Combine(images, name + "-reference-16.png") };
-            foreach (int sectors in Sectors)
+            int[] counts = comparePairs ? new[] { 16, 16 } : Sectors;
+            for (int index = 0; index < counts.Length; index++)
             {
-                crowd.Regroup(sectors);
-                crowd.Drawn = true;
+                var variant = new Variant { Sectors = counts[index], MergeVisiblePairs = comparePairs && index == 1 };
+                Configure(crowd, variant);
                 for (int i = 0; i < 10; i++) Render(camera, target);
-                view.Variants.Add(new Variant { Sectors = sectors, TotalSlices = crowd.SliceCount });
+                variant.TotalSlices = crowd.SliceCount;
+                view.Variants.Add(variant);
             }
             crowd.Regroup(16);
+            crowd.MergeVisiblePairs = false;
             Color32[] reference = Capture(camera, target, view.ReferenceImage);
             Color32[] repeat = Capture(camera, target, Path.Combine(images, name + "-reference-repeat-16.png"));
             Difference(reference, repeat, out view.ReferenceRepeatDifferentPixels, out view.ReferenceRepeatMaxChannelError);
             foreach (Variant variant in view.Variants)
             {
-                crowd.Regroup(variant.Sectors);
-                variant.Image = Path.Combine(images, name + "-" + variant.Sectors + ".png");
+                Configure(crowd, variant);
+                variant.Image = Path.Combine(images, name + "-" + variant.Sectors + (variant.MergeVisiblePairs ? "-merged" : "") + ".png");
                 Color32[] pixels = Capture(camera, target, variant.Image);
                 Difference(reference, pixels, out variant.DifferentPixels, out variant.MaxChannelError);
                 variant.ImageMatches = variant.DifferentPixels == 0 && view.ReferenceRepeatDifferentPixels == 0;
@@ -115,10 +122,10 @@ namespace HockeyGame.Editor
                 variant.Fans = crowd.LastDrawnFans;
             }
             for (int round = 0; round < Rounds; round++)
-                for (int order = 0; order < Sectors.Length; order++)
+                for (int order = 0; order < view.Variants.Count; order++)
                 {
-                    Variant variant = view.Variants[(round + order) % Sectors.Length];
-                    crowd.Regroup(variant.Sectors);
+                    Variant variant = view.Variants[(round + order) % view.Variants.Count];
+                    Configure(crowd, variant);
                     bool first = round % 2 == 0;
                     var pair = new RoundCost { Round = round, Order = order, CrowdFirst = first };
                     if (first) { pair.OnMs = Time(camera, target, crowd, true); pair.OffMs = Time(camera, target, crowd, false); }
@@ -134,6 +141,12 @@ namespace HockeyGame.Editor
             }
             crowd.Drawn = true;
             return view;
+        }
+        static void Configure(Crowd crowd, Variant variant)
+        {
+            crowd.Regroup(variant.Sectors);
+            crowd.MergeVisiblePairs = variant.MergeVisiblePairs;
+            crowd.Drawn = true;
         }
         static double Time(Camera camera, RenderTexture target, Crowd crowd, bool on)
         {
