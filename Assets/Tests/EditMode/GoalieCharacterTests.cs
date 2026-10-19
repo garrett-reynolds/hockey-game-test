@@ -146,8 +146,13 @@ namespace HockeyGame.Core.Tests
         {
             var character = new GoalieCharacter(_parent.transform);
             Material jersey = Find(character.Root.transform, "Jersey").GetComponent<Renderer>().sharedMaterial;
-            Assert.IsNull(jersey.mainTexture, "plain cloth colour, not a repainted skin texture");
-            Assert.Greater(jersey.color.b, jersey.color.r + 0.3f, "blue");
+            // #220: the jersey is painted (blue body, stripes, crest, 31) into one print by GoalieClothSurface from the imported blue.
+            Assert.IsNotNull(jersey.mainTexture, "the painted jersey print");
+            Material imported = null;
+            foreach (var r in Resources.Load<GameObject>("Models/goalie-dressing").GetComponentsInChildren<SkinnedMeshRenderer>(true))
+                if (r.name == "Jersey") imported = r.sharedMaterials[0];
+            Assert.IsNotNull(imported, "the imported jersey material");
+            Assert.Greater(imported.color.b, imported.color.r + 0.3f, "the print is painted from the team blue");
         }
 
         [Test]
