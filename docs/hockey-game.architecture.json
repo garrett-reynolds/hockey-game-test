@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Hockey Game: one Shot, input to screen",
+    "quality_profile": "showcase",
+    "viewBox": [1300, 480],
+    "legend": {
+      "entries": {
+        "external": { "label": "Shot input" },
+        "backend": { "label": "Game rules and physics" },
+        "frontend": { "label": "What the player sees" }
+      }
+    }
+  },
+  "components": [
+    { "id": "tracker", "type": "external", "label": "Tracking electronics", "sublabel": "USB serial, real puck", "pos": [38, 150], "size": [138, 68] },
+    { "id": "mouse", "type": "external", "label": "Mouse click", "sublabel": "Test Shot", "pos": [38, 310], "size": [138, 68] },
+    { "id": "round", "type": "backend", "label": "Round", "sublabel": "6 Shots, Set-up", "pos": [250, 230], "size": [138, 68] },
+    { "id": "puck", "type": "backend", "label": "Puck", "sublabel": "Unity physics flight", "pos": [462, 230], "size": [138, 68] },
+    { "id": "goalie", "type": "backend", "label": "Goalie", "sublabel": "Reach in time", "pos": [674, 230], "size": [138, 68] },
+    { "id": "result", "type": "backend", "label": "Result", "sublabel": "Save, Miss or Goal", "pos": [886, 230], "size": [138, 68] },
+    { "id": "show", "type": "frontend", "label": "Arena show", "sublabel": "Score Box, Replay", "pos": [1098, 230], "size": [138, 68] }
+  ],
+  "connections": [
+    { "id": "tracker-to-round", "from": "tracker", "to": "round", "label": "speed, spot", "fromSide": "right", "toSide": "top", "variant": "emphasis" },
+    { "id": "mouse-to-round", "from": "mouse", "to": "round", "label": "same rules", "fromSide": "right", "toSide": "bottom", "variant": "dashed" },
+    { "id": "round-to-puck", "from": "round", "to": "puck", "label": "launch", "labelDy": -28 },
+    { "id": "puck-to-goalie", "from": "puck", "to": "goalie", "label": "flight time", "labelDy": -28 },
+    { "id": "goalie-to-result", "from": "goalie", "to": "result", "label": "reach", "labelDy": -28 },
+    { "id": "result-to-show", "from": "result", "to": "show", "label": "words", "labelDy": -28, "variant": "emphasis" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "One rule for both inputs", "items": ["A real Shot and a Test Shot follow the same rules"] }
+  ]
+}
