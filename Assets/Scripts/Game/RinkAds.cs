@@ -152,12 +152,10 @@ namespace HockeyGame
             r.shadowCastingMode = ShadowCastingMode.Off;
         }
 
-        /// <summary>A white URP Lit material showing the art (a copy of a primitive's, as RinkBuilder.Paint does).</summary>
+        /// <summary>A white URP Lit material showing the art (a copy of the ad panel asset, so the build keeps the variant).</summary>
         static Material Opaque(Texture2D texture, float smoothness)
         {
-            var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            var m = new Material(quad.GetComponent<Renderer>().sharedMaterial) { name = "Ad Panel" };
-            SceneObjects.DestroySafely(quad);
+            var m = new Material(Resources.Load<Material>(ArenaLighting.AssetFolder + "/" + ArenaLighting.AdPanelMaterial)) { name = "Ad Panel" };
             m.mainTexture = texture;
             m.color = Color.white;
             m.SetFloat("_Smoothness", smoothness);

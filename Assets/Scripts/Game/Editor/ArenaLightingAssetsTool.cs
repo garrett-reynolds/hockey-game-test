@@ -23,8 +23,17 @@ namespace HockeyGame.Editor
             Save(GlassTemplate(), ArenaLighting.GlassMaterial);
             Save(GlowTemplate(), ArenaLighting.GlowMaterial);
             Save(new Material(Shader.Find("Universal Render Pipeline/Unlit")), ArenaLighting.UnlitMaterial);
+            BuildAdPanel();
             BuildEasyGlow();
             BuildIce();
+            AssetDatabase.SaveAssets();
+        }
+
+        /// <summary>Recreates only the ad panel template (RinkAds.Opaque): plain opaque URP Lit, no extra keywords.</summary>
+        public static void BuildAdPanel()
+        {
+            Directory.CreateDirectory(Folder);
+            Save(new Material(Shader.Find("Universal Render Pipeline/Lit")), ArenaLighting.AdPanelMaterial);
             AssetDatabase.SaveAssets();
         }
 

@@ -26,6 +26,8 @@ namespace HockeyGame
         public const string PostProcessingProfile = "ArenaPostProcessing";
         /// <summary>Material templates the game copies at runtime, kept as assets so the build keeps their shader variants.</summary>
         public const string GlassMaterial = "Glass", GlowMaterial = "Glow", UnlitMaterial = "Unlit";
+        /// <summary>Opaque URP Lit template for the board ad panels (RinkAds copies it, so the WebGL build keeps the variant).</summary>
+        public const string AdPanelMaterial = "AdPanel";
         /// <summary>Easy mode glow material template (shader Hockey Game/Easy Glow, see GoalieView).</summary>
         public const string EasyGlowMaterial = "EasyGlow";
         /// <summary>Name of each glowing overhead light bank under the roof.</summary>
