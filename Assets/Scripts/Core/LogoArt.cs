@@ -147,6 +147,28 @@ namespace HockeyGame.Core
         /// <summary>The brand centre art: the same disc at 1024. Only for brands that ship centre art (ArtLookup decides).</summary>
         public static RgbaPicture MakeCentre(RgbaPicture logo) => MakeDisc(logo, CentreSize);
 
+        // #230. The ids the CENTRE ICE and GAME LOGO picture rows keep their pictures under (BrandArt/<id>.png, Save Data's customLogos list).
+        // No brand id is either of these (a test checks); the id has no tick box and is not in the Brands pool.
+        public const string CentreIceId = "centre-ice", GameLogoId = "game-logo";
+
+        // The drawn start-screen logo's frame (Game/StartLogoArt.Width and Height): keep in step with it.
+        public const int GameLogoWidth = 1200, GameLogoHeight = 330;
+        public const double GameLogoFit = 0.9;
+
+        /// <summary>The start-screen logo picture: the logo fitted in 1200 x 330, 90% of the frame at most, clear round it.</summary>
+        public static RgbaPicture MakeGameLogo(RgbaPicture logo)
+        {
+            double k = Math.Min(GameLogoWidth * GameLogoFit / logo.Width, GameLogoHeight * GameLogoFit / logo.Height);
+            int w = Math.Max(1, (int)Math.Round(logo.Width * k)), h = Math.Max(1, (int)Math.Round(logo.Height * k));
+            byte[] small = Resize(LogoOnWhite(logo), logo.Width, logo.Height, w, h); // colour on board white, its own alpha kept (no dark fringe)
+            var rgba = new byte[GameLogoWidth * GameLogoHeight * 4];
+            for (int i = 0; i < rgba.Length; i += 4) { rgba[i] = BoardWhiteR; rgba[i + 1] = BoardWhiteG; rgba[i + 2] = BoardWhiteB; } // alpha 0; white, not black, round it
+            int x0 = (GameLogoWidth - w) / 2, y0 = (GameLogoHeight - h) / 2;
+            for (int y = 0; y < h; y++)
+                Array.Copy(small, y * w * 4, rgba, ((y0 + y) * GameLogoWidth + x0) * 4, w * 4);
+            return new RgbaPicture(GameLogoWidth, GameLogoHeight, rgba);
+        }
+
         /// <summary>The Ribbon Board strip: black, 24 high, the logo 18 high on a board-white plate between 33 and 34 px margins (a very wide logo is held to 216 px and shortened).</summary>
         public static RgbaPicture MakeRibbon(RgbaPicture logo)
         {

@@ -74,6 +74,7 @@ namespace HockeyGame
                 case "round": art = LogoArt.MakeRound(logo); break;
                 case "ribbon": art = LogoArt.MakeRibbon(logo); break;
                 case "centre": art = LogoArt.MakeCentre(logo); break;
+                case "game-logo": art = LogoArt.MakeGameLogo(logo); break; // the GAME LOGO row (#230)
                 default: return null;
             }
             Texture2D texture = ToTexture(art, "custom-" + id + "-" + spot, spot == "ribbon");
@@ -102,7 +103,7 @@ namespace HockeyGame
         public static void Forget(string id)
         {
             Logos.Remove(id);
-            foreach (string spot in new[] { "panel", "panel-soft", "round", "ribbon", "centre" }) Made.Remove((id, spot));
+            foreach (string spot in new[] { "panel", "panel-soft", "round", "ribbon", "centre", "game-logo" }) Made.Remove((id, spot));
         }
 
         static Texture2D ToTexture(RgbaPicture picture, string name, bool ribbon = false)

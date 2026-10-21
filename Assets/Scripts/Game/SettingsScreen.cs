@@ -546,26 +546,15 @@ namespace HockeyGame
                     _hits.Add(new Hit { El = view.Value, Kind = HitKind.Row, Row = i }); // the number box: selects the row only
                     break;
                 case SettingsRowKind.Toggle:
-                    if (_menu.HasLogoButtons(i) && CustomLogos.Picker != null)
-                    {
-                        // CHANGE LOGO and USE DEFAULT beside the tick box (#226); a refusal note shows before them.
-                        view.LogoHint = Add(control, "lc-hint", _menu.Hint(i));
-                        view.ChangeLogo = Add(control, "lc-cell", "CHANGE LOGO");
-                        view.UseDefaultLogo = Add(control, "lc-cell", "USE DEFAULT");
-                        foreach (Label b in new[] { view.ChangeLogo, view.UseDefaultLogo })
-                        {
-                            b.style.width = 150;
-                            b.style.fontSize = 18;
-                            b.style.marginRight = 10;
-                        }
-                        _hits.Add(new Hit { El = view.ChangeLogo, Kind = HitKind.ChangeLogo, Row = i });
-                        _hits.Add(new Hit { El = view.UseDefaultLogo, Kind = HitKind.UseDefaultLogo, Row = i });
-                    }
+                    if (_menu.HasLogoButtons(i) && CustomLogos.Picker != null) AddLogoButtons(control, view, i); // beside the tick box (#226)
                     else if (_menu.Hint(i) != null) Add(control, "lc-hint", _menu.Hint(i));
                     view.OnCell = Add(control, "lc-cell", "ON");
                     view.OffCell = Add(control, "lc-cell", "OFF");
                     _hits.Add(new Hit { El = view.OnCell, Kind = HitKind.ToggleOn, Row = i });
                     _hits.Add(new Hit { El = view.OffCell, Kind = HitKind.ToggleOff, Row = i });
+                    break;
+                case SettingsRowKind.Picture: // CENTRE ICE and GAME LOGO (#230): the two buttons, no tick box
+                    if (CustomLogos.Picker != null) AddLogoButtons(control, view, i);
                     break;
                 default:
                     if (_menu.Hint(i) != null) Add(control, "lc-hint", _menu.Hint(i)); // "Reset best score" says it clears every Shots per Round number
@@ -575,6 +564,22 @@ namespace HockeyGame
             }
             _rows.Add(view);
             return view.Row;
+        }
+
+        // CHANGE LOGO and USE DEFAULT (#226); a refusal note shows before them.
+        void AddLogoButtons(VisualElement control, RowView view, int i)
+        {
+            view.LogoHint = Add(control, "lc-hint", _menu.Hint(i));
+            view.ChangeLogo = Add(control, "lc-cell", "CHANGE LOGO");
+            view.UseDefaultLogo = Add(control, "lc-cell", "USE DEFAULT");
+            foreach (Label b in new[] { view.ChangeLogo, view.UseDefaultLogo })
+            {
+                b.style.width = 150;
+                b.style.fontSize = 18;
+                b.style.marginRight = 10;
+            }
+            _hits.Add(new Hit { El = view.ChangeLogo, Kind = HitKind.ChangeLogo, Row = i });
+            _hits.Add(new Hit { El = view.UseDefaultLogo, Kind = HitKind.UseDefaultLogo, Row = i });
         }
 
         /// <summary>Shows the current values, slider places and the selected row.</summary>
@@ -623,6 +628,13 @@ namespace HockeyGame
                         {
                             v.LogoHint.text = _menu.Hint(i) ?? "";
                             v.UseDefaultLogo.style.opacity = _menu.IsLogoCustom(i) ? 1f : 0.45f; // nothing to put back on the shipped art
+                        }
+                        break;
+                    case SettingsRowKind.Picture:
+                        if (v.LogoHint != null)
+                        {
+                            v.LogoHint.text = _menu.Hint(i) ?? "";
+                            v.UseDefaultLogo.style.opacity = _menu.IsLogoCustom(i) ? 1f : 0.45f;
                         }
                         break;
                     case SettingsRowKind.Button:

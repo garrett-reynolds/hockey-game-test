@@ -39,7 +39,8 @@ namespace HockeyGame.Core
         Slider,
         Toggle,
         Choice,
-        Button
+        Button,
+        Picture // CENTRE ICE and GAME LOGO (#230): CHANGE LOGO and USE DEFAULT, no tick box
     }
 
     /// <summary>
@@ -159,6 +160,11 @@ namespace HockeyGame.Core
 
             // Test Mode (#156), kept the last Dev row: endless Shots from the shooter's spot. A button that opens it; it changes no setting, so Activate says false (nothing to save).
             AddRow(SettingsPart.Dev, "TEST", SettingsRowKind.Button, "Test Mode", "Opens endless Shots from the shooter's spot. It changes no setting.", () => "open", null, () => { RequestLeave(Leave.TestMode); return false; });
+
+            // The two picture rows (#230), first in the Brands part: not brands (no tick box, not in the pool), only CHANGE LOGO and USE DEFAULT.
+            // Their pictures are kept like a brand's, under the reserved ids LogoArt.CentreIceId and LogoArt.GameLogoId.
+            AddPicture("CENTRE ICE", LogoArt.CentreIceId, "The big logo at centre ice, instead of the Maple Leafs one. Next Round, after SAVE.");
+            AddPicture("GAME LOGO", LogoArt.GameLogoId, "The logo on the start screen, instead of The Shootout one. The start screen shows it after SAVE.");
 
             // Brands (#223): one tick box per pool brand (the Leafs centre-ice logo is not one). An unticked brand leaves the
             // boards, the ribbon and the ice logos round centre ice. The last ticked brand cannot be unticked (the flip says false).
@@ -555,6 +561,12 @@ namespace HockeyGame.Core
             Func<int, bool> change, Func<bool> activate)
         {
             _all.Add(new Row { Part = part, Group = group, Kind = kind, Label = label, Tip = tip, Value = value, Change = change, Activate = activate });
+        }
+
+        private void AddPicture(string label, string id, string tip)
+        {
+            AddRow(SettingsPart.Brands, "PICTURES", SettingsRowKind.Picture, label, tip, () => _save.IsLogoCustom(id) ? "CUSTOM" : "DEFAULT", null, null);
+            _all[_all.Count - 1].LogoId = id;
         }
 
         private void AddToggle(SettingsPart part, string group, string label, string tip, Func<bool> get, Action<bool> set)

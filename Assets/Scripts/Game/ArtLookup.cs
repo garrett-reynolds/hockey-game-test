@@ -8,7 +8,7 @@ namespace HockeyGame
     /// <summary>The one place the Ads art is loaded by name: each picture is found once per brand and spot, then reused.</summary>
     public static class ArtLookup
     {
-        public const string CentreIceId = "centre-ice", GameLogoId = "game-logo";
+        public const string CentreIceId = LogoArt.CentreIceId, GameLogoId = LogoArt.GameLogoId; // reserved ids, not brands (#230)
 
         /// <summary>How many times art was loaded from Resources (the cache hits do not count).</summary>
         public static int Loads { get; private set; }
@@ -56,15 +56,15 @@ namespace HockeyGame
                 return shipped == null ? null : CustomSpot(brand.Id, "centre") ?? shipped;
             });
 
-        /// <summary>The centre-ice logo: the Leafs art, else the skin's own (null: the League Skin's).</summary>
+        /// <summary>The centre-ice logo: the picture the CENTRE ICE row saved (#230), else the Leafs art, else the skin's own (null: the League Skin's).</summary>
         public static Texture2D CentreIce(TeamSkin skin = null)
         {
             string art = TeamSkin.OrLeague(skin).CentreIceLogo;
-            return Get(CentreIceId, art, () => Load(RinkAds.LeafsCentreArt) ?? Load(art));
+            return Get(CentreIceId, art, () => CustomSpot(CentreIceId, "centre") ?? Load(RinkAds.LeafsCentreArt) ?? Load(art));
         }
 
-        /// <summary>The saved game logo; none: the start screen draws its own logo, and a later ticket gives it a saved picture.</summary>
-        public static Texture2D GameLogo() => null;
+        /// <summary>The picture the GAME LOGO row saved (#230); none: the start screen draws its own logo.</summary>
+        public static Texture2D GameLogo() => Get(GameLogoId, "game-logo", () => CustomSpot(GameLogoId, "game-logo"));
 
         /// <summary>Forgets every picture cached under id, so the next ask loads it afresh.</summary>
         public static void Clear(string id)

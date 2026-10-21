@@ -80,7 +80,7 @@ namespace HockeyGame.Core.Tests
             for (int i = 0; i < _menu.RowCount; i++)
             {
                 Assert.IsTrue(_menu.HasLogoButtons(i), _menu.Label(i));
-                Assert.AreEqual(SettingsRowKind.Toggle, _menu.Kind(i), "the tick box stays");
+                Assert.AreEqual(i < 2 ? SettingsRowKind.Picture : SettingsRowKind.Toggle, _menu.Kind(i), "the tick box stays (the two picture rows at the top have none, #230)");
             }
             _menu.ShowPart(SettingsPart.Player);
             for (int i = 0; i < _menu.RowCount; i++) Assert.IsFalse(_menu.HasLogoButtons(i), _menu.Label(i));
