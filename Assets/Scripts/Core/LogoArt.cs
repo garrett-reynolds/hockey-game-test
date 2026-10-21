@@ -81,6 +81,165 @@ namespace HockeyGame.Core
             return new RgbaPicture(PanelWidth, PanelHeight, panel);
         }
 
+        // #227. Keep in step with Tools/make_ads.py: SOFT_GREY, SOFT_BLUR, ROUND, CENTRE, ROUND_FIT, main_colour, soft, round_logo.
+        public const byte SoftGreyR = 219, SoftGreyG = 222, SoftGreyB = 225;
+        public const double SoftBlur = 2.0;                  // a Gaussian sigma, px
+        public const int RoundSize = 512, CentreSize = 1024;
+        public const double RoundFit = 0.36;                 // the logo's corners stay this far (share of the disc) from the disc's centre
+        // The shipped Ribbon strips (Assets/Resources/Ads/ribbon-*.png): 24 high, the logo 18 high on rows 3 to 20, 33 and 34 px margins.
+        public const int RibbonHeight = 24, RibbonLogoHeight = 18, RibbonLeft = 33, RibbonRight = 34, RibbonMaxLogoWidth = 216;
+
+        /// <summary>The logo's main colour: its commonest strong colour, else its commonest dark one (make_ads.py main_colour).</summary>
+        public static (byte r, byte g, byte b) MainColour(RgbaPicture logo)
+        {
+            var strong = new Dictionary<int, int>();
+            var dark = new Dictionary<int, int>();
+            int opaque = 0, strongCount = 0;
+            byte[] p = logo.Rgba;
+            for (int i = 0; i < p.Length; i += 4)
+            {
+                if (p[i + 3] <= 200) continue;
+                opaque++;
+                int r = p[i], g = p[i + 1], b = p[i + 2];
+                int key = ((r / 16 * 16 + 8) << 16) | ((g / 16 * 16 + 8) << 8) | (b / 16 * 16 + 8);
+                if (Math.Max(r, Math.Max(g, b)) - Math.Min(r, Math.Min(g, b)) > 64)
+                {
+                    strongCount++;
+                    strong[key] = strong.TryGetValue(key, out int s) ? s + 1 : 1;
+                }
+                if (r + g + b < 600) dark[key] = dark.TryGetValue(key, out int d) ? d + 1 : 1;
+            }
+            Dictionary<int, int> pick = strongCount > opaque * 0.05 ? strong : dark;
+            if (pick.Count == 0) return (40, 40, 45);
+            int best = -1, bestCount = 0;
+            foreach (KeyValuePair<int, int> kv in pick)
+                if (kv.Value > bestCount || (kv.Value == bestCount && kv.Key < best)) { best = kv.Key; bestCount = kv.Value; }
+            return ((byte)(best >> 16), (byte)((best >> 8) & 255), (byte)(best & 255));
+        }
+
+        /// <summary>The Calm Area panel: board white with the logo's shape in one soft grey, edges blurred. 768 x 256, opaque (make_ads.py soft).</summary>
+        public static RgbaPicture MakeSoftPanel(RgbaPicture logo)
+        {
+            double k = Math.Min(PanelWidth * FitWidth / logo.Width, PanelHeight * FitHeight / logo.Height);
+            int w = Math.Max(1, (int)Math.Round(logo.Width * k)), h = Math.Max(1, (int)Math.Round(logo.Height * k));
+            byte[] small = Resize(LogoOnWhite(logo), logo.Width, logo.Height, w, h);
+            var mask = new float[PanelWidth * PanelHeight];
+            int x0 = (PanelWidth - w) / 2, y0 = (PanelHeight - h) / 2;
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                    mask[(y0 + y) * PanelWidth + x0 + x] = small[(y * w + x) * 4 + 3] / 255f;
+            mask = Blur(mask, PanelWidth, PanelHeight, SoftBlur);
+            var rgba = new byte[PanelWidth * PanelHeight * 4];
+            for (int n = 0; n < mask.Length; n++)
+            {
+                float t = mask[n];
+                rgba[n * 4] = (byte)(BoardWhiteR + (SoftGreyR - BoardWhiteR) * t + 0.5f);
+                rgba[n * 4 + 1] = (byte)(BoardWhiteG + (SoftGreyG - BoardWhiteG) * t + 0.5f);
+                rgba[n * 4 + 2] = (byte)(BoardWhiteB + (SoftGreyB - BoardWhiteB) * t + 0.5f);
+                rgba[n * 4 + 3] = 255;
+            }
+            return new RgbaPicture(PanelWidth, PanelHeight, rgba);
+        }
+
+        /// <summary>The round ice logo: a 512 white disc, a ring in the logo's main colour, the logo inside, clear outside (make_ads.py round_logo).</summary>
+        public static RgbaPicture MakeRound(RgbaPicture logo) => MakeDisc(logo, RoundSize);
+
+        /// <summary>The brand centre art: the same disc at 1024. Only for brands that ship centre art (ArtLookup decides).</summary>
+        public static RgbaPicture MakeCentre(RgbaPicture logo) => MakeDisc(logo, CentreSize);
+
+        /// <summary>The Ribbon Board strip: black, 24 high, the logo 18 high on a board-white plate between 33 and 34 px margins (a very wide logo is held to 216 px and shortened).</summary>
+        public static RgbaPicture MakeRibbon(RgbaPicture logo)
+        {
+            double k = Math.Min((double)RibbonLogoHeight / logo.Height, (double)RibbonMaxLogoWidth / logo.Width);
+            int w = Math.Max(1, (int)Math.Round(logo.Width * k)), h = Math.Max(1, (int)Math.Round(logo.Height * k));
+            byte[] small = Resize(LogoOnWhite(logo), logo.Width, logo.Height, w, h);
+            int stripW = RibbonLeft + w + RibbonRight;
+            var rgba = new byte[stripW * RibbonHeight * 4];
+            for (int i = 3; i < rgba.Length; i += 4) rgba[i] = 255; // black, opaque
+            int y0 = 3 + (RibbonLogoHeight - h) / 2;
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    int s = (y * w + x) * 4, d = ((y0 + y) * stripW + RibbonLeft + x) * 4; // the colour is already on board white, a plate that keeps dark logos visible
+                    rgba[d] = small[s]; rgba[d + 1] = small[s + 1]; rgba[d + 2] = small[s + 2];
+                }
+            return new RgbaPicture(stripW, RibbonHeight, rgba);
+        }
+
+        /// <summary>The logo laid on board white, its own alpha kept in the fourth channel (make_ads.py on_white).</summary>
+        static byte[] LogoOnWhite(RgbaPicture logo)
+        {
+            var onWhite = new byte[logo.Rgba.Length];
+            for (int i = 0; i < onWhite.Length; i += 4)
+            {
+                int a = logo.Rgba[i + 3];
+                onWhite[i] = (byte)((logo.Rgba[i] * a + BoardWhiteR * (255 - a)) / 255);
+                onWhite[i + 1] = (byte)((logo.Rgba[i + 1] * a + BoardWhiteG * (255 - a)) / 255);
+                onWhite[i + 2] = (byte)((logo.Rgba[i + 2] * a + BoardWhiteB * (255 - a)) / 255);
+                onWhite[i + 3] = (byte)a;
+            }
+            return onWhite;
+        }
+
+        static RgbaPicture MakeDisc(RgbaPicture logo, int n)
+        {
+            var main = MainColour(logo);
+            var rgba = new byte[n * n * 4];
+            double c = n / 2.0, outer = n * 0.48, inner = n * 0.44;
+            for (int y = 0; y < n; y++)
+                for (int x = 0; x < n; x++)
+                {
+                    double d = Math.Sqrt((x + 0.5 - c) * (x + 0.5 - c) + (y + 0.5 - c) * (y + 0.5 - c));
+                    double disc = Math.Max(0, Math.Min(1, outer - d + 0.5)); // 1 inside the outer edge, soft over one px
+                    double ring = Math.Max(0, Math.Min(1, d - inner + 0.5)); // 1 beyond the inner edge
+                    int i = (y * n + x) * 4;
+                    rgba[i] = (byte)(BoardWhiteR + (main.r - BoardWhiteR) * ring + 0.5);
+                    rgba[i + 1] = (byte)(BoardWhiteG + (main.g - BoardWhiteG) * ring + 0.5);
+                    rgba[i + 2] = (byte)(BoardWhiteB + (main.b - BoardWhiteB) * ring + 0.5);
+                    rgba[i + 3] = (byte)(disc * 255 + 0.5);
+                }
+            double k = n * RoundFit / Math.Sqrt(logo.Width / 2.0 * logo.Width / 2.0 + logo.Height / 2.0 * logo.Height / 2.0);
+            int w = Math.Max(1, (int)Math.Round(logo.Width * k)), h = Math.Max(1, (int)Math.Round(logo.Height * k));
+            byte[] small = Resize(LogoOnWhite(logo), logo.Width, logo.Height, w, h);
+            int x0 = (n - w) / 2, y0 = (n - h) / 2;
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    int s = (y * w + x) * 4, d = ((y0 + y) * n + x0 + x) * 4, a = small[s + 3];
+                    rgba[d] = (byte)((small[s] * a + rgba[d] * (255 - a)) / 255);
+                    rgba[d + 1] = (byte)((small[s + 1] * a + rgba[d + 1] * (255 - a)) / 255);
+                    rgba[d + 2] = (byte)((small[s + 2] * a + rgba[d + 2] * (255 - a)) / 255);
+                }
+            return new RgbaPicture(n, n, rgba);
+        }
+
+        /// <summary>A Gaussian blur of one float channel, edges held (PIL GaussianBlur in make_ads.py's soft).</summary>
+        static float[] Blur(float[] src, int w, int h, double sigma)
+        {
+            int r = (int)Math.Ceiling(sigma * 3);
+            var kernel = new float[2 * r + 1];
+            float total = 0;
+            for (int i = -r; i <= r; i++) { kernel[i + r] = (float)Math.Exp(-i * i / (2 * sigma * sigma)); total += kernel[i + r]; }
+            for (int i = 0; i < kernel.Length; i++) kernel[i] /= total;
+            var across = new float[src.Length];
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    float sum = 0;
+                    for (int j = -r; j <= r; j++) sum += src[y * w + Math.Max(0, Math.Min(w - 1, x + j))] * kernel[j + r];
+                    across[y * w + x] = sum;
+                }
+            var down = new float[src.Length];
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    float sum = 0;
+                    for (int j = -r; j <= r; j++) sum += across[Math.Max(0, Math.Min(h - 1, y + j)) * w + x] * kernel[j + r];
+                    down[y * w + x] = sum;
+                }
+            return down;
+        }
+
         /// <summary>The picture shrunk so its long side is at most maxSide (the same picture back when it already is).</summary>
         public static RgbaPicture Shrink(RgbaPicture picture, int maxSide)
         {

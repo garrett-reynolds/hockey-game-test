@@ -37,7 +37,7 @@ CENTRE = 1024
 RENDER = 2400                            # px: the SVG's longer side when rasterised, before it is shrunk
 BOARD_WHITE = (236, 238, 240)            # the boards' white (Tools/make_arena.py, "Boards")
 SOFT_GREY = (219, 222, 225)              # Calm Area logos: about 6% darker than the white, no colour
-SOFT_BLUR = 2.0                          # px: soft edges on the Calm Area logos
+SOFT_BLUR = 2.0                          # px: soft edges on the Calm Area logos (keep in step with LogoArt.cs: SoftGrey, SoftBlur, RoundFit, MakeSoftPanel, MakeRound; #227)
 # Logos drawn on a full-size white box (Garrett, #223): the white joined to the picture's edge is cleared.
 WHITE_BOX = {"michelob-ultra", "shell", "pizza-pizza", "cibc", "discover"}
 BROWSERS = [r"C:\Program Files\Google\Chrome\Application\chrome.exe",

@@ -28,13 +28,38 @@ namespace HockeyGame
             null;
 #endif
 
-        static readonly Dictionary<string, Texture2D> Made = new Dictionary<string, Texture2D>();
+        static readonly Dictionary<(string id, string spot), Texture2D> Made = new Dictionary<(string id, string spot), Texture2D>();
+        static readonly Dictionary<string, RgbaPicture> Logos = new Dictionary<string, RgbaPicture>();
 
         /// <summary>The colour panel made from a brand's saved picture, or null when the brand has no custom logo (or its file is unreadable).</summary>
-        public static Texture2D Panel(string id)
+        public static Texture2D Panel(string id) => Spot(id, "panel");
+
+        /// <summary>The picture made from a brand's saved logo for one spot ("panel", "panel-soft", "round", "ribbon", "centre", #227); null: no custom logo, or its file is unreadable.</summary>
+        public static Texture2D Spot(string id, string spot)
         {
             if (!SaveStore.Current.IsLogoCustom(id)) return null;
-            if (Made.TryGetValue(id, out Texture2D made) && made != null) return made;
+            if (Made.TryGetValue((id, spot), out Texture2D made) && made != null) return made;
+            RgbaPicture logo = Logo(id);
+            if (logo == null) return null;
+            RgbaPicture art;
+            switch (spot)
+            {
+                case "panel": art = LogoArt.MakePanel(logo); break;
+                case "panel-soft": art = LogoArt.MakeSoftPanel(logo); break;
+                case "round": art = LogoArt.MakeRound(logo); break;
+                case "ribbon": art = LogoArt.MakeRibbon(logo); break;
+                case "centre": art = LogoArt.MakeCentre(logo); break;
+                default: return null;
+            }
+            Texture2D texture = ToTexture(art, "custom-" + id + "-" + spot, spot == "ribbon");
+            Made[(id, spot)] = texture;
+            return texture;
+        }
+
+        /// <summary>The made logo (cropped, white box cleared) for a saved picture, kept until Forget; null when unreadable.</summary>
+        static RgbaPicture Logo(string id)
+        {
+            if (Logos.TryGetValue(id, out RgbaPicture kept)) return kept;
             byte[] file = Files.Read(id);
             RgbaPicture logo = null;
             if (file != null && Codec.TryDecode(file, out int w, out int h, out byte[] rgba))
@@ -44,27 +69,31 @@ namespace HockeyGame
                 Debug.LogWarning("Custom logo '" + id + "' could not be read; using the default art.");
                 return null;
             }
-            Texture2D texture = ToTexture(LogoArt.MakePanel(logo), "custom-" + id);
-            Made[id] = texture;
-            return texture;
+            Logos[id] = logo;
+            return logo;
         }
 
-        /// <summary>Forgets the made panel for id (the pictures a Round in play already holds stay).</summary>
-        public static void Forget(string id) => Made.Remove(id);
+        /// <summary>Forgets the made pictures for id (the pictures a Round in play already holds stay).</summary>
+        public static void Forget(string id)
+        {
+            Logos.Remove(id);
+            foreach (string spot in new[] { "panel", "panel-soft", "round", "ribbon", "centre" }) Made.Remove((id, spot));
+        }
 
-        static Texture2D ToTexture(RgbaPicture picture, string name)
+        static Texture2D ToTexture(RgbaPicture picture, string name, bool ribbon = false)
         {
             // Pictures here start at the top row; Unity textures start at the bottom row.
             int stride = picture.Width * 4;
             var flipped = new byte[picture.Rgba.Length];
             for (int y = 0; y < picture.Height; y++)
                 Buffer.BlockCopy(picture.Rgba, y * stride, flipped, (picture.Height - 1 - y) * stride, stride);
-            var texture = new Texture2D(picture.Width, picture.Height, TextureFormat.RGBA32, true) { name = name };
+            var texture = new Texture2D(picture.Width, picture.Height, TextureFormat.RGBA32, !ribbon) { name = name };
             texture.SetPixelData(flipped, 0);
-            texture.wrapMode = TextureWrapMode.Clamp;
-            texture.filterMode = FilterMode.Trilinear;
-            texture.anisoLevel = 4;
-            texture.Apply(true, true);
+            // The Ribbon strip tiles along the boards, drawn as the shipped strips are: repeat, point filter, no mips.
+            texture.wrapMode = ribbon ? TextureWrapMode.Repeat : TextureWrapMode.Clamp;
+            texture.filterMode = ribbon ? FilterMode.Point : FilterMode.Trilinear;
+            texture.anisoLevel = ribbon ? 1 : 4;
+            texture.Apply(!ribbon, true);
             return texture;
         }
 

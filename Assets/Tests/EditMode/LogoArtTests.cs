@@ -134,5 +134,139 @@ namespace HockeyGame.Core.Tests
             RgbaPicture fine = Make(100, 50, (x, y) => (1, 2, 3, 255));
             Assert.AreSame(fine, LogoArt.Shrink(fine, 2048));
         }
+
+        // #227: the soft panel, the round ice logo, the Ribbon strip and the centre art.
+
+        /// <summary>A w x h logo, 70% red on the left and blue on the right, no white box.</summary>
+        static RgbaPicture RedBlue(int w, int h) =>
+            Make(w, h, (x, y) => x < w * 7 / 10 ? ((byte)200, (byte)20, (byte)30, (byte)255) : ((byte)20, (byte)40, (byte)200, (byte)255));
+
+        static (byte r, byte g, byte b, byte a) At(RgbaPicture p, int x, int y)
+        {
+            int i = (y * p.Width + x) * 4;
+            return (p.Rgba[i], p.Rgba[i + 1], p.Rgba[i + 2], p.Rgba[i + 3]);
+        }
+
+        [Test]
+        public void The_main_colour_is_the_commonest_strong_colour_else_the_commonest_dark_one()
+        {
+            Assert.AreEqual(((byte)200, (byte)24, (byte)24), LogoArt.MainColour(RedBlue(100, 50)));
+            RgbaPicture dark = Make(60, 40, (x, y) => x < 40 ? ((byte)30, (byte)30, (byte)40, (byte)255) : ((byte)120, (byte)120, (byte)120, (byte)255));
+            Assert.AreEqual(((byte)24, (byte)24, (byte)40), LogoArt.MainColour(dark));
+            Assert.AreEqual(((byte)40, (byte)40, (byte)45), LogoArt.MainColour(Make(10, 10, (x, y) => (250, 250, 250, 255))), "nothing strong or dark: the tool's fallback");
+        }
+
+        [Test]
+        public void The_soft_panel_is_768_by_256_opaque_and_has_no_colour()
+        {
+            RgbaPicture soft = LogoArt.MakeSoftPanel(LogoArt.MakeLogo(RedBlue(300, 100)));
+            Assert.AreEqual(768, soft.Width);
+            Assert.AreEqual(256, soft.Height);
+            int most = 0;
+            for (int i = 0; i < soft.Rgba.Length; i += 4)
+            {
+                Assert.AreEqual(255, soft.Rgba[i + 3], "opaque, as the tool's soft panels are");
+                int spread = System.Math.Max(soft.Rgba[i], System.Math.Max(soft.Rgba[i + 1], soft.Rgba[i + 2])) - System.Math.Min(soft.Rgba[i], System.Math.Min(soft.Rgba[i + 1], soft.Rgba[i + 2]));
+                if (spread > most) most = spread;
+                Assert.That(soft.Rgba[i], Is.InRange(LogoArt.SoftGreyR, LogoArt.BoardWhiteR), "between the soft grey and board white");
+            }
+            Assert.LessOrEqual(most, 6, "the red and blue of the logo leave no colour");
+        }
+
+        [Test]
+        public void The_soft_panel_has_the_logo_shape_in_soft_grey_on_board_white_with_soft_edges()
+        {
+            RgbaPicture soft = LogoArt.MakeSoftPanel(LogoArt.MakeLogo(RedBlue(900, 200)));
+            Assert.AreEqual((LogoArt.SoftGreyR, LogoArt.SoftGreyG, LogoArt.SoftGreyB), (At(soft, 384, 128).r, At(soft, 384, 128).g, At(soft, 384, 128).b), "the logo");
+            Assert.AreEqual((LogoArt.BoardWhiteR, LogoArt.BoardWhiteG, LogoArt.BoardWhiteB), (At(soft, 5, 5).r, At(soft, 5, 5).g, At(soft, 5, 5).b), "board white round it");
+            int row = 128, edge = -1;
+            for (int x = 0; x < 384; x++) if (At(soft, x, row).r <= (LogoArt.BoardWhiteR + LogoArt.SoftGreyR) / 2) { edge = x; break; } // halfway between white and grey
+            Assert.That(edge, Is.EqualTo(61).Within(3), "the shape starts where the colour panel's logo starts (0.84 of 768 wide)");
+            int soften = 0;
+            for (int x = edge - 8; x < edge + 8; x++) { byte r = At(soft, x, row).r; if (r > LogoArt.SoftGreyR && r < LogoArt.BoardWhiteR) soften++; }
+            Assert.GreaterOrEqual(soften, 2, "the edge is blurred, not a hard step");
+        }
+
+        [Test]
+        public void The_round_logo_is_a_512_disc_clear_outside_with_a_ring_in_the_main_colour()
+        {
+            RgbaPicture logo = LogoArt.MakeLogo(RedBlue(200, 100));
+            RgbaPicture round = LogoArt.MakeRound(logo);
+            Assert.AreEqual(512, round.Width);
+            Assert.AreEqual(512, round.Height);
+            foreach (var (x, y) in new[] { (0, 0), (511, 0), (0, 511), (511, 511), (20, 20), (491, 20) })
+                Assert.AreEqual(0, At(round, x, y).a, "clear outside the disc at " + x + "," + y);
+            var main = LogoArt.MainColour(logo);
+            var ring = At(round, 256, 21); // 0.46 of the width above the centre: in the ring (0.44 to 0.48)
+            Assert.AreEqual((main.r, main.g, main.b, (byte)255), ring, "the ring is the logo's main colour");
+            var inside = At(round, 256 + 150, 256 - 120);
+            Assert.AreEqual(((byte)LogoArt.BoardWhiteR, (byte)LogoArt.BoardWhiteG, (byte)LogoArt.BoardWhiteB, (byte)255), inside, "board white inside the ring, round the logo");
+        }
+
+        [Test]
+        public void The_round_logo_is_fitted_so_its_corners_stay_36_percent_of_the_disc_from_the_centre()
+        {
+            RgbaPicture round = LogoArt.MakeRound(LogoArt.MakeLogo(RedBlue(200, 100)));
+            int x0 = 512, x1 = -1, y0 = 512, y1 = -1;
+            for (int y = 0; y < 512; y++)
+                for (int x = 0; x < 512; x++)
+                {
+                    if ((x - 256) * (x - 256) + (y - 256) * (y - 256) > 215 * 215) continue; // inside the ring
+                    var p = At(round, x, y);
+                    if (p.r == LogoArt.BoardWhiteR && p.g == LogoArt.BoardWhiteG && p.b == LogoArt.BoardWhiteB) continue;
+                    if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+                }
+            double k = 512 * 0.36 / System.Math.Sqrt(100 * 100 + 50 * 50);
+            Assert.That(x1 - x0 + 1, Is.EqualTo(200 * k).Within(3), "width");
+            Assert.That(y1 - y0 + 1, Is.EqualTo(100 * k).Within(3), "height");
+            Assert.That((x0 + x1) / 2.0, Is.EqualTo(256).Within(2));
+        }
+
+        [Test]
+        public void The_centre_art_is_the_round_look_at_1024()
+        {
+            RgbaPicture logo = LogoArt.MakeLogo(RedBlue(200, 100));
+            RgbaPicture centre = LogoArt.MakeCentre(logo);
+            Assert.AreEqual(1024, centre.Width);
+            Assert.AreEqual(1024, centre.Height);
+            Assert.AreEqual(0, At(centre, 0, 0).a, "clear outside the disc");
+            var main = LogoArt.MainColour(logo);
+            Assert.AreEqual((main.r, main.g, main.b, (byte)255), At(centre, 512, 512 - 470), "the ring (0.46 of the width out) is the main colour");
+        }
+
+        [Test]
+        public void The_ribbon_strip_is_24_high_black_with_the_logo_18_high_and_33_and_34_px_margins()
+        {
+            RgbaPicture strip = LogoArt.MakeRibbon(LogoArt.MakeLogo(RedBlue(200, 100)));
+            Assert.AreEqual(24, strip.Height);
+            Assert.AreEqual(33 + 36 + 34, strip.Width, "the logo is 18 high, so 36 wide");
+            for (int i = 3; i < strip.Rgba.Length; i += 4) Assert.AreEqual(255, strip.Rgba[i], "opaque");
+            Assert.AreEqual(((byte)0, (byte)0, (byte)0, (byte)255), At(strip, 5, 12), "black margin");
+            Assert.AreEqual(((byte)0, (byte)0, (byte)0, (byte)255), At(strip, 33 + 36 + 20, 12), "black margin");
+            Assert.AreEqual(((byte)0, (byte)0, (byte)0, (byte)255), At(strip, 50, 1), "black above the logo");
+            Assert.AreEqual(((byte)200, (byte)20, (byte)30, (byte)255), At(strip, 40, 12), "the logo");
+            Assert.AreEqual(((byte)20, (byte)40, (byte)200, (byte)255), At(strip, 33 + 34, 12), "the logo");
+            Assert.AreEqual(((byte)200, (byte)20, (byte)30, (byte)255), At(strip, 33, 3), "the logo's top left corner");
+            Assert.AreEqual(((byte)0, (byte)0, (byte)0, (byte)255), At(strip, 32, 3));
+            Assert.AreEqual(((byte)0, (byte)0, (byte)0, (byte)255), At(strip, 33, 21), "the logo ends at row 20");
+        }
+
+        [Test]
+        public void A_very_wide_logo_on_the_ribbon_is_held_to_216_px_and_shortened_to_keep_its_shape()
+        {
+            RgbaPicture strip = LogoArt.MakeRibbon(LogoArt.MakeLogo(RedBlue(3000, 100)));
+            Assert.AreEqual(33 + 216 + 34, strip.Width);
+            Assert.AreEqual(((byte)0, (byte)0, (byte)0, (byte)255), At(strip, 100, 2), "black above the shortened logo");
+            Assert.AreEqual(((byte)200, (byte)20, (byte)30, (byte)255), At(strip, 100, 12), "the logo");
+        }
+
+        [Test]
+        public void A_logo_with_clear_parts_shows_board_white_in_them_on_the_ribbon_and_the_round_logo()
+        {
+            RgbaPicture ring = LogoArt.MakeLogo(Make(100, 100, (x, y) =>
+                (x - 50) * (x - 50) + (y - 50) * (y - 50) < 2500 && (x - 50) * (x - 50) + (y - 50) * (y - 50) > 900 ? ((byte)10, (byte)90, (byte)200, (byte)255) : ((byte)0, (byte)0, (byte)0, (byte)0)));
+            RgbaPicture strip = LogoArt.MakeRibbon(ring);
+            Assert.AreEqual(((byte)LogoArt.BoardWhiteR, (byte)LogoArt.BoardWhiteG, (byte)LogoArt.BoardWhiteB, (byte)255), At(strip, 33 + 9, 12), "the hole of the ring: a board white plate, so a dark logo shows on the black strip");
+        }
     }
 }
