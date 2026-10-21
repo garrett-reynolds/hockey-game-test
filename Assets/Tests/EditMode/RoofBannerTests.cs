@@ -309,11 +309,11 @@ namespace HockeyGame.Core.Tests
             int before = Made<Material>();
             int texturesBefore = MadeTextures();
             int meshesBefore = MadeMeshes();
-            RinkBuilder.Build(out Camera camera);
+            Transform rink = RinkBuilder.Build(out Camera camera);
             int built = Made<Material>();
             int texturesBuilt = MadeTextures();
             int meshesBuilt = MadeMeshes();
-            RinkTeardown.Destroy(GameObject.Find("Rink"));
+            RinkTeardown.Destroy(rink.gameObject); // this build's rink, not the first "Rink" by name (another test's could be left)
             Object.DestroyImmediate(camera.gameObject);
             Assert.Greater(built, before, "the rink makes materials");
             Assert.Greater(meshesBuilt, meshesBefore, "the rink makes meshes");
