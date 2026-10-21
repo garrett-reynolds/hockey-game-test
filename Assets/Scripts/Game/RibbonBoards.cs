@@ -62,6 +62,12 @@ namespace HockeyGame
             public string Text;
             public int MaxScale;
             public Color Fore, Backdrop;
+            public float WordsScaleX;      // the words texture's uv stretch (its texels on whole cells)
+            // The scrolling ad picture (#223): where the panel sits round the ring, which way the viewer's right runs, and where
+            // its left-hand end is along the reading line (metres).
+            public double Along, ReadStart;
+            public bool RightAlongRing;
+            public Texture2D Picture;      // the ad picture shown now; null: the words texture
         }
 
         readonly List<Panel> _panels = new List<Panel>();
@@ -94,6 +100,93 @@ namespace HockeyGame
 
         public static Color ColourOf(ArenaColour c) => new Color32(c.R, c.G, c.B, 255);
 
+        /// <summary>How fast the ad picture scrolls to the left round the ring (metres a second, #223): like a news ticker.</summary>
+        public const float ScrollMetresPerSecond = 1.5f;
+        static readonly int LitAboveId = Shader.PropertyToID("_LitAbove"), WrapId = Shader.PropertyToID("_Wrap");
+        static readonly Dictionary<string, Texture2D> Pictures = new Dictionary<string, Texture2D>();
+        double _ring, _loop = 1.0, _seconds;
+        Texture2D _loopOf;
+
+        /// <summary>The brand's Ribbon ad picture: Resources Ads/ribbon-&lt;id&gt; (a strip that tiles), else its panel art; null: none.</summary>
+        public static Texture2D PictureOf(Brands.Brand brand)
+        {
+            if (Pictures.TryGetValue(brand.Id, out Texture2D cached) && cached != null) return cached;
+            Texture2D picture = Resources.Load<Texture2D>(RinkAds.ArtFolder + "/ribbon-" + brand.Id)
+                ?? Resources.Load<Texture2D>(RinkAds.ArtFolder + "/" + RinkAds.PanelArt(brand, false));
+            Pictures[brand.Id] = picture;
+            return picture;
+        }
+
+        /// <summary>The ad picture's tiling on the panel at the last Show: x its scale, z its offset (the scroll), along the panel.</summary>
+        public Vector4 PictureSTOn(int panel)
+        {
+            Panel p = _panels[panel];
+            double offset = (p.ReadStart + ScrollMetresPerSecond * _seconds) / _loop;
+            return new Vector4((float)(p.Length / _loop), 1f, (float)(offset - System.Math.Floor(offset)), 0f);
+        }
+
+        /// <summary>One repeat of the ad picture along the ribbon (metres): its own shape at the ribbon's height, stretched a
+        /// little so a whole number of repeats fills the ring (no seam where the loop closes).</summary>
+        public double LoopMetres => _loop;
+        /// <summary>The ring's length round its middle (metres), the panels left out behind the Video Board counted.</summary>
+        public double RingMetres => _ring;
+        /// <summary>The panel whose left-hand end meets this panel's right-hand end, as the viewer sees them; -1: none (a left-out
+        /// panel behind the Video Board between them).</summary>
+        public int RightNeighbourOf(int panel)
+        {
+            Panel p = _panels[panel];
+            for (int i = 0; i < _panels.Count; i++)
+            {
+                double gap = (_panels[i].ReadStart - (p.ReadStart + p.Length)) % _ring;
+                if (System.Math.Abs(gap) < 1e-3 || System.Math.Abs(System.Math.Abs(gap) - _ring) < 1e-3) return i;
+            }
+            return -1;
+        }
+
+        void SetLoopFor(Texture2D picture)
+        {
+            if (picture == _loopOf) return;
+            _loopOf = picture;
+            double own = Height * picture.width / (double)picture.height;
+            int repeats = System.Math.Max(1, (int)System.Math.Round(_ring / own));
+            _loop = _ring / repeats;
+        }
+
+        // The ad picture on the panel, scrolling left: no upload, only material values (the words texture keeps its words).
+        void ShowPicture(int panel, Brands.Brand brand)
+        {
+            Panel p = _panels[panel];
+            Texture2D picture = PictureOf(brand);
+            if (picture == null) { ShowWords(p); Apply(p, brand.AdWords, ColourOf(brand.AdFore), ColourOf(brand.AdBack), AdGlow, AdScale); return; }
+            SetLoopFor(picture);
+            if (p.Picture != picture)
+            {
+                p.Picture = picture;
+                p.Back.mainTexture = picture;
+                p.Back.SetFloat(LitAboveId, 0f);
+                p.Back.SetFloat(WrapId, 1f);
+                p.Back.color = Color.white;
+                p.Fore = p.Backdrop = Color.clear; // the words colours are written again when words come back
+                p.Text = brand.AdWords;
+                p.MaxScale = -1;
+            }
+            Vector4 st = PictureSTOn(panel);
+            p.Back.mainTextureScale = new Vector2(st.x, 1f);
+            p.Back.mainTextureOffset = new Vector2(st.z, 0f);
+        }
+
+        // Back from the ad picture to the words texture.
+        void ShowWords(Panel p)
+        {
+            if (p.Picture == null) return;
+            p.Picture = null;
+            p.Back.mainTexture = p.Texture;
+            p.Back.SetFloat(LitAboveId, 0.5f);
+            p.Back.SetFloat(WrapId, 0f);
+            p.Back.mainTextureScale = new Vector2(p.WordsScaleX, 1f);
+            p.Back.mainTextureOffset = Vector2.zero;
+        }
+
         /// <summary>Frees what the boards made: each panel's LED material and words texture, and the edge strips' material.</summary>
         void OnDestroy()
         {
@@ -123,12 +216,19 @@ namespace HockeyGame
             }
             List<(Vector2 From, Vector2 To)> ring = Ring(Offset - Inset);
             int index = 0;
+            double along = 0; // metres round the ring to this piece's `from` end, the left-out pieces counted (the ad scroll runs round them)
             foreach ((Vector2 from, Vector2 to) in ring)
             {
+                double pieceLength = Vector2.Distance(from, to);
                 // A panel wholly behind the Video Board is never seen: leave it out.
-                if (VideoBoardCover.HidesRibbonPanel(from.x, from.y, to.x, to.y)) { ribbons.LeftOut.Add((from, to)); continue; }
-                ribbons.AddPanel(index++, from, to);
+                if (VideoBoardCover.HidesRibbonPanel(from.x, from.y, to.x, to.y)) ribbons.LeftOut.Add((from, to));
+                else ribbons.AddPanel(index++, from, to, along);
+                along += pieceLength;
             }
+            ribbons._ring = along;
+            // Where each panel's left-hand end (as the viewer sees it) is along the reading line: round the ring with it, or against.
+            foreach (Panel p in ribbons._panels)
+                p.ReadStart = p.RightAlongRing ? p.Along : along - (p.Along + p.Length);
             ribbons.Show(ArenaShow.At(new ArenaShowInput { Phase = RoundPhase.Idle }), 0.0);
             return ribbons;
         }
@@ -136,7 +236,7 @@ namespace HockeyGame
         /// <summary>Shows the Arena Show's answer. seconds: a running clock (real time) that cycles the ads.</summary>
         public void Show(ArenaState state, double seconds)
         {
-            int adStep = (int)System.Math.Floor(seconds / AdSeconds);
+            _seconds = seconds;
             for (int i = 0; i < _panels.Count; i++)
             {
                 Panel p = _panels[i];
@@ -144,14 +244,15 @@ namespace HockeyGame
                 switch (board.Message)
                 {
                     case RibbonMessage.Ads:
-                        Brands.Brand b = Brands.All[(adStep + i) % Brands.All.Length];
-                        Apply(p, b.AdWords, ColourOf(b.AdFore), ColourOf(b.AdBack), AdGlow, AdScale);
+                        ShowPicture(i, Brands.Current); // one brand all Round, its picture scrolling left round the ring (#223)
                         break;
                     case RibbonMessage.CalmStill:
+                        ShowWords(p);
                         Color still = ColourOf(board.Colour);
                         Apply(p, "", still, still, 1f, AdScale);
                         break;
                     default:
+                        ShowWords(p);
                         Apply(p, board.Text, ColourOf(board.Colour), WordsBack, 1f, board.Small ? SmallScale : BigScale);
                         break;
                 }
@@ -188,7 +289,7 @@ namespace HockeyGame
             _wordsUploads++;
         }
 
-        void AddPanel(int index, Vector2 from, Vector2 to)
+        void AddPanel(int index, Vector2 from, Vector2 to, double alongRing)
         {
             Vector2 mid = (from + to) / 2f;
             float cx = RinkBoards.HalfWidth - CornerRadius;
@@ -233,7 +334,8 @@ namespace HockeyGame
                 : centre.z > (RinkBoards.EndZ + RinkBoards.FarZ) / 2f ? ArenaZone.Near
                 : ArenaZone.Far;
             _panels.Add(new Panel { Centre = centre, Length = length, Zone = zone, Back = back, Texture = texture,
-                                 Texels = new byte[cellsX * CellsUp], CellsX = cellsX });
+                                 Texels = new byte[cellsX * CellsUp], CellsX = cellsX, WordsScaleX = back.mainTextureScale.x,
+                                 Along = alongRing, RightAlongRing = Vector3.Dot(quad.transform.right, along) >= 0f });
             if (_edge != null && zone != ArenaZone.CalmArea) // the Calm Area's panels stay one dim still colour
                 foreach (float side in new[] { 1f, -1f })
                     AddEdge(centre + Vector3.up * side * (Height - EdgeHeight) / 2f - outward * TextLift / 2f, facing, length);

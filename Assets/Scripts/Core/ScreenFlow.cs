@@ -148,6 +148,7 @@ namespace HockeyGame.Core
                 case FlowScreen.Start:
                     _save.ApplyGoalieTo(_settings); // the Dev part's goalie values act from this Round, never mid-Round (#147)
                     _save.ApplyRoundTo(_settings); // so do its Round timing and Set-up Mistake values (#148)
+                    Brands.NextRound(); // one brand on the boards, ribbon and ice for the whole Round (#223)
                     Round.StartRound(_save.BestScore, _save.ShotsPerRound);
                     Screen = FlowScreen.Playing;
                     break;

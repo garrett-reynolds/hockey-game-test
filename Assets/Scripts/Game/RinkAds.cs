@@ -12,13 +12,40 @@ namespace HockeyGame
     /// corners included, each with a brand's logo (Brands); panels in the Calm Area's bounds show the soft grey logo, matte.
     /// Nothing goes on the glass. The ice logos lie just over the ice, between the blue lines, and read from behind the
     /// near net looking out (the Replay view). The centre-ice logo is the Team Skin's (the League Skin's is the
-    /// "All-Star Hockey" mark); the brands are fixed.
+    /// "All-Star Hockey" mark); the brands are the game load's set (Brands.Shown), a new random one each load.
     /// </summary>
     public static class RinkAds
     {
         public const string Part = "Ads", BoardAdsPart = "Board Ads", IceLogosPart = "Ice Logos";
         /// <summary>The art's folder under Resources.</summary>
         public const string ArtFolder = "Ads";
+
+        /// <summary>
+        /// A new shuffle of the brand deck each game load (#223), before any scene builds the rink: runs on every Play start
+        /// (the Editor keeps static fields over Play, no domain reload) and on every page load of the Web build.
+        /// </summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void NewBrandDeckEachLoad() => Brands.NewLoad(new System.Random());
+
+        /// <summary>Swaps the ads under rink for this Round's brand (Brands.Current): the old Ads part and its meshes and
+        /// materials go, a new one is built (each art keeps its own shape, so the meshes are made again).</summary>
+        public static GameObject Rebuild(Transform rink, TeamSkin skin = null)
+        {
+            Transform old = rink.Find(Part);
+            if (old != null)
+            {
+                old.name = Part + " (old)"; // Destroy waits for the frame's end in Play: the new part is the only "Ads" at once
+                var made = new HashSet<UnityEngine.Object>();
+                foreach (MeshFilter f in old.GetComponentsInChildren<MeshFilter>()) if (f.sharedMesh != null) made.Add(f.sharedMesh);
+                foreach (Renderer r in old.GetComponentsInChildren<Renderer>()) if (r.sharedMaterial != null) made.Add(r.sharedMaterial);
+                SceneObjects.DestroySafely(old.gameObject);
+                foreach (UnityEngine.Object o in made) SceneObjects.DestroySafely(o);
+            }
+            return Build(rink, skin);
+        }
+
+        /// <summary>A brand's big centre-ice logo (the logo only, clear round it); without it, its panel art stands in.</summary>
+        public static string CentreArt(Brands.Brand brand) => "centre-" + brand.Id;
 
         /// <summary>A brand's panel art: its logo in colour (also laid on the ice), or soft grey for the Calm Area.</summary>
         public static string PanelArt(Brands.Brand brand, bool soft) => "panel-" + brand.Id + (soft ? "-soft" : "");
@@ -59,6 +86,7 @@ namespace HockeyGame
                 RinkLayout.IceLogoSpot spot = spots[i];
                 Brands.Brand brand = Brands.ForIceLogo(i);
                 Texture2D texture = brand == null ? centreIceLogo
+                    : spot.Kind == RinkLayout.IceLogoKind.CentreIce ? (Art(CentreArt(brand)) ?? Art(PanelArt(brand, false)) ?? centreIceLogo)
                     : Art(spot.Kind == RinkLayout.IceLogoKind.NeutralZoneRound ? RoundArt(brand) : PanelArt(brand, false));
                 string key = "ice " + (texture != null ? texture.name : "none");
                 Material m = Shared(materials, key, () => SeeThrough(texture));

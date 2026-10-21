@@ -188,7 +188,7 @@ namespace HockeyGame
             SetStartCard(state.VideoBoard == VideoBoardContent.StartCard, details);
             if (state.VideoBoard == VideoBoardContent.AdSlide)
             {
-                Brands.Brand b = Brands.All[(int)System.Math.Floor(seconds / AdSeconds) % Brands.All.Length];
+                Brands.Brand b = Brands.Current; // this Round's brand (#223), its words and its line
                 headline = b.AdWords;
                 details = "";
                 back = RibbonBoards.ColourOf(b.AdBack);

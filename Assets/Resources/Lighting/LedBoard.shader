@@ -29,6 +29,7 @@ Shader "Hockey Game/LED Board"
         _LitAbove("Words: a cell is lit when its texel is at least this (0: ordinary picture)", Range(0, 1)) = 0
         _Backdrop("Words: colour of a cell with no words", Color) = (0,0,0,1)
         _Plain("Plain picture: sharp, no LED cells or gaps (1), or LED cells (0)", Range(0, 1)) = 0
+        _Wrap("Picture repeats along x (1, the scrolling Ribbon ad) or is clamped (0)", Range(0, 1)) = 0
         [HideInInspector] _SrcBlend("Source blend", Float) = 1
         [HideInInspector] _DstBlend("Destination blend", Float) = 0
     }
@@ -64,6 +65,7 @@ Shader "Hockey Game/LED Board"
                 float _LitAbove;
                 half4 _Backdrop;
                 float _Plain;
+                float _Wrap;
             CBUFFER_END
 
             struct Attributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; };
@@ -132,7 +134,9 @@ Shader "Hockey Game/LED Board"
                 float tooSmall = smoothstep(0.3, 0.5, max(pixelsInCells.x, pixelsInCells.y));
                 lit = lerp(lit, 1.0, tooSmall);
 
-                half4 sampled = SAMPLE_TEXTURE2D_LOD(_BaseMap, sampler_LedPointClamp, saturate(uvCentre), 0);
+                // Wrap (the scrolling Ribbon ad, #223): the picture repeats along x, so a scale and offset on _BaseMap_ST runs it endlessly.
+                float2 uvRead = _Wrap > 0.5 ? float2(frac(uvCentre.x), saturate(uvCentre.y)) : saturate(uvCentre);
+                half4 sampled = SAMPLE_TEXTURE2D_LOD(_BaseMap, sampler_LedPointClamp, uvRead, 0);
                 half3 picture = _LitAbove > 0.0
                     ? lerp(_Backdrop.rgb, _BaseColor.rgb, step(_LitAbove, sampled.r))
                     : _BaseColor.rgb * sampled.rgb;
