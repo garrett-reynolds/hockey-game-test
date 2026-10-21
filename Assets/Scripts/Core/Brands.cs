@@ -146,6 +146,12 @@ namespace HockeyGame.Core
             return picked;
         }
 
+        /// <summary>The pool brands left after the Settings page's unticked ones (off: their ids, comma-separated); never empty.</summary>
+        public static IReadOnlyList<Brand> Pool(string off) => All; // WIP stub (#223 Brands settings)
+
+        /// <summary>Takes the Settings page's unticked brands out of the rotation (off: their ids, comma-separated).</summary>
+        public static void UseOff(string off) { } // WIP stub (#223 Brands settings)
+
         /// <summary>Shows these four ice brands (tests put the old ones back with it).</summary>
         public static void UseIce(IReadOnlyList<Brand> ice) => Ice = ice;
 

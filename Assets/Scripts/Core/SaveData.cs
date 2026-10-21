@@ -324,6 +324,15 @@ namespace HockeyGame.Core
         /// </summary>
         public string TeamSkin = LeagueSkin;
 
+        /// <summary>The pool brands unticked on the Settings page (#223), their ids comma-separated; "" = every brand ticked.</summary>
+        public string BrandsOff = "";
+
+        /// <summary>True when the brand is ticked (in the rotation).</summary>
+        public bool IsBrandOn(string id) => true;
+
+        /// <summary>Ticks or unticks a brand. False (nothing changes) when it would untick the last ticked brand.</summary>
+        public bool SetBrandOn(string id, bool on) => false;
+
         /// <summary>Loads from a path. Never throws: any problem leaves defaults for what could not be read.</summary>
         public static SaveData Load(string path)
         {
