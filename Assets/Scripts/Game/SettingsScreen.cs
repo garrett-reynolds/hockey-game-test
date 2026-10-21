@@ -228,6 +228,8 @@ namespace HockeyGame
             _menu.SaveDataChanged += () => { _persist = true; Brands.UseOff(_save.BrandsOff); }; // unticked brands leave the rotation (#223)
             _menu.LogoSaved += id => { CustomLogos.Forget(id); ArtLookup.Clear(id); };         // the lookup makes the brand's pictures again (#226)
             _menu.CloseApproved += () => _closeApproved = true;
+            CustomLogos.WriteFailed -= OnLogoWriteFailed;
+            CustomLogos.WriteFailed += OnLogoWriteFailed;                                       // the browser could not store a picture (#224)
             _persist = false;
             _closeApproved = false;
             _savedUntil = 0f;
@@ -236,8 +238,17 @@ namespace HockeyGame
             _page.RemoveFromClassList("lc-hidden");
         }
 
+        // The old picture was put back on disk: show the note, take the saved flag back, and make the art again.
+        void OnLogoWriteFailed(string id, bool hadOld)
+        {
+            _menu.LogoWriteFailed(id, hadOld);
+            CustomLogos.Forget(id);
+            ArtLookup.Clear(id);
+        }
+
         public void Close()
         {
+            _menu?.Abandon(); // a file box answer that comes after the page closed is dropped (#224)
             _dragRow = -1;
             _page.AddToClassList("lc-hidden");
             _confirm.AddToClassList("lc-hidden");
@@ -673,9 +684,15 @@ namespace HockeyGame
             v.Tag.text = tag ?? "";
             v.Tag.style.display = tag != null ? DisplayStyle.Flex : DisplayStyle.None;
             v.Tag.EnableInClassList("lc-tag-note", note != null);
-            bool keys = _menu.Kind(i) == SettingsRowKind.Picture && i == _menu.Selected; // the keyboard picks a button on picture rows only
+            bool keys = i == _menu.Selected; // the keyboard picks a button on the picture rows and a stop on the brand rows (the tick is the third, #224)
             v.ChangeLogo.EnableInClassList("lc-btn-focus", keys && _menu.LogoButton(i) == 0);
             v.UseDefaultLogo.EnableInClassList("lc-btn-focus", keys && _menu.LogoButton(i) == 1);
+            if (v.OnCell != null)
+            {
+                bool tickOn = _menu.Value(i) == "ON", tick = keys && _menu.LogoButton(i) == SettingsMenu.TickStop;
+                v.OnCell.EnableInClassList("lc-btn-focus", tick && tickOn);
+                v.OffCell.EnableInClassList("lc-btn-focus", tick && !tickOn);
+            }
             if (v.PreviewVersion == ArtLookup.Version) return;
             v.PreviewVersion = ArtLookup.Version;
             Texture2D art = ArtLookup.Preview(_menu.LogoId(i));

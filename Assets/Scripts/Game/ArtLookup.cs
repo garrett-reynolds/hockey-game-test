@@ -22,11 +22,18 @@ namespace HockeyGame
         /// <summary>Counts each Clear, so a screen can tell the art changed since it last built.</summary>
         public static int Version { get; private set; }
 
+        /// <summary>Counts each Clear of the GAME LOGO picture, so the start screen redraws its logo only when that one changed (#224).</summary>
+        public static int GameLogoVersion { get; private set; }
+
         static readonly Dictionary<(string id, string spot), Texture2D> Cache = new Dictionary<(string id, string spot), Texture2D>();
 
         /// <summary>A brand's panel: its logo in colour, or the soft grey version for the Calm Area.</summary>
         public static Texture2D Panel(Brands.Brand brand, bool soft) =>
-            Get(brand.Id, soft ? "panel-soft" : "panel", () => (soft ? CustomSpot(brand.Id, "panel-soft") : CustomPanel(brand.Id)) ?? Load(RinkAds.PanelArt(brand, soft)));
+            Get(brand.Id, soft ? LogoSpots.PanelSoft : LogoSpots.Panel, () => CustomLogoPanel(brand, soft) ?? Load(RinkAds.PanelArt(brand, soft)));
+
+        // The made panel of a brand's custom logo, colour or soft; null: no custom logo.
+        static Texture2D CustomLogoPanel(Brands.Brand brand, bool soft) =>
+            soft ? CustomSpot(brand.Id, LogoSpots.PanelSoft) : CustomPanel(brand.Id);
 
         /// <summary>The run's panels 0 and 1 are the brand's logo (look A: logo, logo, tagline); the rest are taglines and stay shipped art.</summary>
         public const int RunLogoPanels = 2;
@@ -37,34 +44,34 @@ namespace HockeyGame
             {
                 Texture2D shipped = Load(RinkAds.SequenceArt(brand, n, soft));
                 if (shipped == null || n >= RunLogoPanels) return shipped; // no run panel here: the run keeps its length
-                return (soft ? CustomSpot(brand.Id, "panel-soft") : CustomPanel(brand.Id)) ?? shipped;
+                return CustomLogoPanel(brand, soft) ?? shipped;
             });
 
         /// <summary>A brand's round ice logo: the made round logo for a custom logo (#227), else the colour panel for now.</summary>
         public static Texture2D Round(Brands.Brand brand) =>
-            Get(brand.Id, "round", () => CustomSpot(brand.Id, "round") ?? Load(RinkAds.PanelArt(brand, false)));
+            Get(brand.Id, LogoSpots.Round, () => CustomSpot(brand.Id, LogoSpots.Round) ?? Load(RinkAds.PanelArt(brand, false)));
 
         /// <summary>A brand's Ribbon strip (a strip that tiles), else its colour panel. A custom logo (#227) gives a made strip.</summary>
         public static Texture2D Ribbon(Brands.Brand brand) =>
-            Get(brand.Id, "ribbon", () => CustomSpot(brand.Id, "ribbon") ?? Load("ribbon-" + brand.Id) ?? Load(RinkAds.PanelArt(brand, false)));
+            Get(brand.Id, LogoSpots.Ribbon, () => CustomSpot(brand.Id, LogoSpots.Ribbon) ??Load("ribbon-" + brand.Id) ?? Load(RinkAds.PanelArt(brand, false)));
 
         /// <summary>A brand's big centre-ice logo. A custom logo (#227) gives made art, only for a brand that ships centre art.</summary>
         public static Texture2D Centre(Brands.Brand brand) =>
-            Get(brand.Id, "centre", () =>
+            Get(brand.Id, LogoSpots.Centre, () =>
             {
                 Texture2D shipped = Load(RinkAds.CentreArt(brand));
-                return shipped == null ? null : CustomSpot(brand.Id, "centre") ?? shipped;
+                return shipped == null ? null : CustomSpot(brand.Id, LogoSpots.Centre) ?? shipped;
             });
 
         /// <summary>The centre-ice logo: the picture the CENTRE ICE row saved (#230), else the Leafs art, else the skin's own (null: the League Skin's).</summary>
         public static Texture2D CentreIce(TeamSkin skin = null)
         {
             string art = TeamSkin.OrLeague(skin).CentreIceLogo;
-            return Get(CentreIceId, art, () => CustomSpot(CentreIceId, "centre") ?? Load(RinkAds.LeafsCentreArt) ?? Load(art));
+            return Get(CentreIceId, art, () => CustomSpot(CentreIceId, LogoSpots.CentrePicked) ?? Load(RinkAds.LeafsCentreArt) ?? Load(art));
         }
 
         /// <summary>The picture the GAME LOGO row saved (#230); none: the start screen draws its own logo.</summary>
-        public static Texture2D GameLogo() => Get(GameLogoId, "game-logo", () => CustomSpot(GameLogoId, "game-logo"));
+        public static Texture2D GameLogo() => Get(GameLogoId, LogoSpots.GameLogo, () => CustomSpot(GameLogoId, LogoSpots.GameLogo));
 
         /// <summary>The logo in use for a Settings logo row (#231): a brand's colour panel, the centre-ice art, or the saved game logo (null: the start screen's drawn one).</summary>
         public static Texture2D Preview(string id)
@@ -80,6 +87,7 @@ namespace HockeyGame
         public static void Clear(string id)
         {
             Version++;
+            if (id == GameLogoId) GameLogoVersion++;
             var keys = new List<(string id, string spot)>();
             foreach ((string id, string spot) key in Cache.Keys)
                 if (key.id == id) keys.Add(key);

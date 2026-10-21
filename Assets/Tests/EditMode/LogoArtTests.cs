@@ -1,3 +1,4 @@
+using System;
 using NUnit.Framework;
 
 namespace HockeyGame.Core.Tests
@@ -258,6 +259,31 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(33 + 216 + 34, strip.Width);
             Assert.AreEqual(((byte)0, (byte)0, (byte)0, (byte)255), At(strip, 100, 2), "black above the shortened logo");
             Assert.AreEqual(((byte)200, (byte)20, (byte)30, (byte)255), At(strip, 100, 12), "the logo");
+        }
+
+        // #224: the CENTRE ICE row's picture is used as picked: cropped, fitted in a square, clear round it; no disc, no ring, no white-box clear.
+        [Test]
+        public void Centre_ice_as_picked_is_cropped_and_fitted_in_a_clear_square_with_its_white_kept()
+        {
+            RgbaPicture picked = Make(200, 100, (x, y) =>
+                x >= 50 && x < 150 && y >= 25 && y < 75 ? ((byte)255, (byte)255, (byte)255, (byte)255) : ((byte)0, (byte)0, (byte)0, (byte)0));
+            RgbaPicture art = LogoArt.MakeCentrePicked(picked);
+            Assert.AreEqual(LogoArt.CentreSize, art.Width);
+            Assert.AreEqual(LogoArt.CentreSize, art.Height);
+            Assert.AreEqual(0, At(art, 2, 2).a, "clear in the corner");
+            Assert.AreEqual(0, At(art, 512, 20).a, "clear above the picture, no disc");
+            Assert.AreEqual(((byte)255, (byte)255, (byte)255, (byte)255), At(art, 512, 512), "the white box is not cleared");
+            Assert.AreEqual(((byte)255, (byte)255, (byte)255, (byte)255), At(art, 512, 512 - 220), "no ring near the top edge of the picture");
+            (int x0, int y0, int x1, int y1) = VisibleBox(art);
+            Assert.That(x1 - x0 + 1, Is.InRange(900, 940), "the cropped picture fills about 90% of the width");
+            Assert.That(Math.Abs((x0 + x1) / 2 - 512), Is.LessThanOrEqualTo(2), "centred across");
+            Assert.That(Math.Abs((y0 + y1) / 2 - 512), Is.LessThanOrEqualTo(2), "centred down");
+        }
+
+        [Test]
+        public void Centre_ice_as_picked_of_an_all_clear_picture_is_null()
+        {
+            Assert.IsNull(LogoArt.MakeCentrePicked(Make(10, 10, (x, y) => ((byte)0, (byte)0, (byte)0, (byte)0))));
         }
 
         [Test]

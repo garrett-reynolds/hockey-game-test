@@ -180,7 +180,12 @@ namespace HockeyGame.Core
                 AddRow(SettingsPart.Brands, "BRANDS", SettingsRowKind.Toggle, b.Name,
                     "Shows " + b.Name + " in the ads on the boards, the ribbon and the ice. At least one brand stays on. Next Round, after SAVE.",
                     () => _save.IsBrandOn(id) ? "ON" : "OFF", step => flip(), flip);
-                _all[_all.Count - 1].LogoId = id; // CHANGE LOGO and USE DEFAULT (#226)
+                Row brandRow = _all[_all.Count - 1];
+                brandRow.LogoId = id; // CHANGE LOGO and USE DEFAULT (#226)
+                // Three keyboard stops (#224, story 34): 0 CHANGE LOGO, 1 USE DEFAULT, 2 the tick. It starts on the tick, so Enter flips it as before.
+                brandRow.LogoButton = TickStop;
+                brandRow.Change = step => { brandRow.LogoButton = Math.Max(0, Math.Min(TickStop, brandRow.LogoButton + (step < 0 ? -1 : 1))); return false; };
+                brandRow.Activate = () => brandRow.LogoButton == TickStop ? flip() : PressLogoButton(brandRow);
             }
 
             FillRows();
@@ -195,7 +200,10 @@ namespace HockeyGame.Core
         /// <summary>"CUSTOM" when the row's logo is a custom one now (saved, or picked and waiting for SAVE), else null (#231).</summary>
         public string CustomTag(int row) => IsLogoCustom(row) ? "CUSTOM" : null;
 
-        /// <summary>The button the keyboard has chosen on a logo row: 0 = CHANGE LOGO, 1 = USE DEFAULT (#231).</summary>
+        /// <summary>The keyboard stop of the ON/OFF tick on a brand row (the third, after CHANGE LOGO and USE DEFAULT).</summary>
+        public const int TickStop = 2;
+
+        /// <summary>The button the keyboard has chosen on a logo row: 0 = CHANGE LOGO, 1 = USE DEFAULT, 2 = the tick (brand rows only) (#231, #224).</summary>
         public int LogoButton(int row) => _rows[row].LogoButton;
 
         /// <summary>The hover tip of one of a row's two buttons (0 = CHANGE LOGO, 1 = USE DEFAULT), or null on a row without them (#231).</summary>
@@ -237,7 +245,7 @@ namespace HockeyGame.Core
             Select(row);
             Row r = _rows[row];
             if (r.LogoId == null || _picker == null) return;
-            _picker.Ask(file => LogoPicked(r, file));
+            AskPicture(r);
         }
 
         private void LogoPicked(Row r, byte[] file)
@@ -282,7 +290,7 @@ namespace HockeyGame.Core
         // Enter on a picture row (#231): the button the keyboard chose. Both only make a waiting change, so no setting is saved at once.
         private bool PressLogoButton(Row r)
         {
-            if (r.LogoButton == 0) { if (_picker != null) _picker.Ask(file => LogoPicked(r, file)); }
+            if (r.LogoButton == 0) { if (_picker != null) AskPicture(r); }
             else UseDefault(r);
             return false;
         }
@@ -466,9 +474,34 @@ namespace HockeyGame.Core
             return changed;
         }
 
+        /// <summary>
+        /// The browser could not store the saved picture for id (#224): the row says so, and the saved data goes back to the
+        /// old picture (hadOld) or the shipped art. Raises SaveDataChanged so the caller writes the file.
+        /// </summary>
+        public void LogoWriteFailed(string id, bool hadOld)
+        {
+            _live.SetLogoCustom(id, hadOld);
+            _save.SetLogoCustom(id, hadOld);
+            foreach (Row r in _all) if (r.LogoId == id) r.Message = "(not saved on this browser)";
+            SaveDataChanged?.Invoke();
+        }
+
+        private int _pickGeneration;
+
+        /// <summary>The page is closing or dropping its changes: a file box answer that comes later (the browser's box answers late) is thrown away (#224).</summary>
+        public void Abandon() => _pickGeneration++;
+
+        // Asks the file box; the answer counts only if the page was not abandoned meanwhile.
+        private void AskPicture(Row r)
+        {
+            int generation = _pickGeneration;
+            _picker.Ask(file => { if (generation == _pickGeneration) LogoPicked(r, file); });
+        }
+
         /// <summary>Drops every waiting change: the working copy goes back to the saved data.</summary>
         public void Discard()
         {
+            Abandon();
             _pending.Clear();
             foreach (var r in _all) r.Message = null;
             _save.CopyFrom(_live);

@@ -261,13 +261,56 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual("ON", _menu.Value(brand));
             Assert.IsTrue(_menu.Press(SettingsKey.Enter), "Enter still flips the tick box");
             Assert.AreEqual("OFF", _menu.Value(brand));
-            Assert.IsTrue(_menu.Press(SettingsKey.Left));
+            Assert.IsTrue(_menu.Press(SettingsKey.Enter));
             Assert.AreEqual("ON", _menu.Value(brand));
             Assert.AreEqual(0, _picker.Asked);
 
             _menu.Select(Row(EveryDefault));
             Assert.IsFalse(_menu.Press(SettingsKey.Enter), "an action row changes no saved setting");
             Assert.IsFalse(_menu.Press(SettingsKey.Right));
+        }
+
+        // #224 story 34: a brand row has three stops, CHANGE LOGO (0), USE DEFAULT (1) and the ON/OFF tick (2).
+        [Test]
+        public void A_brand_row_has_three_keyboard_stops_and_starts_on_the_tick()
+        {
+            int brand = Row(Brands.All[0].Name);
+            _menu.Select(brand);
+            Assert.AreEqual(2, _menu.LogoButton(brand), "the tick first, so Enter flips it as before");
+            Assert.IsFalse(_menu.Press(SettingsKey.Left), "moving flips nothing");
+            Assert.AreEqual("ON", _menu.Value(brand));
+            Assert.AreEqual(1, _menu.LogoButton(brand));
+            _menu.Press(SettingsKey.Left);
+            Assert.AreEqual(0, _menu.LogoButton(brand));
+            _menu.Press(SettingsKey.Left);
+            Assert.AreEqual(0, _menu.LogoButton(brand), "stops at CHANGE LOGO");
+            _menu.Press(SettingsKey.Right);
+            _menu.Press(SettingsKey.Right);
+            _menu.Press(SettingsKey.Right);
+            Assert.AreEqual(2, _menu.LogoButton(brand), "stops at the tick");
+        }
+
+        [Test]
+        public void Enter_on_a_brand_row_presses_the_chosen_stop()
+        {
+            int brand = Row(Brands.All[0].Name);
+            _menu.Select(brand);
+            _menu.Press(SettingsKey.Left);
+            _menu.Press(SettingsKey.Left);
+            Assert.IsFalse(_menu.Press(SettingsKey.Enter), "CHANGE LOGO changes no saved setting");
+            Assert.AreEqual(1, _picker.Asked);
+            Assert.AreEqual("CUSTOM", _menu.CustomTag(brand));
+            Assert.AreEqual("ON", _menu.Value(brand));
+
+            _menu.Press(SettingsKey.Right);
+            _menu.Press(SettingsKey.Enter);
+            Assert.AreEqual(1, _picker.Asked, "USE DEFAULT does not open the picker");
+            Assert.IsNull(_menu.CustomTag(brand));
+            Assert.AreEqual("ON", _menu.Value(brand));
+
+            _menu.Press(SettingsKey.Right);
+            Assert.IsTrue(_menu.Press(SettingsKey.Enter), "on the tick Enter flips it");
+            Assert.AreEqual("OFF", _menu.Value(brand));
         }
 
         // ---- hover tips ----

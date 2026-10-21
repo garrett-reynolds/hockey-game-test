@@ -273,7 +273,7 @@ namespace HockeyGame.Core.Tests
                 Assert.IsNull(ArtLookup.GameLogo(), "the drawn logo");
 
                 Texture2D centre = Fake(), game = Fake();
-                ArtLookup.CustomSpot = (id, spot) => id == LogoArt.CentreIceId && spot == "centre" ? centre : id == LogoArt.GameLogoId && spot == "game-logo" ? game : null;
+                ArtLookup.CustomSpot = (id, spot) => id == LogoArt.CentreIceId && spot == LogoSpots.CentrePicked ? centre : id == LogoArt.GameLogoId && spot == "game-logo" ? game : null;
                 Assert.AreSame(leafs, ArtLookup.CentreIce(), "the cache holds the old art until SAVE clears it");
                 ArtLookup.Clear(LogoArt.CentreIceId); ArtLookup.Clear(LogoArt.GameLogoId);
                 Assert.AreSame(centre, ArtLookup.CentreIce());

@@ -47,7 +47,7 @@ namespace HockeyGame
         Texture2D _scoreBoxBack; // made with the styles; freed in OnDestroy
         Texture2D _logo; // the Shootout logo, made with the styles; freed in OnDestroy when drawn here
         bool _logoDrawn;
-        int _logoArtVersion = ArtLookup.Version; // the art lookup's version when the logo was last made (#230)
+        int _logoArtVersion = ArtLookup.GameLogoVersion; // the GAME LOGO picture's version when the logo was last made (#230, #224)
         readonly LowerThirdView _lowerThird = new LowerThirdView(); // the TV bar along the bottom, on the whole Round (#141, look A)
         readonly LowerThirdWords _lowerThirdWords = new LowerThirdWords(); // its words, built only when the Round's numbers change (#151)
         ArenaState _show; // this frame's Arena Show, worked out once in Update and read by everything that frame, OnGUI too
@@ -171,7 +171,9 @@ namespace HockeyGame
             if (_flow.Paused) { UpdatePaused(); return; }
             // The ribbon and boards read it each frame. A logo saved on the Settings page (ArtLookup.Version) redraws the start screen at once (#226).
             if (Brands.Current != _adsBrand || ArtLookup.Version != _adsArtVersion) { _adsBrand = Brands.Current; _adsArtVersion = ArtLookup.Version; RinkAds.Rebuild(_rink, _skin); }
-            if (ArtLookup.Version != _logoArtVersion) LoadLogo(); // a GAME LOGO saved on the Settings page shows on the start screen at once (#230)
+            // Only a GAME LOGO saved on the Settings page redraws the start screen logo (LoadLogo takes about 0.35 s), at once (#230, #224).
+            if (ArtLookup.GameLogoVersion != _logoArtVersion) LoadLogo();
+            CustomLogos.ReleaseRetired(); // the rink and the logo have taken the new art; the forgotten textures can go (#224)
             _replay.RestoreLive(); // last frame's Replay poses go back before anything moves
             _flow.Tick(Time.unscaledDeltaTime);
 
@@ -447,7 +449,7 @@ namespace HockeyGame
         void LoadLogo()
         {
             if (_logoDrawn && _logo != null) SceneObjects.DestroySafely(_logo);
-            _logoArtVersion = ArtLookup.Version;
+            _logoArtVersion = ArtLookup.GameLogoVersion;
             Texture2D saved = ArtLookup.GameLogo();
             _logoDrawn = saved == null;
             _logo = _logoDrawn ? StartLogoArt.Make() : saved;

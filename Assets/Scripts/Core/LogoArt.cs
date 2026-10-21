@@ -147,6 +147,27 @@ namespace HockeyGame.Core
         /// <summary>The brand centre art: the same disc at 1024. Only for brands that ship centre art (ArtLookup decides).</summary>
         public static RgbaPicture MakeCentre(RgbaPicture logo) => MakeDisc(logo, CentreSize);
 
+        public const double CentrePickedFit = 0.9;
+
+        /// <summary>
+        /// The CENTRE ICE row's picture as picked (#224): cropped to its content, fitted in a CentreSize square (90% at most),
+        /// clear round it. No disc, no ring and no white-box clear. Null: nothing visible in the picture.
+        /// </summary>
+        public static RgbaPicture MakeCentrePicked(RgbaPicture picked)
+        {
+            RgbaPicture crop = Crop(picked);
+            if (crop == null) return null;
+            double k = CentreSize * CentrePickedFit / Math.Max(crop.Width, crop.Height);
+            int w = Math.Max(1, (int)Math.Round(crop.Width * k)), h = Math.Max(1, (int)Math.Round(crop.Height * k));
+            byte[] small = Resize(LogoOnWhite(crop), crop.Width, crop.Height, w, h); // its own alpha kept; colour on white so a clear edge has no dark fringe
+            var rgba = new byte[CentreSize * CentreSize * 4];
+            for (int i = 0; i < rgba.Length; i += 4) { rgba[i] = BoardWhiteR; rgba[i + 1] = BoardWhiteG; rgba[i + 2] = BoardWhiteB; } // alpha 0
+            int x0 = (CentreSize - w) / 2, y0 = (CentreSize - h) / 2;
+            for (int y = 0; y < h; y++)
+                Array.Copy(small, y * w * 4, rgba, ((y0 + y) * CentreSize + x0) * 4, w * 4);
+            return new RgbaPicture(CentreSize, CentreSize, rgba);
+        }
+
         // #230. The ids the CENTRE ICE and GAME LOGO picture rows keep their pictures under (BrandArt/<id>.png, Save Data's customLogos list).
         // No brand id is either of these (a test checks); the id has no tick box and is not in the Brands pool.
         public const string CentreIceId = "centre-ice", GameLogoId = "game-logo";

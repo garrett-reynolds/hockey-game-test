@@ -20,7 +20,9 @@ namespace HockeyGame
 
         public void Ask(Action<byte[]> done)
         {
+            Action<byte[]> old = _waiting;
             _waiting = done;
+            old?.Invoke(null); // a second Ask while the box is open cancels the first, so its answer cannot be stolen or lost (#224)
 #if UNITY_WEBGL && !UNITY_EDITOR
             HockeyPickPicture(OnPicked);
 #endif
@@ -67,7 +69,10 @@ namespace HockeyGame
         /// <summary>True until a sync fails (a failed one logs a warning).</summary>
         public static bool LastOk { get; private set; } = true;
 
-        public static void Request()
+        /// <param name="ended">Called with the result when the sync ends (never called where there is no browser). Null: nobody waits.</param>
+        public static void Request() => Request(null);
+
+        public static void Request(Action<bool> ended)
         {
             Action<Action<bool>> start = Start;
             if (start == null) return;
@@ -77,6 +82,7 @@ namespace HockeyGame
                 Pending--;
                 LastOk = ok;
                 if (!ok) Debug.LogWarning("The saved files could not be stored in the browser (IndexedDB sync failed).");
+                ended?.Invoke(ok);
             });
         }
 

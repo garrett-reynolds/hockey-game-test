@@ -16,7 +16,14 @@ namespace HockeyGame
         /// <summary>%persistentDataPath%/BrandArt. In the web build this is the browser's stored files (the web writer is #228).</summary>
         public static string Folder => Path.Combine(Application.persistentDataPath, "BrandArt");
 
-        public static readonly ILogoFiles Files = new DiskFiles();
+        /// <summary>Raised when the browser could not store a saved picture: the id, and whether an older picture was put back (#224).</summary>
+        public static event Action<string, bool> WriteFailed;
+
+        /// <summary>Whether id has a custom logo: Save Data's list. Tests put a fake here (they never read the real save file).</summary>
+        public static Func<string, bool> IsCustom = id => SaveStore.Current.IsLogoCustom(id);
+
+        /// <summary>The saved picture files. Tests put a fake here.</summary>
+        public static ILogoFiles Files { get; set; } = new DiskFiles();
         public static readonly IPictureCodec Codec = new UnityCodec();
 
         /// <summary>The file box: the Editor's open-file box in the Editor, the browser's in the web build, the Windows open-file box in the Windows player (#229); none elsewhere.</summary>
@@ -57,30 +64,55 @@ namespace HockeyGame
         static readonly Dictionary<(string id, string spot), Texture2D> Made = new Dictionary<(string id, string spot), Texture2D>();
         static readonly Dictionary<string, RgbaPicture> Logos = new Dictionary<string, RgbaPicture>();
 
-        /// <summary>The colour panel made from a brand's saved picture, or null when the brand has no custom logo (or its file is unreadable).</summary>
-        public static Texture2D Panel(string id) => Spot(id, "panel");
+        // Made textures that Forget let go of. A Round in play may still show one, so they are destroyed later (ReleaseRetired), not at SAVE (#224).
+        static readonly List<Texture2D> Retired = new List<Texture2D>();
+        static int _retiredFrame = -1;
 
-        /// <summary>The picture made from a brand's saved logo for one spot ("panel", "panel-soft", "round", "ribbon", "centre", #227); null: no custom logo, or its file is unreadable.</summary>
+        /// <summary>How many made textures exist now: the kept ones and the retired ones not yet destroyed. A test counts it.</summary>
+        public static int LiveTextures => Made.Count + Retired.Count;
+
+        /// <summary>The colour panel made from a brand's saved picture, or null when the brand has no custom logo (or its file is unreadable).</summary>
+        public static Texture2D Panel(string id) => Spot(id, LogoSpots.Panel);
+
+        /// <summary>The picture made from a brand's saved logo for one spot (a LogoSpots name, #227); null: no custom logo, or its file is unreadable.</summary>
         public static Texture2D Spot(string id, string spot)
         {
-            if (!SaveStore.Current.IsLogoCustom(id)) return null;
+            if (!IsCustom(id)) return null;
             if (Made.TryGetValue((id, spot), out Texture2D made) && made != null) return made;
-            RgbaPicture logo = Logo(id);
-            if (logo == null) return null;
             RgbaPicture art;
-            switch (spot)
+            if (spot == LogoSpots.CentrePicked)
             {
-                case "panel": art = LogoArt.MakePanel(logo); break;
-                case "panel-soft": art = LogoArt.MakeSoftPanel(logo); break;
-                case "round": art = LogoArt.MakeRound(logo); break;
-                case "ribbon": art = LogoArt.MakeRibbon(logo); break;
-                case "centre": art = LogoArt.MakeCentre(logo); break;
-                case "game-logo": art = LogoArt.MakeGameLogo(logo); break; // the GAME LOGO row (#230)
-                default: return null;
+                RgbaPicture picked = Picked(id);
+                art = picked == null ? null : LogoArt.MakeCentrePicked(picked); // the CENTRE ICE row: the picture as picked (#224)
             }
-            Texture2D texture = ToTexture(art, "custom-" + id + "-" + spot, spot == "ribbon");
+            else
+            {
+                RgbaPicture logo = Logo(id);
+                if (logo == null) return null;
+                switch (spot)
+                {
+                    case LogoSpots.Panel: art = LogoArt.MakePanel(logo); break;
+                    case LogoSpots.PanelSoft: art = LogoArt.MakeSoftPanel(logo); break;
+                    case LogoSpots.Round: art = LogoArt.MakeRound(logo); break;
+                    case LogoSpots.Ribbon: art = LogoArt.MakeRibbon(logo); break;
+                    case LogoSpots.Centre: art = LogoArt.MakeCentre(logo); break;
+                    case LogoSpots.GameLogo: art = LogoArt.MakeGameLogo(logo); break; // the GAME LOGO row (#230)
+                    default: return null;
+                }
+            }
+            if (art == null) return null;
+            Texture2D texture = ToTexture(art, "custom-" + id + "-" + spot, spot == LogoSpots.Ribbon);
             Made[(id, spot)] = texture;
             return texture;
+        }
+
+        /// <summary>The saved picture as picked, decoded and nothing else (the made logo crops and clears it); null when unreadable.</summary>
+        static RgbaPicture Picked(string id)
+        {
+            byte[] file = Files.Read(id);
+            if (file != null && Codec.TryDecode(file, out int w, out int h, out byte[] rgba)) return new RgbaPicture(w, h, rgba);
+            Debug.LogWarning("Custom logo '" + id + "' could not be read; using the default art.");
+            return null;
         }
 
         /// <summary>The made logo (cropped, white box cleared) for a saved picture, kept until Forget; null when unreadable.</summary>
@@ -100,11 +132,31 @@ namespace HockeyGame
             return logo;
         }
 
-        /// <summary>Forgets the made pictures for id (the pictures a Round in play already holds stay).</summary>
+        /// <summary>
+        /// Forgets the made pictures for id. A Round in play may still show them, so they are not destroyed here: they wait in
+        /// Retired until ReleaseRetired (#224).
+        /// </summary>
         public static void Forget(string id)
         {
             Logos.Remove(id);
-            foreach (string spot in new[] { "panel", "panel-soft", "round", "ribbon", "centre", "game-logo" }) Made.Remove((id, spot));
+            foreach (string spot in LogoSpots.All)
+                if (Made.TryGetValue((id, spot), out Texture2D texture))
+                {
+                    Made.Remove((id, spot));
+                    if (texture != null) Retired.Add(texture);
+                    _retiredFrame = Time.frameCount;
+                }
+        }
+
+        /// <summary>
+        /// Destroys the forgotten textures. The Round calls it each frame after it has taken the new art, so by a later frame nothing
+        /// shows an old one. now: destroy at once (tests).
+        /// </summary>
+        public static void ReleaseRetired(bool now = false)
+        {
+            if (Retired.Count == 0 || (!now && Time.frameCount <= _retiredFrame)) return;
+            foreach (Texture2D texture in Retired) UnityEngine.Object.DestroyImmediate(texture);
+            Retired.Clear();
         }
 
         static Texture2D ToTexture(RgbaPicture picture, string name, bool ribbon = false)
@@ -136,8 +188,10 @@ namespace HockeyGame
                 try
                 {
                     Directory.CreateDirectory(Folder);
+                    byte[] old = Read(id); // kept in memory so a failed browser store can put the old art back (#224)
                     File.WriteAllBytes(PathOf(id), png);
-                    WebFlush.Request(); // web build: copy to the browser's stored files (#228)
+                    // Web build: copy to the browser's stored files (#228). The copy ends later; if it fails the old picture comes back.
+                    WebFlush.Request(ok => { if (!ok) KeepOld(id, old); });
                     return true;
                 }
                 catch (Exception e)
@@ -145,6 +199,18 @@ namespace HockeyGame
                     Debug.LogWarning("Could not save the logo picture for '" + id + "': " + e.Message);
                     return false;
                 }
+            }
+
+            // The browser could not store the new picture: the old one (or none) is put back and the page is told (WriteFailed).
+            static void KeepOld(string id, byte[] old)
+            {
+                try
+                {
+                    if (old != null) File.WriteAllBytes(PathOf(id), old);
+                    else if (File.Exists(PathOf(id))) File.Delete(PathOf(id));
+                }
+                catch (Exception e) { Debug.LogWarning("Could not put the old logo picture back for '" + id + "': " + e.Message); }
+                WriteFailed?.Invoke(id, old != null);
             }
 
             public void Delete(string id)
@@ -216,6 +282,16 @@ namespace HockeyGame
                 }
             }
         }
+    }
+
+    /// <summary>The names of the spots a custom logo is made for (the keys of CustomLogos.Spot and ArtLookup's cache).</summary>
+    public static class LogoSpots
+    {
+        public const string Panel = "panel", PanelSoft = "panel-soft", Round = "round", Ribbon = "ribbon", Centre = "centre";
+        public const string CentrePicked = "centre-ice"; // the CENTRE ICE row's picture as picked (#224)
+        public const string GameLogo = "game-logo";     // the GAME LOGO row (#230)
+
+        public static readonly string[] All = { Panel, PanelSoft, Round, Ribbon, Centre, CentrePicked, GameLogo };
     }
 
 #if UNITY_EDITOR
