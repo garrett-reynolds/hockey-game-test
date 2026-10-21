@@ -231,14 +231,15 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void The_shooter_camera_renders_post_processing()
         {
-            RinkBuilder.Build(out Camera camera);
+            // Tear down the rink this build returns: SetUp's own empty "Rink" is found first by name, so a Find left this one behind.
+            Transform rink = RinkBuilder.Build(out Camera camera);
             try
             {
                 Assert.IsTrue(camera.GetUniversalAdditionalCameraData().renderPostProcessing);
             }
             finally
             {
-                RinkTeardown.Destroy(GameObject.Find("Rink"));
+                RinkTeardown.Destroy(rink.gameObject);
                 Object.DestroyImmediate(camera.gameObject);
             }
         }

@@ -12,7 +12,7 @@ namespace HockeyGame
     /// corners included, each with a brand's logo (Brands); panels in the Calm Area's bounds show the soft grey logo, matte.
     /// Nothing goes on the glass. The ice logos lie just over the ice, between the blue lines, and read from behind the
     /// near net looking out (the Replay view). The centre-ice logo is the Team Skin's (the League Skin's is the
-    /// "All-Star Hockey" mark); the brands are fixed.
+    /// "All-Star Hockey" mark); the brands are the game load's set (Brands.Shown), a new random one each load.
     /// </summary>
     public static class RinkAds
     {
@@ -20,10 +20,68 @@ namespace HockeyGame
         /// <summary>The art's folder under Resources.</summary>
         public const string ArtFolder = "Ads";
 
+        /// <summary>
+        /// A new shuffle of the brand deck each game load (#223), before any scene builds the rink: runs on every Play start
+        /// (the Editor keeps static fields over Play, no domain reload) and on every page load of the Web build.
+        /// </summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void NewBrandDeckEachLoad()
+        {
+            Brands.UseOff(SaveStore.Current.BrandsOff); // the brands unticked in Settings stay out (#223)
+            Brands.NewLoad(new System.Random());
+        }
+
+        /// <summary>Swaps the ads under rink for this Round's brand (Brands.Current): the old Ads part and its meshes and
+        /// materials go, a new one is built (each art keeps its own shape, so the meshes are made again).</summary>
+        public static GameObject Rebuild(Transform rink, TeamSkin skin = null)
+        {
+            Transform old = rink.Find(Part);
+            if (old != null)
+            {
+                old.name = Part + " (old)"; // Destroy waits for the frame's end in Play: the new part is the only "Ads" at once
+                var made = new HashSet<UnityEngine.Object>();
+                foreach (MeshFilter f in old.GetComponentsInChildren<MeshFilter>()) if (f.sharedMesh != null) made.Add(f.sharedMesh);
+                foreach (Renderer r in old.GetComponentsInChildren<Renderer>()) if (r.sharedMaterial != null) made.Add(r.sharedMaterial);
+                SceneObjects.DestroySafely(old.gameObject);
+                foreach (UnityEngine.Object o in made) SceneObjects.DestroySafely(o);
+            }
+            return Build(rink, skin);
+        }
+
+        /// <summary>A brand's big centre-ice logo (the logo only, clear round it); without it, its panel art stands in.</summary>
+        public static string CentreArt(Brands.Brand brand) => "centre-" + brand.Id;
+
         /// <summary>A brand's panel art: its logo in colour (also laid on the ice), or soft grey for the Calm Area.</summary>
         public static string PanelArt(Brands.Brand brand, bool soft) => "panel-" + brand.Id + (soft ? "-soft" : "");
-        /// <summary>A brand's round logo, for the ice by the neutral-zone dots.</summary>
-        public static string RoundArt(Brands.Brand brand) => "round-" + brand.Id;
+        /// <summary>Panel n of a brand's board run (look A, #223): logo, logo, then the tagline, one whole panel each.</summary>
+        public static string SequenceArt(Brands.Brand brand, int n, bool soft) => "panel-" + brand.Id + "-" + n + (soft ? "-soft" : "");
+
+        /// <summary>How many panels the brand's board run has (art panel-&lt;id&gt;-0, -1, ... until one is missing); 0: none.</summary>
+        public static int SequenceLength(Brands.Brand brand)
+        {
+            if (RunLengths.TryGetValue(brand.Id, out int known)) return known;
+            int n = 0;
+            while (n < 16 && Art(SequenceArt(brand, n, false)) != null) n++;
+            RunLengths[brand.Id] = n;
+            return n;
+        }
+        static readonly Dictionary<string, int> RunLengths = new Dictionary<string, int>();
+
+        /// <summary>The art on board slot i: the brand's run laid on neighbouring slots in reading order (left to right from the
+        /// ice), repeating round the rink and stopping part-way where it wraps; the Calm Area takes the soft version of the same
+        /// panel. A brand with no run shows its one panel on every slot.</summary>
+        public static string SlotArt(Brands.Brand brand, int slot, bool soft)
+        {
+            int run = SequenceLength(brand);
+            if (run == 0) return PanelArt(brand, soft);
+            int k = SlotsReadForward ? slot : RinkLayout.AdPanelSlots.Length - 1 - slot;
+            return SequenceArt(brand, k % run, soft);
+        }
+        /// <summary>Whether slot i + 1 is to the viewer's right of slot i (the slots' order round the boards).</summary>
+        static readonly bool SlotsReadForward = true;
+
+        /// <summary>Centre ice always shows the Toronto Maple Leafs logo, every Round (Garrett, #223); not a pool brand.</summary>
+        public const string LeafsCentreArt = "centre-maple-leafs";
 
         /// <summary>How far the panels stand off the board face (past the 1 cm the boards model's corner chords cut in from the arc), and the ice logos over the ice (metres).</summary>
         const float PanelLift = 0.025f, IceLift = 0.006f;
@@ -45,7 +103,7 @@ namespace HockeyGame
             for (int i = 0; i < slots.Length; i++)
             {
                 Brands.Brand brand = Brands.ForPanel(i);
-                string art = PanelArt(brand, slots[i].CalmArea);
+                string art = SlotArt(brand, i, slots[i].CalmArea);
                 Texture2D texture = Art(art);
                 Material m = Shared(materials, art, () => Opaque(texture, slots[i].CalmArea ? SoftPanelSmoothness : PanelSmoothness));
                 Piece(boards, $"Ad Panel {i} {brand.Id}", PanelMesh(slots[i], texture), m);
@@ -58,8 +116,7 @@ namespace HockeyGame
             {
                 RinkLayout.IceLogoSpot spot = spots[i];
                 Brands.Brand brand = Brands.ForIceLogo(i);
-                Texture2D texture = brand == null ? centreIceLogo
-                    : Art(spot.Kind == RinkLayout.IceLogoKind.NeutralZoneRound ? RoundArt(brand) : PanelArt(brand, false));
+                Texture2D texture = brand == null ? (Art(LeafsCentreArt) ?? centreIceLogo) : Art(PanelArt(brand, false));
                 string key = "ice " + (texture != null ? texture.name : "none");
                 Material m = Shared(materials, key, () => SeeThrough(texture));
                 Piece(ice, $"Ice Logo {i} {(brand == null ? "centre ice" : brand.Id)}", IceLogoMesh(spot, texture), m);
@@ -114,18 +171,19 @@ namespace HockeyGame
 
         /// <summary>
         /// An ice logo's mesh: flat, IceLift over the ice, as big as fits its spot without changing the art's shape. Its
-        /// art's right runs to -x and its top to -z, so it reads from behind the near net looking out.
+        /// art's right runs to -z and its top to +x, so all five read upright from the -x side of the rink, like a TV
+        /// camera's view of centre ice (Garrett, #223).
         /// </summary>
         static Mesh IceLogoMesh(RinkLayout.IceLogoSpot spot, Texture2D texture)
         {
             float aspect = texture != null ? (float)texture.width / texture.height : 1f;
-            float w = (float)spot.Width, h = (float)spot.Height;
+            float w = (float)spot.Height, h = (float)spot.Width; // the art's width runs along z, its height across x
             if (w / h > aspect) w = h * aspect; else h = w / aspect;
             var c = new Vector3((float)spot.X, IceLift, (float)spot.Z);
             var vertices = new List<Vector3>
             {
-                c + new Vector3(w / 2, 0f, h / 2), c + new Vector3(w / 2, 0f, -h / 2),
-                c + new Vector3(-w / 2, 0f, -h / 2), c + new Vector3(-w / 2, 0f, h / 2),
+                c + new Vector3(-h / 2, 0f, w / 2), c + new Vector3(h / 2, 0f, w / 2),
+                c + new Vector3(h / 2, 0f, -w / 2), c + new Vector3(-h / 2, 0f, -w / 2),
             };
             var uv = new List<Vector2> { new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(1f, 0f) };
             return Finish("Ice Logo", vertices, uv, new List<int> { 0, 1, 2, 0, 2, 3 }); // clockwise from above

@@ -51,6 +51,8 @@ namespace HockeyGame
         ArenaState _show; // this frame's Arena Show, worked out once in Update and read by everything that frame, OnGUI too
         const float ScoreBoxWidth = 330f;
         TeamSkin _skin; // picked by the save file's teamSkin setting before the rink is built
+        Transform _rink;
+        Brands.Brand _adsBrand; // the brand the board panels and ice logos show; a new Round's brand rebuilds them (#223)
 
         void Awake()
         {
@@ -60,7 +62,9 @@ namespace HockeyGame
             _skin = TeamSkin.Load(_save.TeamSkin);
             RinkBuilder.Build(out _camera, _skin);
             Transform rink = GameObject.Find("Rink").transform;
-            _ribbons = rink.GetComponentInChildren<RibbonBoards>();
+            _rink = rink;
+            _adsBrand = Brands.Current;
+            _ribbons =rink.GetComponentInChildren<RibbonBoards>();
             _roofLights = new RoofLights(rink);
             _crowd = rink.GetComponentInChildren<Crowd>();
             _bottle = WaterBottle.In(rink);
@@ -162,6 +166,7 @@ namespace HockeyGame
         void Update()
         {
             if (_flow.Paused) { UpdatePaused(); return; }
+            if (Brands.Current != _adsBrand) { _adsBrand = Brands.Current; RinkAds.Rebuild(_rink, _skin); } // the ribbon and boards read it each frame
             _replay.RestoreLive(); // last frame's Replay poses go back before anything moves
             _flow.Tick(Time.unscaledDeltaTime);
 

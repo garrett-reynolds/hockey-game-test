@@ -13,7 +13,7 @@ Install the packages once: `py -3 -m pip install -r Tools/requirements.txt` (Pil
 
 | Script | Makes | Needs |
 |---|---|---|
-| `make_ads.py` | the board ad and ice logo art in `Assets/Resources/Ads` (`py -3 Tools/make_ads.py Assets/Resources/Ads C:/Windows/Fonts`) | Pillow, Windows fonts |
+| `make_ads.py` | OLD stand-in maker (#223): the art in use now is look A, copied in from `C:\Users\garrett.reynolds\HockeyLogos\game-art` (its `render_logos.py`; panel runs `panel-<id>-<n>[-soft]`, `ribbon-<id>`, `centre-maple-leafs`). Don't run this over it. It made the board ad and ice logo art in `Assets/Resources/Ads` from the brands' SVG logos, one per row of `Assets/Resources/Ads/sources.csv` (`py -3 -I Tools/make_ads.py Assets/Resources/Ads C:/Windows/Fonts <svg folder> Assets/Resources/Ads/sources.csv`; the SVGs are downloads, so `-I`) | Pillow, numpy, Windows fonts, Chrome or Edge (the SVG rasteriser: headless `--screenshot` of each SVG in an `<img>` on a clear page; cairosvg and Inkscape are not installed here) |
 | `make_arena.py` | `boards.obj`, `arena.obj` (+ `.mtl`) | none |
 | `make_goal_light.py` | `goal-light.obj` (+ `.mtl`) | - |
 | `make_water_bottle.py` | `bottle.obj` (+ `.mtl`), the water bottle on the net | - |

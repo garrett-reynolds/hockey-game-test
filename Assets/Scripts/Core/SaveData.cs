@@ -99,6 +99,7 @@ namespace HockeyGame.Core
         private const string GameVolumeKey = "gameVolume";
         private const string MusicVolumeKey = "musicVolume";
         private const string TeamSkinKey = "teamSkin";
+        private const string BrandsOffKey = "brandsOff";
         private const string ForceGoalieBlocksKey = "forceGoalieBlocks"; // replaces goalieCharacterOn (#27), which old files hold as false
         private const string ReactionSecondsKey = "goalieReactionSeconds";
         private const string ReactionWobbleSecondsKey = "goalieReactionWobbleSeconds";
@@ -169,6 +170,7 @@ namespace HockeyGame.Core
         public void CopySettingsFrom(SaveData other)
         {
             _shotsPerRound = other._shotsPerRound;
+            BrandsOff = other.BrandsOff;
             UsbPort = other.UsbPort;
             EasyMode = other.EasyMode;
             TestShotOnAtStart = other.TestShotOnAtStart;
@@ -324,6 +326,29 @@ namespace HockeyGame.Core
         /// </summary>
         public string TeamSkin = LeagueSkin;
 
+        /// <summary>The pool brands unticked on the Settings page (#223), their ids comma-separated; "" = every brand ticked.</summary>
+        public string BrandsOff = "";
+
+        /// <summary>True when the brand is ticked (in the rotation).</summary>
+        public bool IsBrandOn(string id) => Array.IndexOf(BrandsOff.Split(','), id) < 0;
+
+        /// <summary>Ticks or unticks a brand. False (nothing changes) when it is already so, or would untick the last ticked brand.</summary>
+        public bool SetBrandOn(string id, bool on)
+        {
+            if (IsBrandOn(id) == on) return false;
+            var off = new List<string>();
+            foreach (string s in BrandsOff.Split(',')) if (s.Length > 0 && s != id) off.Add(s);
+            if (!on)
+            {
+                off.Add(id);
+                bool anyOn = false;
+                foreach (Brands.Brand b in Brands.All) if (!off.Contains(b.Id)) { anyOn = true; break; }
+                if (!anyOn) return false; // that was the last ticked brand
+            }
+            BrandsOff = string.Join(",", off);
+            return true;
+        }
+
         /// <summary>Loads from a path. Never throws: any problem leaves defaults for what could not be read.</summary>
         public static SaveData Load(string path)
         {
@@ -383,6 +408,7 @@ namespace HockeyGame.Core
             data.BottleJumpPercent = ReadDouble(values, BottleJumpKey, data.BottleJumpPercent, BottleJumpRange);
             data.KeepRoundLimits();
             if (values.TryGetValue(TeamSkinKey, out var skin) && skin.Length > 0) data.TeamSkin = skin;
+            if (values.TryGetValue(BrandsOffKey, out var brandsOff)) data.BrandsOff = brandsOff;
             return data;
         }
 
@@ -431,6 +457,7 @@ namespace HockeyGame.Core
                 sb.Append(BottleKnockSpeedKey).Append('=').Append(BottleKnockSpeedKmh.ToString("R", inv)).Append('\n');
                 sb.Append(BottleJumpKey).Append('=').Append(BottleJumpPercent.ToString("R", inv)).Append('\n');
                 sb.Append(TeamSkinKey).Append('=').Append(TeamSkin).Append('\n');
+                sb.Append(BrandsOffKey).Append('=').Append(BrandsOff).Append('\n');
                 File.WriteAllText(path, sb.ToString(), new UTF8Encoding(false));
                 return true;
             }

@@ -38,7 +38,7 @@ namespace HockeyGame
         readonly VisualElement _root;
         readonly VisualElement _page, _content, _startButton;
         const float StripeDegrees = -18f, TabSlant = 24f; // the header stripes' turn and the tabs' lean (tan 18 degrees x 76 px)
-        readonly VisualElement _tabPlayer, _tabDev;
+        readonly VisualElement _tabPlayer, _tabDev, _tabBrands;
         readonly Label _reset, _hints, _saveButton, _escClose;
         readonly VisualElement _bottomBar;
         double _savedUntil;                // Time.unscaledTimeAsDouble when "SAVED" goes away (SavedFade: solid, then fading out)
@@ -101,13 +101,14 @@ namespace HockeyGame
             Add(top, "lc-title-stripe");
             _tabPlayer = MakeTab(top, "lc-tab-player", "PLAYER");
             _tabDev = MakeTab(top, "lc-tab-dev", "DEV");
+            _tabBrands = MakeTab(top, "lc-tab-brands", "BRANDS"); // #223
             _content = Add(_page, "lc-content");
             _content.style.position = Position.Absolute;
             var bottom = _bottomBar = Add(_page, "lc-bottombar");
             _reset = Add(bottom, "lc-reset", "");
             _saveButton = Add(bottom, "lc-save", "SAVE");
             _escClose = Add(bottom, "lc-esc", "ESC  CLOSE"); // a button: a click acts like Esc (CloseKey)
-            _hints = Add(bottom, "lc-hints", "TAB  PLAYER / DEV      R  RESET      S  SAVE");
+            _hints = Add(bottom, "lc-hints", "TAB  PLAYER / DEV / BRANDS      R  RESET      S  SAVE");
             _page.AddToClassList("lc-hidden");
             _tipBox = Add(_page, "lc-tipbox lc-hidden", ""); // last, so it draws over the cards (#199)
             _tipBox.style.width = TipBoxWidth;
@@ -219,7 +220,7 @@ namespace HockeyGame
         public void Open()
         {
             _menu = new SettingsMenu(_save, PortNames(), () => TestModeRequested?.Invoke());
-            _menu.SaveDataChanged += () => _persist = true;
+            _menu.SaveDataChanged += () => { _persist = true; Brands.UseOff(_save.BrandsOff); }; // unticked brands leave the rotation (#223)
             _menu.CloseApproved += () => _closeApproved = true;
             _persist = false;
             _closeApproved = false;
@@ -323,6 +324,7 @@ namespace HockeyGame
             {
                 if (Over(_tabPlayer, at)) _menu.ShowPart(SettingsPart.Player);
                 else if (Over(_tabDev, at)) _menu.ShowPart(SettingsPart.Dev);
+                else if (Over(_tabBrands, at)) _menu.ShowPart(SettingsPart.Brands);
                 else if (Over(_reset, at)) _menu.ResetPart();
                 else if (Over(_saveButton, at)) SaveNow();
                 else if (Over(_escClose, at)) CloseKey(); // as Esc: closes, or asks "Save changes?"
@@ -434,8 +436,11 @@ namespace HockeyGame
             _hits.Clear();
             _tabPlayer.EnableInClassList("lc-tab-on", _menu.Part == SettingsPart.Player);
             _tabDev.EnableInClassList("lc-tab-on", _menu.Part == SettingsPart.Dev);
+            _tabBrands.EnableInClassList("lc-tab-on", _menu.Part == SettingsPart.Brands);
             foreach (var shape in _tabShapes) shape.MarkDirtyRepaint(); // the fill colour follows the tab's class
             _reset.text = _menu.ResetLabel;
+
+            if (_menu.Part == SettingsPart.Brands) { BuildBrandsGrid(); Refresh(); return; }
 
             // Consecutive rows with one heading make one card. The last card goes in the right-hand column, the rest in the left;
             // the Dev part has 17 rows (#148, #156, #160, #164), so its last four cards (Set-up Mistakes, Gaps, Water Bottle, Test) go right.
@@ -471,6 +476,30 @@ namespace HockeyGame
                 (g >= groups.Count - rightCards ? right : left).Add(card);
             }
             Refresh();
+        }
+
+        // The Brands part (#223): one tick box per pool brand, too many for two columns, so four narrow cards of compact rows.
+        void BuildBrandsGrid()
+        {
+            const int columns = 4;
+            int perColumn = (_menu.RowCount + columns - 1) / columns;
+            for (int c = 0; c < columns; c++)
+            {
+                int first = c * perColumn, count = System.Math.Min(perColumn, _menu.RowCount - first);
+                if (count <= 0) break;
+                var column = new VisualElement();
+                column.AddToClassList("lc-column");
+                column.AddToClassList("lc-brands-column");
+                column.style.left = 60 + c * 455;
+                _content.Add(column);
+                var card = new VisualElement();
+                card.AddToClassList("lc-card");
+                card.AddToClassList("lc-c" + (c % 3));
+                card.AddToClassList("lc-brands");
+                Add(card, "lc-card-head", c == 0 ? "BRANDS" : "BRANDS  " + (c + 1) + "/" + columns);
+                for (int r = 0; r < count; r++) card.Add(BuildRow(first + r));
+                column.Add(card);
+            }
         }
 
         VisualElement BuildRow(int i)

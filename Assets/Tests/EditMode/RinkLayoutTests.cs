@@ -161,7 +161,7 @@ namespace HockeyGame.Core.Tests
         [Test]
         public void No_ice_logo_sits_in_an_end_zone_or_behind_a_goal_line()
         {
-            Assert.That(RinkLayout.IceLogoSpots.Length, Is.GreaterThanOrEqualTo(1 + 4 + 4));
+            Assert.AreEqual(1 + 4, RinkLayout.IceLogoSpots.Length, "centre ice and four beside the centre circle (#223)");
             foreach (RinkLayout.IceLogoSpot s in RinkLayout.IceLogoSpots)
             {
                 Assert.That(s.Z + s.Height / 2, Is.LessThan(RinkLayout.NearBlueLineZ - RinkLayout.WideLine / 2), s.ToString());

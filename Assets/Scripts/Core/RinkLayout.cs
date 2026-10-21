@@ -238,8 +238,9 @@ namespace HockeyGame.Core
         }
 
         // ---------- ice logo spots (estimate: broadcast look, never in an end zone) ----------
-        const double BesideCircleX = 7.7, BesideCircleDz = 1.2;
-        public enum IceLogoKind { CentreIce, BesideCentreCircle, NeutralZoneRound }
+        // The logos read from the side (#223), so a beside-circle spot is long along z (1.4 m across, 4.2 m along), clear of the red line.
+        const double BesideCircleX = 7.7, BesideCircleDz = 2.7;
+        public enum IceLogoKind { CentreIce, BesideCentreCircle }
 
         /// <summary>Where an ice logo goes: its middle on the ice and its size across (x) and along (z) the rink.</summary>
         public readonly struct IceLogoSpot
@@ -252,20 +253,16 @@ namespace HockeyGame.Core
 
         /// <summary>
         /// The centre-ice logo (first); a logo beside the centre circle on each side, either side of the red line (near
-        /// side first), clear of the circle, the red line and the referee's crease; and a round logo by each neutral-zone
-        /// spot, toward centre ice.
+        /// side first), clear of the circle, the red line and the referee's crease. Five in all (Garrett, #223: the
+        /// neutral-zone round logos are gone).
         /// </summary>
         public static readonly IceLogoSpot[] IceLogoSpots =
         {
             new IceLogoSpot(IceLogoKind.CentreIce, 0, CentreLineZ, 6.0, 6.0),
-            new IceLogoSpot(IceLogoKind.BesideCentreCircle, -BesideCircleX, CentreLineZ + BesideCircleDz, 4.2, 1.4),
-            new IceLogoSpot(IceLogoKind.BesideCentreCircle, BesideCircleX, CentreLineZ + BesideCircleDz, 4.2, 1.4),
-            new IceLogoSpot(IceLogoKind.BesideCentreCircle, -BesideCircleX, CentreLineZ - BesideCircleDz, 4.2, 1.4),
-            new IceLogoSpot(IceLogoKind.BesideCentreCircle, BesideCircleX, CentreLineZ - BesideCircleDz, 4.2, 1.4),
-            new IceLogoSpot(IceLogoKind.NeutralZoneRound, -EndZoneDotX, NearNeutralDotZ - 2.4, 2.0, 2.0),
-            new IceLogoSpot(IceLogoKind.NeutralZoneRound, EndZoneDotX, NearNeutralDotZ - 2.4, 2.0, 2.0),
-            new IceLogoSpot(IceLogoKind.NeutralZoneRound, -EndZoneDotX, Mirror(NearNeutralDotZ - 2.4), 2.0, 2.0),
-            new IceLogoSpot(IceLogoKind.NeutralZoneRound, EndZoneDotX, Mirror(NearNeutralDotZ - 2.4), 2.0, 2.0),
+            new IceLogoSpot(IceLogoKind.BesideCentreCircle, -BesideCircleX, CentreLineZ + BesideCircleDz, 1.4, 4.2),
+            new IceLogoSpot(IceLogoKind.BesideCentreCircle, BesideCircleX, CentreLineZ + BesideCircleDz, 1.4, 4.2),
+            new IceLogoSpot(IceLogoKind.BesideCentreCircle, -BesideCircleX, CentreLineZ - BesideCircleDz, 1.4, 4.2),
+            new IceLogoSpot(IceLogoKind.BesideCentreCircle, BesideCircleX, CentreLineZ - BesideCircleDz, 1.4, 4.2),
         };
 
         // ---------- Video Board, Centre Board and roof ----------

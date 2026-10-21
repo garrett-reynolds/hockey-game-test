@@ -36,8 +36,8 @@ namespace HockeyGame.Core.Tests
             skin.Seats = C(150, 120, 10);
             skin.RibbonEdgesOn = true;
             skin.RibbonEdge = C(240, 200, 0);
-            skin.CentreIceLogo = "round-volt-rush";
-            skin.RoofBanners = new[] { "round-volt-rush", "round-glacierlink" };
+            skin.CentreIceLogo = "round-kia";
+            skin.RoofBanners = new[] { "round-kia", "round-shell" };
             skin.HomeJersey = new Color32(20, 90, 40, 255);
             skin.VideoBoardBack = C(60, 0, 0);
             skin.VideoBoardWords = C(255, 230, 0);
@@ -153,6 +153,8 @@ namespace HockeyGame.Core.Tests
         static ArenaState At(RoundPhase phase) =>
             ArenaShow.At(new ArenaShowInput { Phase = phase, PhaseSeconds = 1.0, ShotNumber = 1 });
 
+        static readonly int CentreSpot = System.Array.FindIndex(RinkLayout.IceLogoSpots, s => s.Kind == RinkLayout.IceLogoKind.CentreIce);
+
         static Look Build(TeamSkin skin)
         {
             Camera camera = null;
@@ -175,8 +177,8 @@ namespace HockeyGame.Core.Tests
                     Rail = ColourOf(RinkBoards.RailPart),
                     KickPlate = ColourOf(RinkBoards.KickPlatePart),
                     Seats = ColourOf(ArenaStands.SeatsPart),
-                    CentreIce = ArtOf(iceLogos.Single(r => r.name.EndsWith("centre ice"))),
-                    BrandIceLogos = iceLogos.Where(r => !r.name.EndsWith("centre ice")).Select(ArtOf).ToArray(),
+                    CentreIce = ArtOf(iceLogos[CentreSpot]),
+                    BrandIceLogos = iceLogos.Where((r, i) => i != CentreSpot).Select(ArtOf).ToArray(),
                     AdPanels = rink.Find(RinkAds.Part + "/" + RinkAds.BoardAdsPart).GetComponentsInChildren<Renderer>().Select(ArtOf).ToArray(),
                     Ice = ArtOf(all.First(r => r.sharedMaterial != null && r.sharedMaterial.name == RinkIce.IceMaterial)),
                     Edges = all.Count(r => r.name == RibbonBoards.EdgePart),
@@ -246,8 +248,9 @@ namespace HockeyGame.Core.Tests
                 AreClose(skin.KickPlate, team.KickPlate, "kick plate");
                 Color dimmed = skin.Seats * ArenaStands.StandsLight; // the stands sit in the dark, seats too
                 AreClose(new Color(dimmed.r, dimmed.g, dimmed.b, skin.Seats.a), team.Seats, "seats");
-                Assert.AreEqual(TeamSkin.League.CentreIceLogo, league.CentreIce);
-                Assert.AreEqual(skin.CentreIceLogo, team.CentreIce);
+                // Centre ice shows the Leafs (#223) whatever the skin; the skin's own logo only stands in for missing Leafs art.
+                Assert.AreEqual(RinkAds.LeafsCentreArt, league.CentreIce);
+                Assert.AreEqual(league.CentreIce, team.CentreIce);
                 Assert.AreEqual(0, league.Edges);
                 Assert.Greater(team.Edges, 0, "the skin's Ribbon Board edges");
                 Assert.AreEqual(TeamSkin.League.RoofBanners.Length, league.Banners, "the League Skin's own banners (#149)");

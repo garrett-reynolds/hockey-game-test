@@ -1,3 +1,4 @@
+using System.Linq;
 using HockeyGame;
 using NUnit.Framework;
 using UnityEngine;
@@ -144,28 +145,73 @@ namespace HockeyGame.Core.Tests
             Check("OFF THE POST!", "OFF THE POST!");
             ribbons.Show(At(RoundPhase.ResultHold, ArenaResult.FrameHitBar), 0.0);
             Check("OFF THE BAR!", "OFF THE BAR!");
-            for (int step = 0; step < Brands.All.Length; step++)
-            {
-                ribbons.Show(At(RoundPhase.Idle), step * RibbonBoards.AdSeconds);
-                foreach (Brands.Brand b in Brands.All) Check("ad " + b.AdWords, b.AdWords);
-            }
             TestContext.Out.WriteLine("RIBBON SCALE TABLE (message / scale: panels)\n" + string.Join("\n", System.Linq.Enumerable.Select(table, kv => kv.Key + ": " + kv.Value)));
             Assert.IsEmpty(failures, string.Join("\n", failures));
         }
 
         [Test]
-        public void A_Ribbon_ad_shows_its_brand_background_colour_unchanged_like_the_Video_Board()
+        public void Every_Ribbon_ad_panel_shows_the_Rounds_brand_picture_and_a_new_Round_switches_it()
+        {
+            Brands.Brand before = Brands.Current;
+            try
+            {
+                RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
+                foreach (Brands.Brand brand in new[] { Brands.All[2], Brands.All[3] })
+                {
+                    Brands.Use(brand);
+                    ribbons.Show(At(RoundPhase.Idle), 0.0);
+                    for (int i = 0; i < ribbons.PanelCount; i++)
+                    {
+                        Assert.AreEqual(brand.AdWords, ribbons.TextOn(i), "panel " + i + " shows the Round's brand");
+                        Texture shown = PanelRenderer(ribbons, i).sharedMaterial.mainTexture;
+                        Assert.IsNotNull(shown, "panel " + i);
+                        Assert.AreSame(RibbonBoards.PictureOf(brand), shown, "panel " + i + " shows the brand's ribbon picture");
+                        StringAssert.Contains(brand.Id, shown.name);
+                    }
+                }
+                // Words still come back after an ad (the result words).
+                ribbons.Show(At(RoundPhase.ResultHold, ArenaResult.Goal), 0.0);
+                Assert.AreEqual("GOAL!", ribbons.TextOn(0));
+                Assert.AreSame(ribbons.WordsTextureOn(0), PanelRenderer(ribbons, 0).sharedMaterial.mainTexture);
+            }
+            finally { Brands.Use(before); }
+        }
+
+        [Test]
+        public void The_Ribbon_ad_scrolls_left_all_the_time_in_an_endless_seamless_loop()
         {
             RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
-            for (int i = 0; i < ribbons.PanelCount; i++)
+            Assert.That(RibbonBoards.ScrollMetresPerSecond, Is.InRange(0.5f, 3f), "a moderate, readable speed");
+            ribbons.Show(At(RoundPhase.Idle), 10.0);
+            Vector4[] a = Enumerable.Range(0, ribbons.PanelCount).Select(ribbons.PictureSTOn).ToArray();
+            ribbons.Show(At(RoundPhase.Idle), 10.5);
+            Vector4[] b = Enumerable.Range(0, ribbons.PanelCount).Select(ribbons.PictureSTOn).ToArray();
+            double loop = ribbons.LoopMetres;
+            for (int i = 0; i < a.Length; i++)
             {
-                Brands.Brand brand = System.Array.Find(Brands.All, b => b.AdWords == ribbons.TextOn(i));
-                Assert.IsNotNull(brand.AdWords, "panel " + i + " shows an ad");
-                Color expected = RibbonBoards.ColourOf(brand.AdBack), shown = PanelRenderer(ribbons, i).sharedMaterial.GetColor("_Backdrop");
-                Assert.AreEqual(expected.r, shown.r, 0.002f, "panel " + i + " red");
-                Assert.AreEqual(expected.g, shown.g, 0.002f, "panel " + i + " green");
-                Assert.AreEqual(expected.b, shown.b, 0.002f, "panel " + i + " blue");
+                Assert.AreEqual(a[i].x, b[i].x, 1e-6f, "panel " + i + ": the same tiling");
+                // Moving left: the picture's offset grows by speed x time / loop length (mod 1).
+                double step = (b[i].z - a[i].z + 1.0) % 1.0;
+                Assert.AreEqual(RibbonBoards.ScrollMetresPerSecond * 0.5 / loop, step, 1e-4, "panel " + i + " moved on");
             }
+            // Seamless: the ring is a whole number of loops, and each panel starts where the one before it ended.
+            double ring = ribbons.RingMetres;
+            Assert.AreEqual(System.Math.Round(ring / loop), ring / loop, 1e-6, "a whole number of loops round the ring");
+            int joins = 0;
+            for (int i = 0; i < a.Length; i++)
+            {
+                int right = ribbons.RightNeighbourOf(i);
+                if (right < 0) continue;
+                joins++;
+                double end = (a[i].z + a[i].x + 1.0) % 1.0, start = (a[right].z + 1.0) % 1.0;
+                double gap = System.Math.Min(System.Math.Abs(end - start), 1.0 - System.Math.Abs(end - start));
+                Assert.Less(gap, 1e-4, "panel " + i + " runs on into panel " + right);
+                // The right-hand neighbour is to the viewer's right: along the panel's own right.
+                Vector3 toRight = ribbons.CentreOf(right) - ribbons.CentreOf(i);
+                Assert.Greater(Vector3.Dot(toRight, PanelRenderer(ribbons, i).transform.right), 0f, "panel " + right + " is to the right of " + i);
+            }
+            Assert.That(joins, Is.GreaterThanOrEqualTo(a.Length - 2), "every panel but the ones by the Video Board gap runs on into the next");
+            Assert.IsTrue(PanelRenderer(ribbons, 0).sharedMaterial.GetFloat("_Wrap") > 0.5f, "the picture wraps round");
         }
 
         [Test]
@@ -189,14 +235,8 @@ namespace HockeyGame.Core.Tests
             int before = ribbons.WordsUploads;
             for (int frame = 1; frame <= 5; frame++) ribbons.Show(ads, 0.0 + frame * 0.016);
             Assert.AreEqual(before, ribbons.WordsUploads, "no text change: no upload");
-
-            var was = new string[ribbons.PanelCount];
-            for (int i = 0; i < was.Length; i++) was[i] = ribbons.TextOn(i);
-            ribbons.Show(ads, RibbonBoards.AdSeconds + 0.01); // the next ad on every panel
-            int changed = 0;
-            for (int i = 0; i < was.Length; i++) if (was[i] != ribbons.TextOn(i)) changed++;
-            Assert.AreEqual(ribbons.PanelCount, changed, "every panel moved on to another ad");
-            Assert.AreEqual(before + changed, ribbons.WordsUploads, "one upload per changed panel");
+            ribbons.Show(ads, RibbonBoards.AdSeconds + 0.01);
+            Assert.AreEqual(before, ribbons.WordsUploads, "the ad scrolls by a material value: no upload");
 
             // A colour change alone is a material value: no upload.
             int afterAds = ribbons.WordsUploads;
@@ -248,42 +288,102 @@ namespace HockeyGame.Core.Tests
                 minZ = Mathf.Min(minZ, c.z); maxZ = Mathf.Max(maxZ, c.z);
             }
             float ring = RibbonBoards.Offset;
-            float side = ring + (float)RinkLayout.BenchDepth; // the stands step back beside the benches and boxes, which reach the side extremes
-            Assert.AreEqual(RinkBoards.HalfWidth + side, maxX, 0.2f);
-            Assert.AreEqual(-RinkBoards.HalfWidth - side, minX, 0.2f);
+            Assert.AreEqual(RinkBoards.HalfWidth + ring, maxX, 0.2f); // one smooth ring: no step back beside the benches
+            Assert.AreEqual(-RinkBoards.HalfWidth - ring, minX, 0.2f);
             // The near end's own panels are wholly behind the Video Board and left out: a corner's panel reaches furthest back.
             Assert.That(maxZ, Is.InRange(RinkBoards.EndZ + ring - 1f, RinkBoards.EndZ + ring + 0.2f));
             Assert.AreEqual(RinkBoards.FarZ - ring, minZ, 0.2f);
         }
 
         [Test]
-        public void The_ring_follows_the_Rink_Layout_all_round_the_full_rink_and_steps_back_beside_the_benches()
+        public void The_ring_follows_the_Rink_Layout_all_round_the_full_rink_as_a_plain_rounded_rectangle()
         {
             RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
             Assert.AreEqual(RinkLayout.RibbonOffset, RibbonBoards.Offset, 1e-4);
             Assert.AreEqual(RinkLayout.RibbonBottom, RibbonBoards.Bottom, 1e-4);
             Assert.AreEqual(RinkLayout.RibbonHeight, RibbonBoards.Height, 1e-4);
-            // Panels stand at the Offset from the boards (a rounded rectangle pushed out), except beside a bench or box.
-            int nearFarEnd = 0, farEnd = 0, steppedBack = 0;
+            // Panels stand at the Offset from the boards everywhere (a rounded rectangle pushed out): no step beside a bench or box.
+            int nearFarEnd = 0, farEnd = 0;
             for (int i = 0; i < ribbons.PanelCount; i++)
             {
                 Vector3 c = ribbons.CentreOf(i);
-                bool beside = false;
-                foreach (RinkLayout.Opening o in System.Linq.Enumerable.Concat(RinkLayout.Benches, RinkLayout.PenaltyBoxes))
-                    if (Mathf.Sign(c.x) == o.Side && c.z >= o.FromZ && c.z <= o.ToZ && Mathf.Abs(c.x) > RinkLayout.HalfWidth + 1f) beside = true;
                 float cx = (float)RinkLayout.CornerX, nearCz = (float)RinkLayout.NearCornerZ, farCz = (float)RinkLayout.FarCornerZ;
                 var core = new Vector2(Mathf.Clamp(c.x, -cx, cx), Mathf.Clamp(c.z, farCz, nearCz));
                 float away = Vector2.Distance(core, new Vector2(c.x, c.z)) - (float)RinkLayout.CornerRadius;
-                float expected = RibbonBoards.Offset - 0.05f + (beside ? (float)RinkLayout.BenchDepth : 0f);
+                float expected = RibbonBoards.Offset - 0.05f;
                 // Chords on a corner sit a little inside the arc; straight runs are exact.
-                Assert.AreEqual(expected, away, beside ? 0.2f : 0.3f, "panel " + i + " at " + c);
-                if (beside) steppedBack++;
+                Assert.AreEqual(expected, away, 0.3f, "panel " + i + " at " + c);
                 if (c.z > RinkLayout.NearEndBoardsZ) nearFarEnd++;
                 if (c.z < RinkLayout.FarEndBoardsZ) farEnd++;
             }
             Assert.Greater(nearFarEnd, 0, "panels behind the near net");
             Assert.Greater(farEnd, 0, "panels behind the far end");
-            Assert.Greater(steppedBack, 0, "panels beside the benches and boxes");
+        }
+
+        // The straight side panels (the ones on the side lines, away from the corners).
+        static bool OnSide(Vector3 c) => Mathf.Abs(c.x) > RinkLayout.HalfWidth + 1f && c.z > RinkLayout.FarCornerZ && c.z < RinkLayout.NearCornerZ;
+
+        static bool BesideBenchOrBox(Vector3 c)
+        {
+            foreach (RinkLayout.Opening o in System.Linq.Enumerable.Concat(RinkLayout.Benches, RinkLayout.PenaltyBoxes))
+                if (Mathf.Sign(c.x) == o.Side && c.z >= o.FromZ && c.z <= o.ToZ) return true;
+            return false;
+        }
+
+        [Test]
+        public void The_ring_has_no_step_every_side_panel_stands_on_the_same_line_and_joins_the_next_end_to_end()
+        {
+            RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
+            foreach (float sign in new[] { 1f, -1f })
+            {
+                var xs = new System.Collections.Generic.List<float>();
+                for (int i = 0; i < ribbons.PanelCount; i++)
+                {
+                    Vector3 c = ribbons.CentreOf(i);
+                    if (OnSide(c) && Mathf.Sign(c.x) == sign) xs.Add(Mathf.Abs(c.x));
+                }
+                Assert.Greater(xs.Count, 6, "side " + sign + " has straight panels");
+                foreach (float x in xs) Assert.AreEqual(xs[0], x, 1e-3f, "side " + sign + ": one straight line, no step");
+            }
+            int joins = 0, besideJoins = 0;
+            for (int i = 0; i < ribbons.PanelCount; i++)
+            {
+                int right = ribbons.RightNeighbourOf(i);
+                if (right < 0) continue;
+                Transform a = PanelRenderer(ribbons, i).transform, b = PanelRenderer(ribbons, right).transform;
+                Vector3 end = ribbons.CentreOf(i) + a.right * ribbons.LengthOf(i) / 2f;
+                Vector3 start = ribbons.CentreOf(right) - b.right * ribbons.LengthOf(right) / 2f;
+                Assert.Less(Vector3.Distance(end, start), 0.05f, "panel " + i + " ends where panel " + right + " starts (no gap, no jump)");
+                joins++;
+                if (BesideBenchOrBox(ribbons.CentreOf(i)) || BesideBenchOrBox(ribbons.CentreOf(right))) besideJoins++;
+            }
+            Assert.That(joins, Is.GreaterThanOrEqualTo(ribbons.PanelCount - 2));
+            Assert.Greater(besideJoins, 0, "joins beside the benches and boxes were checked too");
+        }
+
+        [Test]
+        public void The_scrolling_picture_runs_on_without_a_jump_where_the_benches_and_boxes_are()
+        {
+            RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
+            ribbons.Show(At(RoundPhase.Idle), 7.0);
+            double loop = ribbons.LoopMetres;
+            int checkedBeside = 0;
+            for (int i = 0; i < ribbons.PanelCount; i++)
+            {
+                int right = ribbons.RightNeighbourOf(i);
+                if (right < 0) continue;
+                Vector3 centre = ribbons.CentreOf(i), next = ribbons.CentreOf(right);
+                // Along the reading line the next panel starts one panel length on: the picture offset grows by length / loop.
+                double step = (ribbons.PictureSTOn(right).z - ribbons.PictureSTOn(i).z + 1.0) % 1.0;
+                Assert.AreEqual(ribbons.LengthOf(i) / loop % 1.0, step, 1e-4, "panel " + i + " to " + right + ": same spacing along the ring");
+                // And that length is the real distance on the wall: the panels' centres are half a length from each end.
+                if (OnSide(centre) && OnSide(next))
+                {
+                    Assert.AreEqual((ribbons.LengthOf(i) + ribbons.LengthOf(right)) / 2f, Vector3.Distance(centre, next), 0.01f, "panel " + i + " to " + right + ": picture distance is wall distance");
+                    if (BesideBenchOrBox(centre) || BesideBenchOrBox(next)) checkedBeside++;
+                }
+            }
+            Assert.Greater(checkedBeside, 0, "the old notch stretches were checked");
         }
 
         [Test]
@@ -352,16 +452,16 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void Ads_cycle_and_neighbouring_panels_show_different_brands()
+        public void Ads_show_one_brand_on_every_panel_all_Round()
         {
             RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
             ArenaState skateIn = At(RoundPhase.SkateIn);
             ribbons.Show(skateIn, 0.0);
             string first = ribbons.TextOn(0);
-            Assert.AreNotEqual(first, ribbons.TextOn(1));
+            Assert.AreEqual(Brands.Current.AdWords, first);
+            Assert.AreEqual(first, ribbons.TextOn(1));
             ribbons.Show(skateIn, RibbonBoards.AdSeconds + 0.01);
-            Assert.AreNotEqual(first, ribbons.TextOn(0));
-            Assert.IsTrue(Brands.IsAdWords(ribbons.TextOn(0)));
+            Assert.AreEqual(first, ribbons.TextOn(0), "the same brand all Round; the picture scrolls");
         }
 
         [Test]

@@ -1,48 +1,45 @@
-# Makes the ad art for the board ads and ice logos (#87) as PNGs, one set per made-up brand, plus the League Skin's
-# centre-ice logo. The game (RinkAds.cs) puts them on the boards and the ice at the Rink Layout's ad panel slots and ice
-# logo spots, and picks the brand for each (Brands.cs). The brand ids below are the art names RinkAds loads: keep them
-# in step with Brands.cs.
-#   panel-<id>.png       the brand's logo in its colours, 3:1. RGBA: clear round the logo, so it also lies on the ice
-#                        (the logos beside the centre circle). The clear part is board white, so on the boards (an
-#                        opaque material) the panel is plain white round the logo.
+# Makes the ad art for the board ads and ice logos (#87, real logos #223) as PNGs, one set per brand, plus the League
+# Skin's centre-ice logo. The game (the RinkAds class) puts them on the boards and the ice at the Rink Layout's ad panel
+# slots and ice logo spots, and picks the brands for each game load (the Brands class). The brand ids are the rows of the
+# sources list (Assets/Resources/Ads/sources.csv: id, brand, category, source_url, file_url, notes) and the SVG file
+# names: keep them in step with the Brands class.
+#   panel-<id>.png       the brand's logo in its own colours, centred on a 3:1 panel. RGBA: clear round the logo, so it
+#                        also lies on the ice (the logos beside the centre circle). The clear part is board white, so on
+#                        the boards (an opaque material) the panel is plain white round the logo.
 #   panel-<id>-soft.png  the same panel for the Calm Area: white with the logo in one soft, low-contrast grey (RGB).
-#   round-<id>.png       a round logo for the ice by the neutral-zone dots (RGBA, clear outside the circle).
+#   round-<id>.png       a round logo for the ice by the neutral-zone dots: a white disc with a ring in the logo's main
+#                        colour and the logo inside (RGBA, clear outside the circle).
 #   centre-ice-all-star-hockey.png   the League Skin's "All-Star Hockey" placeholder mark for centre ice (RGBA).
 # Text and texture "up" are the PNG's top; the game lays them so they read from the ice (boards) and from behind the
 # near net looking out (ice logos, the Replay view).
 # The .meta files keep each picture's own size (Non-Power of 2: None), clamp its edges and filter it at a slant
-# (Aniso 8), for the ice logos seen low across the ice: keep those settings when adding art.
-# Fonts: Windows' own TrueType fonts (Georgia, Arial, Impact, Segoe UI, ...), from the fonts folder given.
-# Needs Pillow (pip install pillow).
-# Run: py -3 Tools/make_ads.py Assets/Resources/Ads C:/Windows/Fonts
-import math, os, sys
+# (Aniso 8), for the ice logos seen low across the ice. A new PNG gets a copy of the centre-ice logo's .meta (new guid).
+# SVGs are rasterised by headless Chrome (or Edge): each SVG is shown in an <img> (no scripts run) on a clear page and
+# screenshotted big, then cropped to the logo. The SVGs are downloaded files: run this with python -I.
+# Fonts: Windows' own TrueType fonts (the centre-ice mark), from the fonts folder given.
+# Needs Pillow and numpy (pip install -r Tools/requirements.txt) and Chrome or Edge.
+# Run: py -3 -I Tools/make_ads.py Assets/Resources/Ads C:/Windows/Fonts <folder of <id>.svg> Assets/Resources/Ads/sources.csv
+import csv, math, os, re, shutil, subprocess, sys, tempfile, uuid
+import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-out, fonts = sys.argv[1], sys.argv[2]
+out, fonts, svgs, sources = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 os.makedirs(out, exist_ok=True)
 
 SS = 4                                   # drawn this many times bigger, then shrunk, for smooth edges
 PANEL = (768, 256)                       # 3:1, narrower than the narrowest panel (2.44 x 0.73 m), so the logo always fits
+PANEL_FIT = (0.84, 0.70)                 # the logo's largest share of the panel's width and height
 ROUND = 512
+ROUND_FIT = 0.36                         # the logo's corners stay this far (share of the disc) from the disc's centre
 CENTRE = 1024
+RENDER = 2400                            # px: the SVG's longer side when rasterised, before it is shrunk
 BOARD_WHITE = (236, 238, 240)            # the boards' white (Tools/make_arena.py, "Boards")
 SOFT_GREY = (219, 222, 225)              # Calm Area logos: about 6% darker than the white, no colour
 SOFT_BLUR = 2.0                          # px: soft edges on the Calm Area logos
-
-
-# id, name, wordmark, font, main colour, second colour, mark
-BRANDS = [
-    ("northvale-bank", "Northvale Bank", "NORTHVALE BANK", "georgiab.ttf", (12, 35, 80), (255, 255, 255), "monogram N"),
-    ("glacierlink", "GlacierLink", "GlacierLink", "seguibl.ttf", (110, 40, 170), (120, 200, 240), "crystal"),
-    ("brawnys-lager", "Brawny's Lager", "BRAWNY'S LAGER", "ROCKB.TTF", (110, 45, 15), (215, 160, 30), "oval B"),
-    ("kestrel-motors", "Kestrel Motors", "KESTREL MOTORS", "FRAMDCN.TTF", (30, 30, 35), (190, 30, 40), "wings"),
-    ("aurora-air", "Aurora Air", "Aurora Air", "trebucbd.ttf", (0, 125, 135), (90, 200, 120), "arcs"),
-    ("shieldcross", "Shieldcross", "SHIELDCROSS", "ariblk.ttf", (0, 90, 60), (255, 255, 255), "shield"),
-    ("volt-rush", "Volt Rush", "VOLT RUSH", "impact.ttf", (20, 20, 20), (170, 230, 0), "bolt"),
-    ("big-timber-burgers", "Big Timber Burgers", "BIG TIMBER BURGERS", "ROCKB.TTF", (220, 95, 15), (120, 60, 20), "burger"),
-    ("peakside-energy", "Peakside Energy", "PEAKSIDE ENERGY", "verdanab.ttf", (0, 80, 170), (250, 180, 0), "peaks"),
-    ("frostbyte-pcs", "FrostByte PCs", "FrostByte PCs", "bahnschrift.ttf", (0, 150, 205), (20, 40, 70), "pixels"),
-]
+# Logos drawn on a full-size white box (Garrett, #223): the white joined to the picture's edge is cleared.
+WHITE_BOX = {"michelob-ultra", "shell", "pizza-pizza", "cibc", "discover"}
+BROWSERS = [r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"]
 
 
 class Canvas:
@@ -61,14 +58,6 @@ class Canvas:
     def ellipse(self, box, colour):
         b = [v * SS for v in box]
         self.d.ellipse(b, fill=colour); self.m.ellipse(b, fill=255)
-
-    def rect(self, box, colour, radius=0):
-        b = [v * SS for v in box]
-        self.d.rounded_rectangle(b, radius * SS, fill=colour); self.m.rounded_rectangle(b, radius * SS, fill=255)
-
-    def arc(self, box, start, end, colour, width):
-        b = [v * SS for v in box]
-        self.d.arc(b, start, end, fill=colour, width=int(width * SS)); self.m.arc(b, start, end, fill=255, width=int(width * SS))
 
     def text(self, centre, text, font_file, colour, box_w, box_h):
         """Text fitted into a box_w x box_h box, centred on centre."""
@@ -93,71 +82,6 @@ def fitted(font_file, text, w, h):
     raise ValueError(f"{text!r} does not fit")
 
 
-def mark(c, kind, cx, cy, r, main, second, font_file):
-    """The brand's mark: a simple shape about 2r across, centred on (cx, cy)."""
-    kind, _, letter = kind.partition(" ")
-    if kind == "monogram":
-        c.rect((cx - r, cy - r, cx + r, cy + r), main, radius=r * 0.25)
-        c.text((cx, cy), letter, font_file, second, r * 1.3, r * 1.3)
-    elif kind == "crystal":
-        c.polygon([(cx, cy - r), (cx + r * 0.85, cy - r * 0.2), (cx + r * 0.45, cy + r), (cx - r * 0.45, cy + r), (cx - r * 0.85, cy - r * 0.2)], main)
-        c.polygon([(cx, cy - r), (cx + r * 0.45, cy + r), (cx - r * 0.1, cy + r * 0.1)], second)
-    elif kind == "oval":
-        c.ellipse((cx - r, cy - r * 0.8, cx + r, cy + r * 0.8), second)
-        c.ellipse((cx - r * 0.82, cy - r * 0.64, cx + r * 0.82, cy + r * 0.64), main)
-        c.text((cx, cy), letter, font_file, second, r * 1.0, r * 0.9)
-    elif kind == "wings":
-        for k in range(3):
-            y = cy - r * 0.7 + k * r * 0.55
-            c.polygon([(cx - r, y), (cx, y + r * 0.45), (cx + r, y), (cx + r, y + r * 0.3), (cx, y + r * 0.75), (cx - r, y + r * 0.3)], main if k else second)
-    elif kind == "arcs":
-        for k, col in enumerate((main, second, main)):
-            rr = r * (1.0 - k * 0.28)
-            c.arc((cx - rr, cy - rr + r * 0.4, cx + rr, cy + rr + r * 0.4), 200, 340, col, r * 0.18)
-    elif kind == "shield":
-        c.polygon([(cx - r * 0.85, cy - r), (cx + r * 0.85, cy - r), (cx + r * 0.85, cy), (cx, cy + r), (cx - r * 0.85, cy)], main)
-        c.rect((cx - r * 0.13, cy - r * 0.75, cx + r * 0.13, cy + r * 0.6), second)
-        c.rect((cx - r * 0.6, cy - r * 0.35, cx + r * 0.6, cy - r * 0.09), second)
-    elif kind == "bolt":
-        c.rect((cx - r, cy - r, cx + r, cy + r), main, radius=r * 0.2)
-        c.polygon([(cx + r * 0.25, cy - r * 0.85), (cx - r * 0.5, cy + r * 0.1), (cx - r * 0.02, cy + r * 0.1),
-                   (cx - r * 0.25, cy + r * 0.85), (cx + r * 0.5, cy - r * 0.1), (cx + r * 0.02, cy - r * 0.1)], second)
-    elif kind == "burger":
-        c.polygon([(cx - r, cy - r * 0.1)] + [(cx - r * math.cos(a), cy - r * 0.1 - r * 0.8 * math.sin(a))
-                                                for a in (math.pi * k / 16 for k in range(17))] + [(cx + r, cy - r * 0.1)], main)
-        c.rect((cx - r, cy + r * 0.05, cx + r, cy + r * 0.35), second, radius=r * 0.1)
-        c.rect((cx - r, cy + r * 0.5, cx + r, cy + r * 0.8), main, radius=r * 0.15)
-    elif kind == "peaks":
-        c.polygon([(cx - r, cy + r * 0.8), (cx - r * 0.3, cy - r * 0.6), (cx + r * 0.4, cy + r * 0.8)], main)
-        c.polygon([(cx - r * 0.2, cy + r * 0.8), (cx + r * 0.35, cy - r), (cx + r, cy + r * 0.8)], main)
-        c.ellipse((cx + r * 0.35, cy - r * 0.95, cx + r * 0.85, cy - r * 0.45), second)
-    elif kind == "pixels":
-        s = r * 0.6
-        for i in range(3):
-            for j in range(3):
-                if (i + j) % 2 == 0:
-                    c.rect((cx - r + i * (s + r * 0.1), cy - r + j * (s + r * 0.1), cx - r + i * (s + r * 0.1) + s, cy - r + j * (s + r * 0.1) + s), main if i == j else second, radius=s * 0.15)
-    else:
-        raise ValueError(kind)
-
-
-def panel(brand):
-    """The brand's logo: its mark, then its wordmark, centred on a 3:1 panel with a clear margin."""
-    _, _, words, font_file, main, second, kind = brand
-    w, h = PANEL
-    c = Canvas(PANEL, BOARD_WHITE)
-    r = h * 0.26
-    text_h = h * 0.34
-    # Measure the wordmark, then centre mark + gap + wordmark across the panel.
-    probe = fitted(font_file, words, (w * 0.86 - 2.6 * r) * SS, text_h * SS)
-    x0, _, x1, _ = probe.getbbox(words)
-    total = 2 * r + 0.4 * r + (x1 - x0) / SS
-    left = (w - total) / 2
-    mark(c, kind, left + r, h / 2, r, main, second, font_file)
-    c.text((left + 2.4 * r + (x1 - x0) / SS / 2, h / 2), words, font_file, main, w * 0.86 - 2.6 * r, text_h)
-    return c.shrink()
-
-
 def rgba(rgb, mask):
     out = rgb.copy()
     out.putalpha(mask)
@@ -170,23 +94,114 @@ def soft(mask):
     return Image.composite(Image.new("RGB", mask.size, SOFT_GREY), Image.new("RGB", mask.size, BOARD_WHITE), shape)
 
 
-def round_logo(brand):
-    """A round logo: a disc in the brand's main colour with a ring, its mark and its first word in white."""
-    _, _, words, font_file, main, second, kind = brand
+# ---------- SVG to a cropped RGBA logo ----------
+
+def browser():
+    for b in BROWSERS:
+        if os.path.exists(b): return b
+    raise SystemExit("needs Chrome or Edge: " + " or ".join(BROWSERS))
+
+
+def svg_size(text):
+    """The SVG's (width, height) from its viewBox, else its width and height; and whether it has a viewBox."""
+    tag = re.search(r"<svg\b[^>]*>", text, re.S)
+    if not tag: raise ValueError("no <svg> tag")
+    tag = tag.group(0)
+    box = re.search(r"\bviewBox\s*=\s*[\"']([^\"']+)[\"']", tag)
+    if box:
+        v = [float(x) for x in re.split(r"[\s,]+", box.group(1).strip())]
+        return v[2], v[3], True
+    w = re.search(r"\bwidth\s*=\s*[\"']([\d.]+)", tag)
+    h = re.search(r"\bheight\s*=\s*[\"']([\d.]+)", tag)
+    return (float(w.group(1)) if w else 300.0), (float(h.group(1)) if h else 150.0), False
+
+
+def rasterise(svg, work):
+    """The SVG as a big RGBA picture on a clear background, cropped to the logo."""
+    with open(svg, encoding="utf-8", errors="replace") as f:
+        w, h, scalable = svg_size(f.read())
+    url = "file:///" + os.path.abspath(svg).replace("\\", "/")
+    if scalable:   # fills the page, keeping its shape
+        scale, page = 1.0, (RENDER, RENDER)
+        style = f"width:{RENDER}px;height:{RENDER}px;object-fit:contain"
+    else:          # no viewBox: drawn at its own size, the page zoomed up
+        scale = RENDER / max(w, h)
+        page = (math.ceil(w) + 2, math.ceil(h) + 2)
+        style = ""
+    html = os.path.join(work, "page.html")
+    with open(html, "w", encoding="utf-8") as f:
+        f.write(f'<!DOCTYPE html><html><body style="margin:0;background:transparent">'
+                f'<img src="{url}" style="display:block;{style}"></body></html>')
+    shot = os.path.join(work, "shot.png")
+    if os.path.exists(shot): os.remove(shot)
+    subprocess.run([browser(), "--headless", "--mute-audio", "--disable-gpu", "--hide-scrollbars", "--no-first-run",
+                    "--user-data-dir=" + os.path.join(work, "profile"), "--default-background-color=00000000",
+                    f"--force-device-scale-factor={scale}", f"--window-size={page[0]},{page[1]}",
+                    "--screenshot=" + shot, "file:///" + html.replace("\\", "/")],
+                   check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
+    return crop(Image.open(shot).convert("RGBA"))
+
+
+def crop(picture):
+    box = picture.getchannel("A").point(lambda a: 255 if a > 8 else 0).getbbox()
+    if not box: raise ValueError("empty logo")
+    return picture.crop(box)
+
+
+def clear_white_box(logo):
+    """Clears the white (and clear) area joined to the picture's edge: a full-size white box behind the logo."""
+    a = np.asarray(logo).astype(np.int32)
+    white = ((a[..., 3] < 30) | ((a[..., 0] > 225) & (a[..., 1] > 225) & (a[..., 2] > 225))).astype(np.uint8) * 255
+    fill = Image.fromarray(np.pad(white, 1, constant_values=255).astype(np.uint8), "L").copy()  # a copy: floodfill leaves an array-backed picture unchanged
+    ImageDraw.floodfill(fill, (0, 0), 128)
+    joined = np.asarray(fill)[1:-1, 1:-1] == 128
+    a[joined, 3] = 0
+    return crop(Image.fromarray(a.astype(np.uint8), "RGBA"))
+
+
+def main_colour(logo):
+    """The logo's main colour: its commonest strong colour, else its commonest dark one."""
+    a = np.asarray(logo).reshape(-1, 4).astype(np.int32)
+    a = a[a[:, 3] > 200][:, :3]
+    sat = a.max(axis=1) - a.min(axis=1)
+    pick = a[sat > 64] if (sat > 64).sum() > len(a) * 0.05 else a[a.sum(axis=1) < 600]
+    if len(pick) == 0: return (40, 40, 45)
+    q = (pick // 16) * 16 + 8
+    keys, counts = np.unique(q, axis=0, return_counts=True)
+    return tuple(int(v) for v in keys[counts.argmax()])
+
+
+def on_white(logo, size):
+    """The logo laid on board white at size: (RGB, alpha)."""
+    rgb = Image.new("RGB", logo.size, BOARD_WHITE)
+    rgb.paste(logo, (0, 0), logo)
+    return rgb.resize(size, Image.LANCZOS), logo.getchannel("A").resize(size, Image.LANCZOS)
+
+
+def panel(logo):
+    """The logo centred on a 3:1 board-white panel, its shape kept: (RGB, mask)."""
+    w, h = PANEL
+    k = min(w * PANEL_FIT[0] / logo.width, h * PANEL_FIT[1] / logo.height)
+    size = (max(1, round(logo.width * k)), max(1, round(logo.height * k)))
+    rgb, alpha = on_white(logo, size)
+    at = ((w - size[0]) // 2, (h - size[1]) // 2)
+    canvas, mask = Image.new("RGB", PANEL, BOARD_WHITE), Image.new("L", PANEL, 0)
+    canvas.paste(rgb, at); mask.paste(alpha, at)
+    return canvas, mask
+
+
+def round_logo(logo):
+    """A white disc with a ring in the logo's main colour and the logo inside."""
     n = ROUND
     c = Canvas((n, n), BOARD_WHITE)
-    c.ellipse((n * 0.02, n * 0.02, n * 0.98, n * 0.98), second if second != (255, 255, 255) else main)
-    c.ellipse((n * 0.07, n * 0.07, n * 0.93, n * 0.93), main)
-    white = (255, 255, 255)
-    shape = kind.split(" ")[0]
-    if shape in ("monogram", "shield"): fore, accent = white, main      # a white shape with the detail in the disc colour
-    elif shape == "bolt": fore, accent = second, main
-    else: fore, accent = white, second
-    mark(c, kind, n / 2, n * 0.38, n * 0.17, fore, accent, font_file)
-    first = words.split(" ")
-    short = " ".join(first[:2]) if len(first[0]) < 4 else first[0]   # "BIG TIMBER", not just "BIG"
-    c.text((n / 2, n * 0.7), short, font_file, white, n * 0.62, n * 0.14)
-    return rgba(*c.shrink())
+    c.ellipse((n * 0.02, n * 0.02, n * 0.98, n * 0.98), main_colour(logo))
+    c.ellipse((n * 0.06, n * 0.06, n * 0.94, n * 0.94), BOARD_WHITE)
+    rgb, mask = c.shrink()
+    k = n * ROUND_FIT / math.hypot(logo.width / 2, logo.height / 2)
+    size = (max(1, round(logo.width * k)), max(1, round(logo.height * k)))
+    small, alpha = on_white(logo, size)
+    rgb.paste(small, ((n - size[0]) // 2, (n - size[1]) // 2), alpha)
+    return rgba(rgb, mask)
 
 
 def centre_ice():
@@ -204,10 +219,36 @@ def centre_ice():
     return rgba(*c.shrink())
 
 
-for b in BRANDS:
-    rgb, mask = panel(b)
-    rgba(rgb, mask).save(os.path.join(out, f"panel-{b[0]}.png"), optimize=True)
-    soft(mask).save(os.path.join(out, f"panel-{b[0]}-soft.png"), optimize=True)
-    round_logo(b).save(os.path.join(out, f"round-{b[0]}.png"), optimize=True)
-centre_ice().save(os.path.join(out, "centre-ice-all-star-hockey.png"), optimize=True)
-print(len(BRANDS), "brands written to", out)
+META_FROM = "centre-ice-all-star-hockey.png"
+
+
+def save(picture, name):
+    """Saves the PNG, and a .meta (a copy of the centre-ice logo's, new guid) if it has none."""
+    path = os.path.join(out, name)
+    picture.save(path, optimize=True)
+    meta, template = path + ".meta", os.path.join(out, META_FROM + ".meta")
+    if not os.path.exists(meta) and os.path.exists(template):
+        with open(template, encoding="utf-8", newline="") as f:
+            text = f.read()
+        with open(meta, "w", encoding="utf-8", newline="") as f:
+            f.write(re.sub(r"(?m)^guid: [0-9a-f]+", "guid: " + uuid.uuid4().hex, text, count=1))
+
+
+save(centre_ice(), META_FROM)
+with open(sources, encoding="utf-8", newline="") as f:
+    ids = [row["id"] for row in csv.DictReader(f)]
+only = set(sys.argv[5:])                 # optional: just these ids (a quick look)
+work = tempfile.mkdtemp(prefix="make_ads_")
+try:
+    for i in ids:
+        if only and i not in only: continue
+        logo = rasterise(os.path.join(svgs, i + ".svg"), work)
+        if i in WHITE_BOX: logo = clear_white_box(logo)
+        rgb, mask = panel(logo)
+        save(rgba(rgb, mask), f"panel-{i}.png")
+        save(soft(mask), f"panel-{i}-soft.png")
+        save(round_logo(logo), f"round-{i}.png")
+        print(i, logo.size)
+finally:
+    shutil.rmtree(work, ignore_errors=True)
+print(len(ids), "brands written to", out)

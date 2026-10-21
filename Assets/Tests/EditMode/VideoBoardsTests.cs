@@ -507,17 +507,16 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void An_ad_slide_shows_a_brand_and_the_next_one_after_a_while()
+        public void An_ad_slide_shows_the_Rounds_brand_all_Round()
         {
             VideoBoards boards = VideoBoards.Build(_rink.transform);
             ArenaState ad = At(RoundPhase.ResultHold, 1.0, ArenaResult.WideMiss);
             boards.Show(ad, 0.0);
             string first = boards.HeadlineOn(0);
-            Assert.IsTrue(Brands.IsAdWords(first), first);
+            Assert.AreEqual(Brands.Current.AdWords, first);
             Assert.AreEqual("", boards.DetailsOn(0));
             boards.Show(ad, VideoBoards.AdSeconds);
-            Assert.IsTrue(Brands.IsAdWords(boards.HeadlineOn(0)));
-            Assert.AreNotEqual(first, boards.HeadlineOn(0));
+            Assert.AreEqual(first, boards.HeadlineOn(0), "one brand a Round (#223)");
         }
 
         [Test]
@@ -744,9 +743,10 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(143 * 78 + 110 * 65, boards.WordsTextureBytes, "R8, one byte per LED cell: 18,304 bytes");
             Assert.Less(boards.WordsTextureBytes, 20 * 1024);
             Assert.AreEqual(0, round % 2, "the boards change together");
-            // Measured: 15 changes of words, each uploaded once on each board (2 x 15). The Calm Area's empty words are never written (the
-            // screens show the still colour), and words that repeat the last written ones cost nothing.
-            Assert.AreEqual(30, round, "uploads in a Round of 6 Shots (" + boards.WordsTextureBytes + " bytes of textures)");
+            // Measured: 13 changes of words, each uploaded once on each board (2 x 13). The Calm Area's empty words are never written (the
+            // screens show the still colour), and words that repeat the last written ones cost nothing: the Too late hold's ad slides
+            // are one brand all Round now (#223), so they no longer change every 5 s.
+            Assert.AreEqual(26, round, "uploads in a Round of 6 Shots (" + boards.WordsTextureBytes + " bytes of textures)");
         }
 
         [Test]
