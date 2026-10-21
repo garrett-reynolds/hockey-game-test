@@ -66,6 +66,8 @@ namespace HockeyGame.Core
             public string Label;
             public string Hint;                      // null, or a note such as "(next launch)"
             public string Tip;                       // the hover tip box text (#199)
+            public string LogoId;                    // a brand row: the id its CHANGE LOGO / USE DEFAULT buttons work on (#226)
+            public string Message;                   // a refusal note for the Hint, until the next pick, USE DEFAULT or Discard
             public Func<string> Value;
             public Func<int, bool> Change;           // Left/Right; null = does nothing
             public Func<bool> Activate;              // Enter; null = does nothing
@@ -80,15 +82,23 @@ namespace HockeyGame.Core
         private readonly List<Row> _all = new List<Row>();
         private readonly List<Row> _rows = new List<Row>(); // the current part's
         private readonly int[] _selected = new int[3];
+        private readonly IPicturePicker _picker;
+        private readonly IPictureCodec _codec;
+        private readonly ILogoFiles _files;
+        private readonly Dictionary<string, byte[]> _pending = new Dictionary<string, byte[]>(); // picked pictures (PNG bytes) waiting for SAVE, by brand id
 
         /// <param name="ports">Port names found now (e.g. COM3). Auto is always offered first.</param>
         /// <param name="openTestMode">What the Dev part's Test Mode button does (#156); null = nothing. It changes no setting.</param>
-        public SettingsMenu(SaveData save, IList<string> ports, Action openTestMode = null)
+        public SettingsMenu(SaveData save, IList<string> ports, Action openTestMode = null,
+            IPicturePicker picker = null, IPictureCodec codec = null, ILogoFiles files = null)
         {
             _live = save;
             _save = new SaveData();
             _save.CopyFrom(save);
             _openTestMode = openTestMode;
+            _picker = picker;
+            _codec = codec;
+            _files = files;
             _ports.Add(SaveData.AutoUsbPort);
             if (ports != null)
                 foreach (var p in ports)
@@ -159,10 +169,70 @@ namespace HockeyGame.Core
                 AddRow(SettingsPart.Brands, "BRANDS", SettingsRowKind.Toggle, b.Name,
                     "Shows " + b.Name + " in the ads on the boards, the ribbon and the ice. At least one brand stays on. Next Round, after SAVE.",
                     () => _save.IsBrandOn(id) ? "ON" : "OFF", step => flip(), flip);
+                _all[_all.Count - 1].LogoId = id; // CHANGE LOGO and USE DEFAULT (#226)
             }
 
             FillRows();
         }
+
+        /// <summary>True when the row has CHANGE LOGO and USE DEFAULT buttons (a brand row).</summary>
+        public bool HasLogoButtons(int row) => _rows[row].LogoId != null;
+
+        /// <summary>True when the row's brand has a custom logo now (saved, or picked and waiting for SAVE).</summary>
+        public bool IsLogoCustom(int row) => _rows[row].LogoId != null && _save.IsLogoCustom(_rows[row].LogoId);
+
+        /// <summary>The longest side a picked picture may have; a longer one is refused. One over MaxKeptSide is shrunk first.</summary>
+        public const int MaxPictureSide = 4096, MaxKeptSide = 2048;
+
+        /// <summary>
+        /// CHANGE LOGO on a row (#226): opens the file box. A picture that passes the checks is a pending change (the unsaved
+        /// state is on) until SAVE; Discard drops it; Cancel changes nothing; a refusal shows in the row's Hint and changes nothing.
+        /// </summary>
+        public void ChangeLogo(int row)
+        {
+            Select(row);
+            Row r = _rows[row];
+            if (r.LogoId == null || _picker == null) return;
+            _picker.Ask(file => LogoPicked(r, file));
+        }
+
+        private void LogoPicked(Row r, byte[] file)
+        {
+            if (file == null) return; // Cancel
+            if (_codec == null || !_codec.TryDecode(file, out int width, out int height, out byte[] rgba) || width <= 0 || height <= 0)
+            {
+                r.Message = "(not a picture)";
+                return;
+            }
+            if (Math.Max(width, height) > MaxPictureSide)
+            {
+                r.Message = "(over " + MaxPictureSide + " px)";
+                return;
+            }
+            RgbaPicture picture = LogoArt.Shrink(new RgbaPicture(width, height, rgba), MaxKeptSide);
+            if (LogoArt.MakeLogo(picture) == null)
+            {
+                r.Message = "(no logo found)";
+                return;
+            }
+            _pending[r.LogoId] = _codec.EncodePng(picture.Width, picture.Height, picture.Rgba);
+            _save.SetLogoCustom(r.LogoId, true);
+            r.Message = null;
+        }
+
+        /// <summary>USE DEFAULT on a row: the shipped art comes back at SAVE. True when something changed.</summary>
+        public bool UseDefaultLogo(int row)
+        {
+            Select(row);
+            Row r = _rows[row];
+            if (r.LogoId == null) return false;
+            r.Message = null;
+            bool hadPick = _pending.Remove(r.LogoId);
+            return _save.SetLogoCustom(r.LogoId, false) || hadPick;
+        }
+
+        /// <summary>Raised once per brand id whose logo SAVE changed (the art lookup forgets its pictures then).</summary>
+        public event Action<string> LogoSaved;
 
         /// <summary>The part showing now.</summary>
         public SettingsPart Part { get; private set; }
@@ -187,7 +257,7 @@ namespace HockeyGame.Core
         public string Group(int row) => _rows[row].Group;
 
         /// <summary>A short note after the row's label (for example "(next launch)"), or null.</summary>
-        public string Hint(int row) => _rows[row].Hint;
+        public string Hint(int row) => _rows[row].Message ?? _rows[row].Hint;
 
         /// <summary>One or two short lines for the tip box (#199): what the row does and when a change takes effect.</summary>
         public string Tip(int row) => _rows[row].Tip;
@@ -312,14 +382,41 @@ namespace HockeyGame.Core
         public bool Save()
         {
             if (!HasUnsavedChanges) return false;
+            var logosChanged = SaveLogos();
             _live.CopySettingsFrom(_save); // only the values with a row: the port the sensor found, the bests and the skin stay as they are now
             _save.CopyFrom(_live);         // and the working copy takes those back
+            foreach (string id in logosChanged) LogoSaved?.Invoke(id);
             SaveDataChanged?.Invoke();
             return true;
         }
 
+        // Writes the picked pictures and deletes the ones USE DEFAULT dropped. A picture that cannot be written leaves that brand as it was.
+        private List<string> SaveLogos()
+        {
+            var changed = new List<string>();
+            foreach (var pair in _pending)
+            {
+                if (_files != null && _files.Write(pair.Key, pair.Value)) { changed.Add(pair.Key); continue; }
+                _save.SetLogoCustom(pair.Key, _live.IsLogoCustom(pair.Key));
+                foreach (var r in _all) if (r.LogoId == pair.Key) r.Message = "(could not save)";
+            }
+            _pending.Clear();
+            foreach (var r in _all)
+            {
+                if (r.LogoId == null || !_live.IsLogoCustom(r.LogoId) || _save.IsLogoCustom(r.LogoId)) continue;
+                _files?.Delete(r.LogoId);
+                changed.Add(r.LogoId);
+            }
+            return changed;
+        }
+
         /// <summary>Drops every waiting change: the working copy goes back to the saved data.</summary>
-        public void Discard() => _save.CopyFrom(_live);
+        public void Discard()
+        {
+            _pending.Clear();
+            foreach (var r in _all) r.Message = null;
+            _save.CopyFrom(_live);
+        }
 
         private enum Leave { Close, TestMode }
 
@@ -394,6 +491,7 @@ namespace HockeyGame.Core
         private bool IsUnsaved(Row r)
         {
             if (r.Kind == SettingsRowKind.Button) return false; // action rows act at once; nothing waits
+            if (r.LogoId != null && (_pending.ContainsKey(r.LogoId) || _save.IsLogoCustom(r.LogoId) != _live.IsLogoCustom(r.LogoId))) return true; // a logo waits (#226)
             var working = _save;
             string saved;
             try

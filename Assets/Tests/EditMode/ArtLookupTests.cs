@@ -43,6 +43,65 @@ namespace HockeyGame.Core.Tests
             Assert.IsNull(ArtLookup.GameLogo(), "none: the start screen draws its own logo");
         }
 
+        // #226: a brand with a saved custom logo gives the made colour panel; the fake stands for the made panel.
+        System.Func<string, Texture2D> _customWas;
+        Texture2D _fake;
+
+        [SetUp]
+        public void KeepCustom() { _customWas = ArtLookup.CustomPanel; }
+
+        [TearDown]
+        public void PutCustomBack()
+        {
+            ArtLookup.CustomPanel = _customWas;
+            foreach (Brands.Brand b in Brands.All) ArtLookup.Clear(b.Id);
+            if (_fake != null) Object.DestroyImmediate(_fake);
+        }
+
+        static Brands.Brand BrandWithRun()
+        {
+            foreach (Brands.Brand b in Brands.All) if (RinkAds.SequenceLength(b) >= 3) return b;
+            Assert.Fail("no brand has a run");
+            return null;
+        }
+
+        [Test]
+        public void A_custom_logo_gives_the_made_panel_for_the_colour_panel_and_the_run_logo_panels_only()
+        {
+            Brands.Brand b = BrandWithRun(), other = Brands.All[0] == b ? Brands.All[1] : Brands.All[0];
+            int length = RinkAds.SequenceLength(b);
+            _fake = new Texture2D(4, 4);
+            ArtLookup.CustomPanel = id => id == b.Id ? _fake : null;
+            ArtLookup.Clear(b.Id); ArtLookup.Clear(other.Id);
+
+            Assert.AreSame(_fake, ArtLookup.Panel(b, false), "colour panel");
+            Assert.AreSame(_fake, ArtLookup.RunPanel(b, 0, false), "run logo panel 0");
+            Assert.AreSame(_fake, ArtLookup.RunPanel(b, 1, false), "run logo panel 1");
+            for (int n = 2; n < length; n++)
+                Assert.AreSame(Shipped(RinkAds.SequenceArt(b, n, false)), ArtLookup.RunPanel(b, n, false), "tagline panel " + n + " stays shipped");
+            Assert.AreSame(Shipped(RinkAds.PanelArt(b, true)), ArtLookup.Panel(b, true), "the soft panel is #227");
+            Assert.AreSame(Shipped(RinkAds.PanelArt(other, false)), ArtLookup.Panel(other, false), "another brand keeps shipped art");
+            Assert.AreEqual(length, RinkAds.SequenceLength(b), "the run keeps its length");
+        }
+
+        [Test]
+        public void Nothing_changes_until_the_id_is_cleared_and_clearing_counts_a_new_version()
+        {
+            Brands.Brand b = BrandWithRun();
+            ArtLookup.Clear(b.Id);
+            Texture2D shipped = ArtLookup.Panel(b, false);
+            _fake = new Texture2D(4, 4);
+            ArtLookup.CustomPanel = id => id == b.Id ? _fake : null;
+            Assert.AreSame(shipped, ArtLookup.Panel(b, false), "before SAVE clears it, the cache holds the old art");
+            int version = ArtLookup.Version;
+            ArtLookup.Clear(b.Id);
+            Assert.AreEqual(version + 1, ArtLookup.Version);
+            Assert.AreSame(_fake, ArtLookup.Panel(b, false));
+            ArtLookup.CustomPanel = id => null;
+            ArtLookup.Clear(b.Id);
+            Assert.AreSame(shipped, ArtLookup.Panel(b, false), "USE DEFAULT and SAVE bring the shipped art back");
+        }
+
         [Test]
         public void Asking_again_reuses_the_cache_and_clearing_one_id_reloads_only_that_id()
         {

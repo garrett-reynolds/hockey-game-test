@@ -16,7 +16,15 @@ namespace HockeyGame
         /// <summary>%USERPROFILE%/AppData/LocalLow/&lt;company&gt;/&lt;product&gt;/save.txt on Windows.</summary>
         public static string FilePath => Path.Combine(Application.persistentDataPath, "save.txt");
 
-        public static SaveData Current => _current ?? (_current = SaveData.Load(FilePath));
+        public static SaveData Current => _current ?? (_current = LoadChecked());
+
+        // A listed custom logo with no picture file falls back to the default art, with a log line, and is dropped (#226).
+        static SaveData LoadChecked()
+        {
+            SaveData data = SaveData.Load(FilePath);
+            data.DropMissingLogos(CustomLogos.Files.Exists, Debug.LogWarning);
+            return data;
+        }
 
         public static void Save()
         {

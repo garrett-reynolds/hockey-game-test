@@ -13,15 +13,29 @@ namespace HockeyGame
         /// <summary>How many times art was loaded from Resources (the cache hits do not count).</summary>
         public static int Loads { get; private set; }
 
+        /// <summary>The made colour panel for a brand id that has a saved custom logo, else null (#226). Tests put a fake here.</summary>
+        public static Func<string, Texture2D> CustomPanel = CustomLogos.Panel;
+
+        /// <summary>Counts each Clear, so a screen can tell the art changed since it last built.</summary>
+        public static int Version { get; private set; }
+
         static readonly Dictionary<(string id, string spot), Texture2D> Cache = new Dictionary<(string id, string spot), Texture2D>();
 
         /// <summary>A brand's panel: its logo in colour, or the soft grey version for the Calm Area.</summary>
         public static Texture2D Panel(Brands.Brand brand, bool soft) =>
-            Get(brand.Id, soft ? "panel-soft" : "panel", () => Load(RinkAds.PanelArt(brand, soft)));
+            Get(brand.Id, soft ? "panel-soft" : "panel", () => (soft ? null : CustomPanel(brand.Id)) ?? Load(RinkAds.PanelArt(brand, soft)));
 
-        /// <summary>Panel n of a brand's board run, in colour or soft.</summary>
+        /// <summary>The run's panels 0 and 1 are the brand's logo (look A: logo, logo, tagline); the rest are taglines and stay shipped art.</summary>
+        public const int RunLogoPanels = 2;
+
+        /// <summary>Panel n of a brand's board run, in colour or soft. A custom logo (#226) takes the colour logo panels of an existing run.</summary>
         public static Texture2D RunPanel(Brands.Brand brand, int n, bool soft) =>
-            Get(brand.Id, "run-" + n + (soft ? "-soft" : ""), () => Load(RinkAds.SequenceArt(brand, n, soft)));
+            Get(brand.Id, "run-" + n + (soft ? "-soft" : ""), () =>
+            {
+                Texture2D shipped = Load(RinkAds.SequenceArt(brand, n, soft));
+                if (shipped == null || soft || n >= RunLogoPanels) return shipped; // no run panel here: the run keeps its length
+                return CustomPanel(brand.Id) ?? shipped;
+            });
 
         /// <summary>A brand's round ice logo: the colour panel for now; later tickets give it its own art.</summary>
         public static Texture2D Round(Brands.Brand brand) =>
@@ -48,6 +62,7 @@ namespace HockeyGame
         /// <summary>Forgets every picture cached under id, so the next ask loads it afresh.</summary>
         public static void Clear(string id)
         {
+            Version++;
             var keys = new List<(string id, string spot)>();
             foreach ((string id, string spot) key in Cache.Keys)
                 if (key.id == id) keys.Add(key);

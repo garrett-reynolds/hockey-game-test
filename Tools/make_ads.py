@@ -26,8 +26,10 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 out, fonts, svgs, sources = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 os.makedirs(out, exist_ok=True)
 
+# Keep in step: Assets/Scripts/Core/LogoArt.cs (#226) makes the colour panel in the game from a picked picture with the same
+# PANEL, PANEL_FIT and BOARD_WHITE numbers and the same crop and clear_white_box rules. Change one, change the other.
 SS = 4                                   # drawn this many times bigger, then shrunk, for smooth edges
-PANEL = (768, 256)                       # 3:1, narrower than the narrowest panel (2.44 x 0.73 m), so the logo always fits
+PANEL = (768, 256)                      # 3:1, narrower than the narrowest panel (2.44 x 0.73 m), so the logo always fits
 PANEL_FIT = (0.84, 0.70)                 # the logo's largest share of the panel's width and height
 ROUND = 512
 ROUND_FIT = 0.36                         # the logo's corners stay this far (share of the disc) from the disc's centre

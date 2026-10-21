@@ -53,6 +53,7 @@ namespace HockeyGame
         const float ScoreBoxWidth = 330f;
         TeamSkin _skin; // picked by the save file's teamSkin setting before the rink is built
         Transform _rink;
+        int _adsArtVersion = ArtLookup.Version; // the art lookup's version when the ads were last built (#226)
         Brands.Brand _adsBrand; // the brand the board panels and ice logos show; a new Round's brand rebuilds them (#223)
 
         void Awake()
@@ -167,7 +168,8 @@ namespace HockeyGame
         void Update()
         {
             if (_flow.Paused) { UpdatePaused(); return; }
-            if (Brands.Current != _adsBrand) { _adsBrand = Brands.Current; RinkAds.Rebuild(_rink, _skin); } // the ribbon and boards read it each frame
+            // The ribbon and boards read it each frame. A logo saved on the Settings page (ArtLookup.Version) redraws the start screen at once (#226).
+            if (Brands.Current != _adsBrand || ArtLookup.Version != _adsArtVersion) { _adsBrand = Brands.Current; _adsArtVersion = ArtLookup.Version; RinkAds.Rebuild(_rink, _skin); }
             _replay.RestoreLive(); // last frame's Replay poses go back before anything moves
             _flow.Tick(Time.unscaledDeltaTime);
 

@@ -100,6 +100,7 @@ namespace HockeyGame.Core
         private const string MusicVolumeKey = "musicVolume";
         private const string TeamSkinKey = "teamSkin";
         private const string BrandsOffKey = "brandsOff";
+        private const string CustomLogosKey = "customLogos";
         private const string ForceGoalieBlocksKey = "forceGoalieBlocks"; // replaces goalieCharacterOn (#27), which old files hold as false
         private const string ReactionSecondsKey = "goalieReactionSeconds";
         private const string ReactionWobbleSecondsKey = "goalieReactionWobbleSeconds";
@@ -171,6 +172,7 @@ namespace HockeyGame.Core
         {
             _shotsPerRound = other._shotsPerRound;
             BrandsOff = other.BrandsOff;
+            CustomLogos = other.CustomLogos;
             UsbPort = other.UsbPort;
             EasyMode = other.EasyMode;
             TestShotOnAtStart = other.TestShotOnAtStart;
@@ -349,6 +351,37 @@ namespace HockeyGame.Core
             return true;
         }
 
+        /// <summary>The ids that have a custom logo picture saved (#226), comma-separated: brand ids, later "centre-ice" and "game-logo". "" = none.</summary>
+        public string CustomLogos = "";
+
+        /// <summary>True when the id has a custom logo.</summary>
+        public bool IsLogoCustom(string id) => Array.IndexOf(CustomLogos.Split(','), id) >= 0;
+
+        /// <summary>Lists or unlists an id as custom. False when it is already so.</summary>
+        public bool SetLogoCustom(string id, bool custom)
+        {
+            if (IsLogoCustom(id) == custom) return false;
+            var ids = new List<string>();
+            foreach (string s in CustomLogos.Split(',')) if (s.Length > 0 && s != id) ids.Add(s);
+            if (custom) ids.Add(id);
+            CustomLogos = string.Join(",", ids);
+            return true;
+        }
+
+        /// <summary>Drops every listed id whose picture file is missing, with a log line each (the id falls back to the default art). True when any was dropped.</summary>
+        public bool DropMissingLogos(Func<string, bool> fileExists, Action<string> log)
+        {
+            bool dropped = false;
+            foreach (string id in CustomLogos.Split(','))
+            {
+                if (id.Length == 0 || fileExists(id)) continue;
+                SetLogoCustom(id, false);
+                log?.Invoke("Custom logo '" + id + "' has no picture file; using the default art.");
+                dropped = true;
+            }
+            return dropped;
+        }
+
         /// <summary>Loads from a path. Never throws: any problem leaves defaults for what could not be read.</summary>
         public static SaveData Load(string path)
         {
@@ -409,6 +442,7 @@ namespace HockeyGame.Core
             data.KeepRoundLimits();
             if (values.TryGetValue(TeamSkinKey, out var skin) && skin.Length > 0) data.TeamSkin = skin;
             if (values.TryGetValue(BrandsOffKey, out var brandsOff)) data.BrandsOff = brandsOff;
+            if (values.TryGetValue(CustomLogosKey, out var customLogos)) data.CustomLogos = customLogos;
             return data;
         }
 
@@ -458,6 +492,7 @@ namespace HockeyGame.Core
                 sb.Append(BottleJumpKey).Append('=').Append(BottleJumpPercent.ToString("R", inv)).Append('\n');
                 sb.Append(TeamSkinKey).Append('=').Append(TeamSkin).Append('\n');
                 sb.Append(BrandsOffKey).Append('=').Append(BrandsOff).Append('\n');
+                sb.Append(CustomLogosKey).Append('=').Append(CustomLogos).Append('\n');
                 File.WriteAllText(path, sb.ToString(), new UTF8Encoding(false));
                 return true;
             }

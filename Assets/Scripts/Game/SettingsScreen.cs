@@ -18,7 +18,7 @@ namespace HockeyGame
         const string SheetPath = "UI/LookC";
         const float PanelWidth = 1920f, PanelHeight = 1080f;
 
-        enum HitKind { Row, Slider, ToggleOn, ToggleOff, Cell }
+        enum HitKind { Row, Slider, ToggleOn, ToggleOff, Cell, ChangeLogo, UseDefaultLogo }
 
         sealed class Hit
         {
@@ -30,7 +30,7 @@ namespace HockeyGame
         sealed class RowView
         {
             public VisualElement Row, Fill, Thumb, Track, Mark;
-            public Label Value, OnCell, OffCell;
+            public Label Value, OnCell, OffCell, LogoHint, ChangeLogo, UseDefaultLogo;
         }
 
         readonly SaveData _save;
@@ -219,8 +219,9 @@ namespace HockeyGame
         /// <summary>Opens the page on the Player part, with a fresh port list.</summary>
         public void Open()
         {
-            _menu = new SettingsMenu(_save, PortNames(), () => TestModeRequested?.Invoke());
+            _menu = new SettingsMenu(_save, PortNames(), () => TestModeRequested?.Invoke(), CustomLogos.Picker, CustomLogos.Codec, CustomLogos.Files);
             _menu.SaveDataChanged += () => { _persist = true; Brands.UseOff(_save.BrandsOff); }; // unticked brands leave the rotation (#223)
+            _menu.LogoSaved += id => { CustomLogos.Forget(id); ArtLookup.Clear(id); };         // the lookup makes the brand's pictures again (#226)
             _menu.CloseApproved += () => _closeApproved = true;
             _persist = false;
             _closeApproved = false;
@@ -363,6 +364,12 @@ namespace HockeyGame
                     case HitKind.Cell:
                         if (_menu.Kind(hit.Row) == SettingsRowKind.Choice) _menu.Change(1);
                         else _menu.Activate();
+                        break;
+                    case HitKind.ChangeLogo:
+                        _menu.ChangeLogo(hit.Row); // the file box (the Editor's); the pick waits for SAVE (#226)
+                        break;
+                    case HitKind.UseDefaultLogo:
+                        _menu.UseDefaultLogo(hit.Row);
                         break;
                 }
                 return; // the row itself: selected
@@ -539,7 +546,22 @@ namespace HockeyGame
                     _hits.Add(new Hit { El = view.Value, Kind = HitKind.Row, Row = i }); // the number box: selects the row only
                     break;
                 case SettingsRowKind.Toggle:
-                    if (_menu.Hint(i) != null) Add(control, "lc-hint", _menu.Hint(i));
+                    if (_menu.HasLogoButtons(i) && CustomLogos.Picker != null)
+                    {
+                        // CHANGE LOGO and USE DEFAULT beside the tick box (#226); a refusal note shows before them.
+                        view.LogoHint = Add(control, "lc-hint", _menu.Hint(i));
+                        view.ChangeLogo = Add(control, "lc-cell", "CHANGE LOGO");
+                        view.UseDefaultLogo = Add(control, "lc-cell", "USE DEFAULT");
+                        foreach (Label b in new[] { view.ChangeLogo, view.UseDefaultLogo })
+                        {
+                            b.style.width = 150;
+                            b.style.fontSize = 18;
+                            b.style.marginRight = 10;
+                        }
+                        _hits.Add(new Hit { El = view.ChangeLogo, Kind = HitKind.ChangeLogo, Row = i });
+                        _hits.Add(new Hit { El = view.UseDefaultLogo, Kind = HitKind.UseDefaultLogo, Row = i });
+                    }
+                    else if (_menu.Hint(i) != null) Add(control, "lc-hint", _menu.Hint(i));
                     view.OnCell = Add(control, "lc-cell", "ON");
                     view.OffCell = Add(control, "lc-cell", "OFF");
                     _hits.Add(new Hit { El = view.OnCell, Kind = HitKind.ToggleOn, Row = i });
@@ -597,6 +619,11 @@ namespace HockeyGame
                         bool on = value == "ON";
                         v.OnCell.EnableInClassList("lc-cell-on", on);
                         v.OffCell.EnableInClassList("lc-cell-off", !on);
+                        if (v.LogoHint != null)
+                        {
+                            v.LogoHint.text = _menu.Hint(i) ?? "";
+                            v.UseDefaultLogo.style.opacity = _menu.IsLogoCustom(i) ? 1f : 0.45f; // nothing to put back on the shipped art
+                        }
                         break;
                     case SettingsRowKind.Button:
                         v.Value.text = _menu.ButtonText(i);
