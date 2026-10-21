@@ -45,7 +45,8 @@ namespace HockeyGame
         int _testShotSpeedKmh = TestShotSpeed.DefaultKmh;
         GUIStyle _big, _mid, _small, _scoreBox;
         Texture2D _scoreBoxBack; // made with the styles; freed in OnDestroy
-        Texture2D _logo; // the Shootout logo, made with the styles; freed in OnDestroy
+        Texture2D _logo; // the Shootout logo, made with the styles; freed in OnDestroy when drawn here
+        bool _logoDrawn;
         readonly LowerThirdView _lowerThird = new LowerThirdView(); // the TV bar along the bottom, on the whole Round (#141, look A)
         readonly LowerThirdWords _lowerThirdWords = new LowerThirdWords(); // its words, built only when the Round's numbers change (#151)
         ArenaState _show; // this frame's Arena Show, worked out once in Update and read by everything that frame, OnGUI too
@@ -435,7 +436,9 @@ namespace HockeyGame
             _scoreBox = new GUIStyle(GUI.skin.label) { fontSize = 22, alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
             _scoreBox.normal.background = back;
             _scoreBox.normal.textColor = boxText;
-            _logo = StartLogoArt.Make(); // about 0.35 s once, with the styles, not in the middle of play
+            Texture2D saved = ArtLookup.GameLogo();
+            _logoDrawn = saved == null;
+            _logo = _logoDrawn ? StartLogoArt.Make() : saved; // drawing takes about 0.35 s once, with the styles, not in the middle of play
         }
 
         /// <summary>The Score Box's one-pixel background picture.</summary>
@@ -453,7 +456,7 @@ namespace HockeyGame
             _effects?.Dispose(finishShot: false);
             _goalie?.Dispose();
             if (_scoreBoxBack != null) SceneObjects.DestroySafely(_scoreBoxBack);
-            if (_logo != null) SceneObjects.DestroySafely(_logo);
+            if (_logoDrawn && _logo != null) SceneObjects.DestroySafely(_logo);
         }
 
         /// <summary>Where the Score Box is drawn on a screen this wide: the top-right corner.</summary>

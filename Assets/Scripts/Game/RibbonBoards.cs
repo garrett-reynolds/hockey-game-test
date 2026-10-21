@@ -103,19 +103,11 @@ namespace HockeyGame
         /// <summary>How fast the ad picture scrolls to the left round the ring (metres a second, #223): like a news ticker.</summary>
         public const float ScrollMetresPerSecond = 1.5f;
         static readonly int LitAboveId = Shader.PropertyToID("_LitAbove"), WrapId = Shader.PropertyToID("_Wrap");
-        static readonly Dictionary<string, Texture2D> Pictures = new Dictionary<string, Texture2D>();
         double _ring, _loop = 1.0, _seconds;
         Texture2D _loopOf;
 
         /// <summary>The brand's Ribbon ad picture: Resources Ads/ribbon-&lt;id&gt; (a strip that tiles), else its panel art; null: none.</summary>
-        public static Texture2D PictureOf(Brands.Brand brand)
-        {
-            if (Pictures.TryGetValue(brand.Id, out Texture2D cached) && cached != null) return cached;
-            Texture2D picture = Resources.Load<Texture2D>(RinkAds.ArtFolder + "/ribbon-" + brand.Id)
-                ?? Resources.Load<Texture2D>(RinkAds.ArtFolder + "/" + RinkAds.PanelArt(brand, false));
-            Pictures[brand.Id] = picture;
-            return picture;
-        }
+        public static Texture2D PictureOf(Brands.Brand brand) => ArtLookup.Ribbon(brand);
 
         /// <summary>The ad picture's tiling on the panel at the last Show: x its scale, z its offset (the scroll), along the panel.</summary>
         public Vector4 PictureSTOn(int panel)
@@ -202,7 +194,6 @@ namespace HockeyGame
         /// model's own ribbon. They show ads until told otherwise.</summary>
         public static RibbonBoards Build(Transform rink, TeamSkin skin = null)
         {
-            Pictures.Clear(); // a new rink loads the art afresh: in the Editor, reimported art is a new texture
             skin = TeamSkin.OrLeague(skin);
             foreach (Renderer r in rink.GetComponentsInChildren<Renderer>())
                 if (r.name == ArenaStands.GlowPart) r.enabled = false;

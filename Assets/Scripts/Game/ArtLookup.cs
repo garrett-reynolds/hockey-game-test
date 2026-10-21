@@ -1,0 +1,71 @@
+using System;
+using System.Collections.Generic;
+using HockeyGame.Core;
+using UnityEngine;
+
+namespace HockeyGame
+{
+    /// <summary>The one place the Ads art is loaded by name: each picture is found once per brand and spot, then reused.</summary>
+    public static class ArtLookup
+    {
+        public const string CentreIceId = "centre-ice", GameLogoId = "game-logo";
+
+        /// <summary>How many times art was loaded from Resources (the cache hits do not count).</summary>
+        public static int Loads { get; private set; }
+
+        static readonly Dictionary<(string id, string spot), Texture2D> Cache = new Dictionary<(string id, string spot), Texture2D>();
+
+        /// <summary>A brand's panel: its logo in colour, or the soft grey version for the Calm Area.</summary>
+        public static Texture2D Panel(Brands.Brand brand, bool soft) =>
+            Get(brand.Id, soft ? "panel-soft" : "panel", () => Load(RinkAds.PanelArt(brand, soft)));
+
+        /// <summary>Panel n of a brand's board run, in colour or soft.</summary>
+        public static Texture2D RunPanel(Brands.Brand brand, int n, bool soft) =>
+            Get(brand.Id, "run-" + n + (soft ? "-soft" : ""), () => Load(RinkAds.SequenceArt(brand, n, soft)));
+
+        /// <summary>A brand's round ice logo: the colour panel for now; later tickets give it its own art.</summary>
+        public static Texture2D Round(Brands.Brand brand) =>
+            Get(brand.Id, "round", () => Load(RinkAds.PanelArt(brand, false)));
+
+        /// <summary>A brand's Ribbon strip (a strip that tiles), else its colour panel.</summary>
+        public static Texture2D Ribbon(Brands.Brand brand) =>
+            Get(brand.Id, "ribbon", () => Load("ribbon-" + brand.Id) ?? Load(RinkAds.PanelArt(brand, false)));
+
+        /// <summary>A brand's big centre-ice logo.</summary>
+        public static Texture2D Centre(Brands.Brand brand) =>
+            Get(brand.Id, "centre", () => Load(RinkAds.CentreArt(brand)));
+
+        /// <summary>The centre-ice logo: the Leafs art, else the skin's own (null: the League Skin's).</summary>
+        public static Texture2D CentreIce(TeamSkin skin = null)
+        {
+            string art = TeamSkin.OrLeague(skin).CentreIceLogo;
+            return Get(CentreIceId, art, () => Load(RinkAds.LeafsCentreArt) ?? Load(art));
+        }
+
+        /// <summary>The saved game logo; none: the start screen draws its own logo, and a later ticket gives it a saved picture.</summary>
+        public static Texture2D GameLogo() => null;
+
+        /// <summary>Forgets every picture cached under id, so the next ask loads it afresh.</summary>
+        public static void Clear(string id)
+        {
+            var keys = new List<(string id, string spot)>();
+            foreach ((string id, string spot) key in Cache.Keys)
+                if (key.id == id) keys.Add(key);
+            foreach ((string id, string spot) key in keys) Cache.Remove(key);
+        }
+
+        static Texture2D Get(string id, string spot, Func<Texture2D> load)
+        {
+            if (Cache.TryGetValue((id, spot), out Texture2D cached) && cached != null) return cached;
+            Texture2D texture = load();
+            Cache[(id, spot)] = texture;
+            return texture;
+        }
+
+        static Texture2D Load(string name)
+        {
+            Loads++;
+            return Resources.Load<Texture2D>(RinkAds.ArtFolder + "/" + name);
+        }
+    }
+}

@@ -61,7 +61,7 @@ namespace HockeyGame
         {
             if (RunLengths.TryGetValue(brand.Id, out int known)) return known;
             int n = 0;
-            while (n < 16 && Art(SequenceArt(brand, n, false)) != null) n++;
+            while (n < 16 && ArtLookup.RunPanel(brand, n, false) != null) n++;
             RunLengths[brand.Id] = n;
             return n;
         }
@@ -72,10 +72,24 @@ namespace HockeyGame
         /// panel. A brand with no run shows its one panel on every slot.</summary>
         public static string SlotArt(Brands.Brand brand, int slot, bool soft)
         {
+            int index = RunIndex(brand, slot);
+            return index < 0 ? PanelArt(brand, soft) : SequenceArt(brand, index, soft);
+        }
+
+        /// <summary>The picture on board slot i, in colour or soft (the Calm Area).</summary>
+        public static Texture2D SlotTexture(Brands.Brand brand, int slot, bool soft)
+        {
+            int index = RunIndex(brand, slot);
+            return index < 0 ? ArtLookup.Panel(brand, soft) : ArtLookup.RunPanel(brand, index, soft);
+        }
+
+        /// <summary>Which panel of the brand's run sits on slot i; -1: the brand has no run.</summary>
+        static int RunIndex(Brands.Brand brand, int slot)
+        {
             int run = SequenceLength(brand);
-            if (run == 0) return PanelArt(brand, soft);
+            if (run == 0) return -1;
             int k = SlotsReadForward ? slot : RinkLayout.AdPanelSlots.Length - 1 - slot;
-            return SequenceArt(brand, k % run, soft);
+            return k % run;
         }
         /// <summary>Whether slot i + 1 is to the viewer's right of slot i (the slots' order round the boards).</summary>
         static readonly bool SlotsReadForward = true;
@@ -92,7 +106,6 @@ namespace HockeyGame
         /// <summary>Adds the ads under rink, with the skin's centre-ice logo (null: the League Skin's).</summary>
         public static GameObject Build(Transform rink, TeamSkin skin = null)
         {
-            Texture2D centreIceLogo = Art(TeamSkin.OrLeague(skin).CentreIceLogo);
             var ads = new GameObject(Part);
             ads.transform.SetParent(rink, false);
             var materials = new Dictionary<string, Material>();
@@ -104,7 +117,7 @@ namespace HockeyGame
             {
                 Brands.Brand brand = Brands.ForPanel(i);
                 string art = SlotArt(brand, i, slots[i].CalmArea);
-                Texture2D texture = Art(art);
+                Texture2D texture = SlotTexture(brand, i, slots[i].CalmArea);
                 Material m = Shared(materials, art, () => Opaque(texture, slots[i].CalmArea ? SoftPanelSmoothness : PanelSmoothness));
                 Piece(boards, $"Ad Panel {i} {brand.Id}", PanelMesh(slots[i], texture), m);
             }
@@ -116,15 +129,13 @@ namespace HockeyGame
             {
                 RinkLayout.IceLogoSpot spot = spots[i];
                 Brands.Brand brand = Brands.ForIceLogo(i);
-                Texture2D texture = brand == null ? (Art(LeafsCentreArt) ?? centreIceLogo) : Art(PanelArt(brand, false));
+                Texture2D texture = brand == null ? ArtLookup.CentreIce(skin) : ArtLookup.Round(brand);
                 string key = "ice " + (texture != null ? texture.name : "none");
                 Material m = Shared(materials, key, () => SeeThrough(texture));
                 Piece(ice, $"Ice Logo {i} {(brand == null ? "centre ice" : brand.Id)}", IceLogoMesh(spot, texture), m);
             }
             return ads;
         }
-
-        static Texture2D Art(string name) => Resources.Load<Texture2D>(ArtFolder + "/" + name);
 
         static Material Shared(Dictionary<string, Material> materials, string key, Func<Material> make)
         {
