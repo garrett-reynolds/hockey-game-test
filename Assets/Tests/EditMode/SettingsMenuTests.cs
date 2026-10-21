@@ -176,6 +176,8 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual(SettingsPart.Dev, menu.Part);
             Assert.AreEqual(0, menu.Selected);
             menu.Press(SettingsKey.Tab);
+            Assert.AreEqual(SettingsPart.Brands, menu.Part, "Player, Dev, Brands (#223), then round again");
+            menu.Press(SettingsKey.Tab);
             Assert.AreEqual(SettingsPart.Player, menu.Part);
             Assert.AreEqual(2, menu.Selected);
         }

@@ -58,9 +58,10 @@
 .lc-stripe-gold { color: rgb(232, 190, 40); }
 
 /* Tabs: slanted shapes (SlantShape, colour from `color`) with upright text on top. */
-.lc-tab { position: absolute; top: 22px; width: 370px; height: 76px; }
-.lc-tab-player { left: 1130px; }
-.lc-tab-dev { left: 1520px; }
+.lc-tab { position: absolute; top: 22px; width: 330px; height: 76px; }
+.lc-tab-player { left: 860px; }
+.lc-tab-dev { left: 1205px; }
+.lc-tab-brands { left: 1550px; }
 
 .lc-tab-fill { left: 0; top: 0; right: 0; bottom: 0; color: rgb(20, 60, 150); }
 .lc-tab-on .lc-tab-fill { color: rgb(232, 190, 40); }
@@ -109,6 +110,13 @@
 }
 
 .lc-selected { background-color: rgba(255, 255, 255, 0.14); }
+
+/* The Brands part (#223): four narrow cards of compact tick-box rows. */
+.lc-brands-column { width: 430px; }
+.lc-brands .lc-row { height: 52px; margin-left: 6px; margin-right: 6px; }
+.lc-brands .lc-row-label { width: 210px; margin-left: 12px; font-size: 22px; }
+.lc-brands .lc-control { height: 52px; }
+.lc-brands .lc-cell { width: 76px; height: 34px; font-size: 22px; }
 
 .lc-row-label {
     width: 480px;

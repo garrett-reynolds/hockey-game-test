@@ -9,7 +9,7 @@ namespace HockeyGame.Core
     {
         Player,
         Dev,
-        Brands // one tick box per pool brand (#223); no tab yet: ShowPart only
+        Brands // one tick box per pool brand (#223)
     }
 
     /// <summary>The keys the Settings page answers to (the view turns real keys into these).</summary>
@@ -197,8 +197,8 @@ namespace HockeyGame.Core
         /// <summary>A slider row's place along its range, 0 to 1. 0 for other rows.</summary>
         public double Fraction(int row) => _rows[row].Fraction != null ? _rows[row].Fraction() : 0;
 
-        /// <summary>Tab: Player to Dev and back. Each part keeps its selected row.</summary>
-        public void SwitchPart() => ShowPart(Part == SettingsPart.Player ? SettingsPart.Dev : SettingsPart.Player);
+        /// <summary>Tab: Player, Dev, Brands, and round again. Each part keeps its selected row.</summary>
+        public void SwitchPart() => ShowPart(Part == SettingsPart.Player ? SettingsPart.Dev : Part == SettingsPart.Dev ? SettingsPart.Brands : SettingsPart.Player);
 
         /// <summary>Shows a part (the tabs click this).</summary>
         public void ShowPart(SettingsPart part)

@@ -181,6 +181,18 @@ namespace HockeyGame.Editor
                     else if (_stage == 8)
                     {
                         Shoot(Path.Combine(folder, "t202-right.png"), "tip for a right column Dev row");
+                        // #223: the Brands part, two brands unticked (not saved) and one row selected.
+                        _screen.ForceHoverRow = -1;
+                        _screen.Menu.ShowPart(SettingsPart.Brands);
+                        foreach (int row in new[] { 1, 14 }) { _screen.Menu.Select(row); _screen.Menu.Activate(); }
+                        _screen.Menu.Select(5);
+                        Call("Rebuild");
+                        _stage = 9;
+                        _frames = 0;
+                    }
+                    else if (_stage == 9)
+                    {
+                        Shoot(Path.Combine(folder, "t223-settings-brands.png"), "Brands (" + _screen.Menu.RowCount + " rows)");
                         Finish();
                     }
                 }
