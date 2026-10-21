@@ -202,6 +202,7 @@ namespace HockeyGame
         /// model's own ribbon. They show ads until told otherwise.</summary>
         public static RibbonBoards Build(Transform rink, TeamSkin skin = null)
         {
+            Pictures.Clear(); // a new rink loads the art afresh: in the Editor, reimported art is a new texture
             skin = TeamSkin.OrLeague(skin);
             foreach (Renderer r in rink.GetComponentsInChildren<Renderer>())
                 if (r.name == ArenaStands.GlowPart) r.enabled = false;
