@@ -33,6 +33,24 @@ namespace HockeyGame.Editor
             EditorApplication.playModeStateChanged += OnPlayMode;
         }
 
+        const string BrandsFlag = "t231.brandsPictures";
+        static Texture2D _fakeArt;
+        static System.Func<string, Texture2D> _oldCustomPanel;
+        static string _customBrandId;
+        static int _customBrandRow;
+
+        /// <summary>
+        /// #231: pictures of the Brands part with one custom brand row (a loud test picture, set in memory only: the slot's save file and
+        /// BrandArt folder are not touched), the CHANGE LOGO tip, and USE EVERY DEFAULT LOGO. Written to the project's Logs folder as t231-*.png.
+        /// </summary>
+        [MenuItem("Hockey Game/Picture Test/Brands Part Pictures (#231)")]
+        public static void TakeBrands()
+        {
+            SessionState.SetBool(BrandsFlag, true);
+            Take();
+            if (!SessionState.GetBool(Flag, false)) SessionState.SetBool(BrandsFlag, false); // Take refused
+        }
+
         [MenuItem("Hockey Game/Picture Test/Settings Page Pictures")]
         public static void Take()
         {
@@ -67,6 +85,7 @@ namespace HockeyGame.Editor
         static void RestoreEditor()
         {
             SessionState.SetBool(Flag, false);
+            SessionState.SetBool(BrandsFlag, false);
             EditorUtility.audioMasterMute = SessionState.GetBool(MuteKey, false);
             string scene = SessionState.GetString(ScenePath, "");
             if (!string.IsNullOrEmpty(scene)) EditorSceneManager.OpenScene(scene, OpenSceneMode.Single);
@@ -97,19 +116,55 @@ namespace HockeyGame.Editor
                 {
                     _target = new RenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
                     _texture = new Texture2D(Width, Height, TextureFormat.RGBA32, false);
-                    _screen = new SettingsScreen(new SaveData());
+                    var data = new SaveData();
+                    bool brands = SessionState.GetBool(BrandsFlag, false);
+                    if (brands) PrepareBrands(data);
+                    _screen = new SettingsScreen(data);
                     _host = GameObject.Find("Settings page");
                     var settings = _host.GetComponent<UIDocument>().panelSettings;
                     settings.targetTexture = _target;
                     settings.clearColor = true;
                     settings.colorClearValue = new Color(0.07f, 0.09f, 0.14f, 1f);
                     _screen.Open();
-                    _stage = 1;
+                    if (brands)
+                    {
+                        _screen.Menu.ShowPart(SettingsPart.Brands);
+                        Call("Rebuild");
+                    }
+                    _stage = brands ? 20 : 1;
                     _frames = 0;
                 }
                 else if (++_frames >= SettleFrames)
                 {
-                    if (_stage == 1)
+                    if (_stage == 20)
+                    {
+                        string logs = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Logs"));
+                        Shoot(Path.Combine(logs, "t231-brands-top.png"), "top of the Brands part: CENTRE ICE, GAME LOGO, USE EVERY DEFAULT LOGO, a custom brand row");
+                        _screen.ForceHoverRow = _customBrandRow; // the tip of CHANGE LOGO on the custom brand row (no mouse)
+                        _screen.ForceHoverButton = 0;
+                        _screen.Pointer(new Vector2(-1f, -1f), false, false);
+                        _stage = 21;
+                        _frames = 0;
+                    }
+                    else if (_stage == 21)
+                    {
+                        string logs = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Logs"));
+                        Shoot(Path.Combine(logs, "t231-change-logo-tip.png"), "hover tip on CHANGE LOGO of the custom brand row");
+                        _screen.Menu.Select(1); // GAME LOGO, the keyboard on USE DEFAULT
+                        _screen.Menu.Press(SettingsKey.Right);
+                        _screen.ForceHoverRow = 2; // USE EVERY DEFAULT LOGO with its tip
+                        _screen.ForceHoverButton = -1;
+                        _screen.Pointer(new Vector2(-1f, -1f), false, false);
+                        _stage = 22;
+                        _frames = 0;
+                    }
+                    else if (_stage == 22)
+                    {
+                        string logs = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Logs"));
+                        Shoot(Path.Combine(logs, "t231-use-every-default.png"), "USE EVERY DEFAULT LOGO row with its tip; the keyboard on USE DEFAULT of GAME LOGO");
+                        Finish();
+                    }
+                    else if (_stage == 1)
                     {
                         Shoot(Path.Combine(folder, "t159-settings-player.png"), "Player");
                         Shoot(Path.Combine(folder, "t195-fix-bar.png"), "bottom bar with the ESC CLOSE button"); // #195 review
@@ -233,8 +288,34 @@ namespace HockeyGame.Editor
             Debug.Log("Settings picture: " + path + " (" + what + ")");
         }
 
+        // One custom brand row for the #231 pictures: the SaveData in memory lists it and the art lookup gives a loud test picture. Put back in Finish.
+        static void PrepareBrands(SaveData data)
+        {
+            _customBrandId = Brands.All[3].Id;
+            _customBrandRow = 3 + 3; // rows: CENTRE ICE, GAME LOGO, USE EVERY DEFAULT LOGO, then the brands in order
+            data.SetLogoCustom(_customBrandId, true);
+            _fakeArt = new Texture2D(256, 96, TextureFormat.RGBA32, false);
+            for (int y = 0; y < 96; y++)
+                for (int x = 0; x < 256; x++)
+                    _fakeArt.SetPixel(x, y, x > 28 && x < 100 && y > 18 && y < 78 ? new Color(0.9f, 0.1f, 0.7f) : y > 40 && y < 56 ? new Color(0.1f, 0.7f, 0.2f) : Color.white);
+            _fakeArt.Apply();
+            _oldCustomPanel = ArtLookup.CustomPanel;
+            string id = _customBrandId;
+            Texture2D art = _fakeArt;
+            ArtLookup.CustomPanel = brand => brand == id ? art : null;
+            ArtLookup.Clear(id);
+        }
+
         static void Finish()
         {
+            if (_oldCustomPanel != null)
+            {
+                ArtLookup.CustomPanel = _oldCustomPanel;
+                ArtLookup.Clear(_customBrandId);
+                _oldCustomPanel = null;
+            }
+            if (_fakeArt != null) Object.Destroy(_fakeArt);
+            _fakeArt = null;
             EditorApplication.update -= Step;
             if (_host != null) Object.Destroy(_host);
             if (_texture != null) Object.Destroy(_texture);

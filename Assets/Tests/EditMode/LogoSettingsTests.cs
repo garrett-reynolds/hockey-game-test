@@ -79,6 +79,7 @@ namespace HockeyGame.Core.Tests
         {
             for (int i = 0; i < _menu.RowCount; i++)
             {
+                if (i == 2) { Assert.AreEqual(SettingsRowKind.Button, _menu.Kind(i), "USE EVERY DEFAULT LOGO has no buttons of its own (#231)"); Assert.IsFalse(_menu.HasLogoButtons(i)); continue; }
                 Assert.IsTrue(_menu.HasLogoButtons(i), _menu.Label(i));
                 Assert.AreEqual(i < 2 ? SettingsRowKind.Picture : SettingsRowKind.Toggle, _menu.Kind(i), "the tick box stays (the two picture rows at the top have none, #230)");
             }

@@ -30,7 +30,9 @@ namespace HockeyGame
         sealed class RowView
         {
             public VisualElement Row, Fill, Thumb, Track, Mark;
-            public Label Value, OnCell, OffCell, LogoHint, ChangeLogo, UseDefaultLogo;
+            public Label Value, OnCell, OffCell, ChangeLogo, UseDefaultLogo;
+            public Label Preview, Tag;       // the logo in use, and the CUSTOM tag (#231)
+            public int PreviewVersion = -1;  // ArtLookup.Version when the preview was last set
         }
 
         readonly SaveData _save;
@@ -60,6 +62,9 @@ namespace HockeyGame
         int _hoverRow = -1;
         /// <summary>For the picture tool: shows the tip of this row without a mouse over it. The game never sets it.</summary>
         public int ForceHoverRow = -1;
+        int _hoverButton = -1; // 0 = CHANGE LOGO, 1 = USE DEFAULT of the hovered row, or -1: the tip is then the button's (#231)
+        /// <summary>For the picture tool: with ForceHoverRow, shows the tip of one logo button (0 or 1) without a mouse. The game never sets it.</summary>
+        public int ForceHoverButton = -1;
         SettingsPart _shownPart;
 
         public SettingsScreen(SaveData save)
@@ -332,6 +337,7 @@ namespace HockeyGame
                 else Click(at);
             }
             _hoverRow = RowAt(at);
+            _hoverButton = ButtonAt(at);
             if (_dragRow >= 0)
             {
                 if (down) DragTo(_dragRow, at);
@@ -384,12 +390,25 @@ namespace HockeyGame
             return -1;
         }
 
+        // The logo button under the pointer (0 = CHANGE LOGO, 1 = USE DEFAULT), or -1 (#231).
+        int ButtonAt(Vector2 at)
+        {
+            for (int i = _hits.Count - 1; i >= 0; i--)
+            {
+                if (!Over(_hits[i].El, at)) continue;
+                return _hits[i].Kind == HitKind.ChangeLogo ? 0 : _hits[i].Kind == HitKind.UseDefaultLogo ? 1 : -1;
+            }
+            return -1;
+        }
+
         // Shows the tip box under the hovered row (above it near the bottom bar), in the row's column; hides it when the mouse is on no row (#199).
+        // On a logo button the tip says what that button does (#231).
         void RefreshTip()
         {
             int hover = ForceHoverRow >= 0 ? ForceHoverRow : _hoverRow;
+            int button = ForceHoverRow >= 0 ? ForceHoverButton : _hoverButton;
             bool show = hover >= 0 && hover < _rows.Count && !_menu.ConfirmOpen && _page.resolvedStyle.display != DisplayStyle.None;
-            string tip = show ? _menu.Tip(hover) : null;
+            string tip = show ? (button >= 0 ? _menu.LogoButtonTip(hover, button) : null) ?? _menu.Tip(hover) : null;
             show = !string.IsNullOrEmpty(tip);
             _tipBox.EnableInClassList("lc-hidden", !show);
             if (!show) return;
@@ -438,6 +457,7 @@ namespace HockeyGame
         {
             _shownPart = _menu.Part;
             _hoverRow = -1; // row numbers belong to the part shown
+            _hoverButton = -1;
             _content.Clear();
             _rows.Clear();
             _hits.Clear();
@@ -488,7 +508,7 @@ namespace HockeyGame
         // The Brands part (#223): one tick box per pool brand, too many for two columns, so four narrow cards of compact rows.
         void BuildBrandsGrid()
         {
-            const int columns = 4;
+            const int columns = 3; // 43 brands and the three logo rows (#231); each row also holds a preview and two buttons
             int perColumn = (_menu.RowCount + columns - 1) / columns;
             for (int c = 0; c < columns; c++)
             {
@@ -497,7 +517,7 @@ namespace HockeyGame
                 var column = new VisualElement();
                 column.AddToClassList("lc-column");
                 column.AddToClassList("lc-brands-column");
-                column.style.left = 60 + c * 455;
+                column.style.left = 30 + c * 630;
                 _content.Add(column);
                 var card = new VisualElement();
                 card.AddToClassList("lc-card");
@@ -522,7 +542,8 @@ namespace HockeyGame
             string label = _menu.Label(i);
             if (_menu.Kind(i) == SettingsRowKind.Slider && _menu.Hint(i) != null && _menu.Hint(i) != "(next Round)" && _menu.Hint(i) != "(next Shot)")
                 label += "  " + _menu.Hint(i);
-            Add(view.Row, "lc-row-label", label);
+            Label name = Add(view.Row, "lc-row-label", label);
+            if (_menu.Kind(i) == SettingsRowKind.Button && _menu.Part == SettingsPart.Brands) name.style.width = 330; // USE EVERY DEFAULT LOGO is a long name (#231)
             var control = new VisualElement();
             control.AddToClassList("lc-control");
             control.pickingMode = PickingMode.Ignore;
@@ -569,14 +590,16 @@ namespace HockeyGame
         // CHANGE LOGO and USE DEFAULT (#226); a refusal note shows before them.
         void AddLogoButtons(VisualElement control, RowView view, int i)
         {
-            view.LogoHint = Add(control, "lc-hint", _menu.Hint(i));
+            view.Preview = Add(control, "lc-preview"); // the logo in use (#231)
+            view.Tag = Add(view.Preview, "lc-tag", "CUSTOM"); // on its corner; a refusal note ("(not a picture)") takes its place
             view.ChangeLogo = Add(control, "lc-cell", "CHANGE LOGO");
             view.UseDefaultLogo = Add(control, "lc-cell", "USE DEFAULT");
             foreach (Label b in new[] { view.ChangeLogo, view.UseDefaultLogo })
             {
-                b.style.width = 150;
-                b.style.fontSize = 18;
-                b.style.marginRight = 10;
+                b.style.width = 112;
+                b.style.fontSize = 14;
+                b.style.marginRight = 6;
+                b.style.whiteSpace = WhiteSpace.NoWrap;
             }
             _hits.Add(new Hit { El = view.ChangeLogo, Kind = HitKind.ChangeLogo, Row = i });
             _hits.Add(new Hit { El = view.UseDefaultLogo, Kind = HitKind.UseDefaultLogo, Row = i });
@@ -624,18 +647,10 @@ namespace HockeyGame
                         bool on = value == "ON";
                         v.OnCell.EnableInClassList("lc-cell-on", on);
                         v.OffCell.EnableInClassList("lc-cell-off", !on);
-                        if (v.LogoHint != null)
-                        {
-                            v.LogoHint.text = _menu.Hint(i) ?? "";
-                            v.UseDefaultLogo.style.opacity = _menu.IsLogoCustom(i) ? 1f : 0.45f; // nothing to put back on the shipped art
-                        }
+                        RefreshLogo(v, i);
                         break;
                     case SettingsRowKind.Picture:
-                        if (v.LogoHint != null)
-                        {
-                            v.LogoHint.text = _menu.Hint(i) ?? "";
-                            v.UseDefaultLogo.style.opacity = _menu.IsLogoCustom(i) ? 1f : 0.45f;
-                        }
+                        RefreshLogo(v, i);
                         break;
                     case SettingsRowKind.Button:
                         v.Value.text = _menu.ButtonText(i);
@@ -645,6 +660,27 @@ namespace HockeyGame
                         break;
                 }
             }
+        }
+
+        // The logo controls of a row: the note, the preview, the CUSTOM tag, the dimmed USE DEFAULT, and the button the keyboard chose (#231).
+        void RefreshLogo(RowView v, int i)
+        {
+            if (v.Tag == null) return;
+            string note = _menu.Hint(i);
+            string tag = note ?? _menu.CustomTag(i);
+            bool custom = _menu.IsLogoCustom(i);
+            v.UseDefaultLogo.style.opacity = custom ? 1f : 0.45f; // nothing to put back on the shipped art
+            v.Tag.text = tag ?? "";
+            v.Tag.style.display = tag != null ? DisplayStyle.Flex : DisplayStyle.None;
+            v.Tag.EnableInClassList("lc-tag-note", note != null);
+            bool keys = _menu.Kind(i) == SettingsRowKind.Picture && i == _menu.Selected; // the keyboard picks a button on picture rows only
+            v.ChangeLogo.EnableInClassList("lc-btn-focus", keys && _menu.LogoButton(i) == 0);
+            v.UseDefaultLogo.EnableInClassList("lc-btn-focus", keys && _menu.LogoButton(i) == 1);
+            if (v.PreviewVersion == ArtLookup.Version) return;
+            v.PreviewVersion = ArtLookup.Version;
+            Texture2D art = ArtLookup.Preview(_menu.LogoId(i));
+            v.Preview.style.backgroundImage = art != null ? new StyleBackground(art) : new StyleBackground(StyleKeyword.None);
+            v.Preview.text = art != null ? "" : "THE SHOOTOUT"; // the start screen's own drawn logo has no picture file
         }
 
         /// <summary>Serial ports on this PC now, sorted. Empty if they cannot be listed.</summary>

@@ -66,6 +66,16 @@ namespace HockeyGame
         /// <summary>The picture the GAME LOGO row saved (#230); none: the start screen draws its own logo.</summary>
         public static Texture2D GameLogo() => Get(GameLogoId, "game-logo", () => CustomSpot(GameLogoId, "game-logo"));
 
+        /// <summary>The logo in use for a Settings logo row (#231): a brand's colour panel, the centre-ice art, or the saved game logo (null: the start screen's drawn one).</summary>
+        public static Texture2D Preview(string id)
+        {
+            if (id == CentreIceId) return CentreIce();
+            if (id == GameLogoId) return GameLogo();
+            foreach (Brands.Brand brand in Brands.All)
+                if (brand.Id == id) return Panel(brand, false);
+            return null;
+        }
+
         /// <summary>Forgets every picture cached under id, so the next ask loads it afresh.</summary>
         public static void Clear(string id)
         {

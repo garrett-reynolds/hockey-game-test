@@ -111,12 +111,30 @@
 
 .lc-selected { background-color: rgba(255, 255, 255, 0.14); }
 
-/* The Brands part (#223): four narrow cards of compact tick-box rows. */
-.lc-brands-column { width: 430px; }
-.lc-brands .lc-row { height: 52px; margin-left: 6px; margin-right: 6px; }
-.lc-brands .lc-row-label { width: 210px; margin-left: 12px; font-size: 22px; }
-.lc-brands .lc-control { height: 52px; }
-.lc-brands .lc-cell { width: 76px; height: 34px; font-size: 22px; }
+/* The Brands part (#223, #231): three cards of compact rows: name, preview of the logo in use, CHANGE LOGO, USE DEFAULT, the tick box. */
+.lc-brands-column { width: 620px; }
+.lc-brands .lc-row { height: 44px; margin-left: 4px; margin-right: 4px; }
+.lc-brands .lc-row-label { width: 180px; margin-left: 10px; font-size: 20px; }
+.lc-brands .lc-control { height: 44px; }
+.lc-brands .lc-cell { width: 46px; height: 32px; font-size: 20px; }
+.lc-brands .lc-wide-cell { min-width: 200px; height: 32px; font-size: 20px; }
+
+/* Logo rows (#231): the preview of the logo in use, the CUSTOM tag on its corner (or a refusal note), the button the keyboard chose. */
+.lc-preview {
+    width: 76px; height: 32px; margin-right: 8px;
+    background-color: rgb(20, 26, 50);
+    background-size: contain; background-repeat: no-repeat; background-position: center;
+    color: rgb(150, 160, 200); font-size: 12px; -unity-font-style: bold; -unity-text-align: middle-center;
+}
+.lc-tag {
+    position: absolute; right: 0; bottom: 0; height: 15px;
+    padding-left: 4px; padding-right: 4px;
+    white-space: nowrap;
+    background-color: rgb(232, 190, 40); color: rgb(10, 16, 34);
+    font-size: 12px; -unity-font-style: bold; -unity-text-align: middle-center;
+}
+.lc-tag-note { background-color: rgb(200, 30, 45); color: rgb(255, 255, 255); }
+.lc-btn-focus { border-width: 3px; border-color: rgb(232, 190, 40); }
 
 .lc-row-label {
     width: 480px;

@@ -68,6 +68,7 @@ namespace HockeyGame.Core
             public string Hint;                      // null, or a note such as "(next launch)"
             public string Tip;                       // the hover tip box text (#199)
             public string LogoId;                    // a brand row: the id its CHANGE LOGO / USE DEFAULT buttons work on (#226)
+            public int LogoButton;                   // a picture row: the button the keyboard chose, 0 = CHANGE LOGO, 1 = USE DEFAULT (#231)
             public string Message;                   // a refusal note for the Hint, until the next pick, USE DEFAULT or Discard
             public Func<string> Value;
             public Func<int, bool> Change;           // Left/Right; null = does nothing
@@ -165,6 +166,10 @@ namespace HockeyGame.Core
             // Their pictures are kept like a brand's, under the reserved ids LogoArt.CentreIceId and LogoArt.GameLogoId.
             AddPicture("CENTRE ICE", LogoArt.CentreIceId, "The big logo at centre ice, instead of the Maple Leafs one. Next Round, after SAVE.");
             AddPicture("GAME LOGO", LogoArt.GameLogoId, "The logo on the start screen, instead of The Shootout one. The start screen shows it after SAVE.");
+            // USE EVERY DEFAULT LOGO (#231): puts every logo back as a waiting change. It does not touch the tick boxes; TICK EVERY BRAND does not touch the logos.
+            AddRow(SettingsPart.Brands, "PICTURES", SettingsRowKind.Button, "USE EVERY DEFAULT LOGO",
+                "Puts the shipped art back for every logo: the brands, centre ice and the start screen. The tick boxes stay. Waits for SAVE.",
+                () => "", null, () => { UseEveryDefaultLogo(); return false; });
 
             // Brands (#223): one tick box per pool brand (the Leafs centre-ice logo is not one). An unticked brand leaves the
             // boards, the ribbon and the ice logos round centre ice. The last ticked brand cannot be unticked (the flip says false).
@@ -183,6 +188,39 @@ namespace HockeyGame.Core
 
         /// <summary>True when the row has CHANGE LOGO and USE DEFAULT buttons (a brand row).</summary>
         public bool HasLogoButtons(int row) => _rows[row].LogoId != null;
+
+        /// <summary>The id of the logo a row shows and changes (a brand's id, or a reserved picture id), or null (#231: the view draws its preview).</summary>
+        public string LogoId(int row) => _rows[row].LogoId;
+
+        /// <summary>"CUSTOM" when the row's logo is a custom one now (saved, or picked and waiting for SAVE), else null (#231).</summary>
+        public string CustomTag(int row) => IsLogoCustom(row) ? "CUSTOM" : null;
+
+        /// <summary>The button the keyboard has chosen on a logo row: 0 = CHANGE LOGO, 1 = USE DEFAULT (#231).</summary>
+        public int LogoButton(int row) => _rows[row].LogoButton;
+
+        /// <summary>The hover tip of one of a row's two buttons (0 = CHANGE LOGO, 1 = USE DEFAULT), or null on a row without them (#231).</summary>
+        public string LogoButtonTip(int row, int button)
+        {
+            Row r = _rows[row];
+            if (r.LogoId == null) return null;
+            bool brand = r.Kind == SettingsRowKind.Toggle;
+            if (button == 0)
+            {
+                if (brand) return "Pick one picture. It makes the boards, ice and Ribbon art for " + r.Label + " from that one picture. Next Round, after SAVE.";
+                return r.LogoId == LogoArt.CentreIceId
+                    ? "Pick one picture. It makes the big logo at centre ice. Next Round, after SAVE."
+                    : "Pick one picture. It makes the logo on the start screen. It shows after SAVE.";
+            }
+            return brand ? "Puts the shipped " + r.Label + " art back on the boards, ice and Ribbon. Waits for SAVE."
+                : "Puts the shipped " + r.Label.ToLowerInvariant() + " art back. Waits for SAVE.";
+        }
+
+        /// <summary>USE EVERY DEFAULT LOGO (#231): every logo goes back to the shipped art as a waiting change (SAVE applies it, Discard drops it). The tick boxes stay.</summary>
+        public void UseEveryDefaultLogo()
+        {
+            foreach (Row r in _all)
+                if (r.LogoId != null) UseDefault(r);
+        }
 
         /// <summary>True when the row's brand has a custom logo now (saved, or picked and waiting for SAVE).</summary>
         public bool IsLogoCustom(int row) => _rows[row].LogoId != null && _save.IsLogoCustom(_rows[row].LogoId);
@@ -231,10 +269,22 @@ namespace HockeyGame.Core
         {
             Select(row);
             Row r = _rows[row];
-            if (r.LogoId == null) return false;
+            return r.LogoId != null && UseDefault(r);
+        }
+
+        private bool UseDefault(Row r)
+        {
             r.Message = null;
             bool hadPick = _pending.Remove(r.LogoId);
             return _save.SetLogoCustom(r.LogoId, false) || hadPick;
+        }
+
+        // Enter on a picture row (#231): the button the keyboard chose. Both only make a waiting change, so no setting is saved at once.
+        private bool PressLogoButton(Row r)
+        {
+            if (r.LogoButton == 0) { if (_picker != null) _picker.Ask(file => LogoPicked(r, file)); }
+            else UseDefault(r);
+            return false;
         }
 
         /// <summary>Raised once per brand id whose logo SAVE changed (the art lookup forgets its pictures then).</summary>
@@ -257,7 +307,7 @@ namespace HockeyGame.Core
         public string Value(int row) => _rows[row].Value();
 
         /// <summary>The words an action row's button shows (#200).</summary>
-        public string ButtonText(int row) => _rows[row].Label == "Test Mode" ? "OPEN TEST MODE" : "RESET  (" + _rows[row].Value() + ")";
+        public string ButtonText(int row) => _rows[row].Label == "Test Mode" ? "OPEN TEST MODE" : _rows[row].Label == "USE EVERY DEFAULT LOGO" ? "USE DEFAULTS" : "RESET  (" + _rows[row].Value() + ")";
 
         /// <summary>The heading the row sits under (consecutive rows with one heading make one card).</summary>
         public string Group(int row) => _rows[row].Group;
@@ -566,7 +616,10 @@ namespace HockeyGame.Core
         private void AddPicture(string label, string id, string tip)
         {
             AddRow(SettingsPart.Brands, "PICTURES", SettingsRowKind.Picture, label, tip, () => _save.IsLogoCustom(id) ? "CUSTOM" : "DEFAULT", null, null);
-            _all[_all.Count - 1].LogoId = id;
+            Row r = _all[_all.Count - 1];
+            r.LogoId = id;
+            r.Change = step => { r.LogoButton = step < 0 ? 0 : 1; return false; }; // Left / Right choose a button (#231)
+            r.Activate = () => PressLogoButton(r);
         }
 
         private void AddToggle(SettingsPart part, string group, string label, string tip, Func<bool> get, Action<bool> set)

@@ -102,7 +102,7 @@ namespace HockeyGame.Core.Tests
             int ticks = 0;
             for (int i = 0; i < _menu.RowCount; i++) if (_menu.Kind(i) == SettingsRowKind.Toggle) ticks++;
             Assert.AreEqual(Brands.All.Length, ticks, "one tick box per pool brand");
-            Assert.AreEqual(Brands.All.Length + 2, _menu.RowCount);
+            Assert.AreEqual(Brands.All.Length + 3, _menu.RowCount, "two picture rows and the USE EVERY DEFAULT LOGO button (#231)");
             foreach (string id in Ids)
                 Assert.IsFalse(Brands.All.Any(b => b.Id == id), id + ": a reserved id no brand can have");
             _picker.Next = FakeCodec.File(LogoArtTests.LogoOnWhite(300, 200, 120, 50));
