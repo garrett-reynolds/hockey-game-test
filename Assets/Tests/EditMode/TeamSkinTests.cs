@@ -248,8 +248,8 @@ namespace HockeyGame.Core.Tests
                 AreClose(skin.KickPlate, team.KickPlate, "kick plate");
                 Color dimmed = skin.Seats * ArenaStands.StandsLight; // the stands sit in the dark, seats too
                 AreClose(new Color(dimmed.r, dimmed.g, dimmed.b, skin.Seats.a), team.Seats, "seats");
-                // Centre ice shows the Round's brand (#223) whatever the skin; the skin's own logo only stands in for missing brand art.
-                StringAssert.Contains(Brands.Current.Id, league.CentreIce);
+                // Centre ice shows the Leafs (#223) whatever the skin; the skin's own logo only stands in for missing Leafs art.
+                Assert.AreEqual(RinkAds.LeafsCentreArt, league.CentreIce);
                 Assert.AreEqual(league.CentreIce, team.CentreIce);
                 Assert.AreEqual(0, league.Edges);
                 Assert.Greater(team.Edges, 0, "the skin's Ribbon Board edges");

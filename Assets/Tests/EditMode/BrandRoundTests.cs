@@ -50,7 +50,7 @@ namespace HockeyGame.Core.Tests
             Assert.AreEqual("I'M LOVIN' THIS POWER PLAY", Of("mcdonalds").Tagline);
             Assert.AreEqual("WE'LL PICK YOU UP AFTER THE GAME", Of("enterprise").Tagline);
             Assert.AreEqual(("ALWAYS FRESH.", "ALWAYS HOCKEY."), Brands.SplitTagline(Of("tim-hortons").Tagline));
-            Assert.AreEqual(("YOUR AMBITION.", "OUR ASSIST."), Brands.SplitTagline(Of("cibc").Tagline));
+            Assert.IsFalse(Brands.All.Any(b => b.Id == "cibc"), "CIBC is out of the pool (Garrett, #223)");
             Assert.AreEqual(("ALL IN", "ON HOCKEY"), Brands.SplitTagline(Of("sport-chek").Tagline));
             foreach (Brands.Brand b in Brands.All)
             {
@@ -61,7 +61,7 @@ namespace HockeyGame.Core.Tests
                 Assert.AreEqual(b.Tagline, first + " " + last, b.Name);
                 Assert.IsTrue(ReservedColours.IsSafe(b.Colour), b.Name + " colour");
             }
-            Assert.AreEqual(44, Brands.All.Select(b => b.Tagline).Distinct().Count(), "44 different lines");
+            Assert.AreEqual(43, Brands.All.Select(b => b.Tagline).Distinct().Count(), "43 different lines");
         }
 
         [Test]
@@ -84,6 +84,29 @@ namespace HockeyGame.Core.Tests
             Brands.NewLoad(new System.Random(2));
             string[] two = Enumerable.Range(0, 10).Select(_ => { Brands.NextRound(); return Brands.Current.Id; }).ToArray();
             CollectionAssert.AreNotEqual(one, two);
+        }
+
+        [Test]
+        public void The_ice_gets_four_different_brands_the_same_for_a_seed()
+        {
+            for (int seed = 0; seed < 50; seed++)
+            {
+                Brands.Brand[] ice = Brands.PickIce(Brands.All, new System.Random(seed));
+                Assert.AreEqual(4, ice.Length);
+                Assert.AreEqual(4, ice.Distinct().Count(), "seed " + seed + ": four different brands");
+                CollectionAssert.AreEqual(ice, Brands.PickIce(Brands.All, new System.Random(seed)), "the same for a fixed seed");
+            }
+            CollectionAssert.AreNotEqual(Brands.PickIce(Brands.All, new System.Random(1)), Brands.PickIce(Brands.All, new System.Random(2)));
+        }
+
+        [Test]
+        public void Each_Round_picks_the_ice_brands_again()
+        {
+            Brands.NewLoad(new System.Random(4));
+            var rounds = Enumerable.Range(0, 6).Select(_ => { Brands.NextRound(); return string.Join(",", Brands.Ice.Select(b => b.Id)); }).ToArray();
+            foreach (string ice in rounds) Assert.AreEqual(4, ice.Split(',').Distinct().Count());
+            Assert.Greater(rounds.Distinct().Count(), 1, "a new pick each Round");
+            for (int i = 0; i + 1 < rounds.Length; i++) Assert.AreNotEqual(rounds[i], rounds[i + 1], "round " + i);
         }
     }
 }

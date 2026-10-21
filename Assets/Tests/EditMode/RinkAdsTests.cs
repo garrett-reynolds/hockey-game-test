@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using HockeyGame;
@@ -45,9 +46,9 @@ namespace HockeyGame.Core.Tests
         // ---------- the brands ----------
 
         [Test]
-        public void The_pool_is_the_44_picked_real_brands_one_per_row_of_the_sources_list()
+        public void The_pool_is_the_43_picked_real_brands_one_per_row_of_the_sources_list()
         {
-            Assert.AreEqual(44, Brands.All.Length);
+            Assert.AreEqual(43, Brands.All.Length, "the 44 picked, CIBC taken out (Garrett, #223)");
             Assert.AreEqual(Brands.All.Length, Brands.All.Select(b => b.Id).Distinct().Count(), "one art name per brand");
             // The sources list beside the art (#223) keeps each logo's source URL: one row per brand, same ids, same order.
             var sources = Resources.Load<TextAsset>(RinkAds.ArtFolder + "/sources");
@@ -68,22 +69,60 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
-        public void One_brand_shows_on_every_board_panel_and_every_ice_logo_centre_ice_too()
+        public void One_brand_shows_on_every_board_panel_and_the_ice_shows_the_Leafs_and_four_ice_brands()
         {
             Brands.Brand before = Brands.Current;
+            IReadOnlyList<Brands.Brand> iceBefore = Brands.Ice;
             try
             {
                 Brands.Use(Brands.All[5]);
+                Brands.Brand[] ice = { Brands.All[7], Brands.All[8], Brands.All[9], Brands.All[10] };
+                Brands.UseIce(ice);
                 for (int i = 0; i < RinkLayout.AdPanelSlots.Length; i++) Assert.AreSame(Brands.All[5], Brands.ForPanel(i), "panel " + i);
+                var beside = new List<Brands.Brand>();
                 for (int i = 0; i < RinkLayout.IceLogoSpots.Length; i++)
-                    Assert.AreSame(Brands.All[5], Brands.ForIceLogo(i), RinkLayout.IceLogoSpots[i].ToString());
+                {
+                    RinkLayout.IceLogoSpot spot = RinkLayout.IceLogoSpots[i];
+                    if (spot.Kind == RinkLayout.IceLogoKind.CentreIce) Assert.IsNull(Brands.ForIceLogo(i), "centre ice: the Leafs, not a pool brand");
+                    else beside.Add(Brands.ForIceLogo(i));
+                }
+                CollectionAssert.AreEqual(ice, beside, "the four spots beside the centre circle: the four ice brands, one each");
             }
-            finally { Brands.Use(before); }
+            finally { Brands.Use(before); Brands.UseIce(iceBefore); }
         }
 
-        // The big centre-ice art: the brand's own centre art (logo only), else its panel art.
-        static string CentreArtOf(Brands.Brand brand) =>
-            Resources.Load<Texture2D>(RinkAds.ArtFolder + "/" + RinkAds.CentreArt(brand)) != null ? RinkAds.CentreArt(brand) : RinkAds.PanelArt(brand, false);
+        [Test]
+        public void Neighbouring_board_slots_show_the_brands_run_in_order_and_it_repeats()
+        {
+            foreach (Brands.Brand brand in Brands.All)
+            {
+                int run = RinkAds.SequenceLength(brand);
+                Assert.That(run, Is.InRange(4, 7), brand.Id + ": logo, logo, then the tagline");
+                int slots = RinkLayout.AdPanelSlots.Length;
+                int[] n = Enumerable.Range(0, slots).Select(i =>
+                {
+                    string art = RinkAds.SlotArt(brand, i, false);
+                    return int.Parse(art.Substring(("panel-" + brand.Id + "-").Length));
+                }).ToArray();
+                Assert.IsTrue(n.Contains(0) && n.Contains(run - 1), brand.Id + ": the whole run shows");
+                for (int i = 0; i + 1 < slots; i++)
+                {
+                    int left = SlotToRight(i) ? n[i] : n[i + 1], right = SlotToRight(i) ? n[i + 1] : n[i];
+                    Assert.AreEqual((left + 1) % run, right, brand.Id + ": slot " + i + " and its neighbour read on");
+                }
+                for (int i = 0; i < slots; i++)
+                    Assert.AreEqual(RinkAds.SlotArt(brand, i, false) + "-soft", RinkAds.SlotArt(brand, i, true), "the Calm Area's soft version");
+            }
+        }
+
+        // Whether slot i + 1 stands to the right of slot i, seen from the ice.
+        static bool SlotToRight(int i)
+        {
+            RinkLayout.AdPanelSlot a = RinkLayout.AdPanelSlots[i], b = RinkLayout.AdPanelSlots[i + 1];
+            var facing = new Vector3(-(float)a.InX, 0f, -(float)a.InZ);
+            Vector3 right = Vector3.Cross(Vector3.up, facing);
+            return Vector3.Dot(new Vector3((float)(b.X - a.X), 0f, (float)(b.Z - a.Z)), right) > 0f;
+        }
 
         [Test]
         public void A_round_change_puts_the_new_brand_on_the_boards_and_ice_and_the_Calm_Area_stays_soft()
@@ -101,16 +140,18 @@ namespace HockeyGame.Core.Tests
                     for (int i = 0; i < panels.Length; i++)
                     {
                         RinkLayout.AdPanelSlot slot = RinkLayout.AdPanelSlots[i];
-                        Assert.AreEqual(RinkAds.PanelArt(brand, slot.CalmArea), Art(panels[i]), brand.Id + " " + slot);
+                        Assert.AreEqual(RinkAds.SlotArt(brand, i, slot.CalmArea), Art(panels[i]), brand.Id + " " + slot);
+                        StringAssert.StartsWith("panel-" + brand.Id + "-", Art(panels[i]));
                         if (slot.CalmArea)
                             Assert.That(panels[i].sharedMaterial.GetFloat("_Smoothness"), Is.LessThanOrEqualTo(0.05f), "the Calm Area stays matte soft grey");
                     }
                     Renderer[] logos = IceLogos(ads);
+                    Assert.AreEqual(RinkLayout.IceLogoSpots.Length, logos.Length);
                     for (int i = 0; i < logos.Length; i++)
                     {
-                        StringAssert.Contains(brand.Id, Art(logos[i]), "ice logo " + i);
                         if (RinkLayout.IceLogoSpots[i].Kind == RinkLayout.IceLogoKind.CentreIce)
-                            Assert.AreEqual(CentreArtOf(brand), Art(logos[i]), "the big centre-ice logo is the Round's brand");
+                            Assert.AreEqual(RinkAds.LeafsCentreArt, Art(logos[i]), "centre ice: the Leafs every Round");
+                        else Assert.AreEqual(RinkAds.PanelArt(Brands.ForIceLogo(i), false), Art(logos[i]), "ice logo " + i);
                     }
                 }
             }
@@ -121,7 +162,7 @@ namespace HockeyGame.Core.Tests
         public void Every_brand_has_its_art()
         {
             foreach (Brands.Brand b in Brands.All)
-                foreach (string art in new[] { RinkAds.PanelArt(b, false), RinkAds.PanelArt(b, true), RinkAds.RoundArt(b) })
+                foreach (string art in new[] { RinkAds.PanelArt(b, false), RinkAds.PanelArt(b, true) })
                     Assert.IsNotNull(Resources.Load<Texture2D>(RinkAds.ArtFolder + "/" + art), art);
             Assert.IsNotNull(Resources.Load<Texture2D>(RinkAds.ArtFolder + "/" + TeamSkin.League.CentreIceLogo));
             // The Ribbon tile: one logo then the tagline (looped: logo, words, logo, words), one pixel per LED, 24 LEDs tall.
@@ -206,7 +247,8 @@ namespace HockeyGame.Core.Tests
             for (int i = 0; i < panels.Length; i++)
             {
                 RinkLayout.AdPanelSlot slot = RinkLayout.AdPanelSlots[i];
-                Assert.AreEqual(RinkAds.PanelArt(Brands.ForPanel(i), slot.CalmArea), Art(panels[i]), slot.ToString());
+                Assert.AreEqual(RinkAds.SlotArt(Brands.ForPanel(i), i, slot.CalmArea), Art(panels[i]), slot.ToString());
+                Assert.AreEqual(slot.CalmArea, Art(panels[i]).EndsWith("-soft"), slot.ToString());
                 if (slot.CalmArea) Assert.That(panels[i].sharedMaterial.GetFloat("_Smoothness"), Is.LessThanOrEqualTo(0.05f), "matte, no glare");
             }
         }
@@ -276,14 +318,13 @@ namespace HockeyGame.Core.Tests
                 Assert.That(top.y, Is.GreaterThan(bottom.y), "not upside down: " + spot);
 
                 string art = Art(logos[i]);
-                if (spot.Kind == RinkLayout.IceLogoKind.CentreIce) Assert.AreEqual(CentreArtOf(Brands.ForIceLogo(i)), art);
-                else if (spot.Kind == RinkLayout.IceLogoKind.NeutralZoneRound) Assert.AreEqual(RinkAds.RoundArt(Brands.ForIceLogo(i)), art);
+                if (spot.Kind == RinkLayout.IceLogoKind.CentreIce) Assert.AreEqual(RinkAds.LeafsCentreArt, art);
                 else Assert.AreEqual(RinkAds.PanelArt(Brands.ForIceLogo(i), false), art);
             }
         }
 
         [Test]
-        public void The_centre_ice_logo_is_the_brand_big_and_centred_with_its_shape_kept()
+        public void The_centre_ice_logo_is_the_Leafs_every_Round_big_and_centred_with_its_shape_kept()
         {
             Brands.Brand before = Brands.Current;
             try
@@ -292,9 +333,11 @@ namespace HockeyGame.Core.Tests
                 {
                     Brands.Use(brand);
                     Renderer[] logos = IceLogos(RinkAds.Rebuild(_rink.transform));
+                    Assert.AreEqual(5, logos.Length, "the Leafs and four beside the centre circle");
                     int c = System.Array.FindIndex(RinkLayout.IceLogoSpots, s => s.Kind == RinkLayout.IceLogoKind.CentreIce);
                     RinkLayout.IceLogoSpot spot = RinkLayout.IceLogoSpots[c];
                     Texture tex = logos[c].sharedMaterial.mainTexture;
+                    Assert.AreEqual(RinkAds.LeafsCentreArt, tex.name, brand.Id + " Round: still the Leafs");
                     Bounds b = logos[c].bounds;
                     Assert.AreEqual((float)spot.X, b.center.x, 0.01f, "centred");
                     Assert.AreEqual((float)spot.Z, b.center.z, 0.01f, "centred");

@@ -49,8 +49,35 @@ namespace HockeyGame
 
         /// <summary>A brand's panel art: its logo in colour (also laid on the ice), or soft grey for the Calm Area.</summary>
         public static string PanelArt(Brands.Brand brand, bool soft) => "panel-" + brand.Id + (soft ? "-soft" : "");
-        /// <summary>A brand's round logo, for the ice by the neutral-zone dots.</summary>
-        public static string RoundArt(Brands.Brand brand) => "round-" + brand.Id;
+        /// <summary>Panel n of a brand's board run (look A, #223): logo, logo, then the tagline, one whole panel each.</summary>
+        public static string SequenceArt(Brands.Brand brand, int n, bool soft) => "panel-" + brand.Id + "-" + n + (soft ? "-soft" : "");
+
+        /// <summary>How many panels the brand's board run has (art panel-&lt;id&gt;-0, -1, ... until one is missing); 0: none.</summary>
+        public static int SequenceLength(Brands.Brand brand)
+        {
+            if (RunLengths.TryGetValue(brand.Id, out int known)) return known;
+            int n = 0;
+            while (n < 16 && Art(SequenceArt(brand, n, false)) != null) n++;
+            RunLengths[brand.Id] = n;
+            return n;
+        }
+        static readonly Dictionary<string, int> RunLengths = new Dictionary<string, int>();
+
+        /// <summary>The art on board slot i: the brand's run laid on neighbouring slots in reading order (left to right from the
+        /// ice), repeating round the rink and stopping part-way where it wraps; the Calm Area takes the soft version of the same
+        /// panel. A brand with no run shows its one panel on every slot.</summary>
+        public static string SlotArt(Brands.Brand brand, int slot, bool soft)
+        {
+            int run = SequenceLength(brand);
+            if (run == 0) return PanelArt(brand, soft);
+            int k = SlotsReadForward ? slot : RinkLayout.AdPanelSlots.Length - 1 - slot;
+            return SequenceArt(brand, k % run, soft);
+        }
+        /// <summary>Whether slot i + 1 is to the viewer's right of slot i (the slots' order round the boards).</summary>
+        static readonly bool SlotsReadForward = true;
+
+        /// <summary>Centre ice always shows the Toronto Maple Leafs logo, every Round (Garrett, #223); not a pool brand.</summary>
+        public const string LeafsCentreArt = "centre-maple-leafs";
 
         /// <summary>How far the panels stand off the board face (past the 1 cm the boards model's corner chords cut in from the arc), and the ice logos over the ice (metres).</summary>
         const float PanelLift = 0.025f, IceLift = 0.006f;
@@ -72,7 +99,7 @@ namespace HockeyGame
             for (int i = 0; i < slots.Length; i++)
             {
                 Brands.Brand brand = Brands.ForPanel(i);
-                string art = PanelArt(brand, slots[i].CalmArea);
+                string art = SlotArt(brand, i, slots[i].CalmArea);
                 Texture2D texture = Art(art);
                 Material m = Shared(materials, art, () => Opaque(texture, slots[i].CalmArea ? SoftPanelSmoothness : PanelSmoothness));
                 Piece(boards, $"Ad Panel {i} {brand.Id}", PanelMesh(slots[i], texture), m);
@@ -85,9 +112,7 @@ namespace HockeyGame
             {
                 RinkLayout.IceLogoSpot spot = spots[i];
                 Brands.Brand brand = Brands.ForIceLogo(i);
-                Texture2D texture = brand == null ? centreIceLogo
-                    : spot.Kind == RinkLayout.IceLogoKind.CentreIce ? (Art(CentreArt(brand)) ?? Art(PanelArt(brand, false)) ?? centreIceLogo)
-                    : Art(spot.Kind == RinkLayout.IceLogoKind.NeutralZoneRound ? RoundArt(brand) : PanelArt(brand, false));
+                Texture2D texture = brand == null ? (Art(LeafsCentreArt) ?? centreIceLogo) : Art(PanelArt(brand, false));
                 string key = "ice " + (texture != null ? texture.name : "none");
                 Material m = Shared(materials, key, () => SeeThrough(texture));
                 Piece(ice, $"Ice Logo {i} {(brand == null ? "centre ice" : brand.Id)}", IceLogoMesh(spot, texture), m);

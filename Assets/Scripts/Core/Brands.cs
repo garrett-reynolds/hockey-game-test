@@ -1,7 +1,9 @@
+using System.Collections.Generic;
+
 namespace HockeyGame.Core
 {
     /// <summary>
-    /// The real brands on the board ads, ice logos and LED ads (#223: the 44 logos Garrett picked). Each Round, one brand
+    /// The real brands on the board ads, ice logos and LED ads (#223: the 43 logos Garrett picked; CIBC taken out). Each Round, one brand
     /// takes over the dasher boards, the Ribbon Boards and the ice logos (Current); a BrandDeck deals them with no repeats
     /// until the pool is used up, shuffled again each game load. The Calm Area keeps its soft grey art. No Team Skin
     /// changes the brands. Each brand's art is named after its Id, the logo's SVG name and its row in the sources list
@@ -16,7 +18,7 @@ namespace HockeyGame.Core
             public readonly string Name;
             /// <summary>The brand's words as the LED ads show them (the Video Board ad slides), e.g. "Tim Hortons".</summary>
             public readonly string AdWords;
-            /// <summary>The brand's hockey line (Garrett approved all 44, 2026-10-20), e.g. "ALWAYS FRESH. ALWAYS HOCKEY.".</summary>
+            /// <summary>The brand's hockey line (Garrett approved them all, 2026-10-20), e.g. "ALWAYS FRESH. ALWAYS HOCKEY.".</summary>
             public readonly string Tagline;
             /// <summary>The LED ads' background and words colours: the brand's own colours, kept off the reserved colours.</summary>
             public readonly ArenaColour AdBack, AdFore;
@@ -42,7 +44,7 @@ namespace HockeyGame.Core
         static ArenaColour C(byte r, byte g, byte b) => new ArenaColour(r, g, b);
         static readonly ArenaColour White = C(255, 255, 255), Dark = C(40, 40, 45);
 
-        /// <summary>The pool: all 44 brands, in the sources list's order.</summary>
+        /// <summary>The pool: all 43 brands, in the sources list's order.</summary>
         public static readonly Brand[] All =
         {
             new Brand("scotiabank", "Scotiabank", "Scotiabank", "BANK ON THE TOP SHELF", C(215, 15, 30), White),
@@ -83,7 +85,6 @@ namespace HockeyGame.Core
             new Brand("shell", "Shell", "Shell", "GO WELL. GO FIVE-HOLE.", C(251, 206, 7), C(221, 29, 33)),
             new Brand("kia", "Kia", "KIA", "MOVEMENT THAT INSPIRES. TOE DRAGS TOO.", C(25, 40, 55), White),
             new Brand("rbc", "RBC", "RBC Royal Bank", "INVESTING IN EVERY SHIFT", C(0, 93, 170), C(255, 210, 0)),
-            new Brand("cibc", "CIBC", "CIBC", "YOUR AMBITION. OUR ASSIST.", C(196, 31, 62), White),
             new Brand("michelob-ultra", "Michelob Ultra", "MICHELOB ULTRA", "SUPERIOR LIGHT. SUPERIOR SNIPE.", C(0, 40, 95), C(200, 205, 210)),
             new Brand("monster-energy", "Monster Energy", "MONSTER ENERGY", "UNLEASH THE BEAST ON THE BREAKAWAY", Dark, C(149, 213, 0)),
             new Brand("pizza-pizza", "Pizza Pizza", "Pizza Pizza", "GRAB A SLICE OF THE ACTION", C(230, 40, 40), White),
@@ -106,23 +107,47 @@ namespace HockeyGame.Core
         }
 
         static BrandDeck _deck;
+        static System.Random _random;
 
-        /// <summary>This Round's brand (the start screen shows the load's first one): on all boards, the ribbon and the ice.</summary>
+        /// <summary>This Round's brand (the start screen shows the load's first one): on all boards and the ribbon.</summary>
         public static Brand Current { get; private set; } = All[0];
+
+        /// <summary>This Round's four ice brands (PickIce): centre ice, beside the centre circle on -x, on +x, the neutral-zone rounds.</summary>
+        public static IReadOnlyList<Brand> Ice { get; private set; } = new[] { All[0], All[1], All[2], All[3] };
 
         /// <summary>A new game load: a new deck shuffled with random, and its first brand for the start screen.</summary>
         public static void NewLoad(System.Random random)
         {
+            _random = random;
             _deck = new BrandDeck(All, random);
             Current = _deck.Next();
+            Ice = PickIce(All, random);
         }
 
-        /// <summary>A Round starts: the deck's next brand (ScreenFlow calls it). Without a load yet, deals a new deck first.</summary>
+        /// <summary>A Round starts: the deck's next brand and four new ice brands (ScreenFlow calls it). Without a load yet, deals a new deck first.</summary>
         public static void NextRound()
         {
-            if (_deck == null) _deck = new BrandDeck(All, new System.Random());
+            if (_deck == null) { _random = new System.Random(); _deck = new BrandDeck(All, _random); }
             Current = _deck.Next();
+            Ice = PickIce(All, _random);
         }
+
+        /// <summary>Four different brands from pool for the ice (Garrett, #223): they need not match the Round's brand.</summary>
+        public static Brand[] PickIce(IReadOnlyList<Brand> pool, System.Random random)
+        {
+            var picked = new Brand[4];
+            var used = new HashSet<int>();
+            for (int k = 0; k < 4; k++)
+            {
+                int i;
+                do i = random.Next(pool.Count); while (!used.Add(i));
+                picked[k] = pool[i];
+            }
+            return picked;
+        }
+
+        /// <summary>Shows these four ice brands (tests put the old ones back with it).</summary>
+        public static void UseIce(IReadOnlyList<Brand> ice) => Ice = ice;
 
         /// <summary>Shows brand (tests put the old one back with it).</summary>
         public static void Use(Brand brand) => Current = brand;
@@ -138,8 +163,16 @@ namespace HockeyGame.Core
         /// <summary>The brand on ad panel slot i (RinkLayout.AdPanelSlots): this Round's, all round the boards.</summary>
         public static Brand ForPanel(int slot) => Current;
 
-        /// <summary>The brand on ice logo spot i (RinkLayout.IceLogoSpots): this Round's, the big centre-ice logo too (Garrett, #223).</summary>
-        public static Brand ForIceLogo(int spot) => Current;
+        /// <summary>The brand on ice logo spot i (RinkLayout.IceLogoSpots). Centre ice is null: it always shows the Toronto Maple
+        /// Leafs logo, not a pool brand. The four spots beside the centre circle show this Round's four ice brands, in spot order.</summary>
+        public static Brand ForIceLogo(int spot)
+        {
+            if (RinkLayout.IceLogoSpots[spot].Kind == RinkLayout.IceLogoKind.CentreIce) return null;
+            int beside = 0;
+            for (int i = 0; i < spot; i++)
+                if (RinkLayout.IceLogoSpots[i].Kind == RinkLayout.IceLogoKind.BesideCentreCircle) beside++;
+            return Ice[beside];
+        }
     }
 
     /// <summary>
