@@ -19,14 +19,34 @@ namespace HockeyGame
         public static readonly ILogoFiles Files = new DiskFiles();
         public static readonly IPictureCodec Codec = new UnityCodec();
 
-        /// <summary>The file box: the Editor's open-file box in the Editor; none elsewhere until the web and Windows boxes exist (#228, #229).</summary>
-        public static IPicturePicker Picker =>
+        /// <summary>The file box: the Editor's open-file box in the Editor, the browser's in the web build; none elsewhere until the Windows box exists (#229).</summary>
+        public static IPicturePicker Picker { get; } = Make(ChooseKind(
 #if UNITY_EDITOR
-            EditorPicker;
-        static readonly IPicturePicker EditorPicker = new EditorPicturePicker();
+            true,
 #else
-            null;
+            false,
 #endif
+#if UNITY_WEBGL
+            true));
+#else
+            false));
+#endif
+
+        /// <summary>The Editor wins over the web (the Editor on a web target still has its own file box).</summary>
+        public static PickerKind ChooseKind(bool inEditor, bool onWeb) =>
+            inEditor ? PickerKind.Editor : onWeb ? PickerKind.Web : PickerKind.None;
+
+        static IPicturePicker Make(PickerKind kind)
+        {
+            switch (kind)
+            {
+                case PickerKind.Web: return new WebPicturePicker();
+#if UNITY_EDITOR
+                case PickerKind.Editor: return new EditorPicturePicker();
+#endif
+                default: return null;
+            }
+        }
 
         static readonly Dictionary<(string id, string spot), Texture2D> Made = new Dictionary<(string id, string spot), Texture2D>();
         static readonly Dictionary<string, RgbaPicture> Logos = new Dictionary<string, RgbaPicture>();
@@ -110,6 +130,7 @@ namespace HockeyGame
                 {
                     Directory.CreateDirectory(Folder);
                     File.WriteAllBytes(PathOf(id), png);
+                    WebFlush.Request(); // web build: copy to the browser's stored files (#228)
                     return true;
                 }
                 catch (Exception e)
@@ -121,7 +142,7 @@ namespace HockeyGame
 
             public void Delete(string id)
             {
-                try { if (Safe(id) && File.Exists(PathOf(id))) File.Delete(PathOf(id)); }
+                try { if (Safe(id) && File.Exists(PathOf(id))) { File.Delete(PathOf(id)); WebFlush.Request(); } }
                 catch (Exception e) { Debug.LogWarning("Could not delete the logo picture for '" + id + "': " + e.Message); }
             }
 

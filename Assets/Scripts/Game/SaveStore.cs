@@ -30,6 +30,8 @@ namespace HockeyGame
         {
             if (!Current.Save(FilePath))
                 Debug.LogWarning("Could not save settings to " + FilePath);
+            else
+                WebFlush.Request(); // web build: copy to the browser's stored files (#228)
         }
 
         // Load fresh from disk on each launch and each Play-mode start, even with domain reload off.
