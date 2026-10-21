@@ -108,7 +108,7 @@ namespace HockeyGame
             _reset = Add(bottom, "lc-reset", "");
             _saveButton = Add(bottom, "lc-save", "SAVE");
             _escClose = Add(bottom, "lc-esc", "ESC  CLOSE"); // a button: a click acts like Esc (CloseKey)
-            _hints = Add(bottom, "lc-hints", "TAB  PLAYER / DEV      R  RESET      S  SAVE");
+            _hints = Add(bottom, "lc-hints", "TAB  PLAYER / DEV / BRANDS      R  RESET      S  SAVE");
             _page.AddToClassList("lc-hidden");
             _tipBox = Add(_page, "lc-tipbox lc-hidden", ""); // last, so it draws over the cards (#199)
             _tipBox.style.width = TipBoxWidth;

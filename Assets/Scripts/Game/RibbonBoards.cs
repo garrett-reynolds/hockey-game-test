@@ -358,8 +358,8 @@ namespace HockeyGame
 
         /// <summary>
         /// The panels' two ends round the rink outline pushed out by offset, as Tools/make_arena.py walks it: anticlockwise
-        /// from above, up the +x side toward the net end. Straight runs and corners are cut into about PanelLength pieces; a
-        /// side run is cut at each bench and penalty box, and the part beside one is pushed out a further BenchDepth.
+        /// from above, up the +x side toward the net end. Straight runs and corners are cut into about PanelLength pieces. The
+        /// ring is one smooth rounded rectangle: it does not step back beside the benches and penalty boxes.
         /// </summary>
         static List<(Vector2 From, Vector2 To)> Ring(float offset)
         {
@@ -380,26 +380,8 @@ namespace HockeyGame
                 for (int i = 0; i < n; i++) panels.Add((At(i), At(i + 1)));
             }
 
-            // A side run from z0 to z1 on side (+1 or -1), cut where the benches and boxes begin and end.
-            void Side(int side, float z0, float z1)
-            {
-                var cuts = new List<float> { z0, z1 };
-                foreach (RinkLayout.Opening[] group in new[] { RinkLayout.Benches, RinkLayout.PenaltyBoxes })
-                    foreach (RinkLayout.Opening o in group)
-                        if (o.Side == side)
-                            foreach (float z in new[] { (float)o.FromZ, (float)o.ToZ })
-                                if (z > Mathf.Min(z0, z1) && z < Mathf.Max(z0, z1)) cuts.Add(z);
-                cuts.Sort((a, b) => (z1 > z0 ? a.CompareTo(b) : b.CompareTo(a)));
-                for (int i = 0; i + 1 < cuts.Count; i++)
-                {
-                    float mid = (cuts[i] + cuts[i + 1]) / 2f, push = 0f;
-                    foreach (RinkLayout.Opening[] group in new[] { RinkLayout.Benches, RinkLayout.PenaltyBoxes })
-                        foreach (RinkLayout.Opening o in group)
-                            if (o.Side == side && mid >= o.FromZ && mid <= o.ToZ) push = (float)o.Depth;
-                    float x = side * (hw + offset + push);
-                    Line(new Vector2(x, cuts[i]), new Vector2(x, cuts[i + 1]));
-                }
-            }
+            // A side run from z0 to z1 on side (+1 or -1): one straight line, no step at the benches or boxes.
+            void Side(int side, float z0, float z1) => Line(new Vector2(side * (hw + offset), z0), new Vector2(side * (hw + offset), z1));
 
             const float quarter = Mathf.PI / 2f;
             Side(1, zn, ze);

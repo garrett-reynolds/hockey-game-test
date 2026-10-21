@@ -288,42 +288,102 @@ namespace HockeyGame.Core.Tests
                 minZ = Mathf.Min(minZ, c.z); maxZ = Mathf.Max(maxZ, c.z);
             }
             float ring = RibbonBoards.Offset;
-            float side = ring + (float)RinkLayout.BenchDepth; // the stands step back beside the benches and boxes, which reach the side extremes
-            Assert.AreEqual(RinkBoards.HalfWidth + side, maxX, 0.2f);
-            Assert.AreEqual(-RinkBoards.HalfWidth - side, minX, 0.2f);
+            Assert.AreEqual(RinkBoards.HalfWidth + ring, maxX, 0.2f); // one smooth ring: no step back beside the benches
+            Assert.AreEqual(-RinkBoards.HalfWidth - ring, minX, 0.2f);
             // The near end's own panels are wholly behind the Video Board and left out: a corner's panel reaches furthest back.
             Assert.That(maxZ, Is.InRange(RinkBoards.EndZ + ring - 1f, RinkBoards.EndZ + ring + 0.2f));
             Assert.AreEqual(RinkBoards.FarZ - ring, minZ, 0.2f);
         }
 
         [Test]
-        public void The_ring_follows_the_Rink_Layout_all_round_the_full_rink_and_steps_back_beside_the_benches()
+        public void The_ring_follows_the_Rink_Layout_all_round_the_full_rink_as_a_plain_rounded_rectangle()
         {
             RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
             Assert.AreEqual(RinkLayout.RibbonOffset, RibbonBoards.Offset, 1e-4);
             Assert.AreEqual(RinkLayout.RibbonBottom, RibbonBoards.Bottom, 1e-4);
             Assert.AreEqual(RinkLayout.RibbonHeight, RibbonBoards.Height, 1e-4);
-            // Panels stand at the Offset from the boards (a rounded rectangle pushed out), except beside a bench or box.
-            int nearFarEnd = 0, farEnd = 0, steppedBack = 0;
+            // Panels stand at the Offset from the boards everywhere (a rounded rectangle pushed out): no step beside a bench or box.
+            int nearFarEnd = 0, farEnd = 0;
             for (int i = 0; i < ribbons.PanelCount; i++)
             {
                 Vector3 c = ribbons.CentreOf(i);
-                bool beside = false;
-                foreach (RinkLayout.Opening o in System.Linq.Enumerable.Concat(RinkLayout.Benches, RinkLayout.PenaltyBoxes))
-                    if (Mathf.Sign(c.x) == o.Side && c.z >= o.FromZ && c.z <= o.ToZ && Mathf.Abs(c.x) > RinkLayout.HalfWidth + 1f) beside = true;
                 float cx = (float)RinkLayout.CornerX, nearCz = (float)RinkLayout.NearCornerZ, farCz = (float)RinkLayout.FarCornerZ;
                 var core = new Vector2(Mathf.Clamp(c.x, -cx, cx), Mathf.Clamp(c.z, farCz, nearCz));
                 float away = Vector2.Distance(core, new Vector2(c.x, c.z)) - (float)RinkLayout.CornerRadius;
-                float expected = RibbonBoards.Offset - 0.05f + (beside ? (float)RinkLayout.BenchDepth : 0f);
+                float expected = RibbonBoards.Offset - 0.05f;
                 // Chords on a corner sit a little inside the arc; straight runs are exact.
-                Assert.AreEqual(expected, away, beside ? 0.2f : 0.3f, "panel " + i + " at " + c);
-                if (beside) steppedBack++;
+                Assert.AreEqual(expected, away, 0.3f, "panel " + i + " at " + c);
                 if (c.z > RinkLayout.NearEndBoardsZ) nearFarEnd++;
                 if (c.z < RinkLayout.FarEndBoardsZ) farEnd++;
             }
             Assert.Greater(nearFarEnd, 0, "panels behind the near net");
             Assert.Greater(farEnd, 0, "panels behind the far end");
-            Assert.Greater(steppedBack, 0, "panels beside the benches and boxes");
+        }
+
+        // The straight side panels (the ones on the side lines, away from the corners).
+        static bool OnSide(Vector3 c) => Mathf.Abs(c.x) > RinkLayout.HalfWidth + 1f && c.z > RinkLayout.FarCornerZ && c.z < RinkLayout.NearCornerZ;
+
+        static bool BesideBenchOrBox(Vector3 c)
+        {
+            foreach (RinkLayout.Opening o in System.Linq.Enumerable.Concat(RinkLayout.Benches, RinkLayout.PenaltyBoxes))
+                if (Mathf.Sign(c.x) == o.Side && c.z >= o.FromZ && c.z <= o.ToZ) return true;
+            return false;
+        }
+
+        [Test]
+        public void The_ring_has_no_step_every_side_panel_stands_on_the_same_line_and_joins_the_next_end_to_end()
+        {
+            RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
+            foreach (float sign in new[] { 1f, -1f })
+            {
+                var xs = new System.Collections.Generic.List<float>();
+                for (int i = 0; i < ribbons.PanelCount; i++)
+                {
+                    Vector3 c = ribbons.CentreOf(i);
+                    if (OnSide(c) && Mathf.Sign(c.x) == sign) xs.Add(Mathf.Abs(c.x));
+                }
+                Assert.Greater(xs.Count, 6, "side " + sign + " has straight panels");
+                foreach (float x in xs) Assert.AreEqual(xs[0], x, 1e-3f, "side " + sign + ": one straight line, no step");
+            }
+            int joins = 0, besideJoins = 0;
+            for (int i = 0; i < ribbons.PanelCount; i++)
+            {
+                int right = ribbons.RightNeighbourOf(i);
+                if (right < 0) continue;
+                Transform a = PanelRenderer(ribbons, i).transform, b = PanelRenderer(ribbons, right).transform;
+                Vector3 end = ribbons.CentreOf(i) + a.right * ribbons.LengthOf(i) / 2f;
+                Vector3 start = ribbons.CentreOf(right) - b.right * ribbons.LengthOf(right) / 2f;
+                Assert.Less(Vector3.Distance(end, start), 0.05f, "panel " + i + " ends where panel " + right + " starts (no gap, no jump)");
+                joins++;
+                if (BesideBenchOrBox(ribbons.CentreOf(i)) || BesideBenchOrBox(ribbons.CentreOf(right))) besideJoins++;
+            }
+            Assert.That(joins, Is.GreaterThanOrEqualTo(ribbons.PanelCount - 2));
+            Assert.Greater(besideJoins, 0, "joins beside the benches and boxes were checked too");
+        }
+
+        [Test]
+        public void The_scrolling_picture_runs_on_without_a_jump_where_the_benches_and_boxes_are()
+        {
+            RibbonBoards ribbons = RibbonBoards.Build(_rink.transform);
+            ribbons.Show(At(RoundPhase.Idle), 7.0);
+            double loop = ribbons.LoopMetres;
+            int checkedBeside = 0;
+            for (int i = 0; i < ribbons.PanelCount; i++)
+            {
+                int right = ribbons.RightNeighbourOf(i);
+                if (right < 0) continue;
+                Vector3 centre = ribbons.CentreOf(i), next = ribbons.CentreOf(right);
+                // Along the reading line the next panel starts one panel length on: the picture offset grows by length / loop.
+                double step = (ribbons.PictureSTOn(right).z - ribbons.PictureSTOn(i).z + 1.0) % 1.0;
+                Assert.AreEqual(ribbons.LengthOf(i) / loop % 1.0, step, 1e-4, "panel " + i + " to " + right + ": same spacing along the ring");
+                // And that length is the real distance on the wall: the panels' centres are half a length from each end.
+                if (OnSide(centre) && OnSide(next))
+                {
+                    Assert.AreEqual((ribbons.LengthOf(i) + ribbons.LengthOf(right)) / 2f, Vector3.Distance(centre, next), 0.01f, "panel " + i + " to " + right + ": picture distance is wall distance");
+                    if (BesideBenchOrBox(centre) || BesideBenchOrBox(next)) checkedBeside++;
+                }
+            }
+            Assert.Greater(checkedBeside, 0, "the old notch stretches were checked");
         }
 
         [Test]
