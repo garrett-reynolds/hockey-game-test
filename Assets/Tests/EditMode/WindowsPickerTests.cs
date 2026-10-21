@@ -27,6 +27,15 @@ namespace HockeyGame.Tests
         }
 
         [Test]
+        public void Make_gives_a_box_for_every_kind_that_has_one()
+        {
+            Assert.IsNull(CustomLogos.Make(PickerKind.None));
+            Assert.IsInstanceOf<WebPicturePicker>(CustomLogos.Make(PickerKind.Web));
+            Assert.IsInstanceOf<WindowsPicturePicker>(CustomLogos.Make(PickerKind.Windows)); // #224: the Windows player got null, so no CHANGE LOGO
+            Assert.IsNotNull(CustomLogos.Make(PickerKind.Editor)); // the Editor build only; the tests run in the Editor
+        }
+
+        [Test]
         public void Cancel_gives_null()
         {
             byte[] got = new byte[1];

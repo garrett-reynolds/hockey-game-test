@@ -19,7 +19,7 @@ namespace HockeyGame
         public static readonly ILogoFiles Files = new DiskFiles();
         public static readonly IPictureCodec Codec = new UnityCodec();
 
-        /// <summary>The file box: the Editor's open-file box in the Editor, the browser's in the web build; none elsewhere until the Windows box exists (#229).</summary>
+        /// <summary>The file box: the Editor's open-file box in the Editor, the browser's in the web build, the Windows open-file box in the Windows player (#229); none elsewhere.</summary>
         public static IPicturePicker Picker { get; } = Make(ChooseKind(
 #if UNITY_EDITOR
             true,
@@ -41,11 +41,12 @@ namespace HockeyGame
         public static PickerKind ChooseKind(bool inEditor, bool onWeb, bool onWindows = false) =>
             inEditor ? PickerKind.Editor : onWeb ? PickerKind.Web : onWindows ? PickerKind.Windows : PickerKind.None;
 
-        static IPicturePicker Make(PickerKind kind)
+        public static IPicturePicker Make(PickerKind kind)
         {
             switch (kind)
             {
                 case PickerKind.Web: return new WebPicturePicker();
+                case PickerKind.Windows: return new WindowsPicturePicker(); // compiles everywhere; only its call into comdlg32 is Windows-player-only (#229)
 #if UNITY_EDITOR
                 case PickerKind.Editor: return new EditorPicturePicker();
 #endif
