@@ -7,7 +7,7 @@ using UnityEngine;
 namespace HockeyGame
 {
     /// <summary>Which file box CHANGE LOGO uses in this build (#228).</summary>
-    public enum PickerKind { None, Editor, Web }
+    public enum PickerKind { None, Editor, Web, Windows }
 
     /// <summary>
     /// The web build's file box for CHANGE LOGO (#228): the browser plugin (Assets/Plugins/WebGL/HockeyWebFiles.jslib) opens a hidden

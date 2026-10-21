@@ -27,14 +27,19 @@ namespace HockeyGame
             false,
 #endif
 #if UNITY_WEBGL
+            true,
+#else
+            false,
+#endif
+#if UNITY_STANDALONE_WIN
             true));
 #else
             false));
 #endif
 
-        /// <summary>The Editor wins over the web (the Editor on a web target still has its own file box).</summary>
-        public static PickerKind ChooseKind(bool inEditor, bool onWeb) =>
-            inEditor ? PickerKind.Editor : onWeb ? PickerKind.Web : PickerKind.None;
+        /// <summary>The Editor wins over the others (the Editor on a web or Windows target still has its own file box).</summary>
+        public static PickerKind ChooseKind(bool inEditor, bool onWeb, bool onWindows = false) =>
+            inEditor ? PickerKind.Editor : onWeb ? PickerKind.Web : onWindows ? PickerKind.Windows : PickerKind.None;
 
         static IPicturePicker Make(PickerKind kind)
         {
