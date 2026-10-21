@@ -25,7 +25,11 @@ namespace HockeyGame
         /// (the Editor keeps static fields over Play, no domain reload) and on every page load of the Web build.
         /// </summary>
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void NewBrandDeckEachLoad() => Brands.NewLoad(new System.Random());
+        static void NewBrandDeckEachLoad()
+        {
+            Brands.UseOff(SaveStore.Current.BrandsOff); // the brands unticked in Settings stay out (#223)
+            Brands.NewLoad(new System.Random());
+        }
 
         /// <summary>Swaps the ads under rink for this Round's brand (Brands.Current): the old Ads part and its meshes and
         /// materials go, a new one is built (each art keeps its own shape, so the meshes are made again).</summary>

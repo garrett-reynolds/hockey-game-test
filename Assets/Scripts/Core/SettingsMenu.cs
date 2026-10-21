@@ -8,7 +8,8 @@ namespace HockeyGame.Core
     public enum SettingsPart
     {
         Player,
-        Dev
+        Dev,
+        Brands // one tick box per pool brand (#223); no tab yet: ShowPart only
     }
 
     /// <summary>The keys the Settings page answers to (the view turns real keys into these).</summary>
@@ -78,7 +79,7 @@ namespace HockeyGame.Core
         private readonly List<string> _ports = new List<string>();
         private readonly List<Row> _all = new List<Row>();
         private readonly List<Row> _rows = new List<Row>(); // the current part's
-        private readonly int[] _selected = new int[2];
+        private readonly int[] _selected = new int[3];
 
         /// <param name="ports">Port names found now (e.g. COM3). Auto is always offered first.</param>
         /// <param name="openTestMode">What the Dev part's Test Mode button does (#156); null = nothing. It changes no setting.</param>
@@ -149,6 +150,17 @@ namespace HockeyGame.Core
             // Test Mode (#156), kept the last Dev row: endless Shots from the shooter's spot. A button that opens it; it changes no setting, so Activate says false (nothing to save).
             AddRow(SettingsPart.Dev, "TEST", SettingsRowKind.Button, "Test Mode", "Opens endless Shots from the shooter's spot. It changes no setting.", () => "open", null, () => { RequestLeave(Leave.TestMode); return false; });
 
+            // Brands (#223): one tick box per pool brand (the Leafs centre-ice logo is not one). An unticked brand leaves the
+            // boards, the ribbon and the ice logos round centre ice. The last ticked brand cannot be unticked (the flip says false).
+            foreach (Brands.Brand b in Brands.All)
+            {
+                string id = b.Id;
+                Func<bool> flip = () => _save.SetBrandOn(id, !_save.IsBrandOn(id));
+                AddRow(SettingsPart.Brands, "BRANDS", SettingsRowKind.Toggle, b.Name,
+                    "Shows " + b.Name + " in the ads on the boards, the ribbon and the ice. At least one brand stays on. Next Round, after SAVE.",
+                    () => _save.IsBrandOn(id) ? "ON" : "OFF", step => flip(), flip);
+            }
+
             FillRows();
         }
 
@@ -156,7 +168,7 @@ namespace HockeyGame.Core
         public SettingsPart Part { get; private set; }
 
         /// <summary>The "Reset to default" button's words for the current part (the view prints them).</summary>
-        public string ResetLabel => Part == SettingsPart.Player ? "RESET PLAYER TO DEFAULT" : "RESET DEV TO DEFAULT";
+        public string ResetLabel => Part == SettingsPart.Player ? "RESET PLAYER TO DEFAULT" : Part == SettingsPart.Brands ? "TICK EVERY BRAND" : "RESET DEV TO DEFAULT";
 
         /// <summary>Rows in the current part.</summary>
         public int RowCount => _rows.Count;
@@ -251,6 +263,10 @@ namespace HockeyGame.Core
                 _save.UsbPort = defaults.UsbPort;
                 _save.InputIgnoreSeconds = defaults.InputIgnoreSeconds;
                 _save.AutoReturnSeconds = defaults.AutoReturnSeconds;
+            }
+            else if (Part == SettingsPart.Brands)
+            {
+                _save.BrandsOff = defaults.BrandsOff; // every brand ticked again
             }
             else
             {

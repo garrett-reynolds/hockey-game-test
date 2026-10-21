@@ -119,26 +119,28 @@ namespace HockeyGame.Core
         public static void NewLoad(System.Random random)
         {
             _random = random;
-            _deck = new BrandDeck(All, random);
+            _deck = new BrandDeck(_pool, random);
             Current = _deck.Next();
-            Ice = PickIce(All, random);
+            Ice = PickIce(_pool, random);
         }
 
         /// <summary>A Round starts: the deck's next brand and four new ice brands (ScreenFlow calls it). Without a load yet, deals a new deck first.</summary>
         public static void NextRound()
         {
-            if (_deck == null) { _random = new System.Random(); _deck = new BrandDeck(All, _random); }
+            if (_deck == null) { _random = new System.Random(); _deck = new BrandDeck(_pool, _random); }
             Current = _deck.Next();
-            Ice = PickIce(All, _random);
+            Ice = PickIce(_pool, _random);
         }
 
-        /// <summary>Four different brands from pool for the ice (Garrett, #223): they need not match the Round's brand.</summary>
+        /// <summary>Four different brands from pool for the ice (Garrett, #223): they need not match the Round's brand. A pool
+        /// of fewer than four (brands unticked in Settings) repeats brands once each is used.</summary>
         public static Brand[] PickIce(IReadOnlyList<Brand> pool, System.Random random)
         {
             var picked = new Brand[4];
             var used = new HashSet<int>();
             for (int k = 0; k < 4; k++)
             {
+                if (used.Count == pool.Count) used.Clear();
                 int i;
                 do i = random.Next(pool.Count); while (!used.Add(i));
                 picked[k] = pool[i];
@@ -147,10 +149,39 @@ namespace HockeyGame.Core
         }
 
         /// <summary>The pool brands left after the Settings page's unticked ones (off: their ids, comma-separated); never empty.</summary>
-        public static IReadOnlyList<Brand> Pool(string off) => All; // WIP stub (#223 Brands settings)
+        public static IReadOnlyList<Brand> Pool(string off)
+        {
+            var offIds = new HashSet<string>((off ?? "").Split(','));
+            var pool = new List<Brand>();
+            foreach (Brand b in All) if (!offIds.Contains(b.Id)) pool.Add(b);
+            return pool.Count > 0 ? pool : (IReadOnlyList<Brand>)All;
+        }
 
-        /// <summary>Takes the Settings page's unticked brands out of the rotation (off: their ids, comma-separated).</summary>
-        public static void UseOff(string off) { } // WIP stub (#223 Brands settings)
+        static IReadOnlyList<Brand> _pool = All;
+        static string _off = "";
+
+        /// <summary>
+        /// Takes the Settings page's unticked brands out of the rotation (off: their ids, comma-separated): the game load and
+        /// each Save call it. A new deck from the pool left; this Round's brand and ice brands change only if one was turned off.
+        /// </summary>
+        public static void UseOff(string off)
+        {
+            off = off ?? "";
+            if (off == _off) return;
+            _off = off;
+            _pool = Pool(off);
+            if (_random == null) _random = new System.Random();
+            _deck = new BrandDeck(_pool, _random);
+            if (!Contains(_pool, Current)) Current = _deck.Next();
+            foreach (Brand b in Ice)
+                if (!Contains(_pool, b)) { Ice = PickIce(_pool, _random); break; }
+        }
+
+        static bool Contains(IReadOnlyList<Brand> pool, Brand brand)
+        {
+            foreach (Brand b in pool) if (b == brand) return true;
+            return false;
+        }
 
         /// <summary>Shows these four ice brands (tests put the old ones back with it).</summary>
         public static void UseIce(IReadOnlyList<Brand> ice) => Ice = ice;

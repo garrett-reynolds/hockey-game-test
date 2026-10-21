@@ -18,6 +18,7 @@ namespace HockeyGame.Core.Tests
 
         static int Row(SettingsMenu menu, string label)
         {
+            menu.ShowPart(SettingsPart.Brands); // 43 tick boxes: their own part (tab)
             for (int i = 0; i < menu.RowCount; i++)
                 if (menu.Label(i) == label) return i;
             return -1;

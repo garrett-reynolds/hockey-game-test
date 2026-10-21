@@ -219,7 +219,7 @@ namespace HockeyGame
         public void Open()
         {
             _menu = new SettingsMenu(_save, PortNames(), () => TestModeRequested?.Invoke());
-            _menu.SaveDataChanged += () => _persist = true;
+            _menu.SaveDataChanged += () => { _persist = true; Brands.UseOff(_save.BrandsOff); }; // unticked brands leave the rotation (#223)
             _menu.CloseApproved += () => _closeApproved = true;
             _persist = false;
             _closeApproved = false;
