@@ -238,7 +238,8 @@ namespace HockeyGame.Core
         }
 
         // ---------- ice logo spots (estimate: broadcast look, never in an end zone) ----------
-        const double BesideCircleX = 7.7, BesideCircleDz = 1.2;
+        // The logos read from the side (#223), so a beside-circle spot is long along z (1.4 m across, 4.2 m along), clear of the red line.
+        const double BesideCircleX = 7.7, BesideCircleDz = 2.7;
         public enum IceLogoKind { CentreIce, BesideCentreCircle }
 
         /// <summary>Where an ice logo goes: its middle on the ice and its size across (x) and along (z) the rink.</summary>
@@ -258,10 +259,10 @@ namespace HockeyGame.Core
         public static readonly IceLogoSpot[] IceLogoSpots =
         {
             new IceLogoSpot(IceLogoKind.CentreIce, 0, CentreLineZ, 6.0, 6.0),
-            new IceLogoSpot(IceLogoKind.BesideCentreCircle, -BesideCircleX, CentreLineZ + BesideCircleDz, 4.2, 1.4),
-            new IceLogoSpot(IceLogoKind.BesideCentreCircle, BesideCircleX, CentreLineZ + BesideCircleDz, 4.2, 1.4),
-            new IceLogoSpot(IceLogoKind.BesideCentreCircle, -BesideCircleX, CentreLineZ - BesideCircleDz, 4.2, 1.4),
-            new IceLogoSpot(IceLogoKind.BesideCentreCircle, BesideCircleX, CentreLineZ - BesideCircleDz, 4.2, 1.4),
+            new IceLogoSpot(IceLogoKind.BesideCentreCircle, -BesideCircleX, CentreLineZ + BesideCircleDz, 1.4, 4.2),
+            new IceLogoSpot(IceLogoKind.BesideCentreCircle, BesideCircleX, CentreLineZ + BesideCircleDz, 1.4, 4.2),
+            new IceLogoSpot(IceLogoKind.BesideCentreCircle, -BesideCircleX, CentreLineZ - BesideCircleDz, 1.4, 4.2),
+            new IceLogoSpot(IceLogoKind.BesideCentreCircle, BesideCircleX, CentreLineZ - BesideCircleDz, 1.4, 4.2),
         };
 
         // ---------- Video Board, Centre Board and roof ----------

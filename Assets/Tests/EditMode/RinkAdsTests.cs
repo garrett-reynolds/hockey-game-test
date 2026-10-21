@@ -287,16 +287,18 @@ namespace HockeyGame.Core.Tests
         // ---------- the ice logos ----------
 
         [Test]
-        public void Ice_logos_lie_flat_on_their_spots_and_read_from_the_Replay_view_behind_the_near_net()
+        public void Ice_logos_lie_flat_on_their_spots_and_all_read_from_the_side_like_a_TV_view()
         {
             GameObject ads = RinkAds.Build(_rink.transform);
             Renderer[] logos = IceLogos(ads);
             Assert.AreEqual(RinkLayout.IceLogoSpots.Length, logos.Length);
 
-            var replay = new GameObject("Replay View").AddComponent<Camera>();
+            // Garrett (#223): all five (the Leafs and the four brands) turned the same way, upright from the -x side of the rink
+            // (the start screen's "Pan along the side" camera), as a TV camera sees centre ice.
+            var replay = new GameObject("Side View").AddComponent<Camera>();
             replay.transform.SetParent(_rink.transform);
             replay.aspect = 16f / 9f;
-            replay.transform.position = new Vector3(0f, 2.3f, (float)RinkLayout.NearEndBoardsZ - 0.6f);
+            replay.transform.position = new Vector3(-11.5f, 9f, (float)RinkLayout.CentreLineZ);
             replay.transform.LookAt(new Vector3(0f, 0f, (float)RinkLayout.CentreLineZ));
 
             for (int i = 0; i < logos.Length; i++)

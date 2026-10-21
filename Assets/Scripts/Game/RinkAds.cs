@@ -171,18 +171,19 @@ namespace HockeyGame
 
         /// <summary>
         /// An ice logo's mesh: flat, IceLift over the ice, as big as fits its spot without changing the art's shape. Its
-        /// art's right runs to -x and its top to -z, so it reads from behind the near net looking out.
+        /// art's right runs to -z and its top to +x, so all five read upright from the -x side of the rink, like a TV
+        /// camera's view of centre ice (Garrett, #223).
         /// </summary>
         static Mesh IceLogoMesh(RinkLayout.IceLogoSpot spot, Texture2D texture)
         {
             float aspect = texture != null ? (float)texture.width / texture.height : 1f;
-            float w = (float)spot.Width, h = (float)spot.Height;
+            float w = (float)spot.Height, h = (float)spot.Width; // the art's width runs along z, its height across x
             if (w / h > aspect) w = h * aspect; else h = w / aspect;
             var c = new Vector3((float)spot.X, IceLift, (float)spot.Z);
             var vertices = new List<Vector3>
             {
-                c + new Vector3(w / 2, 0f, h / 2), c + new Vector3(w / 2, 0f, -h / 2),
-                c + new Vector3(-w / 2, 0f, -h / 2), c + new Vector3(-w / 2, 0f, h / 2),
+                c + new Vector3(-h / 2, 0f, w / 2), c + new Vector3(h / 2, 0f, w / 2),
+                c + new Vector3(h / 2, 0f, -w / 2), c + new Vector3(-h / 2, 0f, -w / 2),
             };
             var uv = new List<Vector2> { new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(1f, 0f) };
             return Finish("Ice Logo", vertices, uv, new List<int> { 0, 1, 2, 0, 2, 3 }); // clockwise from above
