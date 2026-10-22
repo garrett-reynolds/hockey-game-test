@@ -162,6 +162,17 @@ namespace HockeyGame.Editor
                     {
                         string logs = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Logs"));
                         Shoot(Path.Combine(logs, "t231-use-every-default.png"), "USE EVERY DEFAULT LOGO row with its tip; the keyboard on USE DEFAULT of GAME LOGO");
+                        _screen.Menu.Select(_customBrandRow); // a brand row starts on its ON/OFF tick (#224)
+                        _screen.ForceHoverRow = -1;
+                        _screen.ForceHoverButton = -1;
+                        _screen.Pointer(new Vector2(-1f, -1f), false, false);
+                        _stage = 23;
+                        _frames = 0;
+                    }
+                    else if (_stage == 23)
+                    {
+                        string logs = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Logs"));
+                        Shoot(Path.Combine(logs, "t224fix-tick-border.png"), "the keyboard on the ON/OFF tick of the custom brand row (gold border)");
                         Finish();
                     }
                     else if (_stage == 1)
