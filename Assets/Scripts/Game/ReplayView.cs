@@ -40,6 +40,7 @@ namespace HockeyGame
         GameObject _replayBottle;        // its stand-in: shown only on Replay frames
         readonly List<Renderer> _hiddenLive = new List<Renderer>(); // the live puck's renderers the Replay turned off
         readonly ReplayTrack _track = new ReplayTrack();
+        ReplayNetting _netting;
         ArenaState _show;
         bool _recording, _begun, _showing;
 
@@ -94,6 +95,9 @@ namespace HockeyGame
         /// <summary>The stand-in the Replay shows for the physics puck (null without ReplayPhysicsPuck).</summary>
         public GameObject ReplayPuck => _replayPuck;
 
+        /// <summary>Records the live cloth shape for the same shot clock as the puck and goalie.</summary>
+        public void ReplayCloth(NetCloth net) => _netting = new ReplayNetting(net.Cloth.GetComponent<SkinnedMeshRenderer>(), () => net.Cloth.vertices);
+
         /// <summary>
         /// Replays the water bottle too (#164): it has a Rigidbody (a knocked bottle is free physics), so as with the puck its
         /// pose goes onto a stand-in with no Rigidbody (WaterBottle.MakeLook), which the track records and the Replay shows while
@@ -116,6 +120,7 @@ namespace HockeyGame
         public void RestoreLive()
         {
             _track.Restore();
+            _netting?.Restore();
             ShowLivePuck();
         }
 
@@ -133,7 +138,9 @@ namespace HockeyGame
             bool play = _show.Camera == CameraMode.Replay && _track.SampleCount > 0;
             if (play)
             {
-                _track.Apply(ReplayTiming.ShotSecondsAt(_show.ReplaySeconds, _round.ResultDelaySeconds, BottleKnocked));
+                double shotSeconds = ReplayTiming.ShotSecondsAt(_show.ReplaySeconds, _round.ResultDelaySeconds, BottleKnocked);
+                _track.Apply(shotSeconds);
+                _netting?.Apply(shotSeconds);
                 HideLivePuck();
             }
             SetShowing(play);
@@ -154,6 +161,7 @@ namespace HockeyGame
             if (!_begun)
             {
                 _begun = true;
+                _netting?.Begin();
                 _recording = _round.LastShot.HasValue && _round.ReplayOn; // the Shot frame; Too late has no Shot; Replay off (#145, and always in Test Mode, #156): nothing to record
                 if (_recording)
                 {
@@ -166,6 +174,7 @@ namespace HockeyGame
             if (_round.ResultShowing && !_round.ReplayFollows)
             {
                 _track.Begin(); // the Whistle gave a result with no Replay (a Wide Miss): drop the recording
+                _netting?.Begin();
                 _recording = false;
                 return;
             }
@@ -173,6 +182,7 @@ namespace HockeyGame
             PoseReplayPuck();
             PoseReplayBottle();
             _track.Record(seconds);
+            _netting?.Record(seconds);
             if (_replayPuck != null) _replayPuck.SetActive(false); // seen only on Replay frames
             if (_replayBottle != null) _replayBottle.SetActive(false);
             if (_round.ResultShowing && seconds > ReplayTiming.ClipEnd(_round.ResultDelaySeconds, BottleKnocked) + RecordMargin) _recording = false;
@@ -251,6 +261,7 @@ namespace HockeyGame
 
         void OnDestroy()
         {
+            _netting?.Dispose();
             if (Picture == null) return;
             Picture.Release();
             SceneObjects.DestroySafely(Picture);

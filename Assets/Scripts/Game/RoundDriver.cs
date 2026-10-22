@@ -90,6 +90,7 @@ namespace HockeyGame
             _startShots = new StartShotsView(_camera, (float)settings.ViewFieldOfViewDegrees);
             _replay = gameObject.AddComponent<ReplayView>();
             _replay.Init(_round, _boards, _camera, _goalie.Body);
+            _replay.ReplayCloth(_effects.NetCloth);
             _replay.ReplayPhysicsPuck(() => _effects.Shot?.Puck); // a new Rigidbody each Shot: replayed on a stand-in, not in the track
             if (_bottle != null) _replay.ReplayBottle(_bottle); // the bottle falling off is in the Replay too (#164), on a stand-in
             _usb = gameObject.AddComponent<UsbShotSource>();

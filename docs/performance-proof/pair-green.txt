@@ -1,0 +1,5 @@
+PASS Either_invisible_slice_blocks_the_merge
+PASS Group_tier_pair_and_range_boundaries_stay_separate
+PASS Invalid_or_wrapped_ranges_cannot_merge
+PASS Visible_contiguous_adjacent_pair_can_merge
+Passed: 4; Failed: 0; Worker count: 1

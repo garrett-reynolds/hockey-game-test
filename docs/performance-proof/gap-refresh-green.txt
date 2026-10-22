@@ -1,0 +1,6 @@
+PASS ChangedTrueAndFalseCellsCopyOnlySelectedRun
+PASS ClampedRangesRetainValuesAndCounts
+PASS ConstructorCopiesInput
+PASS EmptyAndOutsideRangesKeepReference
+PASS UnchangedSelectedCellsKeepReferenceDespiteOutsideDifferences
+Passed: 5; Failed: 0; Worker count: 1

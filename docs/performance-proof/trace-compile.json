@@ -1,0 +1,25 @@
+{
+    "CompilerExit":  0,
+    "ErrorLines":  0,
+    "FreshDll":  true,
+    "StartedUtc":  "2026-10-17T23:57:08.9855520Z",
+    "OutputDll":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\trace-worker\\trace-compile-cc35b0497b0041aa90974799f764dfab.dll",
+    "ResponseFile":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\trace-worker\\trace-compile-cc35b0497b0041aa90974799f764dfab.rsp",
+    "CompilerLog":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\trace-worker\\trace-compile-cc35b0497b0041aa90974799f764dfab.log",
+    "Defines":  "UNITY_EDITOR,UNITY_EDITOR_WIN,UNITY_STANDALONE_WIN",
+    "SourceHashes":  [
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\trace-worker\\Assets\\Scripts\\Core\\FrameTrace.cs",
+                             "Hash":  "8746DB30346AFAC54E7C026AD8CF110642535C50BBD23F2B9D1245044DC2EEFA"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\trace-worker\\Assets\\Scripts\\Game\\Editor\\FrameBudgetTool.cs",
+                             "Hash":  "232CE29F8E42597CD9F33B159A76BECD14B0DE6E712E40136E685DD57520BA72"
+                         },
+                         {
+                             "Path":  "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\trace-worker\\Assets\\Scripts\\Game\\Editor\\GoalRateTool.cs",
+                             "Hash":  "BCB1F893B4EB1453A455140CC8166D136568E2F31D3E7E9D5208D63CD4A45914"
+                         }
+                     ],
+    "OutputHash":  "4672764E26B11990FC59F78FE80E8ACD8E34E9C75434F9A6A276CA4D98E91540"
+}

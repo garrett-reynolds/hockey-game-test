@@ -1,0 +1,49 @@
+{
+    "Gpu": "NVIDIA GeForce RTX 4070 Laptop GPU (Direct3D11)",
+    "Cpu": "13th Gen Intel(R) Core(TM) i9-13900H, 20 threads",
+    "When": "2026-10-17 20:10",
+    "Timing": "wall clock, Editor batch mode. CPU = game step + render calls; GPU = render calls until the frame is read back (an upper bound on the GPU's own time). Crowd = median Shot mean GPU ms, crowd on less off.",
+    "Width": 1920,
+    "Height": 1080,
+    "Within": false,
+    "Moments": [
+        {
+            "Name": "skate-in",
+            "Frames": 1775,
+            "CrowdOffFrames": 1330,
+            "OnShots": 12,
+            "OffShots": 9,
+            "GpuSlowest1PctMs": 20.792835294117644,
+            "CpuSlowest1PctMs": 17.292988235294114,
+            "GpuMedianMs": 10.1681,
+            "CpuMedianMs": 6.9934,
+            "GpuWaitSlowest1PctMs": 9.785252941176472,
+            "CrowdOffGpuSlowest1PctMs": 10.481646153846157,
+            "CrowdCostMs": 4.927631402831407,
+            "CrowdCostSlowest1PctMs": 10.311189140271487,
+            "CrowdCostWaitMs": 1.8870278750689469,
+            "GpuOver": true,
+            "CpuOver": true,
+            "CrowdOver": true
+        },
+        {
+            "Name": "Replay after a Goal",
+            "Frames": 1424,
+            "CrowdOffFrames": 1445,
+            "OnShots": 5,
+            "OffShots": 5,
+            "GpuSlowest1PctMs": 26.154128571428576,
+            "CpuSlowest1PctMs": 28.199499999999997,
+            "GpuMedianMs": 11.732850000000001,
+            "CpuMedianMs": 8.9283,
+            "GpuWaitSlowest1PctMs": 10.332985714285716,
+            "CrowdOffGpuSlowest1PctMs": 12.646735714285715,
+            "CrowdCostMs": 5.571468858131494,
+            "CrowdCostSlowest1PctMs": 13.507392857142861,
+            "CrowdCostWaitMs": 1.6659916955017309,
+            "GpuOver": true,
+            "CpuOver": true,
+            "CrowdOver": true
+        }
+    ]
+}

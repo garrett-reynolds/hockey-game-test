@@ -54,10 +54,16 @@ namespace HockeyGame.Core
         /// <summary>These Gaps with the run of cells from firstCell (cellCount long) taken from measured instead.</summary>
         public NetFaceGaps With(NetFaceGaps measured, int firstCell, int cellCount)
         {
-            var cells = (bool[])_isGap.Clone();
-            for (int cell = Math.Max(0, firstCell); cell < Math.Min(Cells, firstCell + cellCount); cell++)
+            int first = Math.Max(0, firstCell);
+            int end = Math.Min(Cells, firstCell + cellCount);
+            bool[] cells = null;
+            for (int cell = first; cell < end; cell++)
+            {
+                if (_isGap[cell] == measured._isGap[cell]) continue;
+                if (cells == null) cells = (bool[])_isGap.Clone();
                 cells[cell] = measured._isGap[cell];
-            return new NetFaceGaps(cells);
+            }
+            return cells == null ? this : new NetFaceGaps(cells);
         }
 
         /// <summary>A cell's number: row by row from the bottom-left.</summary>

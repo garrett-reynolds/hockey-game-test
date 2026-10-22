@@ -36,7 +36,7 @@ namespace HockeyGame.Editor
     /// </para>
     /// From the menu (Hockey Game/Frame Budget/Run) or batch mode (no -nographics: it must render):
     /// Unity -batchmode -projectPath ... -executeMethod HockeyGame.Editor.FrameBudgetTool.RunFromCommandLine
-    /// [-frameBudgetResult folder] -logFile ... writes frame-budget.json and frame-budget.md (default FrameBudget/Latest);
+    /// [-frameBudgetResult folder] [-frameBudgetTrace csvPath] -logFile ... writes frame-budget.json and frame-budget.md (default FrameBudget/Latest);
     /// exits 0 within budget, 2 over, 1 on an error.
     /// </summary>
     public static class FrameBudgetTool
@@ -274,7 +274,15 @@ namespace HockeyGame.Editor
                 using var game = new Game(target);
                 var skateIn = new Frames();
                 var replay = new Frames();
-                game.Play(skateIn, replay);
+                string tracePath = Arg("-frameBudgetTrace");
+                FrameTrace trace = FrameTrace.Create(tracePath != null);
+                game.Play(skateIn, replay, trace);
+                if (trace != null)
+                {
+                    string fullPath = Path.GetFullPath(tracePath);
+                    Directory.CreateDirectory(Path.GetDirectoryName(fullPath));
+                    File.WriteAllText(fullPath, trace.ToCsv());
+                }
                 var result = new Result
                 {
                     Gpu = SystemInfo.graphicsDeviceName + " (" + SystemInfo.graphicsDeviceType + ")",
@@ -357,7 +365,7 @@ namespace HockeyGame.Editor
             }
 
             /// <summary>Plays Shots, crowd on and off in turn, until both moments have ShotsPerMode Shots each way.</summary>
-            public void Play(Frames skateIn, Frames replay)
+            public void Play(Frames skateIn, Frames replay, FrameTrace trace)
             {
                 var gpu = new List<double>();
                 var cpu = new List<double>();
@@ -366,13 +374,16 @@ namespace HockeyGame.Editor
                 int shots = 0;
                 bool shot = false, goal = false;
                 RoundPhase last = RoundPhase.Idle;
+                int frame = 0;
                 while (skateIn.OnShots < ShotsPerMode || skateIn.OffShots < ShotsPerMode ||
                        replay.OnShots < ShotsPerMode || replay.OffShots < ShotsPerMode)
                 {
                     if (_flow.Screen == FlowScreen.Start || _flow.EndAcceptsInput) _flow.Press();
+                    FrameTrace.Sample traceStart = trace != null ? FrameTrace.Capture() : default;
                     var clock = Stopwatch.StartNew();
                     Step(ref shot);
                     double stepMs = clock.Elapsed.TotalMilliseconds;
+                    FrameTrace.Sample traceStep = trace != null ? FrameTrace.Capture() : default;
                     RoundPhase phase = _round.Phase;
                     bool playing = _flow.Screen == FlowScreen.Playing;
 
@@ -396,7 +407,51 @@ namespace HockeyGame.Editor
                     goal = _round.LastResult.HasValue && _round.LastResult.Value.Kind == ShotResultKind.Goal;
 
                     bool measure = playing && (phase == RoundPhase.SkateIn || phase == RoundPhase.ResultHold && goal);
-                    if (!measure) continue;
+                    var row = new FrameTrace.Row();
+                    if (trace != null)
+                    {
+                        row.Frame = frame++;
+                        row.Shot = shots;
+                        row.Phase = (int)phase;
+                        row.CrowdOn = crowdOn;
+                        row.Warmup = warmUp;
+                        row.Settle = measure && gpu.Count < SettleFrames;
+                        row.Measured = measure;
+                        row.ReplayRendered = measure && _replay.Showing;
+                        row.Step = FrameTrace.Between(traceStart, traceStep, Stopwatch.Frequency);
+                    }
+                    if (!measure)
+                    {
+                        if (trace != null)
+                        {
+                            row.SetCollections(traceStart, FrameTrace.Capture());
+                            trace.Add(row);
+                        }
+                        continue;
+                    }
+                    if (trace != null)
+                    {
+                        // Keep the default path below intact; traced aggregate times include sample overhead.
+                        FrameTrace.Sample a = FrameTrace.Capture();
+                        clock.Restart();
+                        if (_replay.Showing) _replay.ReplayCamera.Render();
+                        FrameTrace.Sample b = FrameTrace.Capture();
+                        _camera.Render();
+                        double tracedRenderMs = clock.Elapsed.TotalMilliseconds;
+                        FrameTrace.Sample c = FrameTrace.Capture();
+                        WaitForGpu(_target);
+                        double tracedDoneMs = clock.Elapsed.TotalMilliseconds;
+                        FrameTrace.Sample d = FrameTrace.Capture();
+                        row.Replay = row.ReplayRendered ? FrameTrace.Between(a, b, Stopwatch.Frequency) : default;
+                        row.Shooter = FrameTrace.Between(b, c, Stopwatch.Frequency);
+                        row.Readback = FrameTrace.Between(c, d, Stopwatch.Frequency);
+                        row.SetCollections(traceStart, d);
+                        cpu.Add(stepMs + tracedRenderMs);
+                        gpu.Add(tracedDoneMs);
+                        wait.Add(tracedDoneMs - tracedRenderMs);
+                        trace.Add(row);
+                        continue;
+                    }
                     clock.Restart();
                     if (_replay.Showing) _replay.ReplayCamera.Render(); // the game's Replay camera draws before the shooter's (depth -1)
                     _camera.Render();

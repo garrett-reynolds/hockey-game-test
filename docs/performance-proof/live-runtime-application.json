@@ -1,0 +1,52 @@
+{
+  "status": "applied_and_verified",
+  "source_commit": "0c73c18a1e0223c4ccf811840e3e8fdd2b7468fc",
+  "target": "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-wt\\111",
+  "target_head": "c0493e53d1162576209c4abafdc5473bdffb571e",
+  "backup": "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\live-runtime-backup-20261017-203654",
+  "patch": "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\validated-runtime-performance.patch",
+  "files": [
+    {
+      "relative": "Assets/Scripts/Core/NetFaceGaps.cs",
+      "target": "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-wt\\111\\Assets\\Scripts\\Core\\NetFaceGaps.cs",
+      "backup": "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\live-runtime-backup-20261017-203654\\Assets\\Scripts\\Core\\NetFaceGaps.cs",
+      "before_sha256": "801875ec35fbfe856d9a99445d9f3ef5570c263fc8f6d27660bbb1cf59cffee8",
+      "after_sha256": "75cb27ac90f3a48a930d8154ea53043d5cd296f3c2ad95dbd05454079ca7a8d6"
+    },
+    {
+      "relative": "Assets/Scripts/Game/Crowd.cs",
+      "target": "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-wt\\111\\Assets\\Scripts\\Game\\Crowd.cs",
+      "backup": "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\live-runtime-backup-20261017-203654\\Assets\\Scripts\\Game\\Crowd.cs",
+      "before_sha256": "3b13fec2ad1084cfee825ef1c3ae5f242869651ac979938843fef6f7cb81f626",
+      "after_sha256": "3feb4bf0ba63f77b5f49cb55f5118df11f72c5d84c8eb52459dcd34555aec31c"
+    },
+    {
+      "relative": "Assets/Scripts/Core/CrowdSliceOrder.cs",
+      "target": "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-wt\\111\\Assets\\Scripts\\Core\\CrowdSliceOrder.cs",
+      "backup": null,
+      "before_sha256": null,
+      "after_sha256": "b9572d423b6c779893b88bc54073dc6f6af5a524ba9fb47969abb9c462c3fe45"
+    },
+    {
+      "relative": "Assets/Scripts/Core/CrowdSliceOrder.cs.meta",
+      "target": "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-wt\\111\\Assets\\Scripts\\Core\\CrowdSliceOrder.cs.meta",
+      "backup": null,
+      "before_sha256": null,
+      "after_sha256": "cafd5ef938b70db2a4824545ad3110657cb8bca219be5530783d3f1c6e8ccc38"
+    },
+    {
+      "relative": "Assets/Scripts/Core/VisibleCrowdPair.cs",
+      "target": "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-wt\\111\\Assets\\Scripts\\Core\\VisibleCrowdPair.cs",
+      "backup": null,
+      "before_sha256": null,
+      "after_sha256": "b8c4fccbc03d8b0b16796e7e662422b2ecf66b508ad814dc584c0eb88a1bd2dd"
+    },
+    {
+      "relative": "Assets/Scripts/Core/VisibleCrowdPair.cs.meta",
+      "target": "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-wt\\111\\Assets\\Scripts\\Core\\VisibleCrowdPair.cs.meta",
+      "backup": null,
+      "before_sha256": null,
+      "after_sha256": "0e16f3c1a46a94e965da9e3fec83cf853919f838d3f93f7e6e134f49debec9d4"
+    }
+  ]
+}
