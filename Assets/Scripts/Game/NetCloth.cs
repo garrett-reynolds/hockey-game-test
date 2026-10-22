@@ -187,7 +187,7 @@ namespace HockeyGame
         static Material NetMaterial()
         {
             const int S = 32, Cord = 6;
-            var holes = new Texture2D(S, S, TextureFormat.RGBA32, false) { name = "Net holes", wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Point };
+            var holes = new Texture2D(S, S, TextureFormat.RGBA32, false) { name = "Net holes", wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear };
             for (int y = 0; y < S; y++)
                 for (int x = 0; x < S; x++)
                     holes.SetPixel(x, y, x < Cord || y < Cord ? Color.white : new Color(1f, 1f, 1f, 0f));
@@ -196,7 +196,7 @@ namespace HockeyGame
             var material = unlit != null ? new Material(unlit) : new Material(Shader.Find("Sprites/Default"));
             material.name = "Cloth Netting";
             material.mainTexture = holes;
-            if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", new Color(0.95f, 0.95f, 0.95f));
+            material.color = new Color(0.38f, 0.42f, 0.46f); // dark cord remains clear against the pale ice in the board replay
             if (material.HasProperty("_Cutoff")) { material.SetFloat("_AlphaClip", 1f); material.SetFloat("_Cutoff", 0.5f); material.EnableKeyword("_ALPHATEST_ON"); }
             if (material.HasProperty("_Cull")) material.SetFloat("_Cull", 0f); // both faces
             if (material.HasProperty("_BaseMap")) material.SetTexture("_BaseMap", holes);

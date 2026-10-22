@@ -93,6 +93,16 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void The_net_cords_have_contrast_against_pale_ice_and_filtered_edges()
+        {
+            Material material = _effects.NetCloth.Cloth.GetComponent<SkinnedMeshRenderer>().sharedMaterial;
+            Color cord = material.color;
+            float luminance = cord.r * 0.2126f + cord.g * 0.7152f + cord.b * 0.0722f;
+            Assert.Less(luminance, 0.5f, "net cords remain darker than the ice on the replay board");
+            Assert.AreEqual(FilterMode.Bilinear, material.mainTexture.filterMode);
+        }
+
+        [Test]
         public void The_cloth_netting_has_the_Hard_settings()
         {
             Cloth cloth = _effects.NetCloth.Cloth;
