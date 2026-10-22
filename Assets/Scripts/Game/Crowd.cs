@@ -119,9 +119,14 @@ namespace HockeyGame
         public int LastDrawnFans { get; private set; }
 
         /// <summary>Adds the crowd under rink, in the skin's home jersey (null: the League Skin's), or nothing when a body
-        /// file or a shader is missing.</summary>
+        /// file or a shader is missing, or the platform has no compute shaders.</summary>
         public static Crowd Build(Transform rink, TeamSkin skin = null)
         {
+            if (!SystemInfo.supportsComputeShaders) // the Web build (WebGL 2) cannot make the fans' structured buffer
+            {
+                Debug.LogWarning("No 3D crowd: this platform has no compute shader support (the Web build).");
+                return null;
+            }
             var shader = Resources.Load<Shader>(Folder + "/" + ShaderFile);
             var cardShader = Resources.Load<Shader>(Folder + "/" + CardShaderFile);
             var bodies = new CrowdBody[BodyFiles.Length];
