@@ -1,0 +1,450 @@
+{
+    "Timing": "Editor wall upper bounds: render call plus checked GPU readback. Not GPU-only time or live FPS. DrawCalls counts submitted slices, not hardware draws.",
+    "Width": 1920,
+    "Height": 1080,
+    "Rounds": 5,
+    "Frames": 30,
+    "SettleFrames": 2,
+    "Views": [
+        {
+            "Name": "shooter",
+            "ReferenceImage": "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\crowd-drawcalls-95\\crowd-slices-images\\shooter-reference-16.png",
+            "ReferenceRepeatDifferentPixels": 0,
+            "ReferenceRepeatMaxChannelError": 0,
+            "Variants": [
+                {
+                    "Sectors": 4,
+                    "TotalSlices": 115,
+                    "DrawCalls": 48,
+                    "Fans": 6757,
+                    "DifferentPixels": 0,
+                    "MaxChannelError": 0,
+                    "ImageMatches": true,
+                    "MedianCostMs": 3.3142300000000002,
+                    "Image": "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\crowd-drawcalls-95\\crowd-slices-images\\shooter-4.png",
+                    "Rounds": [
+                        {
+                            "Round": 0,
+                            "Order": 0,
+                            "CrowdFirst": true,
+                            "OnMs": 8.105056666666666,
+                            "OffMs": 4.205986666666666,
+                            "CostMs": 3.89907
+                        },
+                        {
+                            "Round": 1,
+                            "Order": 3,
+                            "CrowdFirst": false,
+                            "OnMs": 7.374286666666666,
+                            "OffMs": 3.895313333333333,
+                            "CostMs": 3.4789733333333333
+                        },
+                        {
+                            "Round": 2,
+                            "Order": 2,
+                            "CrowdFirst": true,
+                            "OnMs": 6.642903333333334,
+                            "OffMs": 3.3286733333333336,
+                            "CostMs": 3.3142300000000002
+                        },
+                        {
+                            "Round": 3,
+                            "Order": 1,
+                            "CrowdFirst": false,
+                            "OnMs": 6.42785,
+                            "OffMs": 3.14526,
+                            "CostMs": 3.2825900000000003
+                        },
+                        {
+                            "Round": 4,
+                            "Order": 0,
+                            "CrowdFirst": true,
+                            "OnMs": 7.431443333333333,
+                            "OffMs": 4.523936666666667,
+                            "CostMs": 2.9075066666666665
+                        }
+                    ]
+                },
+                {
+                    "Sectors": 8,
+                    "TotalSlices": 211,
+                    "DrawCalls": 48,
+                    "Fans": 3657,
+                    "DifferentPixels": 0,
+                    "MaxChannelError": 0,
+                    "ImageMatches": true,
+                    "MedianCostMs": 2.7110866666666675,
+                    "Image": "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\crowd-drawcalls-95\\crowd-slices-images\\shooter-8.png",
+                    "Rounds": [
+                        {
+                            "Round": 0,
+                            "Order": 1,
+                            "CrowdFirst": true,
+                            "OnMs": 7.167846666666667,
+                            "OffMs": 4.35638,
+                            "CostMs": 2.811466666666667
+                        },
+                        {
+                            "Round": 1,
+                            "Order": 0,
+                            "CrowdFirst": false,
+                            "OnMs": 7.015166666666667,
+                            "OffMs": 4.30408,
+                            "CostMs": 2.7110866666666675
+                        },
+                        {
+                            "Round": 2,
+                            "Order": 3,
+                            "CrowdFirst": true,
+                            "OnMs": 5.6657399999999996,
+                            "OffMs": 3.328703333333333,
+                            "CostMs": 2.3370366666666667
+                        },
+                        {
+                            "Round": 3,
+                            "Order": 2,
+                            "CrowdFirst": false,
+                            "OnMs": 5.583176666666666,
+                            "OffMs": 3.2555233333333335,
+                            "CostMs": 2.3276533333333322
+                        },
+                        {
+                            "Round": 4,
+                            "Order": 1,
+                            "CrowdFirst": true,
+                            "OnMs": 7.050586666666666,
+                            "OffMs": 3.723873333333333,
+                            "CostMs": 3.3267133333333327
+                        }
+                    ]
+                },
+                {
+                    "Sectors": 16,
+                    "TotalSlices": 403,
+                    "DrawCalls": 96,
+                    "Fans": 3657,
+                    "DifferentPixels": 0,
+                    "MaxChannelError": 0,
+                    "ImageMatches": true,
+                    "MedianCostMs": 3.058216666666666,
+                    "Image": "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\crowd-drawcalls-95\\crowd-slices-images\\shooter-16.png",
+                    "Rounds": [
+                        {
+                            "Round": 0,
+                            "Order": 2,
+                            "CrowdFirst": true,
+                            "OnMs": 7.452313333333334,
+                            "OffMs": 4.145006666666666,
+                            "CostMs": 3.3073066666666673
+                        },
+                        {
+                            "Round": 1,
+                            "Order": 1,
+                            "CrowdFirst": false,
+                            "OnMs": 7.370606666666666,
+                            "OffMs": 4.339833333333333,
+                            "CostMs": 3.0307733333333333
+                        },
+                        {
+                            "Round": 2,
+                            "Order": 0,
+                            "CrowdFirst": true,
+                            "OnMs": 6.901213333333333,
+                            "OffMs": 3.8429966666666666,
+                            "CostMs": 3.058216666666666
+                        },
+                        {
+                            "Round": 3,
+                            "Order": 3,
+                            "CrowdFirst": false,
+                            "OnMs": 6.207726666666667,
+                            "OffMs": 3.33813,
+                            "CostMs": 2.869596666666667
+                        },
+                        {
+                            "Round": 4,
+                            "Order": 2,
+                            "CrowdFirst": true,
+                            "OnMs": 6.881753333333333,
+                            "OffMs": 3.46964,
+                            "CostMs": 3.412113333333333
+                        }
+                    ]
+                },
+                {
+                    "Sectors": 32,
+                    "TotalSlices": 763,
+                    "DrawCalls": 164,
+                    "Fans": 3596,
+                    "DifferentPixels": 0,
+                    "MaxChannelError": 0,
+                    "ImageMatches": true,
+                    "MedianCostMs": 3.52175,
+                    "Image": "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\crowd-drawcalls-95\\crowd-slices-images\\shooter-32.png",
+                    "Rounds": [
+                        {
+                            "Round": 0,
+                            "Order": 3,
+                            "CrowdFirst": true,
+                            "OnMs": 8.129646666666666,
+                            "OffMs": 4.128683333333333,
+                            "CostMs": 4.000963333333333
+                        },
+                        {
+                            "Round": 1,
+                            "Order": 2,
+                            "CrowdFirst": false,
+                            "OnMs": 7.97716,
+                            "OffMs": 4.161943333333333,
+                            "CostMs": 3.8152166666666663
+                        },
+                        {
+                            "Round": 2,
+                            "Order": 1,
+                            "CrowdFirst": true,
+                            "OnMs": 6.6673333333333336,
+                            "OffMs": 3.1455833333333336,
+                            "CostMs": 3.52175
+                        },
+                        {
+                            "Round": 3,
+                            "Order": 0,
+                            "CrowdFirst": false,
+                            "OnMs": 6.778713333333333,
+                            "OffMs": 3.43677,
+                            "CostMs": 3.341943333333333
+                        },
+                        {
+                            "Round": 4,
+                            "Order": 3,
+                            "CrowdFirst": true,
+                            "OnMs": 6.83359,
+                            "OffMs": 3.3343233333333333,
+                            "CostMs": 3.4992666666666667
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "Name": "up-ice",
+            "ReferenceImage": "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\crowd-drawcalls-95\\crowd-slices-images\\up-ice-reference-16.png",
+            "ReferenceRepeatDifferentPixels": 0,
+            "ReferenceRepeatMaxChannelError": 0,
+            "Variants": [
+                {
+                    "Sectors": 4,
+                    "TotalSlices": 115,
+                    "DrawCalls": 115,
+                    "Fans": 14185,
+                    "DifferentPixels": 0,
+                    "MaxChannelError": 0,
+                    "ImageMatches": true,
+                    "MedianCostMs": 5.257523333333333,
+                    "Image": "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\crowd-drawcalls-95\\crowd-slices-images\\up-ice-4.png",
+                    "Rounds": [
+                        {
+                            "Round": 0,
+                            "Order": 0,
+                            "CrowdFirst": true,
+                            "OnMs": 9.084736666666666,
+                            "OffMs": 3.8272133333333334,
+                            "CostMs": 5.257523333333333
+                        },
+                        {
+                            "Round": 1,
+                            "Order": 3,
+                            "CrowdFirst": false,
+                            "OnMs": 8.83131,
+                            "OffMs": 3.5061666666666667,
+                            "CostMs": 5.325143333333333
+                        },
+                        {
+                            "Round": 2,
+                            "Order": 2,
+                            "CrowdFirst": true,
+                            "OnMs": 8.811076666666667,
+                            "OffMs": 3.6076233333333336,
+                            "CostMs": 5.203453333333333
+                        },
+                        {
+                            "Round": 3,
+                            "Order": 1,
+                            "CrowdFirst": false,
+                            "OnMs": 8.827096666666668,
+                            "OffMs": 3.47266,
+                            "CostMs": 5.354436666666668
+                        },
+                        {
+                            "Round": 4,
+                            "Order": 0,
+                            "CrowdFirst": true,
+                            "OnMs": 8.966053333333333,
+                            "OffMs": 3.97139,
+                            "CostMs": 4.9946633333333335
+                        }
+                    ]
+                },
+                {
+                    "Sectors": 8,
+                    "TotalSlices": 211,
+                    "DrawCalls": 163,
+                    "Fans": 10909,
+                    "DifferentPixels": 0,
+                    "MaxChannelError": 0,
+                    "ImageMatches": true,
+                    "MedianCostMs": 5.4058166666666665,
+                    "Image": "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\crowd-drawcalls-95\\crowd-slices-images\\up-ice-8.png",
+                    "Rounds": [
+                        {
+                            "Round": 0,
+                            "Order": 1,
+                            "CrowdFirst": true,
+                            "OnMs": 9.104086666666666,
+                            "OffMs": 3.5042233333333335,
+                            "CostMs": 5.599863333333332
+                        },
+                        {
+                            "Round": 1,
+                            "Order": 0,
+                            "CrowdFirst": false,
+                            "OnMs": 8.68563,
+                            "OffMs": 3.557103333333333,
+                            "CostMs": 5.128526666666667
+                        },
+                        {
+                            "Round": 2,
+                            "Order": 3,
+                            "CrowdFirst": true,
+                            "OnMs": 8.877893333333333,
+                            "OffMs": 3.3710299999999997,
+                            "CostMs": 5.5068633333333334
+                        },
+                        {
+                            "Round": 3,
+                            "Order": 2,
+                            "CrowdFirst": false,
+                            "OnMs": 8.748343333333334,
+                            "OffMs": 3.5113566666666665,
+                            "CostMs": 5.2369866666666685
+                        },
+                        {
+                            "Round": 4,
+                            "Order": 1,
+                            "CrowdFirst": true,
+                            "OnMs": 9.610146666666667,
+                            "OffMs": 4.204330000000001,
+                            "CostMs": 5.4058166666666665
+                        }
+                    ]
+                },
+                {
+                    "Sectors": 16,
+                    "TotalSlices": 403,
+                    "DrawCalls": 276,
+                    "Fans": 9588,
+                    "DifferentPixels": 0,
+                    "MaxChannelError": 0,
+                    "ImageMatches": true,
+                    "MedianCostMs": 4.904466666666668,
+                    "Image": "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\crowd-drawcalls-95\\crowd-slices-images\\up-ice-16.png",
+                    "Rounds": [
+                        {
+                            "Round": 0,
+                            "Order": 2,
+                            "CrowdFirst": true,
+                            "OnMs": 8.59445,
+                            "OffMs": 3.77561,
+                            "CostMs": 4.81884
+                        },
+                        {
+                            "Round": 1,
+                            "Order": 1,
+                            "CrowdFirst": false,
+                            "OnMs": 8.511203333333333,
+                            "OffMs": 3.6741533333333334,
+                            "CostMs": 4.83705
+                        },
+                        {
+                            "Round": 2,
+                            "Order": 0,
+                            "CrowdFirst": true,
+                            "OnMs": 8.494463333333334,
+                            "OffMs": 3.4329233333333335,
+                            "CostMs": 5.061540000000001
+                        },
+                        {
+                            "Round": 3,
+                            "Order": 3,
+                            "CrowdFirst": false,
+                            "OnMs": 8.484426666666668,
+                            "OffMs": 3.57996,
+                            "CostMs": 4.904466666666668
+                        },
+                        {
+                            "Round": 4,
+                            "Order": 2,
+                            "CrowdFirst": true,
+                            "OnMs": 8.7227,
+                            "OffMs": 3.55192,
+                            "CostMs": 5.17078
+                        }
+                    ]
+                },
+                {
+                    "Sectors": 32,
+                    "TotalSlices": 763,
+                    "DrawCalls": 500,
+                    "Fans": 8844,
+                    "DifferentPixels": 0,
+                    "MaxChannelError": 0,
+                    "ImageMatches": true,
+                    "MedianCostMs": 5.949976666666666,
+                    "Image": "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\crowd-drawcalls-95\\crowd-slices-images\\up-ice-32.png",
+                    "Rounds": [
+                        {
+                            "Round": 0,
+                            "Order": 3,
+                            "CrowdFirst": true,
+                            "OnMs": 9.453703333333333,
+                            "OffMs": 3.5037266666666667,
+                            "CostMs": 5.949976666666666
+                        },
+                        {
+                            "Round": 1,
+                            "Order": 2,
+                            "CrowdFirst": false,
+                            "OnMs": 9.613933333333334,
+                            "OffMs": 3.5630433333333333,
+                            "CostMs": 6.050890000000001
+                        },
+                        {
+                            "Round": 2,
+                            "Order": 1,
+                            "CrowdFirst": true,
+                            "OnMs": 9.433576666666665,
+                            "OffMs": 3.5353766666666666,
+                            "CostMs": 5.898199999999999
+                        },
+                        {
+                            "Round": 3,
+                            "Order": 0,
+                            "CrowdFirst": false,
+                            "OnMs": 9.516096666666666,
+                            "OffMs": 3.3764933333333333,
+                            "CostMs": 6.139603333333333
+                        },
+                        {
+                            "Round": 4,
+                            "Order": 3,
+                            "CrowdFirst": true,
+                            "OnMs": 9.645233333333334,
+                            "OffMs": 4.012003333333333,
+                            "CostMs": 5.63323
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

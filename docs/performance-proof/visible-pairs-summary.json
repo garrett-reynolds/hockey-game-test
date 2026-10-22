@@ -1,0 +1,13 @@
+{
+  "plan_id": "3df008d422404f4db63f65c12a58b697",
+  "native_tests_passed": 15,
+  "native_tests_skipped": 0,
+  "views": 2,
+  "variants_per_view": 2,
+  "all_images_match": true,
+  "paired_improvement": true,
+  "full_game_started": true,
+  "full_game_completed": true,
+  "within_frame_budget": false,
+  "frame_budget_exit": 2
+}

@@ -44,12 +44,12 @@ namespace HockeyGame
         /// <summary>Each fan turns a little off straight ahead (radians, either way).</summary>
         const float YawSpread = 0.15f;
         /// <summary>The bowl is cut into this many slices round its middle (per tier) so a camera draws only what it sees.</summary>
-        const int Sectors = 16;
+        public const int DefaultSectors = 16;
         /// <summary>A fan reaches this far round its seat (metres) and this high, standing with its arms up.</summary>
         const float Reach = 0.8f, Top = 2.5f;
 
         [StructLayout(LayoutKind.Sequential)]
-        struct FanData
+        public struct FanData
         {
             public Vector4 Place; // x, y, z (crowd space), yaw
             public Vector4 Shirt; // the team top: rgb (linear), phase 0..1
@@ -62,8 +62,8 @@ namespace HockeyGame
         /// <summary>A slice of the fan buffer drawn in one call: one body at one level, one part of the bowl.</summary>
         sealed class Slice
         {
-            public int Group, Start, Count;
-            public Bounds Bounds;
+            public int Group, Start, Count, Key;
+            public Bounds Bounds, WorldBounds;
             public MaterialPropertyBlock Props;
         }
 
@@ -84,10 +84,13 @@ namespace HockeyGame
         Mesh _card;
         readonly List<Slice> _slices = new List<Slice>();
         FanData[] _data;
+        int[] _fanIds;
         GraphicsBuffer _fans;
         FanSeat[] _seats;
         FanLook[] _looks;
         Bounds _bounds;
+        Matrix4x4 _boundsToWorld;
+        bool _worldBoundsValid;
         readonly CrowdMotion[] _motion = new CrowdMotion[3];
         readonly float[] _light = { 1f, 1f, 1f }, _contrast = { 1f, 1f, 1f };
         readonly Vector4[] _zones = new Vector4[3];
@@ -95,6 +98,12 @@ namespace HockeyGame
         double _lastSeconds = double.NaN;
 
         public int FanCount => _seats?.Length ?? 0;
+        /// <summary>Diagnostic grouping; changes draw calls, never fan appearance or animation.</summary>
+        public int SectorCount { get; private set; } = DefaultSectors;
+        public int SliceCount => _slices.Count;
+        public int LastDrawCalls { get; private set; }
+        public int FanIdOf(int fan) => _fanIds[fan];
+        public FanData DataOf(int fan) => _data[fan];
         /// <summary>Fan i's seat and look (in the crowd's own order).</summary>
         public FanSeat SeatOf(int fan) => _seats[fan];
         public FanLook LookOf(int fan) => _looks[fan];
@@ -115,6 +124,8 @@ namespace HockeyGame
         /// <summary>On: far fans are flat camera-facing cards instead of the light body (the first cut if the crowd goes
         /// over its 2 ms GPU limit).</summary>
         public bool FarCards { get; set; }
+        /// <summary>Combines visible neighbor pairs without drawing any extra fans. False retains the old submission path.</summary>
+        public bool MergeVisiblePairs { get; set; } = true;
         /// <summary>Fans drawn for the last camera (the slices it could see).</summary>
         public int LastDrawnFans { get; private set; }
 
@@ -160,6 +171,7 @@ namespace HockeyGame
 
         void Fill(CrowdBody[] bodies, Shader shader, Shader cardShader, System.Random random, ArenaColour homeJersey)
         {
+            _worldBoundsValid = false;
             var seconds = new double[ClipNames.Length];
             for (int i = 0; i < seconds.Length; i++) seconds[i] = bodies[0].Clips[i].Seconds;
             for (int z = 0; z < 3; z++) _motion[z] = new CrowdMotion(seconds);
@@ -207,6 +219,7 @@ namespace HockeyGame
             _seats = new FanSeat[seats.Length];
             _looks = new FanLook[seats.Length];
             _data = new FanData[seats.Length];
+            _fanIds = new int[seats.Length];
             var min = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
             Vector3 max = -min;
             Slice slice = null;
@@ -214,6 +227,7 @@ namespace HockeyGame
             for (int k = 0; k < order.Length; k++)
             {
                 int i = order[k];
+                _fanIds[k] = i;
                 FanSeat s = _seats[k] = seats[i];
                 FanLook l = _looks[k] = looks[i];
                 BodyType type = CrowdLooks.BodyTypes[l.Body];
@@ -230,7 +244,7 @@ namespace HockeyGame
                 int key = SliceKey(s, l);
                 if (key != lastKey)
                 {
-                    slice = new Slice { Group = Group(s, l), Start = k, Props = new MaterialPropertyBlock() };
+                    slice = new Slice { Group = Group(s, l), Start = k, Key = key, Props = new MaterialPropertyBlock() };
                     slice.Props.SetFloat(FanStartId, k);
                     slice.Bounds = new Bounds(place, Vector3.zero);
                     _slices.Add(slice);
@@ -249,12 +263,48 @@ namespace HockeyGame
 
         static int Group(FanSeat s, FanLook l) => CrowdLooks.BodyTypes[l.Body].Base * 2 + (CrowdSeats.IsNearFan(s) ? 0 : 1);
 
-        static int SliceKey(FanSeat s, FanLook l)
+        int SliceKey(FanSeat s, FanLook l) => CrowdSliceOrder.Key(Group(s, l),
+            s.Row < RinkLayout.LowerRows ? 0 : 1, s.X, s.Z - RinkLayout.CentreLineZ, SectorCount);
+
+        /// <summary>Regroups existing fans for diagnostics. No random values, bodies, or motion states are recreated.</summary>
+        public void Regroup(int sectors)
         {
-            double angle = Math.Atan2(s.Z - RinkLayout.CentreLineZ, s.X) + Math.PI;
-            int sector = Math.Min(Sectors - 1, (int)(angle / (2 * Math.PI) * Sectors));
-            int tier = s.Row < RinkLayout.LowerRows ? 0 : 1;
-            return (Group(s, l) * 2 + tier) * Sectors + sector;
+            CrowdSliceOrder.Validate(sectors); // Reject before any state changes.
+            if (sectors == SectorCount) return;
+            var keys = new int[FanCount];
+            for (int i = 0; i < keys.Length; i++)
+                keys[i] = CrowdSliceOrder.Key(Group(_seats[i], _looks[i]),
+                    _seats[i].Row < RinkLayout.LowerRows ? 0 : 1, _seats[i].X,
+                    _seats[i].Z - RinkLayout.CentreLineZ, sectors);
+            int[] order = CrowdSliceOrder.Order(keys, _fanIds);
+            _seats = CrowdSliceOrder.Copy(_seats, order);
+            _looks = CrowdSliceOrder.Copy(_looks, order);
+            _data = CrowdSliceOrder.Copy(_data, order);
+            _fanIds = CrowdSliceOrder.Copy(_fanIds, order);
+            SectorCount = sectors;
+            _slices.Clear();
+            Slice slice = null;
+            int lastKey = -1;
+            for (int i = 0; i < FanCount; i++)
+            {
+                int key = SliceKey(_seats[i], _looks[i]);
+                Vector4 p = _data[i].Place;
+                var place = new Vector3(p.x, p.y, p.z);
+                if (key != lastKey)
+                {
+                    slice = new Slice { Group = Group(_seats[i], _looks[i]), Start = i, Key = key,
+                        Props = new MaterialPropertyBlock(), Bounds = new Bounds(place, Vector3.zero) };
+                    slice.Props.SetFloat(FanStartId, i);
+                    _slices.Add(slice);
+                    lastKey = key;
+                }
+                slice.Count++;
+                slice.Bounds.Encapsulate(place);
+            }
+            foreach (Slice sl in _slices)
+                sl.Bounds.SetMinMax(sl.Bounds.min - new Vector3(Reach, 0, Reach), sl.Bounds.max + new Vector3(Reach, Top, Reach));
+            _worldBoundsValid = false;
+            _fans?.SetData(_data);
         }
 
         /// <summary>The body's palette for the shaders: per entry the linear rgb (Own and TeamTop colours moved off any
@@ -355,6 +405,7 @@ namespace HockeyGame
 
         void OnEnable()
         {
+            _worldBoundsValid = false;
             MakeBuffer();
             RenderPipelineManager.beginCameraRendering += Draw;
         }
@@ -371,15 +422,30 @@ namespace HockeyGame
         void Draw(ScriptableRenderContext context, Camera camera)
         {
             LastDrawnFans = 0;
+            LastDrawCalls = 0;
             if (!Drawn || _fans == null || double.IsNaN(_lastSeconds)
                 || camera.cameraType == CameraType.Preview || camera.cameraType == CameraType.Reflection) return;
             Matrix4x4 toWorld = transform.localToWorldMatrix;
-            foreach (Material m in AllMaterials()) m.SetMatrix(CrowdToWorldId, toWorld);
+            RefreshWorldBounds(toWorld);
             GeometryUtility.CalculateFrustumPlanes(camera, _planes);
-            foreach (Slice s in _slices)
+            for (int i = 0; i < _slices.Count; i++)
             {
-                Bounds world = WorldBounds(s.Bounds);
+                Slice s = _slices[i];
+                Bounds world = s.WorldBounds;
                 if (!GeometryUtility.TestPlanesAABB(_planes, world)) continue;
+                int count = s.Count;
+                if (MergeVisiblePairs && i + 1 < _slices.Count)
+                {
+                    Slice next = _slices[i + 1];
+                    if (VisibleCrowdPair.CanMerge(s.Key, s.Group, s.Start, s.Count,
+                        next.Key, next.Group, next.Start, true, true) &&
+                        GeometryUtility.TestPlanesAABB(_planes, next.WorldBounds))
+                    {
+                        count += next.Count;
+                        world.Encapsulate(next.WorldBounds);
+                        i++;
+                    }
+                }
                 bool card = FarCards && s.Group % 2 == 1;
                 var rp = new RenderParams(card ? _cardMaterials[s.Group] : _materials[s.Group])
                 {
@@ -390,16 +456,28 @@ namespace HockeyGame
                     layer = gameObject.layer,
                     matProps = s.Props
                 };
-                Graphics.RenderMeshPrimitives(rp, card ? _card : _bodies[s.Group].Mesh, 0, s.Count);
-                LastDrawnFans += s.Count;
+                Graphics.RenderMeshPrimitives(rp, card ? _card : _bodies[s.Group].Mesh, 0, count);
+                LastDrawnFans += count;
+                LastDrawCalls++;
             }
         }
 
-        Bounds WorldBounds(Bounds local)
+        void RefreshWorldBounds(Matrix4x4 toWorld)
         {
-            var world = new Bounds(transform.TransformPoint(local.center), Vector3.zero);
+            // Equals compares every matrix element exactly; operator == uses a tolerance.
+            if (_worldBoundsValid && _boundsToWorld.Equals(toWorld)) return;
+            foreach (Material m in AllMaterials()) m.SetMatrix(CrowdToWorldId, toWorld);
+            foreach (Slice s in _slices) s.WorldBounds = WorldBounds(s.Bounds, toWorld);
+            _boundsToWorld = toWorld;
+            _worldBoundsValid = true;
+        }
+
+        static Bounds WorldBounds(Bounds local, Matrix4x4 toWorld)
+        {
+            // Keep all eight corners conservative under shear and negative or unequal scale.
+            var world = new Bounds(toWorld.MultiplyPoint3x4(local.center), Vector3.zero);
             for (int i = 0; i < 8; i++)
-                world.Encapsulate(transform.TransformPoint(new Vector3(
+                world.Encapsulate(toWorld.MultiplyPoint3x4(new Vector3(
                     (i & 1) == 0 ? local.min.x : local.max.x,
                     (i & 2) == 0 ? local.min.y : local.max.y,
                     (i & 4) == 0 ? local.min.z : local.max.z)));

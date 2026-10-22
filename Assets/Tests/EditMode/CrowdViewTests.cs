@@ -174,6 +174,245 @@ namespace HockeyGame.Core.Tests
         }
 
         [Test]
+        public void Moving_the_parent_and_camera_together_keeps_the_same_visible_fans()
+        {
+            CheckMovedCrowd(false);
+        }
+
+        [Test]
+        public void Changed_parent_scale_and_sheared_crowd_match_a_fresh_crowd_after_enable()
+        {
+            CheckMovedCrowd(true);
+        }
+
+        void CheckMovedCrowd(bool scaleAndShear)
+        {
+            Crowd crowd = Crowd.Build(_rink.transform);
+            crowd.Show(In(RoundPhase.SkateIn), 0.0);
+            var target = new RenderTexture(320, 180, 24);
+            var cam = new GameObject("Camera").AddComponent<Camera>();
+            cam.transform.SetParent(_rink.transform, false);
+            cam.transform.localPosition = new Vector3(0, 1.5f, -10f);
+            try
+            {
+                cam.targetTexture = target;
+                cam.Render(); // Warm the original bounds before changing the parent.
+                AssertCrowdMaterialMatrices(crowd);
+                int before = crowd.LastDrawnFans;
+                Assert.That(before, Is.GreaterThan(1000).And.LessThan(crowd.FanCount));
+                _rink.transform.SetPositionAndRotation(new Vector3(5000, 20, -4000),
+                    Quaternion.Euler(0, scaleAndShear ? 37 : 180, 0));
+                if (scaleAndShear)
+                {
+                    _rink.transform.localScale = new Vector3(-1.5f, 0.75f, 2f);
+                    crowd.transform.localRotation = Quaternion.Euler(0, 23, 0);
+                    crowd.transform.localScale = new Vector3(0.8f, 1.3f, 1.1f);
+                }
+                cam.Render();
+                AssertCrowdMaterialMatrices(crowd);
+                int moved = crowd.LastDrawnFans;
+                if (!scaleAndShear) Assert.AreEqual(before, moved, "a rigid move with the camera keeps the visible fans");
+
+                // A new crowd at the same transform supplies a cold-cache reference.
+                Crowd reference = Crowd.Build(_rink.transform);
+                reference.transform.localPosition = crowd.transform.localPosition;
+                reference.transform.localRotation = crowd.transform.localRotation;
+                reference.transform.localScale = crowd.transform.localScale;
+                reference.Show(In(RoundPhase.SkateIn), 0.0);
+                cam.Render();
+                Assert.That(reference.LastDrawnFans, Is.GreaterThan(0).And.LessThan(reference.FanCount));
+                Assert.AreEqual(reference.LastDrawnFans, moved, "changed transforms must match fresh bounds");
+                crowd.gameObject.SetActive(false);
+                crowd.gameObject.SetActive(true);
+                cam.Render();
+                Assert.AreEqual(reference.LastDrawnFans, crowd.LastDrawnFans, "enable must retain correct bounds");
+                AssertCrowdMaterialMatrices(crowd);
+            }
+            finally
+            {
+                cam.targetTexture = null;
+                Object.DestroyImmediate(cam.gameObject);
+                target.Release();
+                Object.DestroyImmediate(target);
+            }
+        }
+
+        [Test]
+        public void Regrouping_keeps_exact_fan_data_and_rejects_invalid_counts_before_changes()
+        {
+            Crowd crowd = Crowd.Build(_rink.transform);
+            Assert.AreEqual(16, crowd.SectorCount);
+            var seats = new FanSeat[crowd.FanCount];
+            var looks = new FanLook[crowd.FanCount];
+            var data = new Crowd.FanData[crowd.FanCount];
+            for (int i = 0; i < crowd.FanCount; i++)
+            {
+                int id = crowd.FanIdOf(i);
+                seats[id] = crowd.SeatOf(i); looks[id] = crowd.LookOf(i); data[id] = crowd.DataOf(i);
+            }
+            Material[] materials = crowd.Materials.ToArray();
+            CrowdBody body = crowd.BodyOf(0, 0);
+            crowd.Show(In(RoundPhase.ResultHold, ArenaResult.Goal), 2.0);
+            double clock = crowd.ClockIn(ArenaZone.Near);
+            foreach (int sectors in new[] { 4, 8, 32, 16, 4, 16 })
+            {
+                crowd.Regroup(sectors);
+                Assert.AreEqual(sectors, crowd.SectorCount);
+                Assert.AreSame(body, crowd.BodyOf(0, 0));
+                Assert.That(crowd.Materials, Is.EqualTo(materials));
+                Assert.AreEqual(clock, crowd.ClockIn(ArenaZone.Near));
+                var seen = new bool[crowd.FanCount];
+                for (int i = 0; i < crowd.FanCount; i++)
+                {
+                    int id = crowd.FanIdOf(i);
+                    Assert.IsFalse(seen[id], "each original fan occurs once");
+                    seen[id] = true;
+                    Assert.AreEqual(seats[id], crowd.SeatOf(i));
+                    Assert.AreEqual(looks[id], crowd.LookOf(i));
+                    Assert.AreEqual(data[id], crowd.DataOf(i), "all six GPU vectors, including yaw and phase");
+                }
+                int first = crowd.FanIdOf(0), slices = crowd.SliceCount;
+                Assert.Throws<System.ArgumentOutOfRangeException>(() => crowd.Regroup(3));
+                Assert.AreEqual(sectors, crowd.SectorCount);
+                Assert.AreEqual(first, crowd.FanIdOf(0));
+                Assert.AreEqual(slices, crowd.SliceCount);
+            }
+        }
+
+        [Test]
+        public void Regrouping_after_warm_bounds_and_parent_changes_matches_fresh_grouping()
+        {
+            Crowd crowd = Crowd.Build(_rink.transform);
+            crowd.Show(In(RoundPhase.SkateIn), 0.0);
+            var target = new RenderTexture(320, 180, 24);
+            var cam = new GameObject("Camera").AddComponent<Camera>();
+            cam.transform.SetParent(_rink.transform, false);
+            cam.transform.localPosition = new Vector3(0, 1.5f, -10f);
+            try
+            {
+                cam.targetTexture = target;
+                cam.Render();
+                Assert.That(crowd.LastDrawCalls, Is.GreaterThan(0));
+                foreach (int sectors in new[] { 4, 8, 32, 16 })
+                {
+                    _rink.transform.SetPositionAndRotation(new Vector3(2000 + sectors, 10, -1000), Quaternion.Euler(0, 180, 0));
+                    cam.Render(); // Warm moved bounds before regrouping with the same transform.
+                    crowd.Regroup(sectors);
+                    Crowd reference = Crowd.Build(_rink.transform);
+                    try
+                    {
+                        reference.Regroup(sectors);
+                        reference.Show(In(RoundPhase.SkateIn), 0.0);
+                        cam.Render();
+                        Assert.That(reference.LastDrawnFans, Is.GreaterThan(0));
+                        Assert.AreEqual(reference.LastDrawnFans, crowd.LastDrawnFans);
+                        Assert.AreEqual(reference.LastDrawCalls, crowd.LastDrawCalls);
+                        Assert.That(crowd.LastDrawCalls, Is.InRange(1, crowd.SliceCount));
+                        AssertCrowdMaterialMatrices(crowd);
+                        crowd.gameObject.SetActive(false);
+                        crowd.Regroup(sectors == 4 ? 8 : 4);
+                        crowd.Regroup(sectors);
+                        crowd.gameObject.SetActive(true);
+                        cam.Render();
+                        Assert.AreEqual(reference.LastDrawnFans, crowd.LastDrawnFans);
+                        Assert.AreEqual(reference.LastDrawCalls, crowd.LastDrawCalls);
+                        AssertCrowdMaterialMatrices(crowd);
+                    }
+                    finally { Object.DestroyImmediate(reference.gameObject); }
+                }
+                crowd.Drawn = false;
+                cam.Render();
+                Assert.AreEqual(0, crowd.LastDrawCalls);
+                Assert.AreEqual(0, crowd.LastDrawnFans);
+            }
+            finally
+            {
+                cam.targetTexture = null;
+                Object.DestroyImmediate(cam.gameObject);
+                target.Release();
+                Object.DestroyImmediate(target);
+            }
+        }
+
+        [Test]
+        public void Visible_pair_merging_keeps_exact_pixels_and_fans_after_warm_bounds_parent_moves_and_enable()
+        {
+            Crowd crowd = Crowd.Build(_rink.transform);
+            Assert.IsTrue(crowd.MergeVisiblePairs);
+            Assert.AreEqual(16, crowd.SectorCount);
+            crowd.Show(In(RoundPhase.ResultHold, ArenaResult.Goal), 0.0);
+            var target = new RenderTexture(320, 180, 24);
+            var cam = new GameObject("Camera").AddComponent<Camera>();
+            Breakaway.SkatePoint(AttackSide.Middle, 1.0, out double x, out double distance);
+            BreakawayView.PlaceShooterCamera(cam.transform, (float)x, (float)distance, 0f, 0f);
+            cam.transform.SetParent(_rink.transform, true);
+            try
+            {
+                cam.targetTexture = target;
+                for (int state = 0; state < 3; state++)
+                {
+                    if (state == 1)
+                        _rink.transform.SetPositionAndRotation(new Vector3(2000, 20, -1000), Quaternion.Euler(0, 180, 0));
+                    if (state == 2)
+                    {
+                        crowd.gameObject.SetActive(false);
+                        crowd.gameObject.SetActive(true);
+                    }
+                    crowd.MergeVisiblePairs = false;
+                    cam.Render(); // Warm the current bounds and material transform.
+                    Color32[] baseline = CrowdPixels(cam, target);
+                    int fans = crowd.LastDrawnFans, calls = crowd.LastDrawCalls;
+                    Assert.That(fans, Is.GreaterThan(0).And.LessThan(crowd.FanCount));
+                    crowd.MergeVisiblePairs = true;
+                    Color32[] merged = CrowdPixels(cam, target);
+                    Assert.AreEqual(fans, crowd.LastDrawnFans, "the exact same fine slices must contribute fans");
+                    Assert.That(crowd.LastDrawCalls, Is.LessThan(calls), "the shooter view must submit fewer calls");
+                    Assert.That(merged, Is.EqualTo(baseline), "every rendered channel must match at state " + state);
+                    AssertCrowdMaterialMatrices(crowd);
+                }
+            }
+            finally
+            {
+                cam.targetTexture = null;
+                Object.DestroyImmediate(cam.gameObject);
+                target.Release();
+                Object.DestroyImmediate(target);
+            }
+        }
+
+        static Color32[] CrowdPixels(Camera camera, RenderTexture target)
+        {
+            camera.Render();
+            RenderTexture previous = RenderTexture.active;
+            var texture = new Texture2D(target.width, target.height, TextureFormat.RGBA32, false);
+            try
+            {
+                RenderTexture.active = target;
+                texture.ReadPixels(new Rect(0, 0, target.width, target.height), 0, 0);
+                texture.Apply(false);
+                return texture.GetPixels32();
+            }
+            finally
+            {
+                RenderTexture.active = previous;
+                Object.DestroyImmediate(texture);
+            }
+        }
+
+        static void AssertCrowdMaterialMatrices(Crowd crowd)
+        {
+            Matrix4x4 expected = crowd.transform.localToWorldMatrix;
+            int checkedMaterials = 0;
+            foreach (Material material in crowd.Materials)
+            {
+                Assert.That(material.GetMatrix("_CrowdToWorld").Equals(expected), Is.True,
+                    material.name + " must draw at the current crowd transform");
+                checkedMaterials++;
+            }
+            Assert.That(checkedMaterials, Is.GreaterThan(0));
+        }
+
+        [Test]
         public void The_arena_model_has_no_flat_crowd_picture_left()
         {
             GameObject arena = ArenaStands.Build(_rink.transform);

@@ -1,0 +1,5 @@
+PASS Csv_keeps_context_gc_deltas_and_invariant_numbers
+PASS Disabled_trace_has_no_buffer
+PASS Stage_uses_wall_and_thread_cpu_deltas_and_marks_unsupported
+PASS Supported_cpu_and_both_crowd_modes_keep_their_rows
+Passed: 4; Failed: 0; Worker count: 1

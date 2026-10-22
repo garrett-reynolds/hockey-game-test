@@ -1,0 +1,243 @@
+{
+    "Timing": "Editor wall upper bounds: render call plus checked GPU readback. Not GPU-only time or live FPS. DrawCalls counts submitted slices, not hardware draws.",
+    "Width": 1920,
+    "Height": 1080,
+    "Rounds": 5,
+    "Frames": 30,
+    "SettleFrames": 2,
+    "CompareVisiblePairs": true,
+    "Views": [
+        {
+            "Name": "shooter",
+            "ReferenceImage": "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\crowd-visible-pairs-95\\crowd-visible-pairs-images\\shooter-reference-16.png",
+            "ReferenceRepeatDifferentPixels": 0,
+            "ReferenceRepeatMaxChannelError": 0,
+            "Variants": [
+                {
+                    "Sectors": 16,
+                    "TotalSlices": 403,
+                    "DrawCalls": 96,
+                    "Fans": 3657,
+                    "DifferentPixels": 0,
+                    "MaxChannelError": 0,
+                    "ImageMatches": true,
+                    "MergeVisiblePairs": false,
+                    "MedianCostMs": 4.0096733333333345,
+                    "Image": "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\crowd-visible-pairs-95\\crowd-visible-pairs-images\\shooter-16.png",
+                    "Rounds": [
+                        {
+                            "Round": 0,
+                            "Order": 0,
+                            "CrowdFirst": true,
+                            "OnMs": 9.45195,
+                            "OffMs": 5.293423333333333,
+                            "CostMs": 4.158526666666667
+                        },
+                        {
+                            "Round": 1,
+                            "Order": 1,
+                            "CrowdFirst": false,
+                            "OnMs": 10.979416666666667,
+                            "OffMs": 6.7261766666666665,
+                            "CostMs": 4.253240000000001
+                        },
+                        {
+                            "Round": 2,
+                            "Order": 0,
+                            "CrowdFirst": true,
+                            "OnMs": 10.485496666666668,
+                            "OffMs": 6.4758233333333335,
+                            "CostMs": 4.0096733333333345
+                        },
+                        {
+                            "Round": 3,
+                            "Order": 1,
+                            "CrowdFirst": false,
+                            "OnMs": 7.703386666666666,
+                            "OffMs": 4.933306666666667,
+                            "CostMs": 2.770079999999999
+                        },
+                        {
+                            "Round": 4,
+                            "Order": 0,
+                            "CrowdFirst": true,
+                            "OnMs": 7.7213899999999995,
+                            "OffMs": 4.284660000000001,
+                            "CostMs": 3.436729999999999
+                        }
+                    ]
+                },
+                {
+                    "Sectors": 16,
+                    "TotalSlices": 403,
+                    "DrawCalls": 48,
+                    "Fans": 3657,
+                    "DifferentPixels": 0,
+                    "MaxChannelError": 0,
+                    "ImageMatches": true,
+                    "MergeVisiblePairs": true,
+                    "MedianCostMs": 2.2233533333333346,
+                    "Image": "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\crowd-visible-pairs-95\\crowd-visible-pairs-images\\shooter-16-merged.png",
+                    "Rounds": [
+                        {
+                            "Round": 0,
+                            "Order": 1,
+                            "CrowdFirst": true,
+                            "OnMs": 9.012006666666668,
+                            "OffMs": 6.788653333333333,
+                            "CostMs": 2.2233533333333346
+                        },
+                        {
+                            "Round": 1,
+                            "Order": 0,
+                            "CrowdFirst": false,
+                            "OnMs": 10.498006666666667,
+                            "OffMs": 6.71181,
+                            "CostMs": 3.786196666666667
+                        },
+                        {
+                            "Round": 2,
+                            "Order": 1,
+                            "CrowdFirst": true,
+                            "OnMs": 9.024353333333332,
+                            "OffMs": 7.522396666666666,
+                            "CostMs": 1.5019566666666657
+                        },
+                        {
+                            "Round": 3,
+                            "Order": 0,
+                            "CrowdFirst": false,
+                            "OnMs": 8.661453333333332,
+                            "OffMs": 6.558276666666667,
+                            "CostMs": 2.1031766666666654
+                        },
+                        {
+                            "Round": 4,
+                            "Order": 1,
+                            "CrowdFirst": true,
+                            "OnMs": 6.98021,
+                            "OffMs": 4.35267,
+                            "CostMs": 2.6275399999999998
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "Name": "up-ice",
+            "ReferenceImage": "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\crowd-visible-pairs-95\\crowd-visible-pairs-images\\up-ice-reference-16.png",
+            "ReferenceRepeatDifferentPixels": 0,
+            "ReferenceRepeatMaxChannelError": 0,
+            "Variants": [
+                {
+                    "Sectors": 16,
+                    "TotalSlices": 403,
+                    "DrawCalls": 276,
+                    "Fans": 9588,
+                    "DifferentPixels": 0,
+                    "MaxChannelError": 0,
+                    "ImageMatches": true,
+                    "MergeVisiblePairs": false,
+                    "MedianCostMs": 4.802576666666667,
+                    "Image": "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\crowd-visible-pairs-95\\crowd-visible-pairs-images\\up-ice-16.png",
+                    "Rounds": [
+                        {
+                            "Round": 0,
+                            "Order": 0,
+                            "CrowdFirst": true,
+                            "OnMs": 8.141473333333334,
+                            "OffMs": 3.3664366666666665,
+                            "CostMs": 4.775036666666667
+                        },
+                        {
+                            "Round": 1,
+                            "Order": 1,
+                            "CrowdFirst": false,
+                            "OnMs": 8.084426666666667,
+                            "OffMs": 3.36627,
+                            "CostMs": 4.718156666666667
+                        },
+                        {
+                            "Round": 2,
+                            "Order": 0,
+                            "CrowdFirst": true,
+                            "OnMs": 8.135853333333333,
+                            "OffMs": 3.333276666666667,
+                            "CostMs": 4.802576666666667
+                        },
+                        {
+                            "Round": 3,
+                            "Order": 1,
+                            "CrowdFirst": false,
+                            "OnMs": 8.227913333333333,
+                            "OffMs": 3.3977766666666667,
+                            "CostMs": 4.830136666666666
+                        },
+                        {
+                            "Round": 4,
+                            "Order": 0,
+                            "CrowdFirst": true,
+                            "OnMs": 8.33755,
+                            "OffMs": 3.5323366666666667,
+                            "CostMs": 4.805213333333334
+                        }
+                    ]
+                },
+                {
+                    "Sectors": 16,
+                    "TotalSlices": 403,
+                    "DrawCalls": 156,
+                    "Fans": 9588,
+                    "DifferentPixels": 0,
+                    "MaxChannelError": 0,
+                    "ImageMatches": true,
+                    "MergeVisiblePairs": true,
+                    "MedianCostMs": 4.4712233333333335,
+                    "Image": "C:\\Users\\garrett.reynolds\\Projects\\Personal\\hockey-perf-20261017\\crowd-visible-pairs-95\\crowd-visible-pairs-images\\up-ice-16-merged.png",
+                    "Rounds": [
+                        {
+                            "Round": 0,
+                            "Order": 1,
+                            "CrowdFirst": true,
+                            "OnMs": 7.757733333333333,
+                            "OffMs": 3.332473333333333,
+                            "CostMs": 4.42526
+                        },
+                        {
+                            "Round": 1,
+                            "Order": 0,
+                            "CrowdFirst": false,
+                            "OnMs": 7.633793333333333,
+                            "OffMs": 3.37162,
+                            "CostMs": 4.262173333333333
+                        },
+                        {
+                            "Round": 2,
+                            "Order": 1,
+                            "CrowdFirst": true,
+                            "OnMs": 7.967956666666667,
+                            "OffMs": 3.46862,
+                            "CostMs": 4.499336666666666
+                        },
+                        {
+                            "Round": 3,
+                            "Order": 0,
+                            "CrowdFirst": false,
+                            "OnMs": 7.762996666666667,
+                            "OffMs": 3.2917733333333334,
+                            "CostMs": 4.4712233333333335
+                        },
+                        {
+                            "Round": 4,
+                            "Order": 1,
+                            "CrowdFirst": true,
+                            "OnMs": 8.692666666666666,
+                            "OffMs": 3.66981,
+                            "CostMs": 5.022856666666666
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
