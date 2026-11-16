@@ -67,16 +67,15 @@ This is a game, not a rig. The table lists the platform it runs on.
 
 ### Build and publish the Web build
 
-1. In the Unity Editor, choose File > Build Profiles > Web > Build.
-2. Build into `C:\Users\garrett.reynolds\HockeyWeb`.
-3. Turn on Player Settings > Publishing Settings > Decompression Fallback. Plain nginx sends no Content-Encoding header.
-4. Copy the build to the Raspberry Pi:
+1. Check that Player Settings > Publishing Settings > Decompression Fallback is on (it is saved in the project). The Workshop's nginx sends no Content-Encoding header, so without it the game does not load.
+2. Build the Web build into `C:\Users\garrett.reynolds\HockeyWeb`: in the Unity Editor, choose File > Build Profiles > Web > Build. Or, with no Editor open, run `Unity.exe -batchmode -quit -projectPath <project> -executeMethod HockeyGame.Editor.WebBuild.Build -webOut C:\Users\garrett.reynolds\HockeyWeb` (it stops if the fallback is off).
+3. Copy the build to the Workshop with the project-showcase deploy command, from its folder:
 
 ```powershell
-scp -r C:\Users\garrett.reynolds\HockeyWeb\* gs-sandbox:/var/www/html/hockey/
+npm run deploy -- hockey-game --source C:\Users\garrett.reynolds\HockeyWeb
 ```
 
-5. Open `http://gs-sandbox.localdomain/hockey/` in a browser on the local network.
+4. Open `http://gs-sandbox.localdomain/c/hockey-game/` in a browser on the local network. The old address `/hockey/` no longer exists.
 
 ### Verifying it worked
 
