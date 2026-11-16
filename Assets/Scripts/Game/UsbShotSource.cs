@@ -68,6 +68,8 @@ namespace HockeyGame
         void StartReading()
         {
             if (_thread != null) return;
+            // The Web build has no serial port and no threads: it never lists or opens a port. Shots there are mouse Test Shots.
+            if (Application.platform == RuntimePlatform.WebGLPlayer) return;
             _setting = _save.UsbPort;
             _remembered = _save.LastUsbPort;
             _running = true;
