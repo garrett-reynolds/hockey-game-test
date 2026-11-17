@@ -7,13 +7,35 @@ using UnityEngine;
 namespace HockeyGame.Editor
 {
     /// <summary>
-    /// Command-line Web build for the Workshop. Run with:
-    /// Unity -batchmode -quit -projectPath . -executeMethod HockeyGame.Editor.WebBuild.Build -webOut "C:\path\to\HockeyWeb"
-    /// It stops with a non-zero exit code unless Decompression Fallback is on: the Workshop's nginx sends no
+    /// Web build for the Workshop, run in the open Editor with the Unity CLI:
+    /// unity command --project-path &lt;project&gt; eval --code 'return HockeyGame.Editor.WebBuild.BuildTo(@"C:\path\to\HockeyWeb");'
+    /// It refuses to build unless Decompression Fallback is on: the Workshop's nginx sends no
     /// Content-Encoding header, so a build without the fallback does not load.
     /// </summary>
     public static class WebBuild
     {
+        /// <summary>Builds into <paramref name="outDir"/> and returns a one-line result. Does not close the Editor.</summary>
+        public static string BuildTo(string outDir)
+        {
+            if (!PlayerSettings.WebGL.decompressionFallback)
+            {
+                return "WebBuild: Decompression Fallback is off. Turn it on (Player Settings > Publishing Settings).";
+            }
+
+            var options = new BuildPlayerOptions
+            {
+                scenes = EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray(),
+                locationPathName = outDir,
+                target = BuildTarget.WebGL,
+                options = BuildOptions.None,
+            };
+            BuildSummary summary = BuildPipeline.BuildPlayer(options).summary;
+            string line = "WebBuild: " + summary.result + ", " + summary.totalSize + " bytes, " + summary.totalErrors + " errors.";
+            Debug.Log(line);
+            return line;
+        }
+
+        /// <summary>Command-line entry (-executeMethod ... -webOut &lt;folder&gt;). Exits the Editor when done.</summary>
         public static void Build()
         {
             string[] args = Environment.GetCommandLineArgs();
@@ -24,23 +46,8 @@ namespace HockeyGame.Editor
                 EditorApplication.Exit(2);
                 return;
             }
-            if (!PlayerSettings.WebGL.decompressionFallback)
-            {
-                Debug.LogError("WebBuild: Decompression Fallback is off. Turn it on (Player Settings > Publishing Settings).");
-                EditorApplication.Exit(3);
-                return;
-            }
-
-            var options = new BuildPlayerOptions
-            {
-                scenes = EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray(),
-                locationPathName = args[i + 1],
-                target = BuildTarget.WebGL,
-                options = BuildOptions.None,
-            };
-            BuildSummary summary = BuildPipeline.BuildPlayer(options).summary;
-            Debug.Log("WebBuild: " + summary.result + ", " + summary.totalSize + " bytes, " + summary.totalErrors + " errors.");
-            EditorApplication.Exit(summary.result == BuildResult.Succeeded ? 0 : 1);
+            string line = BuildTo(args[i + 1]);
+            EditorApplication.Exit(line.StartsWith("WebBuild: Succeeded") ? 0 : 1);
         }
     }
 }

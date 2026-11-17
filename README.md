@@ -68,7 +68,7 @@ This is a game, not a rig. The table lists the platform it runs on.
 ### Build and publish the Web build
 
 1. Check that Player Settings > Publishing Settings > Decompression Fallback is on (it is saved in the project). The Workshop's nginx sends no Content-Encoding header, so without it the game does not load.
-2. Build the Web build into `C:\Users\garrett.reynolds\HockeyWeb`: in the Unity Editor, choose File > Build Profiles > Web > Build. Or, with no Editor open, run `Unity.exe -batchmode -quit -projectPath <project> -executeMethod HockeyGame.Editor.WebBuild.Build -webOut C:\Users\garrett.reynolds\HockeyWeb` (it stops if the fallback is off).
+2. Build the Web build into `C:\Users\garrett.reynolds\HockeyWeb` from the open Editor (never batch mode): choose File > Build Profiles > Web > Build, or run `unity command --project-path <project> eval --code 'return HockeyGame.Editor.WebBuild.BuildTo(@"C:\Users\garrett.reynolds\HockeyWeb");'` (it refuses if the fallback is off).
 3. Copy the build to the Workshop with the project-showcase deploy command, from its folder:
 
 ```powershell
