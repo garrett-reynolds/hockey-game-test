@@ -24,6 +24,8 @@ namespace HockeyGame
         /// <summary>Folder under Assets/Resources with the crowd's body files and shaders.</summary>
         public const string Folder = "Crowd";
         public const string ShaderFile = "CrowdFan", CardShaderFile = "CrowdCard";
+        /// <summary>Their copies for the fan texture path (no compute shaders; UseFanTexture).</summary>
+        public const string NoComputeShaderFile = "CrowdFanNoCompute", NoComputeCardShaderFile = "CrowdCardNoCompute";
         /// <summary>The body files (Tools/make_crowd.py): [outfit (BodyType.Base, 0..11), level (0 near, 1 far)].</summary>
         public static readonly string[,] BodyFiles =
         {
@@ -74,7 +76,16 @@ namespace HockeyGame
             FlatToneId = Shader.PropertyToID("_FlatTone"), CrowdToWorldId = Shader.PropertyToID("_CrowdToWorld"),
             FanStartId = Shader.PropertyToID("_FanStart"), OhSpreadId = Shader.PropertyToID("_OhSpread"),
             CardsId = Shader.PropertyToID("_Cards"), CardSizeId = Shader.PropertyToID("_CardSize"),
-            CardSeatedTopId = Shader.PropertyToID("_CardSeatedTop"), PaletteId = Shader.PropertyToID("_Palette");
+            CardSeatedTopId = Shader.PropertyToID("_CardSeatedTop"), PaletteId = Shader.PropertyToID("_Palette"),
+            FanTexId = Shader.PropertyToID("_FanTex"), FanTexWidthId = Shader.PropertyToID("_FanTexWidth");
+
+        /// <summary>Fans per row of the fan texture (6 texels each, so a fan never splits across rows).</summary>
+        public const int FansPerTextureRow = 512;
+        /// <summary>On: the fans' data goes to the no-compute shaders in a float texture instead
+        /// of a structured buffer: where compute shaders are missing (the Web build, WebGL 2), or when a test forces it.</summary>
+        public static bool UseFanTexture => ForceFanTexture ?? !SystemInfo.supportsComputeShaders;
+        /// <summary>Set: overrides UseFanTexture (tests). Null: follow the platform.</summary>
+        public static bool? ForceFanTexture;
 
         static readonly ArenaZone[] Zones = { ArenaZone.CalmArea, ArenaZone.Near, ArenaZone.Far };
 
@@ -86,6 +97,7 @@ namespace HockeyGame
         FanData[] _data;
         int[] _fanIds;
         GraphicsBuffer _fans;
+        Texture2D _fanTex;
         FanSeat[] _seats;
         FanLook[] _looks;
         Bounds _bounds;
@@ -104,6 +116,10 @@ namespace HockeyGame
         public int LastDrawCalls { get; private set; }
         public int FanIdOf(int fan) => _fanIds[fan];
         public FanData DataOf(int fan) => _data[fan];
+        /// <summary>The fans' data as the no-compute shaders read it (null on the structured buffer path).</summary>
+        public Texture2D FanTexture => _fanTex;
+        /// <summary>The structured buffer path is in use (false on the fan texture path).</summary>
+        public bool HasFanBuffer => _fans != null;
         /// <summary>Fan i's seat and look (in the crowd's own order).</summary>
         public FanSeat SeatOf(int fan) => _seats[fan];
         public FanLook LookOf(int fan) => _looks[fan];
@@ -130,16 +146,15 @@ namespace HockeyGame
         public int LastDrawnFans { get; private set; }
 
         /// <summary>Adds the crowd under rink, in the skin's home jersey (null: the League Skin's), or nothing when a body
-        /// file or a shader is missing, or the platform has no compute shaders.</summary>
+        /// file or a shader is missing. Without compute shaders (the Web build) the fans' data goes in a float texture.</summary>
         public static Crowd Build(Transform rink, TeamSkin skin = null)
         {
-            if (!SystemInfo.supportsComputeShaders) // the Web build (WebGL 2) cannot make the fans' structured buffer
-            {
-                Debug.LogWarning("No 3D crowd: this platform has no compute shader support (the Web build).");
-                return null;
-            }
-            var shader = Resources.Load<Shader>(Folder + "/" + ShaderFile);
-            var cardShader = Resources.Load<Shader>(Folder + "/" + CardShaderFile);
+            bool texture = UseFanTexture;
+            if (texture)
+                Debug.Log("3D crowd: no compute shaders, so the fan data goes in a float texture (instancing "
+                    + SystemInfo.supportsInstancing + ", max texture " + SystemInfo.maxTextureSize + ").");
+            var shader = Resources.Load<Shader>(Folder + "/" + (texture ? NoComputeShaderFile : ShaderFile));
+            var cardShader = Resources.Load<Shader>(Folder + "/" + (texture ? NoComputeCardShaderFile : CardShaderFile));
             var bodies = new CrowdBody[BodyFiles.Length];
             bool ok = shader != null && cardShader != null;
             for (int g = 0; g < bodies.Length && ok; g++)
@@ -305,6 +320,7 @@ namespace HockeyGame
                 sl.Bounds.SetMinMax(sl.Bounds.min - new Vector3(Reach, 0, Reach), sl.Bounds.max + new Vector3(Reach, Top, Reach));
             _worldBoundsValid = false;
             _fans?.SetData(_data);
+            if (_fanTex != null) FillFanTexture();
         }
 
         /// <summary>The body's palette for the shaders: per entry the linear rgb (Own and TeamTop colours moved off any
@@ -343,7 +359,20 @@ namespace HockeyGame
 
         void MakeBuffer()
         {
-            if (_data == null || _fans != null) return;
+            if (_data == null || _fans != null || _fanTex != null) return;
+            if (UseFanTexture)
+            {
+                int rows = Math.Max(1, (_data.Length + FansPerTextureRow - 1) / FansPerTextureRow);
+                _fanTex = new Texture2D(FansPerTextureRow * 6, rows, TextureFormat.RGBAFloat, false, true)
+                {
+                    name = "Crowd fans", filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp,
+                    hideFlags = HideFlags.DontSave
+                };
+                FillFanTexture();
+                int width = FansPerTextureRow * 6;
+                foreach (Material m in AllMaterials()) { m.SetTexture(FanTexId, _fanTex); m.SetFloat(FanTexWidthId, width); }
+                return;
+            }
             _fans = new GraphicsBuffer(GraphicsBuffer.Target.Structured, _data.Length, Marshal.SizeOf<FanData>());
             _fans.SetData(_data);
             foreach (Material m in _materials) if (m != null) m.SetBuffer(FansId, _fans);
@@ -354,6 +383,23 @@ namespace HockeyGame
         {
             _fans?.Release();
             _fans = null;
+            if (_fanTex != null) SceneObjects.DestroySafely(_fanTex);
+            _fanTex = null;
+        }
+
+        /// <summary>Copies the fans' data into the fan texture: fan i's float4s at texels i * 6 .. i * 6 + 5.</summary>
+        void FillFanTexture()
+        {
+            var texels = new Vector4[_fanTex.width * _fanTex.height];
+            for (int i = 0; i < _data.Length; i++)
+            {
+                FanData d = _data[i];
+                int t = i * 6;
+                texels[t] = d.Place; texels[t + 1] = d.Shirt; texels[t + 2] = d.Skin;
+                texels[t + 3] = d.Hair; texels[t + 4] = d.Look; texels[t + 5] = d.Acts;
+            }
+            _fanTex.SetPixelData(texels, 0);
+            _fanTex.Apply(false, false);
         }
 
         static Vector4 Linear(ArenaColour c, float w)
@@ -423,7 +469,7 @@ namespace HockeyGame
         {
             LastDrawnFans = 0;
             LastDrawCalls = 0;
-            if (!Drawn || _fans == null || double.IsNaN(_lastSeconds)
+            if (!Drawn || (_fans == null && _fanTex == null) || double.IsNaN(_lastSeconds)
                 || camera.cameraType == CameraType.Preview || camera.cameraType == CameraType.Reflection) return;
             Matrix4x4 toWorld = transform.localToWorldMatrix;
             RefreshWorldBounds(toWorld);

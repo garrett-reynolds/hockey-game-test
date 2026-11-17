@@ -1,6 +1,7 @@
 // What the crowd's two shaders (CrowdFan: the bodies; CrowdCard: the far fans' flat cards) share: the per-fan buffer
 // (Crowd.cs FanData), each zone's clips (CrowdMotion), and how a fan is placed in the world and coloured.
-// Include after URP's Core.hlsl and UnityIndirect.cginc (with UNITY_INDIRECT_DRAW_ARGS defined).
+// Include after URP's Core.hlsl and UnityIndirect.cginc (with UNITY_INDIRECT_DRAW_ARGS defined), or with
+// CROWD_FAN_TEXTURE defined for the no-compute copies (CrowdFanNoCompute, CrowdCardNoCompute; no UnityIndirect.cginc).
 #ifndef CROWD_FAN_DATA_INCLUDED
 #define CROWD_FAN_DATA_INCLUDED
 
@@ -26,7 +27,14 @@ struct Fan
     float4 look;  // x body shape, z waves (1) or not (0), w team top (1) or not (0)
     float4 acts;  // x the Goal act (CrowdLooks.GoalAct), y the head-back oh (1) or not (0), z claps on a clap (1) or sits still (0)
 };
+#ifdef CROWD_FAN_TEXTURE
+// No compute shaders (the Web build, WebGL 2): the same per-fan data in a float texture, 6 texels per fan in a row
+// (Crowd.cs FanTexture): fan i's k-th float4 is at texel i * 6 + k, read left to right, row by row.
+TEXTURE2D_FLOAT(_FanTex);
+float _FanTexWidth;       // texels per row (a multiple of 6)
+#else
 StructuredBuffer<Fan> _Fans;
+#endif
 float _FanStart;          // this draw's first fan in _Fans
 float4x4 _CrowdToWorld;
 float4 _Zones[3];         // per ArenaZone: clip, its clock (s), the clip fading out, its clock
@@ -37,11 +45,32 @@ float4 _FlatTone;         // what low-contrast fans go toward
 float4 _Palette[16];      // the outfit's paints (CrowdBody.Palette): linear rgb, w the kind (PAINT_*)
 float _Light, _OhSpread;
 
+#ifdef CROWD_FAN_TEXTURE
+float4 FanTexel(uint texel)
+{
+    uint width = (uint)_FanTexWidth;
+    return LOAD_TEXTURE2D_LOD(_FanTex, uint2(texel % width, texel / width), 0);
+}
+
+Fan FanOf(uint svInstanceID)
+{
+    uint first = ((uint)_FanStart + svInstanceID) * 6u;
+    Fan f;
+    f.place = FanTexel(first);
+    f.shirt = FanTexel(first + 1u);
+    f.skin = FanTexel(first + 2u);
+    f.hair = FanTexel(first + 3u);
+    f.look = FanTexel(first + 4u);
+    f.acts = FanTexel(first + 5u);
+    return f;
+}
+#else
 Fan FanOf(uint svInstanceID)
 {
     InitIndirectDrawArgs(0);
     return _Fans[(uint)_FanStart + GetIndirectInstanceID(svInstanceID)];
 }
+#endif
 
 uint FanZone(Fan f) { return min(2u, (uint)(f.skin.w + 0.5)); }
 
